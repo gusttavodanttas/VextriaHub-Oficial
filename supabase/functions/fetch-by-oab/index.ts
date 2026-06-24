@@ -291,7 +291,8 @@ function mapPjeItem(item: any, ufFallback: string) {
   const { autor: extAutor, reu: extReu } = extractPartes(cleanContent);
   const dataDisp = item.data_disponibilizacao || item.dataDisponibilizacao || null;
 
-  const andamentos = buildAndamentos([{ data: dataDisp, descricao: cleanContent }]);
+  // PJE: o conteúdo é a publicação inteira — não exibir como andamento na timeline
+  const andamentos: Array<{ data: string | null; resumo: string; descricao: string; fase: string }> = [];
 
   const tribunalReal = item.nome_tribunal || item.sigla_tribunal || item.nomeTribunal || "TJ";
   const classe = item.nome_classe || item.nomeClasse || "";

@@ -691,14 +691,14 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
 
               {/* Footer Fixo */}
               <DialogFooter className="pt-4 border-t border-border mt-4 shrink-0 flex flex-row items-center justify-between w-full">
-                <Button 
-                  variant="ghost" 
-                  onClick={() => setPreviewProc(null)} 
+                <Button
+                  variant="ghost"
+                  onClick={() => setPreviewProc(null)}
                   className="text-muted-foreground text-[10px] font-black uppercase tracking-widest hover:bg-muted h-11 rounded-xl transition-all"
                 >
                   Sair
                 </Button>
-                
+
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
@@ -707,19 +707,43 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
                   >
                     Ignorar Processo
                   </Button>
-                  <Button 
-                    className={cn(
-                      "font-black uppercase tracking-widest text-[10px] px-8 h-11 rounded-xl shadow-premium transition-all",
-                      selectedIds.has(previewProc.id) 
-                        ? "bg-muted text-muted-foreground hover:bg-muted/80" 
-                        : "bg-primary hover:bg-primary/90 text-primary-foreground"
-                    )}
-                    onClick={() => {
-                      toggleSelect(previewProc.id);
-                      setPreviewProc(null);
+                  <Button
+                    className="font-black uppercase tracking-widest text-[10px] px-8 h-11 rounded-xl shadow-premium transition-all bg-primary hover:bg-primary/90 text-primary-foreground"
+                    disabled={importing}
+                    onClick={async () => {
+                      setImporting(true);
+                      try {
+                        const polo = clientPolos[previewProc.id];
+                        let finalClienteId = null;
+                        if (polo) {
+                          const rawName = polo === 'autor' ? previewProc.autor : previewProc.reu;
+                          if (rawName) {
+                            const nomeCliente = normalizeClientName(rawName);
+                            const { data: existing } = await supabase
+                              .from('clientes').select('id')
+                              .eq('nome', nomeCliente).eq('office_id', user?.office_id).maybeSingle();
+                            if (existing) {
+                              finalClienteId = existing.id;
+                            } else {
+                              const { data: novo } = await supabase.from('clientes')
+                                .insert({ nome: nomeCliente, office_id: user?.office_id, user_id: user?.id })
+                                .select('id').single();
+                              if (novo) finalClienteId = novo.id;
+                            }
+                          }
+                        }
+                        await onImport([{ ...previewProc, clienteId: finalClienteId }]);
+                        toast({ title: 'Processo importado', description: `${previewProc.numeroProcesso} salvo com sucesso.` });
+                        setPreviewProc(null);
+                      } catch (e: any) {
+                        toast({ title: 'Erro ao importar', description: e.message, variant: 'destructive' });
+                      } finally {
+                        setImporting(false);
+                      }
                     }}
                   >
-                    {selectedIds.has(previewProc.id) ? 'Remover Seleção' : 'Selecionar para Importar'}
+                    {importing ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Database className="h-4 w-4 mr-1" />}
+                    Importar Este Processo
                   </Button>
                 </div>
               </DialogFooter>
