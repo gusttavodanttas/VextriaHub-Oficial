@@ -340,7 +340,11 @@ const Processos = () => {
         description={`Deseja arquivar o processo "${processoToDelete?.titulo}"?`}
         isLoading={isDeleting}
       />
-      <ProcessoDetailsDrawer processo={selectedProcesso as any} open={isDetailsOpen} onOpenChange={setIsDetailsOpen} />
+      <ProcessoDetailsDrawer 
+        processo={selectedProcesso ? (processos.find(p => p.id === selectedProcesso.id) || selectedProcesso) : null} 
+        open={isDetailsOpen} 
+        onOpenChange={setIsDetailsOpen} 
+      />
     </div>
   );
 };

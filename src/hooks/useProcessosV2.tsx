@@ -223,27 +223,64 @@ export function useProcessosV2() {
         return {
           processo_id: processoId,
           office_id: officeId,
-          texto,
-          data,
-          hash: buildMovHash(processoId, data, texto),
-          fonte,
+          descricao: texto,
+          data_movimentacao: data,
           tipo: a.fase || null,
-          metadata: { fase: a.fase || null },
+          metadata: { fase: a.fase || null, fonte },
         };
       })
       .filter((x): x is NonNullable<typeof x> => Boolean(x));
 
     if (!candidates.length) return 0;
 
-    console.log(`[persistAndamentos] tentando inserir ${candidates.length} movs em movimentacoes (processo=${processoId}, office=${officeId})`);
+    console.log(`[persistAndamentos] tentando inserir ${candidates.length} movs em movimentacoes_processo (processo=${processoId}, office=${officeId})`);
+
+    // Busca movimentações existentes para deduplicar em memória
+    const { data: existingMovs, error: fetchError } = await supabase
+      .from('movimentacoes_processo')
+      .select('data_movimentacao, descricao')
+      .eq('processo_id', processoId);
+
+    if (fetchError) {
+      console.error('[persistAndamentos] erro ao buscar existentes:', fetchError);
+      return 0;
+    }
+
+    const buildDedupeKey = (data: string, desc: string) => {
+      let dataNorm = data || '';
+      try {
+        dataNorm = new Date(data).toISOString().slice(0, 19);
+      } catch (_e) {
+        dataNorm = String(data).slice(0, 19);
+      }
+      const descNorm = (desc || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase()
+        .slice(0, 240);
+      return `${dataNorm}|${descNorm}`;
+    };
+
+    const existingKeys = new Set(
+      existingMovs?.map(m => buildDedupeKey(m.data_movimentacao, m.descricao)) || []
+    );
+
+    const newCandidates = candidates.filter(
+      c => !existingKeys.has(buildDedupeKey(c.data_movimentacao, c.descricao))
+    );
+
+    if (!newCandidates.length) {
+      console.log('[persistAndamentos] todos andamentos já existem — skip');
+      return 0;
+    }
 
     const { data, error, status, statusText } = await supabase
-      .from('movimentacoes')
-      .upsert(candidates, { onConflict: 'hash', ignoreDuplicates: true })
+      .from('movimentacoes_processo')
+      .insert(newCandidates)
       .select('id');
 
     if (error) {
-      console.error('[persistAndamentos] ❌ erro no upsert:', {
+      console.error('[persistAndamentos] ❌ erro no insert:', {
         message: error.message,
         code: (error as any).code,
         details: (error as any).details,
@@ -258,6 +295,7 @@ export function useProcessosV2() {
       });
       return 0;
     }
+
     const inseridos = data?.length || 0;
     console.log(`[persistAndamentos] ✅ ${inseridos}/${candidates.length} novos andamentos persistidos (resto eram duplicatas)`);
     return inseridos;
@@ -361,20 +399,29 @@ export function useProcessosV2() {
       const texto: string = movData.descricao || movData.texto || '';
       if (!texto) return null;
 
-      const hash = buildMovHash(processoId, targetDate, texto);
+      // Deduplicar manualmente
+      const { data: existing } = await supabase
+        .from('movimentacoes_processo')
+        .select('id')
+        .eq('processo_id', processoId)
+        .eq('data_movimentacao', targetDate)
+        .eq('descricao', texto)
+        .maybeSingle();
+
+      if (existing) {
+        return existing;
+      }
 
       const { data: result, error: movError } = await supabase
-        .from('movimentacoes')
-        .upsert([{
+        .from('movimentacoes_processo')
+        .insert([{
           processo_id: processoId,
           office_id: user.office_id,
-          data: targetDate,
-          texto,
-          hash,
-          fonte: movData.fonte || 'manual',
+          data_movimentacao: targetDate,
+          descricao: texto,
           tipo: movData.tipo || null,
-          metadata: { fase: movData.fase || movData.tipo || null },
-        }], { onConflict: 'hash', ignoreDuplicates: false })
+          metadata: { fase: movData.fase || movData.tipo || null, fonte: movData.fonte || 'manual' },
+        }])
         .select('*')
         .single();
 

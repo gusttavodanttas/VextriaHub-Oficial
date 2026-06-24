@@ -34,6 +34,7 @@ import { formatCNJ } from '@/utils/formatCNJ';
 import { useProcessosV2 } from '@/hooks/useProcessosV2';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface Movimentacao {
   id: string;
@@ -60,6 +61,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
   const { user, profile } = useAuth();
   const { persistAndamentos } = useProcessosV2();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const [movements, setMovements] = useState<Movimentacao[]>([]);
   const [loadingMovements, setLoadingMovements] = useState(false);
@@ -72,10 +74,10 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
     setLoadingMovements(true);
     try {
       const { data, error } = await supabase
-        .from('movimentacoes')
-        .select('id, data, texto, tipo, fonte, metadata')
+        .from('movimentacoes_processo')
+        .select('id, data:data_movimentacao, texto:descricao, tipo, metadata')
         .eq('processo_id', processo.id)
-        .order('data', { ascending: false });
+        .order('data_movimentacao', { ascending: false });
 
       if (!error && data) {
         setMovements(data as any);
@@ -121,15 +123,51 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
           });
         }
 
-        // Atualiza meta-dados de sync no processo
+        // Atualiza meta-dados de sync e dados do processo
         const ultimo = data.ultimoAndamento?.data || andamentos[0]?.data;
+        const updatePayload: any = {
+          sincronizado_em: new Date().toISOString(),
+          data_ultima_atualizacao: ultimo ? String(ultimo).split('T')[0] : new Date().toISOString().split('T')[0],
+        };
+
+        if (data.titulo && data.titulo !== 'Processo' && (!processo.titulo || processo.titulo.includes('(Auto)'))) {
+          updatePayload.titulo = data.titulo;
+        }
+        if (data.autor && data.autor !== 'Não identificado' && !processo.parteAutora) {
+          updatePayload.parte_autora = data.autor;
+        }
+        if (data.reu && data.reu !== 'Não identificado' && !processo.requerido) {
+          updatePayload.requerido = data.reu;
+        }
+        if (data.classe && !processo.classeJudicial) {
+          updatePayload.classe_judicial = data.classe;
+        }
+        if (data.assunto && !processo.assuntoPrincipal) {
+          updatePayload.assunto_principal = data.assunto;
+        }
+        if (data.faseProcessual && !processo.faseProcessual) {
+          updatePayload.fase_processual = data.faseProcessual;
+        }
+        if (data.instancia && !processo.instancia) {
+          updatePayload.instancia = data.instancia;
+        }
+        if (data.valorCausa && !processo.valorCausa) {
+          updatePayload.valor_causa = data.valorCausa;
+        }
+        if (data.vara && !processo.vara) {
+          updatePayload.vara = data.vara;
+        }
+        if (data.comarca && !processo.comarca) {
+          updatePayload.comarca = data.comarca;
+        }
+
         await supabase
           .from('processos')
-          .update({
-            sincronizado_em: new Date().toISOString(),
-            data_ultima_atualizacao: ultimo ? String(ultimo).split('T')[0] : new Date().toISOString().split('T')[0],
-          })
+          .update(updatePayload)
           .eq('id', processo.id);
+
+        // Invalida o cache do react-query para atualizar a listagem e os campos na tela
+        queryClient.invalidateQueries({ queryKey: ['processos'] });
       }
 
       // Re-busca movimentos pra refletir os novos
@@ -139,7 +177,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
     } finally {
       setSyncing(false);
     }
-  }, [processo?.id, processo?.numeroProcesso, syncing, user?.office_id, profile, persistAndamentos, toast, fetchMovements]);
+  }, [processo?.id, processo?.numeroProcesso, syncing, user?.office_id, profile, persistAndamentos, toast, fetchMovements, queryClient]);
 
   // Carrega movimentações ao abrir o drawer
   useEffect(() => {
@@ -173,7 +211,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="p-0 border-l border-white/5 bg-background/40 backdrop-blur-3xl w-full sm:max-w-2xl overflow-hidden flex flex-col shadow-2xl">
+      <SheetContent side="right" className="p-0 border-l border-border bg-background w-full sm:max-w-2xl overflow-hidden flex flex-col shadow-2xl">
         {/* Header Consolidado */}
         <div className="p-8 pb-4 space-y-6 relative overflow-hidden">
           {/* Background Decor */}
@@ -257,7 +295,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                     <Gavel className="h-4 w-4" />
                     <span>Capa Jurídica</span>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 rounded-[2rem] border border-black/5 dark:border-white/5 bg-black/[0.02] dark:bg-white/[0.02]">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 rounded-[2rem] border border-border bg-muted/30">
                     <div className="space-y-1">
                       <p className="text-[10px] text-foreground/30 dark:text-white/30 uppercase font-black tracking-widest">Classe</p>
                       <p className="text-sm font-bold text-foreground/80 dark:text-white/80">{processo.classeJudicial || processo.tipoProcesso || '—'}</p>
@@ -326,7 +364,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                        <p className="text-[10px] font-black uppercase tracking-widest">Consultando cronologia...</p>
                     </div>
                  ) : movements.length > 0 ? (
-                    <div className="relative pl-6 space-y-10 border-l border-black/10 dark:border-white/5 ml-2 pt-4 pb-20">
+                    <div className="relative pl-6 space-y-10 border-l border-border ml-2 pt-4 pb-20">
                        {movements.map((mov) => (
                          <div key={mov.id} className="relative">
                             <div className="absolute -left-[31px] top-0 h-4 w-4 rounded-full bg-background border-2 border-primary/40 ring-4 ring-primary/5" />

@@ -525,7 +525,7 @@ export default function Publicacoes() {
                 <div 
                   key={publication.id} 
                   className={cn(
-                    "glass-card hover-lift p-8 rounded-[2.5rem] border border-black/5 dark:border-border bg-black/[0.02] dark:bg-card/40 shadow-premium group relative transition-all duration-300",
+                    "bg-card border border-border p-8 rounded-[2.5rem] hover:shadow-lg transition-all duration-300 hover:border-primary/25 hover:-translate-y-0.5 group relative shadow-sm",
                     selectedIds.includes(publication.id) && "ring-2 ring-primary bg-primary/5"
                   )}
                 >
@@ -572,7 +572,7 @@ export default function Publicacoes() {
                         </Badge>
                       </div>
 
-                      <div className="p-8 bg-black/[0.03] dark:bg-background/50 rounded-[2rem] border border-black/5 dark:border-border text-foreground/80 font-medium line-clamp-4 leading-relaxed text-sm shadow-inner">
+                      <div className="p-8 bg-muted/30 rounded-[2rem] border border-border text-foreground/80 font-medium line-clamp-4 leading-relaxed text-sm shadow-inner">
                         {publication.conteudo}
                       </div>
 

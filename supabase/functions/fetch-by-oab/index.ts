@@ -367,9 +367,11 @@ async function hydrateAllPoorRecords(records: any[], processKey: string): Promis
           p.andamentos = ands;
           p.ultimoAndamento = ands[0] ? { descricao: ands[0].descricao, data: ands[0].data } : p.ultimoAndamento;
           p.faseProcessual = ands[0]?.fase || p.faseProcessual;
-          p.conteudo = ands
-            .map((a) => `[${a.data ? new Date(a.data).toLocaleDateString("pt-BR") : "sem data"}] ${a.descricao}`)
-            .join("\n\n");
+          if (p.fonte !== "pje_comunica") {
+            p.conteudo = ands
+              .map((a) => `[${a.data ? new Date(a.data).toLocaleDateString("pt-BR") : "sem data"}] ${a.descricao}`)
+              .join("\n\n");
+          }
         }
       }
     }

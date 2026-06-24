@@ -208,23 +208,30 @@ export function useProcessos() {
       const data = movData.data || new Date().toISOString();
       const texto: string = movData.descricao || movData.texto || '';
       if (!texto) return null;
-      let dataNorm = data;
-      try { dataNorm = new Date(data).toISOString().slice(0, 19); } catch (_e) { /* keep raw */ }
-      const textoNorm = texto.replace(/\s+/g, ' ').trim().toLowerCase().slice(0, 240);
-      const hash = `${processoId}|${dataNorm}|${textoNorm}`;
+
+      // Deduplicar manualmente
+      const { data: existing } = await supabase
+        .from('movimentacoes_processo')
+        .select('id')
+        .eq('processo_id', processoId)
+        .eq('data_movimentacao', data)
+        .eq('descricao', texto)
+        .maybeSingle();
+
+      if (existing) {
+        return existing;
+      }
 
       const { data: result, error: movError } = await supabase
-        .from('movimentacoes')
-        .upsert([{
+        .from('movimentacoes_processo')
+        .insert([{
           processo_id: processoId,
           office_id: user.office_id,
-          data,
-          texto,
-          hash,
-          fonte: movData.fonte || 'manual',
+          data_movimentacao: data,
+          descricao: texto,
           tipo: movData.tipo || null,
-          metadata: { fase: movData.fase || movData.tipo || null },
-        }], { onConflict: 'hash', ignoreDuplicates: false })
+          metadata: { fase: movData.fase || movData.tipo || null, fonte: movData.fonte || 'manual' },
+        }])
         .select('*')
         .single();
 
