@@ -435,7 +435,14 @@ serve(async (req) => {
       // Mapeia DataJud (se ok)
       let baseProcesso: any = null;
       if (datajudRes?.ok) {
-        const data = await datajudRes.json();
+        const buf = await datajudRes.arrayBuffer();
+        let text: string;
+        try {
+          text = new TextDecoder("utf-8", { fatal: true }).decode(buf);
+        } catch {
+          text = new TextDecoder("iso-8859-1").decode(buf);
+        }
+        const data = JSON.parse(text);
         const hits = data.hits?.hits || [];
         if (hits.length > 0) {
           baseProcesso = mapDatajudHit(hits[0], tribunalSigla);

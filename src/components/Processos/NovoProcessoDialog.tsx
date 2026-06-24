@@ -335,7 +335,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
             </div>
           </DialogHeader>
 
-          <div className="flex-1 overflow-hidden flex flex-col">
+          <div className="flex-1 min-h-0 flex flex-col">
             {step === 'oab' ? (
               <div className="flex-1 overflow-hidden flex flex-col px-8 pb-6">
                 <JudicialSyncContent 
