@@ -146,16 +146,34 @@ function summarize(descricao: string, max = 3000): string {
   return clean.slice(0, max).replace(/\s\S*$/, "") + "…";
 }
 
-// Enriquece texto da movimentação com complementosTabelados do DataJud
+// Enriquece texto da movimentação com complementos do DataJud
 function enrichMovText(a: any): string {
   const base = a?.descricao ?? a?.titulo ?? a?.nome ?? a?.texto ?? "";
+
+  // Complementos tabelados (ex: "designada", "Juiz(a)")
   const compls: any[] = Array.isArray(a?.complementosTabelados) ? a.complementosTabelados : [];
-  if (!compls.length) return base;
-  const detalhes = compls
-    .map((c) => c?.nome)
-    .filter(Boolean)
-    .join(", ");
-  return detalhes ? `${base} (${detalhes})` : base;
+  const tabelados = compls.map((c) => c?.nome || c?.descricao).filter(Boolean).join(", ");
+
+  // Complementos de texto livre (ex: data/hora de audiência, detalhes do despacho)
+  const textoLivre: string[] = [];
+  const complTexto = a?.complemento ?? a?.textoComplemento ?? "";
+  if (complTexto && typeof complTexto === "string" && complTexto.length > 2) {
+    textoLivre.push(complTexto.replace(/\s+/g, " ").trim());
+  }
+  // Alguns tribunais retornam array de complementos com campo "valor"
+  const complArr: any[] = Array.isArray(a?.complementos) ? a.complementos : [];
+  for (const c of complArr) {
+    const val = c?.valor ?? c?.descricao ?? c?.texto ?? "";
+    if (val && typeof val === "string" && val.length > 2) {
+      textoLivre.push(val.replace(/\s+/g, " ").trim());
+    }
+  }
+
+  const partes: string[] = [base];
+  if (tabelados) partes.push(`(${tabelados})`);
+  if (textoLivre.length > 0) partes.push(`— ${textoLivre.join("; ")}`);
+
+  return partes.join(" ");
 }
 
 function buildAndamentos(rawMovs: any[]): Array<{ data: string | null; resumo: string; descricao: string; fase: string }> {
