@@ -271,7 +271,8 @@ function mapPjeItem(item: any, ufFallback: string) {
   const { autor: extAutor, reu: extReu } = extractPartes(cleanContent);
   const dataDisp = item.data_disponibilizacao || item.dataDisponibilizacao || null;
 
-  const andamentos = buildAndamentos([{ data: dataDisp, descricao: cleanContent }]);
+  // PJE: publicação inteira NÃO é um andamento — não exibir na timeline
+  const andamentos: Array<{ data: string | null; resumo: string; descricao: string; fase: string }> = [];
   const tribunalReal = item.nome_tribunal || item.sigla_tribunal || item.nomeTribunal || "TJ";
   const classe = item.nome_classe || item.nomeClasse || "";
 
@@ -441,8 +442,7 @@ serve(async (req) => {
         }
       }
 
-      // Mapeia PJE-Comunica (se ok) — pode trazer múltiplos itens
-      const pjeAndamentos: any[] = [];
+      // Mapeia PJE-Comunica (se ok) — só para extrair partes
       let pjeFallback: any = null;
       let pjeBestPartes: { autor: string; reu: string } | null = null;
       if (pjeRes?.ok) {
@@ -453,18 +453,10 @@ serve(async (req) => {
         });
         console.log(`[PJE] ${pjeItems.length} comunicações para ${cleanNumber}`);
 
-        // Cada comunicação vira 1 andamento (com data e texto rico)
+        // PJE Comunica = publicações, NÃO andamentos. Usamos só para extrair partes.
         for (const it of pjeItems) {
           const rawContent = it.texto_comunicacao || it.texto || it.textoComunicacao || it.conteudo || "";
           const cleanContent = rawContent.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-          const dataDisp = it.data_disponibilizacao || it.dataDisponibilizacao || null;
-          if (cleanContent) {
-            pjeAndamentos.push({
-              data: dataDisp,
-              descricao: cleanContent,
-              titulo: it.tipo_comunicacao || it.tipoComunicacao || null,
-            });
-          }
 
           // Tenta extrair partes do texto da comunicação (pega o melhor match dos N)
           if (cleanContent && (!pjeBestPartes || (!pjeBestPartes.autor || !pjeBestPartes.reu))) {
@@ -529,28 +521,7 @@ serve(async (req) => {
         }
       }
 
-      // Adiciona andamentos do PJE-Comunica que não estejam já cobertos pelo DataJud
-      if (pjeAndamentos.length > 0) {
-        const dataJudAndamentos = merged.andamentos || [];
-        const existingTexts = new Set(
-          dataJudAndamentos.map((a: any) => (a.descricao || a.resumo || "").trim().toLowerCase().slice(0, 200))
-        );
-        const novos = buildAndamentos(pjeAndamentos).filter((a) => {
-          const key = (a.descricao || "").trim().toLowerCase().slice(0, 200);
-          return key && !existingTexts.has(key);
-        });
-        if (novos.length > 0) {
-          merged.andamentos = [...novos, ...dataJudAndamentos].sort((a, b) => {
-            const da = a.data ? new Date(a.data).getTime() : 0;
-            const db = b.data ? new Date(b.data).getTime() : 0;
-            return db - da;
-          });
-          merged.ultimoAndamento = merged.andamentos[0]
-            ? { descricao: merged.andamentos[0].descricao, data: merged.andamentos[0].data }
-            : merged.ultimoAndamento;
-          console.log(`[MERGE] +${novos.length} andamentos do PJE adicionados (total ${merged.andamentos.length})`);
-        }
-      }
+      // PJE Comunica são publicações, não andamentos — não mergear na timeline
 
       console.log(`[CNJ] retornando: ${merged.numeroProcesso} | ${merged.andamentos?.length || 0} mov | titulo="${merged.titulo}"`);
 
