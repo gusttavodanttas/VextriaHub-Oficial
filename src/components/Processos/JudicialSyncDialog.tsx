@@ -133,6 +133,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [clientPolos, setClientPolos] = useState<Record<string, 'autor' | 'reu'>>({});
   const [previewProc, setPreviewProc] = useState<JudicialProcessResult | null>(null);
+  const [loadingAndamentos, setLoadingAndamentos] = useState(false);
 
   const handleSearch = async () => {
     const cleanOab = oab.replace(/\D/g, '');
@@ -234,6 +235,33 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
     setResults(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
     if (previewProc?.id === id) {
       setPreviewProc(curr => curr ? { ...curr, ...updates } : null);
+    }
+  };
+
+  const openPreview = async (proc: JudicialProcessResult) => {
+    setPreviewProc(proc);
+    // Só busca andamentos se ainda não foram carregados
+    if (!proc.andamentos || proc.andamentos.length === 0) {
+      setLoadingAndamentos(true);
+      try {
+        const { data } = await supabase.functions.invoke('fetch-processo', {
+          body: { numeroProcesso: proc.numeroProcesso },
+        });
+        if (data && Array.isArray(data.andamentos) && data.andamentos.length > 0) {
+          const andamentos: Andamento[] = data.andamentos.map((a: any) => ({
+            data: a.data || null,
+            resumo: a.resumo || a.descricao || '',
+            descricao: a.descricao || a.resumo || '',
+            fase: a.fase || null,
+          }));
+          updateResultLocally(proc.id, { andamentos });
+          setPreviewProc(curr => curr ? { ...curr, andamentos } : null);
+        }
+      } catch (e) {
+        // silencioso — mostra "nenhum andamento" normalmente
+      } finally {
+        setLoadingAndamentos(false);
+      }
     }
   };
 
@@ -463,7 +491,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
                     )}
                     onClick={(e) => {
                       if ((e.target as HTMLElement).closest('.checkbox-cell')) return;
-                      setPreviewProc(proc);
+                      openPreview(proc);
                     }}
                   >
                     <TableCell className="px-4 checkbox-cell">
@@ -681,21 +709,22 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
                   <div className="bg-muted/30 rounded-[1.5rem] p-6 border border-border max-h-[250px] overflow-y-auto custom-scrollbar space-y-6 relative pl-8 shadow-inner">
                     {/* Linha vertical da timeline */}
                     <div className="absolute left-[31px] top-6 bottom-6 w-0.5 bg-primary/20" />
-                    
-                    {previewProc.andamentos && previewProc.andamentos.length > 0 ? (
+
+                    {loadingAndamentos ? (
+                      <div className="flex flex-col items-center justify-center py-8 gap-3">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                        <p className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">Buscando andamentos...</p>
+                      </div>
+                    ) : previewProc.andamentos && previewProc.andamentos.length > 0 ? (
                       previewProc.andamentos.map((and, idx) => (
                         <div key={idx} className="relative">
-                          {/* Pontinho */}
                           <div className="absolute -left-[37px] top-1.5 h-3 w-3 rounded-full bg-primary ring-4 ring-card" />
-                          
                           <div className="space-y-1.5">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-black text-primary uppercase">
-                                {and.data ? new Date(and.data).toLocaleDateString('pt-BR') : 'Sem data'}
-                              </span>
-                            </div>
+                            <span className="text-[10px] font-black text-primary uppercase">
+                              {and.data ? new Date(and.data).toLocaleDateString('pt-BR') : 'Sem data'}
+                            </span>
                             <p className="text-xs font-bold text-foreground/80 leading-relaxed">
-                              {and.resumo}
+                              {and.resumo || and.descricao}
                             </p>
                           </div>
                         </div>
