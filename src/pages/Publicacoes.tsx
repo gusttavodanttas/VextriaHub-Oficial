@@ -6,27 +6,27 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PublicationDetailsDialog } from "@/components/Publications/PublicationDetailsDialog";
-import { ScheduleDialog } from "@/components/Publications/ScheduleDialog";
 import { PublicationSummary } from "@/components/Publications/PublicationSummary";
 import { PublicationTable } from "@/components/Publications/PublicationTable";
 import { PublicationFilters } from "@/components/Publications/PublicationFilters";
-import { 
-  BookOpen, 
-  Trash2, 
-  Search, 
-  LayoutGrid, 
-  Table as TableIcon, 
-  CheckSquare, 
-  Archive, 
-  Eye,
+import {
+  BookOpen,
+  Trash2,
+  Search,
+  LayoutGrid,
+  Table as TableIcon,
+  CheckSquare,
   Download,
-  Filter,
   Inbox,
   X,
   RefreshCw,
   Clock,
   CalendarDays,
-  CalendarRange
+  CalendarRange,
+  CheckCircle,
+  PlusCircle,
+  Link2,
+  Link2Off,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -74,7 +74,7 @@ export default function Publicacoes() {
   const [initialProcessData, setInitialProcessData] = useState<any>(null);
   const [registering, setRegistering] = useState(false);
   
-  const handleCardClick = (type: 'prazos' | 'novas' | 'sem_vinculo' | 'hoje') => {
+  const handleCardClick = (type: 'prazos' | 'novas' | 'sem_vinculo' | 'hoje' | 'tratadas') => {
     if (type === 'hoje') {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -83,6 +83,10 @@ export default function Publicacoes() {
       setFilters({ ...filters, dateRange: { from: today, to }, status: 'all' });
     } else if (type === 'novas') {
       setFilters({ ...filters, status: 'nova', dateRange: { from: undefined, to: undefined } });
+    } else if (type === 'tratadas') {
+      setFilters({ ...filters, status: 'lida', dateRange: { from: undefined, to: undefined } });
+    } else if (type === 'prazos') {
+      setFilters({ ...filters, urgencia: 'alta', dateRange: { from: undefined, to: undefined } });
     } else if (type === 'sem_vinculo') {
       setFilters({ ...filters, search: '', status: 'all', dateRange: { from: undefined, to: undefined } });
     }
@@ -174,6 +178,7 @@ export default function Publicacoes() {
   // Cálculo de Estatísticas
   const stats = useMemo(() => {
     const todayStr = new Date().toISOString().split('T')[0];
+    const tratadas = publications.filter(p => p.status === 'lida' || p.status === 'processada').length;
     return {
       prazosSemana: publications.filter(p => p.urgencia === 'alta').length,
       naoTratadas: publications.filter(p => p.status === 'nova' || p.status === 'pendente').length,
@@ -186,7 +191,9 @@ export default function Publicacoes() {
         } catch (e) {
           return false;
         }
-      }).length
+      }).length,
+      tratadas,
+      total: publications.length,
     };
   }, [publications]);
 
@@ -507,7 +514,7 @@ export default function Publicacoes() {
               </div>
             </div>
           ) : view === 'table' ? (
-            <PublicationTable 
+            <PublicationTable
               publications={filteredPublications}
               selectedIds={selectedIds}
               onToggleSelection={handleToggleSelection}
@@ -518,139 +525,114 @@ export default function Publicacoes() {
               }}
               onDelete={deletePublication}
               onUpdateStatus={updateStatus}
+              onRegister={handleRegister}
+              onSchedule={handleSchedule}
             />
           ) : (
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-              {filteredPublications.map((publication) => (
-                <div 
-                  key={publication.id} 
-                  className={cn(
-                    "bg-card border border-border p-8 rounded-[2.5rem] hover:shadow-lg transition-all duration-300 hover:border-primary/25 hover:-translate-y-0.5 group relative shadow-sm",
-                    selectedIds.includes(publication.id) && "ring-2 ring-primary bg-primary/5"
-                  )}
-                >
-                  {/* Checkbox Overlay for Card View */}
-                    <div 
-                      className="absolute top-6 left-6 z-10 cursor-pointer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleToggleSelection(publication.id);
-                      }}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              {filteredPublications.map((publication) => {
+                const isTratada = publication.status === 'lida' || publication.status === 'processada';
+                return (
+                  <div
+                    key={publication.id}
+                    className={cn(
+                      "bg-card border border-border p-6 rounded-[2rem] hover:shadow-lg transition-all duration-300 hover:border-primary/25 hover:-translate-y-0.5 group relative shadow-sm cursor-pointer",
+                      selectedIds.includes(publication.id) && "ring-2 ring-primary bg-primary/5"
+                    )}
+                    onClick={() => { setSelectedPub(publication); setDetailDialogOpen(true); }}
+                  >
+                    {/* Checkbox */}
+                    <div
+                      className="absolute top-5 left-5 z-10 cursor-pointer"
+                      onClick={(e) => { e.stopPropagation(); handleToggleSelection(publication.id); }}
                     >
-                      <Checkbox 
+                      <Checkbox
                         checked={selectedIds.includes(publication.id)}
-                        className="h-6 w-6 rounded-lg border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary transition-all scale-110 shadow-lg"
+                        className="h-5 w-5 rounded-lg border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary shadow-md"
                       />
                     </div>
 
-                  <div className="flex flex-col lg:flex-row justify-between gap-8 pl-10">
-                    <div className="flex-1 space-y-6">
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-2">
-                          <h4 className="text-2xl font-black group-hover:text-primary transition-colors duration-500 leading-tight tracking-tight text-foreground">
+                    <div className="pl-8 space-y-4">
+                      {/* Header */}
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="space-y-1.5 flex-1 min-w-0">
+                          <h4 className="font-black text-base group-hover:text-primary transition-colors leading-tight tracking-tight truncate">
                             {publication.titulo === publication.numero_processo ? `Publicação no ${publication.tribunal || 'Tribunal'}` : publication.titulo}
                           </h4>
-                          <div className="flex flex-wrap items-center gap-3">
-                            <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 font-black px-3 py-1 rounded-lg text-xs font-mono uppercase">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 font-black px-2 py-0.5 rounded-lg text-[10px] font-mono uppercase">
                               {formatCNJ(publication.numero_processo)}
                             </Badge>
-                            <span className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider opacity-60">
+                            {publication.tribunal && (
+                              <span className="text-[10px] text-muted-foreground/60 font-bold uppercase">{publication.tribunal}</span>
+                            )}
+                            <span className="text-[10px] text-muted-foreground/50 font-bold">
                               {new Date(publication.data_publicacao).toLocaleDateString('pt-BR')}
                             </span>
                           </div>
                         </div>
-                        <Badge className={cn(
-                          "px-4 py-1.5 rounded-full font-black text-[10px] uppercase tracking-[0.2em] shadow-lg",
-                          publication.status === 'lida' || publication.status === 'processada' ? "bg-emerald-500 text-foreground" : 
-                          publication.status === 'pendente' ? "bg-sky-500 text-foreground" :
-                          "bg-primary text-foreground"
-                        )}>
-                          {
-                            publication.status === 'lida' || publication.status === 'processada' ? 'Tratada' : 
-                            publication.status === 'pendente' ? 'Pendente' : 'Nova'
-                          }
-                        </Badge>
-                      </div>
-
-                      <div className="p-8 bg-muted/30 rounded-[2rem] border border-border text-foreground/80 font-medium line-clamp-4 leading-relaxed text-sm shadow-inner">
-                        {publication.conteudo}
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-3">
-                        {publication.tags?.map((tag) => (
-                          <Badge key={tag} className="bg-background text-muted-foreground/60 border-border px-4 py-1.5 rounded-xl font-black text-[9px] uppercase tracking-[0.15em] hover:bg-primary/10 hover:text-primary transition-all cursor-default shadow-sm">
-                            #{tag}
+                        <div className="flex flex-col items-end gap-1.5 shrink-0">
+                          <Badge className={cn(
+                            "px-3 py-1 rounded-full font-black text-[9px] uppercase tracking-widest",
+                            isTratada ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20" :
+                            publication.status === 'pendente' ? "bg-sky-500/10 text-sky-600 border border-sky-500/20" :
+                            "bg-amber-500/10 text-amber-600 border border-amber-500/20"
+                          )}>
+                            {isTratada ? 'Tratada' : publication.status === 'pendente' ? 'Pendente' : 'Nova'}
                           </Badge>
-                        ))}
+                          {publication.urgencia === 'alta' && (
+                            <Badge variant="outline" className="px-2 py-0.5 text-[9px] font-black uppercase tracking-widest bg-red-500/10 text-red-600 border-red-500/20">
+                              Urgente
+                            </Badge>
+                          )}
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="lg:w-48 flex flex-col gap-3 justify-center">
-                      <PublicationDetailsDialog 
-                        publication={publication} 
-                        onRegister={handleRegister}
-                        onSchedule={handleSchedule}
-                        onProcess={(id) => updateStatus(id, 'processada')}
-                        onDelete={deletePublication}
-                      />
-                      <div className="h-px bg-border my-2" />
-                      <div className="grid grid-cols-3 gap-2">
-                        <ScheduleDialog 
-                          publicationTitle={publication.titulo}
-                          processNumber={publication.numero_processo}
-                          type="prazo"
-                          iconOnly={true}
-                        />
-                        <ScheduleDialog 
-                          publicationTitle={publication.titulo}
-                          processNumber={publication.numero_processo}
-                          type="audiencia"
-                          iconOnly={true}
-                        />
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" className="h-12 w-full rounded-2xl hover:bg-red-500/10 hover:text-red-500 group/del transition-all duration-300">
-                              <Trash2 className="h-5 w-5 text-red-500/50 group-hover/del:text-red-500" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent className="rounded-[2.5rem] border border-border bg-background p-10 shadow-2xl">
-                            <AlertDialogHeader>
-                              <AlertDialogTitle className="text-3xl font-black tracking-tighter">Eliminar Expediente</AlertDialogTitle>
-                              <AlertDialogDescription className="text-base font-medium text-muted-foreground">
-                                Esta publicação será removida permanentemente do sistema. Prosseguir com a exclusão definitiva?
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter className="mt-10 gap-4">
-                              <AlertDialogCancel className="rounded-2xl border-border h-14 px-8 font-black uppercase text-xs tracking-widest bg-background">Cancelar</AlertDialogCancel>
-                              <AlertDialogAction 
-                                onClick={() => deletePublication(publication.id)}
-                                className="bg-red-500 hover:bg-red-600 text-foreground rounded-2xl h-14 px-10 font-black uppercase text-xs tracking-widest shadow-lg shadow-red-500/20"
-                              >
-                                Confirmar
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                      {/* Content preview */}
+                      <div className="p-4 bg-muted/20 rounded-2xl border border-border text-foreground/70 font-medium line-clamp-3 leading-relaxed text-sm">
+                        {publication.conteudo || '—'}
                       </div>
-                      <div className="flex items-center gap-4 pt-4 border-t border-border/20">
-                        <PublicationDetailsDialog 
-                          publication={publication}
-                          onRegister={handleRegister}
-                          onSchedule={handleSchedule}
-                          onProcess={(id) => updateStatus(id, 'processada')}
-                          onDelete={deletePublication}
-                          trigger={
-                            <Button variant="outline" size="sm" className="rounded-xl border-border hover:bg-card px-4 md:px-6 h-10 font-bold text-[10px] md:text-xs uppercase tracking-wider gap-2">
-                              <Eye className="h-4 w-4" />
-                              Ver Conteúdo
+
+                      {/* Footer actions */}
+                      <div className="flex items-center justify-between pt-1" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-1.5">
+                          {publication.processo_id ? (
+                            <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-600 border-emerald-500/20 gap-1 px-2 py-0.5">
+                              <Link2 className="h-3 w-3" /> Vinculada
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest bg-orange-500/10 text-orange-500 border-orange-500/20 gap-1 px-2 py-0.5">
+                              <Link2Off className="h-3 w-3" /> Avulsa
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {!isTratada && (
+                            <Button size="sm" variant="ghost" className="h-8 rounded-xl text-[10px] font-bold gap-1 text-emerald-600 hover:bg-emerald-500/10"
+                              onClick={() => updateStatus(publication.id, 'lida')}>
+                              <CheckCircle className="h-3.5 w-3.5" /> Tratar
                             </Button>
-                          }
-                        />
+                          )}
+                          {!publication.processo_id && (
+                            <Button size="sm" variant="ghost" className="h-8 rounded-xl text-[10px] font-bold gap-1 text-violet-600 hover:bg-violet-500/10"
+                              onClick={() => handleRegister(publication)}>
+                              <PlusCircle className="h-3.5 w-3.5" /> Processo
+                            </Button>
+                          )}
+                          <Button size="sm" variant="ghost" className="h-8 rounded-xl text-[10px] font-bold gap-1 text-amber-600 hover:bg-amber-500/10"
+                            onClick={() => handleSchedule(publication)}>
+                            <CalendarDays className="h-3.5 w-3.5" /> Prazo
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-xl text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
+                            onClick={() => deletePublication(publication.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
