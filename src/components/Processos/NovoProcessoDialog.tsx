@@ -10,7 +10,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -344,7 +343,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
                 />
               </div>
             ) : (
-              <ScrollArea className="flex-1 px-8">
+              <div className="flex-1 min-h-0 overflow-y-auto px-8">
                 <div className="py-8">
                   {step === 'choice' && (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -522,7 +521,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
                     </form>
                   )}
                 </div>
-              </ScrollArea>
+              </div>
             )}
           </div>
         </DialogContent>
