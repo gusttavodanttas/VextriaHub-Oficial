@@ -244,21 +244,31 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
     if (!proc.andamentos || proc.andamentos.length === 0) {
       setLoadingAndamentos(true);
       try {
-        const { data } = await supabase.functions.invoke('fetch-processo', {
-          body: { numeroProcesso: proc.numeroProcesso },
+        // Tenta com OAB primeiro; se não retornar andamentos, tenta sem OAB
+        let response = await supabase.functions.invoke('fetch-processo', {
+          body: { numeroProcesso: proc.numeroProcesso, oab: oab.replace(/\D/g, ''), uf },
         });
-        if (data && Array.isArray(data.andamentos) && data.andamentos.length > 0) {
-          const andamentos: Andamento[] = data.andamentos.map((a: any) => ({
-            data: a.data || null,
-            resumo: a.resumo || a.descricao || '',
-            descricao: a.descricao || a.resumo || '',
-            fase: a.fase || null,
+        if (!response.error && (!response.data?.andamentos?.length)) {
+          response = await supabase.functions.invoke('fetch-processo', {
+            body: { numeroProcesso: proc.numeroProcesso },
+          });
+        }
+        const { data, error } = response;
+        if (error) throw error;
+        // A função pode retornar andamentos em diferentes campos dependendo da versão
+        const raw = data?.andamentos ?? data?.movimentos ?? data?.movimentacoes ?? [];
+        if (Array.isArray(raw) && raw.length > 0) {
+          const andamentos: Andamento[] = raw.map((a: any) => ({
+            data: a.data || a.dataMovimento || a.data_movimentacao || null,
+            resumo: a.resumo || a.descricao || a.texto || '',
+            descricao: a.descricao || a.resumo || a.texto || '',
+            fase: a.fase || a.tipo || null,
           }));
           updateResultLocally(proc.id, { andamentos });
           setPreviewProc(curr => curr ? { ...curr, andamentos } : null);
         }
       } catch (e) {
-        // silencioso — mostra "nenhum andamento" normalmente
+        // silencioso — exibe "nenhum andamento" normalmente
       } finally {
         setLoadingAndamentos(false);
       }
