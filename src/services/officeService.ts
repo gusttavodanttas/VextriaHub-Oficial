@@ -12,11 +12,7 @@ export const officeService = {
         .from('office_users')
         .select(`
           *,
-          office:offices(
-            *,
-            is_lifetime,
-            manual_discount_percent
-          )
+          office:offices(*)
         `)
         .eq('user_id', userId)
         .eq('active', true)
