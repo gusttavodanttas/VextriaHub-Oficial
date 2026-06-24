@@ -21,6 +21,7 @@ import {
   AlertTriangle,
   Clock,
   X,
+  Building2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatCNJ } from '@/utils/formatCNJ';
@@ -41,6 +42,9 @@ interface LixeiraItem {
   titulo: string;
   descricao?: string;
   excluido_em: string;
+  office_id?: string;
+  office_name?: string;
+  user_id?: string;
   dados: any;
 }
 
@@ -65,6 +69,7 @@ export default function Lixeira() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterTabela, setFilterTabela] = useState<string>('all');
+  const [filterOffice, setFilterOffice] = useState<string>('all');
   const [restoring, setRestoring] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<LixeiraItem | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -72,6 +77,11 @@ export default function Lixeira() {
   const fetchAll = async () => {
     setLoading(true);
     try {
+      // Carregar mapa de escritórios
+      const { data: offices } = await supabase.from('offices').select('id, name');
+      const officeMap: Record<string, string> = {};
+      (offices || []).forEach(o => { officeMap[o.id] = o.name; });
+
       const results: LixeiraItem[] = [];
 
       // Processos deletados (soft-delete)
@@ -80,7 +90,7 @@ export default function Lixeira() {
         id: p.id, tabela: 'processos',
         titulo: p.titulo || formatCNJ(p.numero_processo),
         descricao: `CNJ: ${formatCNJ(p.numero_processo)}`,
-        excluido_em: p.updated_at, dados: p,
+        excluido_em: p.updated_at, office_id: p.office_id, office_name: officeMap[p.office_id] || '—', user_id: p.user_id, dados: p,
       }));
 
       // Publicações arquivadas
@@ -89,7 +99,7 @@ export default function Lixeira() {
         id: p.id, tabela: 'publicacoes',
         titulo: p.titulo,
         descricao: `${fmtDate(p.data_publicacao)} · ${p.tribunal || ''}`,
-        excluido_em: p.created_at, dados: p,
+        excluido_em: p.created_at, office_id: p.office_id, office_name: officeMap[p.office_id] || '—', user_id: p.user_id, dados: p,
       }));
 
       // Prazos deletados
@@ -98,7 +108,7 @@ export default function Lixeira() {
         id: p.id, tabela: 'prazos',
         titulo: p.titulo,
         descricao: `Vencimento: ${fmtDate(p.data_vencimento)}`,
-        excluido_em: p.updated_at, dados: p,
+        excluido_em: p.updated_at, office_id: p.office_id, office_name: officeMap[p.office_id] || '—', user_id: p.user_id, dados: p,
       }));
 
       // Audiências deletadas
@@ -107,7 +117,7 @@ export default function Lixeira() {
         id: a.id, tabela: 'audiencias',
         titulo: a.titulo,
         descricao: `Data: ${fmtDateTime(a.data_audiencia)}`,
-        excluido_em: a.updated_at, dados: a,
+        excluido_em: a.updated_at, office_id: a.office_id, office_name: officeMap[a.office_id] || '—', user_id: a.user_id, dados: a,
       }));
 
       // Atendimentos deletados
@@ -116,7 +126,7 @@ export default function Lixeira() {
         id: a.id, tabela: 'atendimentos',
         titulo: a.tipo_atendimento,
         descricao: `Data: ${fmtDateTime(a.data_atendimento)}`,
-        excluido_em: a.updated_at, dados: a,
+        excluido_em: a.updated_at, office_id: a.office_id, office_name: officeMap[a.office_id] || '—', user_id: a.user_id, dados: a,
       }));
 
       // Tarefas deletadas
@@ -125,7 +135,7 @@ export default function Lixeira() {
         id: t.id, tabela: 'tarefas',
         titulo: t.titulo,
         descricao: t.descricao || '',
-        excluido_em: t.updated_at, dados: t,
+        excluido_em: t.updated_at, user_id: t.user_id, dados: t,
       }));
 
       // Timesheets deletados
@@ -134,7 +144,7 @@ export default function Lixeira() {
         id: t.id, tabela: 'timesheets',
         titulo: t.tarefa_descricao,
         descricao: `${t.categoria} · ${t.duracao_minutos || 0}min`,
-        excluido_em: t.updated_at || t.created_at || '', dados: t,
+        excluido_em: t.updated_at || t.created_at || '', office_id: t.office_id, office_name: officeMap[t.office_id || ''] || '—', user_id: t.user_id, dados: t,
       }));
 
       // Processos descartados da busca OAB
@@ -143,7 +153,7 @@ export default function Lixeira() {
         id: d.id, tabela: 'processos_descartados',
         titulo: d.titulo || formatCNJ(d.numero_processo),
         descricao: `CNJ: ${formatCNJ(d.numero_processo)} · ${d.tribunal || ''}`,
-        excluido_em: d.created_at, dados: d,
+        excluido_em: d.created_at, office_id: d.office_id, office_name: officeMap[d.office_id] || '—', user_id: d.user_id, dados: d,
       }));
 
       results.sort((a, b) => new Date(b.excluido_em).getTime() - new Date(a.excluido_em).getTime());
@@ -200,13 +210,16 @@ export default function Lixeira() {
   const filtered = items.filter(i => {
     const matchSearch = !search || i.titulo.toLowerCase().includes(search.toLowerCase()) || (i.descricao || '').toLowerCase().includes(search.toLowerCase());
     const matchTabela = filterTabela === 'all' || i.tabela === filterTabela;
-    return matchSearch && matchTabela;
+    const matchOffice = filterOffice === 'all' || i.office_id === filterOffice;
+    return matchSearch && matchTabela && matchOffice;
   });
 
   const tabelaCounts = items.reduce((acc, i) => {
     acc[i.tabela] = (acc[i.tabela] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
+
+  const officeList = Array.from(new Set(items.filter(i => i.office_id && i.office_name && i.office_name !== '—').map(i => JSON.stringify({ id: i.office_id, name: i.office_name })))).map(s => JSON.parse(s) as { id: string; name: string });
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -256,6 +269,27 @@ export default function Lixeira() {
         })}
       </div>
 
+      {/* Filtro por escritório */}
+      {officeList.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setFilterOffice('all')}
+            className={cn("px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5", filterOffice === 'all' ? 'bg-foreground text-background' : 'bg-muted/50 text-muted-foreground hover:bg-muted')}
+          >
+            <Building2 className="h-3 w-3" /> Todos escritórios
+          </button>
+          {officeList.map(o => (
+            <button
+              key={o.id}
+              onClick={() => setFilterOffice(o.id)}
+              className={cn("px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5", filterOffice === o.id ? 'bg-foreground text-background' : 'bg-muted/50 text-muted-foreground hover:bg-muted')}
+            >
+              <Building2 className="h-3 w-3" /> {o.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Busca */}
       <div className="relative">
         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
@@ -298,6 +332,11 @@ export default function Lixeira() {
                     </div>
                     <p className="font-bold text-sm truncate">{item.titulo}</p>
                     {item.descricao && <p className="text-xs text-muted-foreground truncate mt-0.5">{item.descricao}</p>}
+                    {item.office_name && item.office_name !== '—' && (
+                      <p className="text-[10px] text-muted-foreground/70 mt-1 flex items-center gap-1">
+                        <Building2 className="h-3 w-3" /> {item.office_name}
+                      </p>
+                    )}
                   </div>
 
                   <div className="text-right shrink-0 space-y-2">
