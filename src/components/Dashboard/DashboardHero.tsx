@@ -1,4 +1,4 @@
-
+﻿
 import { useAuth } from "@/contexts/AuthContext";
 import { Sparkles } from "lucide-react";
 
@@ -23,7 +23,7 @@ export function DashboardHero() {
   const today = getTodayStr();
 
   return (
-    <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-card/80 via-card/40 to-background border border-black/5 dark:border-white/10 px-8 py-7 shadow-premium entry-animate fade-in slide-in-from-bottom-4 duration-700">
+    <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-card/80 via-card/40 to-background border border-black/5 dark:border-border px-8 py-7 shadow-premium entry-animate fade-in slide-in-from-bottom-4 duration-700">
       {/* Background orbs */}
       <div className="absolute top-0 right-0 -mt-16 -mr-16 w-64 h-64 bg-primary/10 rounded-full blur-[80px] animate-pulse pointer-events-none" />
       <div className="absolute bottom-0 left-0 -mb-12 -ml-12 w-48 h-48 bg-secondary/10 rounded-full blur-[60px] pointer-events-none" />

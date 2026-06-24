@@ -1,4 +1,4 @@
-
+﻿
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -98,7 +98,7 @@ const Metas = () => {
           </p>
         </div>
         
-        <div className="flex items-center gap-3 glass-morphism p-2 rounded-2xl border border-black/5 dark:border-white/10 bg-black/[0.02] dark:bg-white/5 shadow-premium">
+        <div className="flex items-center gap-3 glass-morphism p-2 rounded-2xl border border-black/5 dark:border-border bg-black/[0.02] dark:bg-muted/30 shadow-premium">
           <Button 
             onClick={() => setCreateGoalOpen(true)}
             size="lg"
@@ -111,15 +111,15 @@ const Metas = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-        <div className="glass-card p-2 rounded-3xl inline-flex w-full md:w-auto h-auto border border-black/5 dark:border-white/10 bg-black/[0.02] dark:bg-white/5 shadow-inner">
+        <div className="glass-card p-2 rounded-3xl inline-flex w-full md:w-auto h-auto border border-black/5 dark:border-border bg-black/[0.02] dark:bg-muted/30 shadow-inner">
           <TabsList className="bg-transparent h-auto p-0 flex flex-nowrap gap-1">
-            <TabsTrigger value="individuais" className="rounded-2xl px-10 py-3 font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-lg shadow-primary/20 transition-all">
+            <TabsTrigger value="individuais" className="rounded-2xl px-10 py-3 font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-foreground data-[state=active]:shadow-lg shadow-primary/20 transition-all">
               Individuais
             </TabsTrigger>
-            <TabsTrigger value="demandas" className="rounded-2xl px-10 py-3 font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-lg shadow-primary/20 transition-all">
+            <TabsTrigger value="demandas" className="rounded-2xl px-10 py-3 font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-foreground data-[state=active]:shadow-lg shadow-primary/20 transition-all">
               Demandas
             </TabsTrigger>
-            <TabsTrigger value="escritorio" className="rounded-2xl px-10 py-3 font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-lg shadow-primary/20 transition-all">
+            <TabsTrigger value="escritorio" className="rounded-2xl px-10 py-3 font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-foreground data-[state=active]:shadow-lg shadow-primary/20 transition-all">
               Escritório
             </TabsTrigger>
           </TabsList>
@@ -135,7 +135,7 @@ const Metas = () => {
                 const percentage = Math.round((meta.valorAtual / meta.valorMeta) * 100);
                 
                 return (
-                  <div key={meta.id} className="glass-card hover-lift p-8 rounded-[2.5rem] border border-black/5 dark:border-white/5 bg-card/40 backdrop-blur-xl shadow-premium group relative overflow-hidden">
+                  <div key={meta.id} className="glass-card hover-lift p-8 rounded-[2.5rem] border border-black/5 dark:border-border bg-card/40 shadow-premium group relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
                       <Target className="h-24 w-24" />
                     </div>
@@ -150,7 +150,7 @@ const Metas = () => {
                             <Badge className="bg-primary/10 text-primary border-primary/20 font-black px-3 py-1 rounded-lg uppercase text-[10px] tracking-widest shadow-sm">
                               {meta.periodo}
                             </Badge>
-                            <Badge className="bg-black/[0.03] dark:bg-white/5 text-muted-foreground border-black/5 dark:border-white/5 font-black px-3 py-1 rounded-lg uppercase text-[10px] tracking-widest shadow-sm">
+                            <Badge className="bg-black/[0.03] dark:bg-muted/30 text-muted-foreground border-black/5 dark:border-border font-black px-3 py-1 rounded-lg uppercase text-[10px] tracking-widest shadow-sm">
                               {meta.tipo}
                             </Badge>
                           </div>
@@ -188,17 +188,17 @@ const Metas = () => {
                           </div>
                         </div>
 
-                        <div className="w-full bg-black/5 dark:bg-white/5 rounded-2xl h-4 p-1 border border-black/5 dark:border-white/5 shadow-inner">
+                        <div className="w-full bg-black/5 dark:bg-muted/30 rounded-2xl h-4 p-1 border border-black/5 dark:border-border shadow-inner">
                           <div 
                             className="bg-gradient-to-r from-primary to-primary/60 h-full rounded-xl transition-all duration-1000 ease-out shadow-premium relative group-hover:shadow-[0_0_20px_rgba(var(--primary),0.3)]"
                             style={{ width: `${Math.min(percentage, 100)}%` }}
                           >
-                            <div className="absolute top-0 right-0 h-full w-2 bg-white/20 blur-sm rounded-full" />
+                            <div className="absolute top-0 right-0 h-full w-2 bg-muted blur-sm rounded-full" />
                           </div>
                         </div>
                       </div>
 
-                      <div className="pt-6 border-t border-black/5 dark:border-white/5 flex justify-between items-center">
+                      <div className="pt-6 border-t border-black/5 dark:border-border flex justify-between items-center">
                         <div className="flex items-center gap-2">
                           <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
                           <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest opacity-60">Meta Ativa</span>
@@ -217,7 +217,7 @@ const Metas = () => {
 
               {metas.length === 0 && (
                 <div className="col-span-full py-20 text-center glass-card rounded-[3rem] space-y-6">
-                  <div className="p-8 bg-white/5 rounded-full inline-block">
+                  <div className="p-8 bg-muted/30 rounded-full inline-block">
                     <Target className="h-16 w-16 text-muted-foreground/20" />
                   </div>
                   <div className="space-y-2">

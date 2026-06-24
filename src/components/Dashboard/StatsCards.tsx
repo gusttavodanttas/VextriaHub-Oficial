@@ -1,4 +1,4 @@
-
+﻿
 import { FileText, Users, Clock, TrendingUp, DollarSign, Wallet, ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useStats } from "@/hooks/useStats";
@@ -28,7 +28,7 @@ function StatCard({ title, value, description, subStats, icon: Icon, gradient, i
   const trendColor = trend === "up" ? "text-emerald-500" : trend === "down" ? "text-red-500" : "text-muted-foreground";
 
   return (
-    <Card className="relative overflow-hidden group hover:shadow-2xl transition-all duration-500 border-black/5 dark:border-white/5 bg-card/40 backdrop-blur-xl rounded-3xl hover-lift cursor-default">
+    <Card className="relative overflow-hidden group hover:shadow-2xl transition-all duration-500 border-black/5 dark:border-border bg-card/40 rounded-3xl hover-lift cursor-default">
       {/* Gradient background on hover */}
       <div className={cn("absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity duration-500", gradient)} />
 
@@ -36,7 +36,7 @@ function StatCard({ title, value, description, subStats, icon: Icon, gradient, i
         <div className="flex flex-col gap-3">
           {/* Header */}
           <div className="flex items-center justify-between">
-            <div className={cn("p-2 rounded-xl w-fit bg-black/[0.03] dark:bg-background/60 backdrop-blur-sm border border-black/5 dark:border-white/10 group-hover:scale-110 transition-transform duration-500 shadow-sm", iconColor)}>
+            <div className={cn("p-2 rounded-xl w-fit bg-black/[0.03] dark:bg-background backdrop-blur-sm border border-black/5 dark:border-border group-hover:scale-110 transition-transform duration-500 shadow-sm", iconColor)}>
               <Icon className="h-4 w-4" />
             </div>
             {trend && trendLabel && (
@@ -62,7 +62,7 @@ function StatCard({ title, value, description, subStats, icon: Icon, gradient, i
 
           {/* Sub-stats like eLaw */}
           {subStats && subStats.length > 0 && (
-            <div className="flex flex-wrap gap-2 pt-2 border-t border-black/5 dark:border-white/5">
+            <div className="flex flex-wrap gap-2 pt-2 border-t border-black/5 dark:border-border">
               {subStats.map((s, i) => (
                 <div key={i} className="flex items-center gap-1">
                   <span className="text-[10px] text-muted-foreground/60">{s.label}:</span>
@@ -90,7 +90,7 @@ export function StatsCards() {
     return (
       <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-6">
         {[...Array(6)].map((_, i) => (
-          <div key={i} className="h-36 rounded-3xl bg-black/[0.03] dark:bg-card/20 animate-pulse border border-black/5 dark:border-white/5" />
+          <div key={i} className="h-36 rounded-3xl bg-black/[0.03] dark:bg-card/20 animate-pulse border border-black/5 dark:border-border" />
         ))}
       </div>
     );

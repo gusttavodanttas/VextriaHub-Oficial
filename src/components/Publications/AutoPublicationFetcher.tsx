@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PublicationViewer } from "./PublicationViewer";
@@ -123,9 +123,9 @@ export const AutoPublicationFetcher = () => {
 
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
-      case "alta": return "bg-red-500 text-white";
-      case "media": return "bg-yellow-500 text-white";
-      default: return "bg-green-500 text-white";
+      case "alta": return "bg-red-500 text-foreground";
+      case "media": return "bg-yellow-500 text-foreground";
+      default: return "bg-green-500 text-foreground";
     }
   };
 
@@ -147,7 +147,7 @@ export const AutoPublicationFetcher = () => {
                 </div>
                 <div>
                   <p className="text-xs font-bold text-primary/60 uppercase tracking-widest">Sugerido (Proprietário)</p>
-                  <p className="text-sm font-bold text-white/90">Dr. {ownerInfo.full_name} (OAB {ownerInfo.oab})</p>
+                  <p className="text-sm font-bold text-foreground">Dr. {ownerInfo.full_name} (OAB {ownerInfo.oab})</p>
                 </div>
               </div>
               <Button 
@@ -252,7 +252,7 @@ export const AutoPublicationFetcher = () => {
             {results.map((publication) => (
               <div
                 key={publication.id}
-                className="border rounded-lg p-4 space-y-3 bg-white/5"
+                className="border rounded-lg p-4 space-y-3 bg-muted/30"
               >
                 <div className="flex justify-between items-start gap-3">
                   <div className="flex-1">

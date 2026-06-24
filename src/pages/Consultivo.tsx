@@ -1,4 +1,4 @@
-
+﻿
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 // Removed duplicate sidebar imports as they're already provided by AppLayout
@@ -90,7 +90,7 @@ export default function Consultivo() {
 
         {/* Informações específicas do cliente no consultivo */}
         {filtroCliente && (
-          <Card className="border-white/5 bg-card/40 backdrop-blur-sm overflow-hidden shadow-premium">
+          <Card className="border-border bg-card/40 backdrop-blur-sm overflow-hidden shadow-premium">
             <CardContent className="p-8">
               <h3 className="text-xl font-bold mb-8 flex items-center gap-2">
                 Insight Estratégico - {filtroCliente}
@@ -102,11 +102,11 @@ export default function Consultivo() {
                   <div className="space-y-3">
                     {filtroCliente === "Maria Silva" && (
                       <>
-                        <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/20 border border-white/5">
+                        <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/20 border border-border">
                           <div className="h-2 w-2 rounded-full bg-primary" />
                           <p className="text-sm font-semibold">Direito de Família</p>
                         </div>
-                        <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/20 border border-white/5">
+                        <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/20 border border-border">
                           <div className="h-2 w-2 rounded-full bg-primary" />
                           <p className="text-sm font-semibold">Direito Civil - Cobrança</p>
                         </div>
@@ -121,7 +121,7 @@ export default function Consultivo() {
                 <div className="space-y-4">
                   <h4 className="font-bold text-xs uppercase tracking-widest text-muted-foreground opacity-70">Últimas Interações</h4>
                   <div className="space-y-3">
-                    <div className="p-4 rounded-xl bg-background/50 border border-white/5 space-y-2">
+                    <div className="p-4 rounded-xl bg-background/50 border border-border space-y-2">
                       <p className="text-xs text-primary font-bold">JAN 2024</p>
                       <p className="text-sm font-medium text-muted-foreground">Análise de riscos contratuais e alinhamento de prazos.</p>
                     </div>

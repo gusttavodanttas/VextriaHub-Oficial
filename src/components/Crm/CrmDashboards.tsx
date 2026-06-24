@@ -1,4 +1,4 @@
-import { ArrowLeft, UserCheck, Target, TrendingUp, BarChart3, Loader2 } from "lucide-react";
+﻿import { ArrowLeft, UserCheck, Target, TrendingUp, BarChart3, Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,7 +28,7 @@ export function CrmRelatorios({ onBack, data = [], loading = false }: BaseProps)
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={onBack} className="rounded-xl h-12 w-12 p-0 border border-black/5 dark:border-white/5 hover:bg-primary/10 transition-all">
+          <Button variant="ghost" onClick={onBack} className="rounded-xl h-12 w-12 p-0 border border-black/5 dark:border-border hover:bg-primary/10 transition-all">
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
@@ -39,7 +39,7 @@ export function CrmRelatorios({ onBack, data = [], loading = false }: BaseProps)
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="glass-card border-black/5 dark:border-white/5 rounded-[2rem] overflow-hidden">
+        <Card className="glass-card border-black/5 dark:border-border rounded-[2rem] overflow-hidden">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-black uppercase tracking-widest text-muted-foreground opacity-60">Performance Geral</CardTitle>
           </CardHeader>
@@ -48,7 +48,7 @@ export function CrmRelatorios({ onBack, data = [], loading = false }: BaseProps)
               <>
                 <div className="text-4xl font-black text-emerald-500">{conversionRate}%</div>
                 <p className="text-xs font-bold text-muted-foreground mt-1">Taxa de conversão atual</p>
-                <div className="mt-4 flex items-center gap-4 pt-4 border-t border-black/5 dark:border-white/5">
+                <div className="mt-4 flex items-center gap-4 pt-4 border-t border-black/5 dark:border-border">
                   <div className="text-[10px] font-black uppercase tracking-tighter bg-primary/5 text-primary px-2 py-1 rounded-lg">
                     {leads.length} LEADS ATIVOS
                   </div>
@@ -61,7 +61,7 @@ export function CrmRelatorios({ onBack, data = [], loading = false }: BaseProps)
           </CardContent>
         </Card>
 
-        <Card className="glass-card border-black/5 dark:border-white/5 rounded-[2rem] overflow-hidden">
+        <Card className="glass-card border-black/5 dark:border-border rounded-[2rem] overflow-hidden">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-black uppercase tracking-widest text-muted-foreground opacity-60">Volume de Pipeline</CardTitle>
           </CardHeader>
@@ -70,7 +70,7 @@ export function CrmRelatorios({ onBack, data = [], loading = false }: BaseProps)
               <>
                 <div className="text-4xl font-black text-primary">R$ {leads.length * 1.5}k</div>
                 <p className="text-xs font-bold text-muted-foreground mt-1">Ticket médio estimado</p>
-                <div className="mt-4 flex items-center gap-2 pt-4 border-t border-black/5 dark:border-white/5">
+                <div className="mt-4 flex items-center gap-2 pt-4 border-t border-black/5 dark:border-border">
                   <TrendingUp className="h-3 w-3 text-emerald-500" />
                   <span className="text-[10px] font-bold text-emerald-500 uppercase">Crescimento constante</span>
                 </div>
@@ -79,14 +79,14 @@ export function CrmRelatorios({ onBack, data = [], loading = false }: BaseProps)
           </CardContent>
         </Card>
 
-        <Card className="glass-card border-black/5 dark:border-white/5 rounded-[2rem] overflow-hidden">
+        <Card className="glass-card border-black/5 dark:border-border rounded-[2rem] overflow-hidden">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-black uppercase tracking-widest text-muted-foreground opacity-60">Tempo de Resposta</CardTitle>
           </CardHeader>
           <CardContent>
              <div className="text-4xl font-black text-blue-500">2.4h</div>
              <p className="text-xs font-bold text-muted-foreground mt-1">Média de atendimento</p>
-             <div className="mt-4 flex items-center gap-2 pt-4 border-t border-black/5 dark:border-white/5">
+             <div className="mt-4 flex items-center gap-2 pt-4 border-t border-black/5 dark:border-border">
                <div className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
                <span className="text-[10px] font-bold text-blue-500 uppercase">Benchmark setado</span>
              </div>
@@ -94,8 +94,8 @@ export function CrmRelatorios({ onBack, data = [], loading = false }: BaseProps)
         </Card>
       </div>
 
-      <Card className="glass-card border-black/5 dark:border-white/5 rounded-[2rem] overflow-hidden">
-        <CardHeader className="border-b border-black/5 dark:border-white/5 bg-black/[0.01] dark:bg-white/[0.01]">
+      <Card className="glass-card border-black/5 dark:border-border rounded-[2rem] overflow-hidden">
+        <CardHeader className="border-b border-black/5 dark:border-border bg-black/[0.01] dark:bg-white/[0.01]">
           <CardTitle className="text-xl font-extrabold tracking-tight">Desempenho de Aquisição</CardTitle>
           <CardDescription className="text-xs font-medium uppercase tracking-widest opacity-60">Últimos leads integrados ao sistema</CardDescription>
         </CardHeader>
@@ -161,7 +161,7 @@ export function CrmMetas({ onBack, data = [], loading = false }: BaseProps) {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={onBack} className="rounded-xl h-12 w-12 p-0 border border-black/5 dark:border-white/5 hover:bg-primary/10 transition-all">
+          <Button variant="ghost" onClick={onBack} className="rounded-xl h-12 w-12 p-0 border border-black/5 dark:border-border hover:bg-primary/10 transition-all">
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
@@ -171,8 +171,8 @@ export function CrmMetas({ onBack, data = [], loading = false }: BaseProps) {
         </div>
       </div>
       
-      <Card className="glass-card border-black/5 dark:border-white/5 rounded-[2rem] overflow-hidden">
-        <CardHeader className="border-b border-black/5 dark:border-white/5 bg-black/[0.01] dark:bg-white/[0.01]">
+      <Card className="glass-card border-black/5 dark:border-border rounded-[2rem] overflow-hidden">
+        <CardHeader className="border-b border-black/5 dark:border-border bg-black/[0.01] dark:bg-white/[0.01]">
           <CardTitle className="text-xl font-extrabold tracking-tight">Objetivos de {format(now, "MMMM", { locale: ptBR })}</CardTitle>
           <CardDescription className="text-xs font-medium uppercase tracking-widest opacity-60">Status de aquisição e fechamento</CardDescription>
         </CardHeader>
@@ -185,7 +185,7 @@ export function CrmMetas({ onBack, data = [], loading = false }: BaseProps) {
               </div>
               <span className="text-sm font-black text-primary">{leadProgress}%</span>
             </div>
-            <div className="w-full bg-black/5 dark:bg-white/5 rounded-full h-4 p-1 overflow-hidden border border-black/5 dark:border-white/5">
+            <div className="w-full bg-black/5 dark:bg-muted/30 rounded-full h-4 p-1 overflow-hidden border border-black/5 dark:border-border">
               <div 
                 className="bg-primary h-full rounded-full shadow-[0_0_15px_rgba(var(--primary),0.5)] transition-all duration-1000" 
                 style={{ width: `${leadProgress}%` }}
@@ -201,7 +201,7 @@ export function CrmMetas({ onBack, data = [], loading = false }: BaseProps) {
               </div>
               <span className="text-sm font-black text-emerald-500">{convProgress}%</span>
             </div>
-            <div className="w-full bg-black/5 dark:bg-white/5 rounded-full h-4 p-1 overflow-hidden border border-black/5 dark:border-white/5">
+            <div className="w-full bg-black/5 dark:bg-muted/30 rounded-full h-4 p-1 overflow-hidden border border-black/5 dark:border-border">
               <div 
                 className="bg-emerald-500 h-full rounded-full shadow-[0_0_15px_rgba(16,185,129,0.5)] transition-all duration-1000" 
                 style={{ width: `${convProgress}%` }}
@@ -209,7 +209,7 @@ export function CrmMetas({ onBack, data = [], loading = false }: BaseProps) {
             </div>
           </div>
 
-          <div className="pt-6 border-t border-black/5 dark:border-white/5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="pt-6 border-t border-black/5 dark:border-border grid grid-cols-1 sm:grid-cols-2 gap-4">
              <div className="p-4 rounded-2xl bg-primary/5 border border-primary/10 relative overflow-hidden group">
                 <p className="text-[10px] font-black uppercase tracking-widest text-primary/60">ROI Projetado (Volume x 1.2)</p>
                 <p className="text-2xl font-black">{(leadsThisMonth * 1.2).toFixed(1)}x</p>

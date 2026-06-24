@@ -1,4 +1,4 @@
-
+﻿
 import { useStats } from "@/hooks/useStats";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -41,7 +41,7 @@ function QuickStat({ icon: Icon, label, value, sub, color, bgColor, onClick, urg
       onClick={onClick}
       className={cn(
         "group relative flex items-center gap-4 px-5 py-4 rounded-2xl border transition-all duration-300",
-        "bg-card/40 backdrop-blur-xl border-black/5 dark:border-white/5 hover:border-black/10 dark:hover:border-white/15",
+        "bg-card/40 border-black/5 dark:border-border hover:border-black/10 dark:hover:border-white/15",
         "hover:shadow-lg hover:-translate-y-0.5 text-left w-full",
         urgent && "border-red-500/20 hover:border-red-500/30"
       )}
@@ -76,7 +76,7 @@ export function QuickStatsBar() {
     return (
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         {[...Array(5)].map((_, i) => (
-          <div key={i} className="h-20 rounded-2xl bg-black/[0.03] dark:bg-card/20 animate-pulse border border-black/5 dark:border-white/5" />
+          <div key={i} className="h-20 rounded-2xl bg-black/[0.03] dark:bg-card/20 animate-pulse border border-black/5 dark:border-border" />
         ))}
       </div>
     );
@@ -94,7 +94,7 @@ export function QuickStatsBar() {
           <Button
             size="sm"
             variant="outline"
-            className="rounded-xl text-[10px] font-black uppercase tracking-widest border-black/5 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/5 gap-1.5 h-10 px-4"
+            className="rounded-xl text-[10px] font-black uppercase tracking-widest border-black/5 dark:border-border hover:bg-black/5 dark:hover:bg-muted/30 gap-1.5 h-10 px-4"
             onClick={() => navigate("/prazos")}
           >
             <Plus className="h-3.5 w-3.5" /> Novo Prazo
@@ -102,7 +102,7 @@ export function QuickStatsBar() {
           <Button
             size="sm"
             variant="outline"
-            className="rounded-xl text-[10px] font-black uppercase tracking-widest border-black/5 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/5 gap-1.5 h-10 px-4"
+            className="rounded-xl text-[10px] font-black uppercase tracking-widest border-black/5 dark:border-border hover:bg-black/5 dark:hover:bg-muted/30 gap-1.5 h-10 px-4"
             onClick={() => navigate("/tarefas")}
           >
             <Plus className="h-3.5 w-3.5" /> Nova Tarefa

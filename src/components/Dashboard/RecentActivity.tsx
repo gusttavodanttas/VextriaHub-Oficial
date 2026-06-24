@@ -1,4 +1,4 @@
-
+﻿
 import { Clock, FileText, Upload, User, Bell } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,7 @@ export function RecentActivity() {
   const activities = sampleActivities;
 
   return (
-    <Card className="h-full flex flex-col animate-fade-in glass-card border-black/5 dark:border-white/5 rounded-[2rem] overflow-hidden">
+    <Card className="h-full flex flex-col animate-fade-in glass-card border-black/5 dark:border-border rounded-[2rem] overflow-hidden">
       <CardHeader className="p-6 pb-2">
         <CardTitle className="flex items-center gap-3 text-lg font-black tracking-tight">
           <div className="p-2 rounded-xl bg-primary/10">
@@ -23,7 +23,7 @@ export function RecentActivity() {
       <CardContent className="flex-1 flex flex-col p-6 space-y-4">
         {activities.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
-            <div className="p-4 rounded-full bg-black/[0.03] dark:bg-white/[0.03] border border-black/5 dark:border-white/5">
+            <div className="p-4 rounded-full bg-black/[0.03] dark:bg-white/[0.03] border border-black/5 dark:border-border">
               <Clock className="h-10 w-10 text-muted-foreground/20" />
             </div>
             <div className="space-y-1">
@@ -37,7 +37,7 @@ export function RecentActivity() {
           activities.map((activity, index) => (
             <div
               key={activity.id}
-              className="flex items-start gap-4 p-4 rounded-2xl border border-black/5 dark:border-white/5 bg-black/[0.01] dark:bg-white/[0.01] hover:bg-primary/[0.03] transition-all duration-300 animate-slide-in group"
+              className="flex items-start gap-4 p-4 rounded-2xl border border-black/5 dark:border-border bg-black/[0.01] dark:bg-white/[0.01] hover:bg-primary/[0.03] transition-all duration-300 animate-slide-in group"
               style={{ animationDelay: `${index * 0.1}s` }}
             >
               <div className="mt-1 p-2.5 rounded-xl bg-primary/5 group-hover:bg-primary/10 transition-colors">

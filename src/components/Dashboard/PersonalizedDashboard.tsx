@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -75,7 +75,7 @@ const createWidgets = (userRole: any): DashboardWidget[] => [
             </div>
             <span className="text-sm font-bold">Resposta à contestação</span>
           </div>
-          <Badge className="bg-red-500 text-white text-[10px] font-black uppercase tracking-widest rounded-lg">2 dias</Badge>
+          <Badge className="bg-red-500 text-foreground text-[10px] font-black uppercase tracking-widest rounded-lg">2 dias</Badge>
         </div>
         <div className="flex items-center justify-between p-3 bg-amber-500/[0.03] dark:bg-amber-500/5 border border-amber-500/10 rounded-2xl group/item hover:bg-amber-500/10 transition-colors">
           <div className="flex items-center gap-3">
@@ -84,7 +84,7 @@ const createWidgets = (userRole: any): DashboardWidget[] => [
             </div>
             <span className="text-sm font-bold">Audiência preparação</span>
           </div>
-          <Badge className="bg-amber-500 text-white text-[10px] font-black uppercase tracking-widest rounded-lg">5 dias</Badge>
+          <Badge className="bg-amber-500 text-foreground text-[10px] font-black uppercase tracking-widest rounded-lg">5 dias</Badge>
         </div>
         <div className="flex items-center justify-between p-3 bg-blue-500/[0.03] dark:bg-blue-500/5 border border-blue-500/10 rounded-2xl group/item hover:bg-blue-500/10 transition-colors">
           <div className="flex items-center gap-3">
@@ -93,7 +93,7 @@ const createWidgets = (userRole: any): DashboardWidget[] => [
             </div>
             <span className="text-sm font-bold">Relatório mensal</span>
           </div>
-          <Badge className="bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest rounded-lg">1 semana</Badge>
+          <Badge className="bg-blue-500 text-foreground text-[10px] font-black uppercase tracking-widest rounded-lg">1 semana</Badge>
         </div>
       </div>
     ),
@@ -207,19 +207,19 @@ const createWidgets = (userRole: any): DashboardWidget[] => [
     icon: <BarChart3 className="h-5 w-5" />,
     content: (
       <div className="space-y-4">
-        <div className="flex justify-between items-center p-3 rounded-2xl bg-black/[0.02] dark:bg-white/5 border border-black/5 dark:border-white/5">
+        <div className="flex justify-between items-center p-3 rounded-2xl bg-black/[0.02] dark:bg-muted/30 border border-black/5 dark:border-border">
           <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Novos Clientes</span>
-          <Badge className="bg-emerald-500 text-white font-black rounded-lg">+12</Badge>
+          <Badge className="bg-emerald-500 text-foreground font-black rounded-lg">+12</Badge>
         </div>
-        <div className="flex justify-between items-center p-3 rounded-2xl bg-black/[0.02] dark:bg-white/5 border border-black/5 dark:border-white/5">
+        <div className="flex justify-between items-center p-3 rounded-2xl bg-black/[0.02] dark:bg-muted/30 border border-black/5 dark:border-border">
           <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Concluídos</span>
-          <Badge className="bg-blue-500 text-white font-black rounded-lg">8</Badge>
+          <Badge className="bg-blue-500 text-foreground font-black rounded-lg">8</Badge>
         </div>
-        <div className="flex justify-between items-center p-3 rounded-2xl bg-black/[0.02] dark:bg-white/5 border border-black/5 dark:border-white/5">
+        <div className="flex justify-between items-center p-3 rounded-2xl bg-black/[0.02] dark:bg-muted/30 border border-black/5 dark:border-border">
           <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Faturamento</span>
-          <Badge className="bg-purple-500 text-white font-black rounded-lg">R$ 45.2k</Badge>
+          <Badge className="bg-purple-500 text-foreground font-black rounded-lg">R$ 45.2k</Badge>
         </div>
-        <div className="flex justify-between items-center p-3 rounded-2xl bg-black/[0.02] dark:bg-white/5 border border-black/5 dark:border-white/5">
+        <div className="flex justify-between items-center p-3 rounded-2xl bg-black/[0.02] dark:bg-muted/30 border border-black/5 dark:border-border">
           <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Satisfação</span>
           <div className="flex items-center gap-1.5">
             <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
@@ -377,9 +377,9 @@ export const PersonalizedDashboard: React.FC = () => {
         {visibleWidgets.map(widget => (
           <Card 
             key={widget.id} 
-            className={cn("glass-card border-black/5 dark:border-white/5 rounded-[2rem] overflow-hidden shadow-premium hover-lift transition-all duration-300", getGridClass(widget.size))}
+            className={cn("glass-card border-black/5 dark:border-border rounded-[2rem] overflow-hidden shadow-premium hover-lift transition-all duration-300", getGridClass(widget.size))}
           >
-            <CardHeader className="pb-3 border-b border-black/5 dark:border-white/5 bg-black/[0.01] dark:bg-white/[0.01]">
+            <CardHeader className="pb-3 border-b border-black/5 dark:border-border bg-black/[0.01] dark:bg-white/[0.01]">
               <CardTitle className="flex items-center gap-3 text-lg font-black">
                 <div className="p-2 rounded-xl bg-primary/10 text-primary">
                   {widget.icon}

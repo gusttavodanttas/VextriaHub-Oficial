@@ -91,22 +91,35 @@ export const usePublicacoes = () => {
 
       const savedResults = [];
       for (const item of items) {
+        // DataJud retorna andamentos processuais — ignorar, não são publicações oficiais
+        if (item.fonte === 'datajud') continue;
+
+        // A partir daqui: somente itens do PJE Comunica (publicações oficiais)
+        const conteudo = item.conteudo || item.ultimoAndamento?.descricao || 'Expediente processual identificado via sincronização automática.';
+
+        if (!conteudo || conteudo.length < 10) continue;
+
         const dataPublicacao = item.data_disponibilizacao
           ? new Date(item.data_disponibilizacao).toISOString().split('T')[0]
           : item.ultimoAndamento?.data
           ? new Date(item.ultimoAndamento.data).toISOString().split('T')[0]
           : new Date().toISOString().split('T')[0];
 
-        const conteudo = item.conteudo || item.ultimoAndamento?.descricao || 'Expediente processual identificado via sincronização automática.';
+        // Título: tipo de comunicação + nome das partes (ou número do processo)
+        const tipoComunicacao = item.tipo_documento || item.tipo_comunicacao || '';
+        const partes = item.titulo && !item.titulo.startsWith('Publicação') ? item.titulo : '';
+        const titulo = tipoComunicacao && partes
+          ? `${tipoComunicacao} — ${partes}`
+          : tipoComunicacao || partes || `Publicação ${item.numeroProcesso}`;
 
         const newRecord = {
-          titulo: item.titulo || `Publicação ${item.numeroProcesso}`,
+          titulo,
           conteudo,
           data_publicacao: dataPublicacao,
           numero_processo: item.numeroProcesso,
           status: 'nova' as const,
           urgencia: 'media' as const,
-          tags: [item.tribunal?.toUpperCase() || 'TRIBUNAL', item.fonte || 'sync'].filter(Boolean),
+          tags: [item.tribunal?.toUpperCase() || 'TRIBUNAL', 'pje_comunica'].filter(Boolean),
           tribunal: item.tribunal || null,
           comarca: item.comarca || null,
           vara: item.vara || null,
@@ -124,6 +137,7 @@ export const usePublicacoes = () => {
           .maybeSingle();
 
         if (existing) {
+          // Atualiza se o novo conteúdo for mais completo
           if (conteudo.length > (existing.conteudo?.length || 0)) {
             await supabase
               .from('publicacoes')
@@ -134,7 +148,6 @@ export const usePublicacoes = () => {
           const saved = await createPublication(newRecord as any);
           if (saved) {
             savedResults.push(saved);
-            await autoRegisterProcesso(newRecord as any);
             await calcularEPersistirPrazo(saved.id, newRecord);
           }
         }
@@ -168,35 +181,6 @@ export const usePublicacoes = () => {
     }
   };
 
-  const autoRegisterProcesso = async (pub: Partial<Publication>) => {
-    if (!user || !pub.numero_processo) return;
-
-    try {
-      // 1. Verificar se o processo já existe no escritório
-      const { data: existing } = await supabase
-        .from('processos')
-        .select('id')
-        .eq('office_id', user.office_id)
-        .eq('numero_processo', pub.numero_processo)
-        .maybeSingle();
-
-      if (existing) return;
-      
-      // 2. Criar cadastro básico do processo
-      await supabase.from('processos').insert({
-        numero_processo: pub.numero_processo,
-        titulo: `Processo ${pub.numero_processo} (Auto)`,
-        tribunal: pub.tribunal,
-        vara: pub.vara,
-        comarca: pub.comarca,
-        office_id: user.office_id,
-        user_id: user.id,
-        status: 'ativo'
-      });
-    } catch {
-      // falha silenciosa — processo será cadastrado na próxima sync
-    }
-  };
 
   useEffect(() => {
     if (!user?.office_id) return;
@@ -340,7 +324,9 @@ export const usePublicacoes = () => {
 
       const savedResults = [];
       for (const item of items) {
-        const conteudo = item.conteudo || item.ultimoAndamento?.descricao || `Andamento processual — ${cnj}`;
+        const conteudo = item.fonte === 'datajud'
+          ? (item.ultimoAndamento?.descricao || item.conteudo?.split('\n\n')[0] || `Andamento processual — ${cnj}`)
+          : (item.conteudo || item.ultimoAndamento?.descricao || `Andamento processual — ${cnj}`);
         const dataPublicacao = item.data_disponibilizacao
           ? new Date(item.data_disponibilizacao).toISOString().split('T')[0]
           : item.ultimoAndamento?.data
@@ -372,7 +358,6 @@ export const usePublicacoes = () => {
           } as any);
           if (saved) {
             savedResults.push(saved);
-            await autoRegisterProcesso({ ...item, numero_processo: cnj });
             await calcularEPersistirPrazo(saved.id, { ...item, data_publicacao: dataPublicacao });
           }
         }

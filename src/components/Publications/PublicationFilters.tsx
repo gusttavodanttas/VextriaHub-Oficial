@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { Search, Filter, X, Calendar as CalendarIcon, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -90,7 +90,7 @@ export const PublicationFilters = ({
       </div>
 
       {/* Main Filter Row */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 glass-morphism p-3 rounded-[2rem] border-white/5 bg-card/10 backdrop-blur-sm">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 glass-morphism p-3 rounded-[2rem] border-border bg-card/10 backdrop-blur-sm">
         <div className="relative group flex-1 md:min-w-[300px]">
           <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-primary/40 h-5 w-5 transition-colors group-focus-within:text-primary" />
           <Input 
@@ -106,7 +106,7 @@ export const PublicationFilters = ({
             <SelectTrigger className="w-[140px] h-12 bg-background/50 border-input rounded-2xl font-bold text-xs uppercase tracking-wider">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
-            <SelectContent className="bg-background/80 backdrop-blur-xl border-border rounded-xl">
+            <SelectContent className="bg-background border-border rounded-xl">
               <SelectItem value="all">Todos Status</SelectItem>
               <SelectItem value="nova">Novas</SelectItem>
               <SelectItem value="pendente">Pendentes</SelectItem>
@@ -118,7 +118,7 @@ export const PublicationFilters = ({
             <SelectTrigger className="w-[140px] h-12 bg-background/50 border-input rounded-2xl font-bold text-xs uppercase tracking-wider">
               <SelectValue placeholder="Urgência" />
             </SelectTrigger>
-            <SelectContent className="bg-background/80 backdrop-blur-xl border-border rounded-xl">
+            <SelectContent className="bg-background border-border rounded-xl">
               <SelectItem value="all">Todas Urgências</SelectItem>
               <SelectItem value="alta">Alta</SelectItem>
               <SelectItem value="media">Média</SelectItem>

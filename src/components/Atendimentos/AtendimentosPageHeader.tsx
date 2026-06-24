@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Plus, Trash2, ArrowLeft, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PermissionGuard } from '@/components/Auth/PermissionGuard';
@@ -57,7 +57,7 @@ export const AtendimentosPageHeader: React.FC<AtendimentosPageHeaderProps> = ({
           </p>
         </div>
         
-        <div className="flex items-center gap-3 glass-morphism p-2 rounded-2xl border border-black/5 dark:border-white/10 bg-black/[0.02] dark:bg-white/5 shadow-premium">
+        <div className="flex items-center gap-3 glass-morphism p-2 rounded-2xl border border-black/5 dark:border-border bg-black/[0.02] dark:bg-muted/30 shadow-premium">
           <PermissionGuard permission="canDeleteAtendimentos">
             {!isNoneSelected && (
               <Button

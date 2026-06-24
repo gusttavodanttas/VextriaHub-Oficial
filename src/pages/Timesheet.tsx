@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -278,7 +278,7 @@ export default function Timesheet() {
       </div>
 
         {/* Timer Ativo com Design Premium */}
-        <Card className="border-white/5 bg-card/40 backdrop-blur-xl overflow-hidden shadow-premium rounded-3xl relative">
+        <Card className="border-border bg-card/40 overflow-hidden shadow-premium rounded-3xl relative">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent pointer-events-none" />
           <CardHeader className="pb-4 relative">
             <CardTitle className="flex items-center gap-3 text-xl font-bold uppercase tracking-widest text-muted-foreground">
@@ -299,7 +299,7 @@ export default function Timesheet() {
                 </div>
                 
                 <div className="mt-10 flex flex-col items-center gap-6 w-full max-w-xl">
-                  <div className="w-full p-6 bg-background/50 backdrop-blur-md rounded-2xl border border-white/5 shadow-inner">
+                  <div className="w-full p-6 bg-background/50 backdrop-blur-md rounded-2xl border border-border shadow-inner">
                     <p className="text-sm font-bold uppercase tracking-widest text-primary mb-2">Atividade Atual</p>
                     <p className="text-xl font-bold text-foreground">
                       {activeTimer?.tarefa_descricao || formData.descricao}
@@ -319,7 +319,7 @@ export default function Timesheet() {
               </div>
             ) : (
               <div className="text-center py-12">
-                <div className="p-8 bg-muted/10 rounded-full w-28 h-28 mx-auto mb-6 flex items-center justify-center border border-dashed border-white/10">
+                <div className="p-8 bg-muted/10 rounded-full w-28 h-28 mx-auto mb-6 flex items-center justify-center border border-dashed border-border">
                   <Timer className="h-12 w-12 text-muted-foreground/30" />
                 </div>
                 <h3 className="text-2xl font-bold text-muted-foreground mb-4">Pronto para começar?</h3>
@@ -337,7 +337,7 @@ export default function Timesheet() {
         </Card>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <Card className="hover-lift border-white/5 bg-card/40 shadow-premium rounded-3xl">
+          <Card className="hover-lift border-border bg-card/40 shadow-premium rounded-3xl">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Esta Semana</CardTitle>
               <div className="p-2 bg-primary/10 rounded-lg">
@@ -353,7 +353,7 @@ export default function Timesheet() {
             </CardContent>
           </Card>
 
-          <Card className="hover-lift border-white/5 bg-card/40">
+          <Card className="hover-lift border-border bg-card/40">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Média Diária</CardTitle>
               <div className="p-2 bg-primary/10 rounded-lg">

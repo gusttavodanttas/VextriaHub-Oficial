@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { UserCheck, Phone, Mail, Building2, Calendar, Filter, Search, Plus, Target, TrendingUp, BarChart3, Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -165,7 +165,7 @@ export default function Crm() {
                 Pipeline & Prospecção
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-80 rounded-2xl border-black/5 dark:border-white/5 bg-background/80 backdrop-blur-2xl p-2">
+            <DropdownMenuContent className="w-80 rounded-2xl border-black/5 dark:border-border bg-background p-2">
               <DropdownMenuItem className="rounded-xl p-4 cursor-pointer hover:bg-primary/10 mb-1 transition-all" onSelect={() => handleMenuClick("funil-vendas")}>
                 <Target className="h-5 w-5 text-primary mr-4" />
                 <div>
@@ -191,7 +191,7 @@ export default function Crm() {
                 Análises Dinâmicas
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-80 rounded-2xl border-black/5 dark:border-white/5 bg-background/80 backdrop-blur-2xl p-2">
+            <DropdownMenuContent className="w-80 rounded-2xl border-black/5 dark:border-border bg-background p-2">
               <DropdownMenuItem className="rounded-xl p-4 cursor-pointer hover:bg-primary/10 mb-1 transition-all" onSelect={() => handleMenuClick("relatorios")}>
                 <BarChart3 className="h-5 w-5 text-primary mr-4" />
                 <div>
@@ -211,7 +211,7 @@ export default function Crm() {
         </div>
 
         <div className="glass-card p-2 rounded-2xl flex items-center gap-1 ml-auto">
-          <Button variant="ghost" className="rounded-xl font-bold px-6 h-11 hover:bg-black/5 dark:hover:bg-white/5 opacity-60 hover:opacity-100 transition-all" onClick={() => window.location.href = '/configuracoes'}>
+          <Button variant="ghost" className="rounded-xl font-bold px-6 h-11 hover:bg-black/5 dark:hover:bg-muted/30 opacity-60 hover:opacity-100 transition-all" onClick={() => window.location.href = '/configuracoes'}>
             Parâmetros CRM
           </Button>
         </div>
@@ -219,7 +219,7 @@ export default function Crm() {
 
       {/* Stats Premium Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="glass-card p-6 rounded-[2rem] shadow-premium border-black/5 dark:border-white/10 hover-lift group cursor-pointer" onClick={() => handleCardClick("leads")}>
+        <div className="glass-card p-6 rounded-[2rem] shadow-premium border-black/5 dark:border-border hover-lift group cursor-pointer" onClick={() => handleCardClick("leads")}>
           <div className="flex items-center justify-between mb-4">
             <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Base Total</p>
             <div className="p-2.5 bg-primary/10 rounded-xl">
@@ -230,7 +230,7 @@ export default function Crm() {
           <p className="text-xs font-bold text-muted-foreground/40 mt-2 uppercase tracking-tighter">Leads em observação</p>
         </div>
         
-        <div className="glass-card p-6 rounded-[2rem] shadow-premium border-black/5 dark:border-white/10 hover-lift group cursor-pointer" onClick={() => handleCardClick("leads-quentes")}>
+        <div className="glass-card p-6 rounded-[2rem] shadow-premium border-black/5 dark:border-border hover-lift group cursor-pointer" onClick={() => handleCardClick("leads-quentes")}>
           <div className="flex items-center justify-between mb-4">
             <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Leads Quentes</p>
             <div className="p-2.5 bg-orange-500/10 rounded-xl">
@@ -241,7 +241,7 @@ export default function Crm() {
           <p className="text-xs font-bold text-muted-foreground/40 mt-2 uppercase tracking-tighter">Potencial de contrato imediato</p>
         </div>
 
-        <div className="glass-card p-6 rounded-[2rem] shadow-premium border-black/5 dark:border-white/10 hover-lift group cursor-pointer" onClick={() => handleCardClick("conversoes")}>
+        <div className="glass-card p-6 rounded-[2rem] shadow-premium border-black/5 dark:border-border hover-lift group cursor-pointer" onClick={() => handleCardClick("conversoes")}>
           <div className="flex items-center justify-between mb-4">
             <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Sucesso Conversão</p>
             <div className="p-2.5 bg-emerald-500/10 rounded-xl">
@@ -252,7 +252,7 @@ export default function Crm() {
           <p className="text-xs font-bold text-muted-foreground/40 mt-2 uppercase tracking-tighter">Taxa média mensal</p>
         </div>
  
-        <div className="glass-card p-6 rounded-[2rem] shadow-premium border-black/5 dark:border-white/10 hover-lift group cursor-pointer" onClick={() => handleCardClick("receita-potencial")}>
+        <div className="glass-card p-6 rounded-[2rem] shadow-premium border-black/5 dark:border-border hover-lift group cursor-pointer" onClick={() => handleCardClick("receita-potencial")}>
           <div className="flex items-center justify-between mb-4">
             <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Valor Pipeline</p>
             <div className="p-2.5 bg-primary/10 rounded-xl">
@@ -284,17 +284,17 @@ export default function Crm() {
                 placeholder="Filtrar base..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-12 h-12 bg-black/[0.03] dark:bg-white/[0.03] border-black/5 dark:border-white/5 rounded-xl font-bold"
+                className="pl-12 h-12 bg-black/[0.03] dark:bg-white/[0.03] border-black/5 dark:border-border rounded-xl font-bold"
               />
             </div>
-            <Button variant="ghost" className="h-12 w-12 rounded-xl border border-black/5 dark:border-white/5 hover:bg-black/5 dark:hover:bg-white/5 text-muted-foreground/40 hover:text-primary">
+            <Button variant="ghost" className="h-12 w-12 rounded-xl border border-black/5 dark:border-border hover:bg-black/5 dark:hover:bg-muted/30 text-muted-foreground/40 hover:text-primary">
               <Filter className="h-5 w-5" />
             </Button>
           </div>
         </div>
 
         <TabsContent value="leads">
-            <Card className="glass-card border-black/5 dark:border-white/5 overflow-hidden rounded-[2rem]">
+            <Card className="glass-card border-black/5 dark:border-border overflow-hidden rounded-[2rem]">
               <CardHeader className="p-8 pb-4">
                 <CardTitle className="text-xl md:text-2xl font-black">Leads Ativos ({leads.length})</CardTitle>
                 <CardDescription className="text-sm font-medium">Gerencie seus leads e oportunidades de negócio</CardDescription>
@@ -307,7 +307,7 @@ export default function Crm() {
                 ) : filteredLeads.length > 0 ? (
                   <div className="space-y-4">
                     {filteredLeads.map((lead) => (
-                      <div key={lead.id} className="flex flex-col lg:flex-row lg:items-center justify-between p-5 rounded-[1.5rem] border border-black/5 dark:border-white/5 bg-black/[0.02] dark:bg-white/[0.01] hover:bg-primary/[0.03] transition-all gap-4 group">
+                      <div key={lead.id} className="flex flex-col lg:flex-row lg:items-center justify-between p-5 rounded-[1.5rem] border border-black/5 dark:border-border bg-black/[0.02] dark:bg-white/[0.01] hover:bg-primary/[0.03] transition-all gap-4 group">
                         <div className="flex items-center space-x-4">
                           <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center border-2 shadow-inner transition-transform group-hover:scale-105", getStatusColor(lead.status))}>
                             <UserCheck className="h-7 w-7" />
@@ -374,7 +374,7 @@ export default function Crm() {
           </TabsContent>
 
           <TabsContent value="clientes">
-            <Card className="glass-card border-black/5 dark:border-white/5 overflow-hidden rounded-[2rem]">
+            <Card className="glass-card border-black/5 dark:border-border overflow-hidden rounded-[2rem]">
               <CardHeader className="p-8 pb-4">
                 <CardTitle className="text-xl md:text-2xl font-black">Clientes Ativos ({convertedClients.length})</CardTitle>
                 <CardDescription className="text-sm font-medium">Clientes que já contrataram seus serviços</CardDescription>
@@ -387,7 +387,7 @@ export default function Crm() {
                 ) : filteredClients.length > 0 ? (
                   <div className="space-y-4">
                     {filteredClients.map((client) => (
-                      <div key={client.id} className="flex flex-col lg:flex-row lg:items-center justify-between p-5 rounded-[1.5rem] border border-black/5 dark:border-white/5 bg-black/[0.02] dark:bg-white/[0.01] hover:bg-emerald-500/[0.03] transition-all gap-4 group">
+                      <div key={client.id} className="flex flex-col lg:flex-row lg:items-center justify-between p-5 rounded-[1.5rem] border border-black/5 dark:border-border bg-black/[0.02] dark:bg-white/[0.01] hover:bg-emerald-500/[0.03] transition-all gap-4 group">
                         <div className="flex items-center space-x-4">
                           <div className="w-14 h-14 rounded-2xl flex items-center justify-center border-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 shadow-inner transition-transform group-hover:scale-105">
                             <UserCheck className="h-7 w-7" />

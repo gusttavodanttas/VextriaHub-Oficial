@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -145,7 +145,7 @@ export const HealthCheck: React.FC = () => {
               </div>
             </div>
             <Badge 
-              className={`${getStatusColor(service.status)} text-white`}
+              className={`${getStatusColor(service.status)} text-foreground`}
               variant="secondary"
             >
               {getStatusText(service.status)}

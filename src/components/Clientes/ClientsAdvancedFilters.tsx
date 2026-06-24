@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,7 +79,7 @@ export const ClientsAdvancedFilters = ({ onFiltersChange, onClearFilters }: Clie
             "relative h-12 px-6 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all duration-300 shadow-premium",
             hasActiveFilters 
               ? "bg-primary/5 border-primary/20 text-primary shadow-lg shadow-primary/5" 
-              : "glass-card border-black/5 dark:border-white/10 text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5"
+              : "glass-card border-black/5 dark:border-border text-muted-foreground hover:bg-black/5 dark:hover:bg-muted/30"
           )}
         >
           <Filter className={cn("h-4 w-4 mr-2", hasActiveFilters ? "text-primary" : "text-muted-foreground/40")} />
@@ -89,7 +89,7 @@ export const ClientsAdvancedFilters = ({ onFiltersChange, onClearFilters }: Clie
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-96 p-6 rounded-[2rem] bg-white/95 dark:bg-card/95 backdrop-blur-2xl border-black/5 dark:border-white/10 shadow-premium" align="end">
+      <PopoverContent className="w-96 p-6 rounded-[2rem] bg-white/95 dark:bg-card/95 border-black/5 dark:border-border shadow-premium" align="end">
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-black uppercase tracking-widest text-primary">Filtros Avançados</h4>
@@ -112,10 +112,10 @@ export const ClientsAdvancedFilters = ({ onFiltersChange, onClearFilters }: Clie
                 value={filters.tipoPessoa}
                 onValueChange={(value) => handleFilterChange("tipoPessoa", value)}
               >
-                <SelectTrigger className="h-11 rounded-xl bg-black/[0.02] dark:bg-white/[0.05] border-black/5 dark:border-white/10 font-bold text-xs shadow-inner">
+                <SelectTrigger className="h-11 rounded-xl bg-black/[0.02] dark:bg-white/[0.05] border-black/5 dark:border-border font-bold text-xs shadow-inner">
                   <SelectValue placeholder="Todos os tipos" />
                 </SelectTrigger>
-                <SelectContent className="rounded-xl border-black/10 dark:border-white/10 shadow-2xl">
+                <SelectContent className="rounded-xl border-black/10 dark:border-border shadow-2xl">
                   <SelectItem value="" className="font-bold text-xs">Todos os tipos</SelectItem>
                   <SelectItem value="fisica" className="font-bold text-xs">Pessoa Física</SelectItem>
                   <SelectItem value="juridica" className="font-bold text-xs">Pessoa Jurídica</SelectItem>
@@ -129,10 +129,10 @@ export const ClientsAdvancedFilters = ({ onFiltersChange, onClearFilters }: Clie
                 value={filters.origem}
                 onValueChange={(value) => handleFilterChange("origem", value)}
               >
-                <SelectTrigger className="h-11 rounded-xl bg-black/[0.02] dark:bg-white/[0.05] border-black/5 dark:border-white/10 font-bold text-xs shadow-inner">
+                <SelectTrigger className="h-11 rounded-xl bg-black/[0.02] dark:bg-white/[0.05] border-black/5 dark:border-border font-bold text-xs shadow-inner">
                   <SelectValue placeholder="Todas as origens" />
                 </SelectTrigger>
-                <SelectContent className="rounded-xl border-black/10 dark:border-white/10 shadow-2xl">
+                <SelectContent className="rounded-xl border-black/10 dark:border-border shadow-2xl">
                   <SelectItem value="" className="font-bold text-xs">Todas as origens</SelectItem>
                   {origensCliente.map((origem) => (
                     <SelectItem key={origem} value={origem} className="font-bold text-xs">
@@ -149,10 +149,10 @@ export const ClientsAdvancedFilters = ({ onFiltersChange, onClearFilters }: Clie
                 value={filters.status}
                 onValueChange={(value) => handleFilterChange("status", value)}
               >
-                <SelectTrigger className="h-11 rounded-xl bg-black/[0.02] dark:bg-white/[0.05] border-black/5 dark:border-white/10 font-bold text-xs shadow-inner">
+                <SelectTrigger className="h-11 rounded-xl bg-black/[0.02] dark:bg-white/[0.05] border-black/5 dark:border-border font-bold text-xs shadow-inner">
                   <SelectValue placeholder="Todos os status" />
                 </SelectTrigger>
-                <SelectContent className="rounded-xl border-black/10 dark:border-white/10 shadow-2xl">
+                <SelectContent className="rounded-xl border-black/10 dark:border-border shadow-2xl">
                   <SelectItem value="" className="font-bold text-xs">Todos os status</SelectItem>
                   {statusCliente.map((status) => (
                     <SelectItem key={status} value={status} className="font-bold text-xs">
@@ -171,7 +171,7 @@ export const ClientsAdvancedFilters = ({ onFiltersChange, onClearFilters }: Clie
                     <Button
                       variant="outline"
                       className={cn(
-                        "flex-1 h-11 rounded-xl bg-black/[0.02] dark:bg-white/[0.05] border-black/5 dark:border-white/10 justify-start text-left font-bold text-xs shadow-inner",
+                        "flex-1 h-11 rounded-xl bg-black/[0.02] dark:bg-white/[0.05] border-black/5 dark:border-border justify-start text-left font-bold text-xs shadow-inner",
                         !filters.dataInicioFrom && "text-muted-foreground/40"
                       )}
                     >
@@ -179,7 +179,7 @@ export const ClientsAdvancedFilters = ({ onFiltersChange, onClearFilters }: Clie
                       {filters.dataInicioFrom ? format(filters.dataInicioFrom, "dd/MM/yy") : "Início"}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0 rounded-2xl border-black/10 dark:border-white/10 shadow-2xl">
+                  <PopoverContent className="w-auto p-0 rounded-2xl border-black/10 dark:border-border shadow-2xl">
                     <Calendar
                       mode="single"
                       selected={filters.dataInicioFrom}
@@ -194,7 +194,7 @@ export const ClientsAdvancedFilters = ({ onFiltersChange, onClearFilters }: Clie
                     <Button
                       variant="outline"
                       className={cn(
-                        "flex-1 h-11 rounded-xl bg-black/[0.02] dark:bg-white/[0.05] border-black/5 dark:border-white/10 justify-start text-left font-bold text-xs shadow-inner",
+                        "flex-1 h-11 rounded-xl bg-black/[0.02] dark:bg-white/[0.05] border-black/5 dark:border-border justify-start text-left font-bold text-xs shadow-inner",
                         !filters.dataInicioTo && "text-muted-foreground/40"
                       )}
                     >
@@ -202,7 +202,7 @@ export const ClientsAdvancedFilters = ({ onFiltersChange, onClearFilters }: Clie
                       {filters.dataInicioTo ? format(filters.dataInicioTo, "dd/MM/yy") : "Fim"}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0 rounded-2xl border-black/10 dark:border-white/10 shadow-2xl">
+                  <PopoverContent className="w-auto p-0 rounded-2xl border-black/10 dark:border-border shadow-2xl">
                     <Calendar
                       mode="single"
                       selected={filters.dataInicioTo}

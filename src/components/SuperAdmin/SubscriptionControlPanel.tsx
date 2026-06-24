@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -99,7 +99,7 @@ export const SubscriptionControlPanel: React.FC = () => {
     <div className="space-y-6">
       {/* Cards de Métricas com visual limpo */}
       <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
-        <Card className="border-black/5 dark:border-white/5 bg-card/40 backdrop-blur-xl rounded-3xl shadow-premium hover-lift">
+        <Card className="border-black/5 dark:border-border bg-card/40 rounded-3xl shadow-premium hover-lift">
           <CardContent className="p-4">
             <div className="flex items-center justify-between pb-1">
               <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Total Escritórios</p>
@@ -109,7 +109,7 @@ export const SubscriptionControlPanel: React.FC = () => {
           </CardContent>
         </Card>
 
-        <Card className="border-black/5 dark:border-white/5 bg-card/40 backdrop-blur-xl rounded-3xl shadow-premium hover-lift">
+        <Card className="border-black/5 dark:border-border bg-card/40 rounded-3xl shadow-premium hover-lift">
           <CardContent className="p-4">
             <div className="flex items-center justify-between pb-1">
               <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Ativos</p>
@@ -119,7 +119,7 @@ export const SubscriptionControlPanel: React.FC = () => {
           </CardContent>
         </Card>
 
-        <Card className="border-black/5 dark:border-white/5 bg-card/40 backdrop-blur-xl rounded-3xl shadow-premium hover-lift">
+        <Card className="border-black/5 dark:border-border bg-card/40 rounded-3xl shadow-premium hover-lift">
           <CardContent className="p-4">
             <div className="flex items-center justify-between pb-1">
               <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Vitalício ⭐</p>
@@ -129,7 +129,7 @@ export const SubscriptionControlPanel: React.FC = () => {
           </CardContent>
         </Card>
 
-        <Card className="border-black/5 dark:border-white/5 bg-card/40 backdrop-blur-xl rounded-3xl shadow-premium hover-lift">
+        <Card className="border-black/5 dark:border-border bg-card/40 rounded-3xl shadow-premium hover-lift">
           <CardContent className="p-4">
             <div className="flex items-center justify-between pb-1">
               <p className="text-[10px] font-black text-purple-500 uppercase tracking-widest">Trial</p>
@@ -139,7 +139,7 @@ export const SubscriptionControlPanel: React.FC = () => {
           </CardContent>
         </Card>
 
-        <Card className="border-black/5 dark:border-white/5 bg-card/40 backdrop-blur-xl rounded-3xl shadow-premium hover-lift">
+        <Card className="border-black/5 dark:border-border bg-card/40 rounded-3xl shadow-premium hover-lift">
           <CardContent className="p-4">
             <div className="flex items-center justify-between pb-1">
               <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest">Vencidos</p>
@@ -149,7 +149,7 @@ export const SubscriptionControlPanel: React.FC = () => {
           </CardContent>
         </Card>
 
-        <Card className="border-black/5 dark:border-white/5 bg-card/40 backdrop-blur-xl rounded-3xl shadow-premium hover-lift">
+        <Card className="border-black/5 dark:border-border bg-card/40 rounded-3xl shadow-premium hover-lift">
           <CardContent className="p-4">
             <div className="flex items-center justify-between pb-1">
               <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest">MRR Estimado</p>
@@ -163,8 +163,8 @@ export const SubscriptionControlPanel: React.FC = () => {
       </div>
 
       {/* Tabela de Controle */}
-      <Card className="border-black/5 dark:border-white/5 overflow-hidden bg-card/20 backdrop-blur-xl rounded-[2rem] shadow-premium">
-        <CardHeader className="border-b border-black/5 dark:border-white/5 pb-4">
+      <Card className="border-black/5 dark:border-border overflow-hidden bg-card/20 rounded-[2rem] shadow-premium">
+        <CardHeader className="border-b border-black/5 dark:border-border pb-4">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <CardTitle className="text-lg font-black flex items-center gap-2">
@@ -186,11 +186,11 @@ export const SubscriptionControlPanel: React.FC = () => {
                 placeholder="Buscar escritório ou email de cobrança..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-9 bg-black/[0.02] dark:bg-white/5 border-black/5 dark:border-white/10 rounded-xl"
+                className="pl-10 h-9 bg-black/[0.02] dark:bg-muted/30 border-black/5 dark:border-border rounded-xl"
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-[200px] h-9 bg-black/[0.02] dark:bg-white/5 border-black/5 dark:border-white/10 rounded-xl">
+              <SelectTrigger className="w-full sm:w-[200px] h-9 bg-black/[0.02] dark:bg-muted/30 border-black/5 dark:border-border rounded-xl">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -207,7 +207,7 @@ export const SubscriptionControlPanel: React.FC = () => {
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="bg-black/[0.02] dark:bg-white/5 hover:bg-black/[0.02] dark:hover:bg-white/5 border-none">
+                <TableRow className="bg-black/[0.02] dark:bg-muted/30 hover:bg-black/[0.02] dark:hover:bg-muted/30 border-none">
                   <TableHead className="text-[10px] font-bold uppercase tracking-widest py-3 pl-6">Escritório / Admin</TableHead>
                   <TableHead className="text-[10px] font-bold uppercase tracking-widest py-3 text-center">Plano</TableHead>
                   <TableHead className="text-[10px] font-bold uppercase tracking-widest py-3 text-center">Valor</TableHead>
@@ -219,7 +219,7 @@ export const SubscriptionControlPanel: React.FC = () => {
                 {loading && admins.length === 0 ? (
                   <TableRow><TableCell colSpan={5} className="text-center py-24 text-muted-foreground italic text-xs">Aguardando dados financeiros...</TableCell></TableRow>
                 ) : filteredAdmins.map((admin) => (
-                  <TableRow key={admin.id} className="hover:bg-black/[0.02] dark:hover:bg-white/5 border-black/5 dark:border-white/5 transition-colors">
+                  <TableRow key={admin.id} className="hover:bg-black/[0.02] dark:hover:bg-muted/30 border-black/5 dark:border-border transition-colors">
                     <TableCell className="py-4 pl-6">
                       <div className="font-black text-sm tracking-tight">{admin.office_name}</div>
                       <div className="text-[10px] text-muted-foreground font-medium tracking-tight">{admin.office_email || admin.email}</div>

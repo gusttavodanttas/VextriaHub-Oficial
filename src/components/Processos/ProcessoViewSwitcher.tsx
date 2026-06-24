@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { LayoutGrid, List, Settings2, Check } from 'lucide-react';
 import { 
   DropdownMenu, 
@@ -25,15 +25,15 @@ export const ProcessoViewSwitcher: React.FC<ProcessoViewSwitcherProps> = ({
         <Button 
           variant="outline" 
           size="icon" 
-          className="h-10 w-10 rounded-xl glass-morphism border-white/10 hover:bg-white/5"
+          className="h-10 w-10 rounded-xl glass-morphism border-border hover:bg-muted/30"
           title="Configurações de Visualização"
         >
           <Settings2 className="h-5 w-5 text-primary" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56 glass-morphism border-white/10">
+      <DropdownMenuContent align="end" className="w-56 glass-morphism border-border">
         <DropdownMenuLabel>Visualização</DropdownMenuLabel>
-        <DropdownMenuSeparator className="bg-white/5" />
+        <DropdownMenuSeparator className="bg-muted/30" />
         
         <DropdownMenuItem 
           onClick={() => onViewChange('table')}

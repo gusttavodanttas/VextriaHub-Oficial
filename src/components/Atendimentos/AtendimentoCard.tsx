@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { cn } from "@/lib/utils";
 import { UserCheck, Calendar, Clock, User, Edit } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,7 +29,7 @@ export const AtendimentoCard: React.FC<AtendimentoCardProps> = ({
 }) => {
   return (
     <Card className={cn(
-      "group hover-lift rounded-[2rem] border border-black/5 dark:border-white/5 bg-card/40 backdrop-blur-xl shadow-premium transition-all duration-300",
+      "group hover-lift rounded-[2rem] border border-black/5 dark:border-border bg-card/40 shadow-premium transition-all duration-300",
       isSelected ? "ring-2 ring-primary bg-primary/[0.02]" : ""
     )}>
       <CardHeader className="p-6 pb-2">
@@ -61,11 +61,11 @@ export const AtendimentoCard: React.FC<AtendimentoCardProps> = ({
       <CardContent className="p-6 pt-4 space-y-6">
         {/* Informações básicas */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="flex items-center gap-3 bg-black/[0.03] dark:bg-white/5 p-3 rounded-xl border border-black/5 dark:border-white/10">
+          <div className="flex items-center gap-3 bg-black/[0.03] dark:bg-muted/30 p-3 rounded-xl border border-black/5 dark:border-border">
             <Calendar className="h-4 w-4 text-primary" />
             <span className="text-[11px] font-black uppercase tracking-widest opacity-70">{atendimento.dataAtendimento}</span>
           </div>
-          <div className="flex items-center gap-3 bg-black/[0.03] dark:bg-white/5 p-3 rounded-xl border border-black/5 dark:border-white/10">
+          <div className="flex items-center gap-3 bg-black/[0.03] dark:bg-muted/30 p-3 rounded-xl border border-black/5 dark:border-border">
             <Clock className="h-4 w-4 text-primary" />
             <span className="text-[11px] font-black uppercase tracking-widest opacity-70">{atendimento.horaAtendimento} ({atendimento.duracao})</span>
           </div>
@@ -73,19 +73,19 @@ export const AtendimentoCard: React.FC<AtendimentoCardProps> = ({
 
         {/* Observações */}
         {atendimento.observacoes && (
-          <div className="text-xs font-medium text-muted-foreground bg-black/[0.02] dark:bg-white/[0.02] p-4 rounded-2xl border border-dashed border-black/5 dark:border-white/10 italic">
+          <div className="text-xs font-medium text-muted-foreground bg-black/[0.02] dark:bg-white/[0.02] p-4 rounded-2xl border border-dashed border-black/5 dark:border-border italic">
             <p className="line-clamp-2">"{atendimento.observacoes}"</p>
           </div>
         )}
 
         {/* Ações */}
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-black/5 dark:border-white/5">
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-black/5 dark:border-border">
           <PermissionGuard permission="canEditAtendimentos">
             <Button
               size="sm"
               variant="outline"
               onClick={() => onEditAtendimento(atendimento.id)}
-              className="rounded-xl h-10 px-4 font-black uppercase text-[10px] tracking-widest border-black/10 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/5"
+              className="rounded-xl h-10 px-4 font-black uppercase text-[10px] tracking-widest border-black/10 dark:border-border hover:bg-black/5 dark:hover:bg-muted/30"
             >
               <Edit className="h-3.5 w-3.5 mr-2" />
               Editar

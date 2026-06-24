@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Client } from '@/types/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -32,10 +32,10 @@ export const ClientsTable: React.FC<ClientsTableProps> = ({
   onDeleteClient
 }) => {
   return (
-    <div className="rounded-[2.5rem] border border-black/5 dark:border-white/10 bg-white dark:bg-card/40 backdrop-blur-md overflow-hidden shadow-premium">
+    <div className="rounded-[2.5rem] border border-black/5 dark:border-border bg-white dark:bg-card/40 backdrop-blur-md overflow-hidden shadow-premium">
       <Table>
         <TableHeader>
-          <TableRow className="border-b border-black/5 dark:border-white/5 hover:bg-transparent bg-black/5 dark:bg-white/5">
+          <TableRow className="border-b border-black/5 dark:border-border hover:bg-transparent bg-black/5 dark:bg-muted/30">
             <TableHead className="w-[60px] pl-6"></TableHead>
             <TableHead className="font-black uppercase tracking-widest text-[10px] text-muted-foreground/60 py-5">Nome</TableHead>
             <TableHead className="font-black uppercase tracking-widest text-[10px] text-muted-foreground/60 py-5">Contato</TableHead>
@@ -52,7 +52,7 @@ export const ClientsTable: React.FC<ClientsTableProps> = ({
               <TableRow 
                 key={client.id} 
                 className={cn(
-                   "border-b border-black/5 dark:border-white/5 transition-all duration-300 cursor-pointer group",
+                   "border-b border-black/5 dark:border-border transition-all duration-300 cursor-pointer group",
                    isSelected ? 'bg-primary/[0.08] dark:bg-primary/20' : 'hover:bg-primary/[0.02] dark:hover:bg-white/[0.02]'
                 )}
                 onClick={(e) => {
@@ -66,7 +66,7 @@ export const ClientsTable: React.FC<ClientsTableProps> = ({
                   <Checkbox 
                     checked={isSelected}
                     onCheckedChange={() => onToggleSelect(client.id)}
-                    className="rounded-md border-black/10 dark:border-white/20 data-[state=checked]:bg-primary data-[state=checked]:border-primary transition-all"
+                    className="rounded-md border-black/10 dark:border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary transition-all"
                   />
                 </TableCell>
                 
@@ -96,7 +96,7 @@ export const ClientsTable: React.FC<ClientsTableProps> = ({
                 </TableCell>
                 
                 <TableCell>
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/5 dark:bg-white/5 w-fit border border-black/5 dark:border-white/5">
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/5 dark:bg-muted/30 w-fit border border-black/5 dark:border-border">
                     <Scale className="h-3 w-3 text-primary/60" />
                     <span className="text-xs font-black uppercase tracking-tighter text-foreground/60">{client.cases || 0} processos</span>
                   </div>
@@ -109,7 +109,7 @@ export const ClientsTable: React.FC<ClientsTableProps> = ({
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-[220px] p-2 rounded-2xl bg-popover/95 backdrop-blur-xl border-black/5 dark:border-white/10 shadow-2xl">
+                    <DropdownMenuContent align="end" className="w-[220px] p-2 rounded-2xl bg-popover/95 border-black/5 dark:border-border shadow-2xl">
                       <DropdownMenuItem 
                         onClick={(e) => { e.stopPropagation(); onEditClient(client.id); }}
                         className="rounded-xl p-3 font-bold text-sm cursor-pointer hover:bg-primary/10 hover:text-primary transition-colors"
@@ -136,7 +136,7 @@ export const ClientsTable: React.FC<ClientsTableProps> = ({
                       </DropdownMenuItem>
                       {onDeleteClient && (
                         <>
-                          <DropdownMenuSeparator className="my-1 bg-black/5 dark:bg-white/5" />
+                          <DropdownMenuSeparator className="my-1 bg-black/5 dark:bg-muted/30" />
                           <DropdownMenuItem 
                             onClick={(e) => { e.stopPropagation(); onDeleteClient(client.id); }}
                             className="rounded-xl p-3 font-bold text-sm cursor-pointer text-rose-500 hover:bg-rose-500/10 transition-colors"

@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { 
   Home, 
   FileText, 
@@ -189,7 +189,7 @@ export function AppSidebar() {
     }`;
 
   return (
-    <Sidebar className="border-r border-black/5 dark:border-white/5 bg-sidebar-background/40 backdrop-blur-2xl" collapsible="icon">
+    <Sidebar className="border-r border-black/5 dark:border-border bg-sidebar-background/40" collapsible="icon">
       <div className="flex h-full flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-3 md:p-4 border-b border-black/5 dark:border-sidebar-border">
@@ -254,7 +254,7 @@ export function AppSidebar() {
                             </SidebarMenuButton>
                           </CollapsibleTrigger>
                           <CollapsibleContent>
-                            <div className="mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-l border-black/10 dark:border-white/10 px-2.5 py-0.5 mt-1">
+                            <div className="mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-l border-black/10 dark:border-border px-2.5 py-0.5 mt-1">
                               {item.items.map((subItem) => (
                                 <NavLink
                                   key={subItem.title}
@@ -292,7 +292,7 @@ export function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
 
-          <Separator className="my-3 md:my-4 bg-black/5 dark:bg-white/5" />
+          <Separator className="my-3 md:my-4 bg-black/5 dark:bg-muted/30" />
 
           {/* Menu de Administração (Oculto para Super Admin porque já está no menu principal) */}
           {(canViewAdmin || canManageOffice) && !isMainSuperAdmin && !isSuperAdmin && (
@@ -327,7 +327,7 @@ export function AppSidebar() {
             </SidebarGroup>
           )}
 
-          {(canViewAdmin || canManageOffice) && !isMainSuperAdmin && !isSuperAdmin && <Separator className="my-3 md:my-4 bg-black/5 dark:bg-white/5" />}
+          {(canViewAdmin || canManageOffice) && !isMainSuperAdmin && !isSuperAdmin && <Separator className="my-3 md:my-4 bg-black/5 dark:bg-muted/30" />}
 
           {/* Configurações - oculto para Super Admin */}
           {!isMainSuperAdmin && !isSuperAdmin && (

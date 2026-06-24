@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -150,7 +150,7 @@ const Admin = () => {
             <TabsContent value="requests" className="space-y-6 entry-animate slide-in-from-bottom-4 duration-500 mt-0">
             {/* Stats Rápido */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="glass-card p-6 rounded-[2rem] shadow-premium border border-black/5 dark:border-white/10 hover-lift group">
+              <div className="glass-card p-6 rounded-[2rem] shadow-premium border border-black/5 dark:border-border hover-lift group">
                 <div className="flex items-center justify-between mb-4">
                   <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Pendentes</p>
                   <AlertCircle className="h-5 w-5 text-amber-500" />
@@ -158,7 +158,7 @@ const Admin = () => {
                 <p className="text-4xl font-black text-amber-500">{exclusoesPendentes.length}</p>
               </div>
 
-              <div className="glass-card p-6 rounded-[2rem] shadow-premium border border-black/5 dark:border-white/10 hover-lift group">
+              <div className="glass-card p-6 rounded-[2rem] shadow-premium border border-black/5 dark:border-border hover-lift group">
                 <div className="flex items-center justify-between mb-4">
                   <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Selecionadas</p>
                   <Check className="h-5 w-5 text-primary" />
@@ -166,7 +166,7 @@ const Admin = () => {
                 <p className="text-4xl font-black text-foreground">{multiSelect.selectedCount}</p>
               </div>
 
-              <div className="glass-card p-6 rounded-[2rem] shadow-premium border border-black/5 dark:border-white/10 hover-lift group">
+              <div className="glass-card p-6 rounded-[2rem] shadow-premium border border-black/5 dark:border-border hover-lift group">
                 <div className="flex items-center justify-between mb-4">
                   <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Categorias</p>
                   <TrendingUp className="h-5 w-5 text-emerald-500" />
@@ -257,7 +257,7 @@ const Admin = () => {
                       return (
                         <Card 
                           key={exclusao.id}
-                          className={`glass-card rounded-[2rem] border-black/5 dark:border-white/5 transition-all duration-500 overflow-hidden hover-lift ${
+                          className={`glass-card rounded-[2rem] border-black/5 dark:border-border transition-all duration-500 overflow-hidden hover-lift ${
                             multiSelect.isSelected(exclusao.id) ? "ring-2 ring-primary bg-primary/[0.02]" : ""
                           }`}
                         >
@@ -268,7 +268,7 @@ const Admin = () => {
                                   <Checkbox
                                     checked={multiSelect.isSelected(exclusao.id)}
                                     onCheckedChange={() => multiSelect.toggleItem(exclusao.id)}
-                                    className="rounded-lg h-5 w-5 border-black/10 dark:border-white/20 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                                    className="rounded-lg h-5 w-5 border-black/10 dark:border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                                   />
                                 </div>
                                 <div className="flex items-center gap-3">
@@ -292,29 +292,29 @@ const Admin = () => {
                           </CardHeader>
                           <CardContent className="p-6 pt-2 space-y-5">
                             {/* Informações do registro */}
-                            <div className="p-5 bg-black/[0.03] dark:bg-white/[0.03] rounded-3xl border border-black/5 dark:border-white/5 shadow-inner">
+                            <div className="p-5 bg-black/[0.03] dark:bg-white/[0.03] rounded-3xl border border-black/5 dark:border-border shadow-inner">
                               <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-3 opacity-60">Dados do Registro</h4>
                               <div className="grid grid-cols-1 gap-2 text-sm font-bold text-foreground/80">
                                 {dadosRegistro.nome && (
-                                  <div className="flex items-center justify-between py-1 border-b border-black/5 dark:border-white/5">
+                                  <div className="flex items-center justify-between py-1 border-b border-black/5 dark:border-border">
                                     <span className="text-muted-foreground font-medium">Nome:</span>
                                     <span>{dadosRegistro.nome}</span>
                                   </div>
                                 )}
                                 {dadosRegistro.titulo && (
-                                  <div className="flex items-center justify-between py-1 border-b border-black/5 dark:border-white/5">
+                                  <div className="flex items-center justify-between py-1 border-b border-black/5 dark:border-border">
                                     <span className="text-muted-foreground font-medium">Título:</span>
                                     <span>{dadosRegistro.titulo}</span>
                                   </div>
                                 )}
                                 {dadosRegistro.numero_processo && (
-                                  <div className="flex items-center justify-between py-1 border-b border-black/5 dark:border-white/5">
+                                  <div className="flex items-center justify-between py-1 border-b border-black/5 dark:border-border">
                                     <span className="text-muted-foreground font-medium">Nº Processo:</span>
                                     <span className="font-mono">{dadosRegistro.numero_processo}</span>
                                   </div>
                                 )}
                                 {dadosRegistro.email && (
-                                  <div className="flex items-center justify-between py-1 border-b border-black/5 dark:border-white/5">
+                                  <div className="flex items-center justify-between py-1 border-b border-black/5 dark:border-border">
                                     <span className="text-muted-foreground font-medium">Email:</span>
                                     <span className="text-primary">{dadosRegistro.email}</span>
                                   </div>
@@ -341,7 +341,7 @@ const Admin = () => {
                               </div>
 
                               {exclusao.motivo && (
-                                <div className="px-4 py-3 rounded-2xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/10 italic text-xs text-muted-foreground leading-relaxed">
+                                <div className="px-4 py-3 rounded-2xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-border italic text-xs text-muted-foreground leading-relaxed">
                                   "{exclusao.motivo}"
                                 </div>
                               )}
@@ -352,7 +352,7 @@ const Admin = () => {
                                   size="lg"
                                   onClick={() => handleRejeitar(exclusao.id)}
                                   disabled={processando === exclusao.id}
-                                  className="rounded-2xl h-12 font-black uppercase text-[10px] tracking-widest border-black/5 dark:border-white/10 hover:bg-rose-500/10 hover:text-rose-500 hover:border-rose-500/20 transition-all"
+                                  className="rounded-2xl h-12 font-black uppercase text-[10px] tracking-widest border-black/5 dark:border-border hover:bg-rose-500/10 hover:text-rose-500 hover:border-rose-500/20 transition-all"
                                 >
                                   <X className="h-4 w-4 mr-2" />
                                   Rejeitar
@@ -398,7 +398,7 @@ const Admin = () => {
 
                 {/* Stats Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="glass-card p-6 rounded-[2rem] shadow-premium border border-black/5 dark:border-white/10 hover-lift group">
+                  <div className="glass-card p-6 rounded-[2rem] shadow-premium border border-black/5 dark:border-border hover-lift group">
                     <div className="flex items-center justify-between mb-4">
                       <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Pendentes</p>
                       <div className="p-2 rounded-xl bg-primary/10 text-primary">
@@ -408,7 +408,7 @@ const Admin = () => {
                     <p className="text-4xl font-black text-primary">{exclusoesPendentes.length}</p>
                   </div>
 
-                  <div className="glass-card p-6 rounded-[2rem] shadow-premium border border-black/5 dark:border-white/10 hover-lift group">
+                  <div className="glass-card p-6 rounded-[2rem] shadow-premium border border-black/5 dark:border-border hover-lift group">
                     <div className="flex items-center justify-between mb-4">
                       <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Selecionadas</p>
                       <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500">
@@ -418,7 +418,7 @@ const Admin = () => {
                     <p className="text-4xl font-black text-amber-500">{multiSelect.selectedCount}</p>
                   </div>
 
-                  <div className="glass-card p-6 rounded-[2rem] shadow-premium border border-black/5 dark:border-white/10 hover-lift group">
+                  <div className="glass-card p-6 rounded-[2rem] shadow-premium border border-black/5 dark:border-border hover-lift group">
                     <div className="flex items-center justify-between mb-4">
                       <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Categorias</p>
                       <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
@@ -438,7 +438,7 @@ const Admin = () => {
                     return (
                       <Card 
                         key={exclusao.id}
-                        className={`glass-card rounded-[2.5rem] border-black/5 dark:border-white/5 transition-all duration-500 overflow-hidden hover-lift ${
+                        className={`glass-card rounded-[2.5rem] border-black/5 dark:border-border transition-all duration-500 overflow-hidden hover-lift ${
                           multiSelect.isSelected(exclusao.id) ? "ring-2 ring-primary bg-primary/[0.02]" : ""
                         }`}
                       >
@@ -448,7 +448,7 @@ const Admin = () => {
                               <Checkbox
                                 checked={multiSelect.isSelected(exclusao.id)}
                                 onCheckedChange={() => multiSelect.toggleItem(exclusao.id)}
-                                className="rounded-lg h-6 w-6 border-black/10 dark:border-white/20 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                                className="rounded-lg h-6 w-6 border-black/10 dark:border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                               />
                               <div className="flex items-center gap-3">
                                 <div className="p-3 rounded-2xl bg-primary/10 text-primary shadow-inner">
@@ -471,29 +471,29 @@ const Admin = () => {
                         </CardHeader>
                         <CardContent className="p-8 pt-4 space-y-6">
                           {/* Informações do registro */}
-                          <div className="p-6 bg-black/[0.03] dark:bg-white/[0.03] rounded-[2rem] border border-black/5 dark:border-white/5 shadow-inner">
+                          <div className="p-6 bg-black/[0.03] dark:bg-white/[0.03] rounded-[2rem] border border-black/5 dark:border-border shadow-inner">
                             <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-4 opacity-60">Dados do Registro</h4>
                             <div className="grid grid-cols-1 gap-3 text-sm font-bold text-foreground/80">
                               {dadosRegistro.nome && (
-                                <div className="flex items-center justify-between py-2 border-b border-black/5 dark:border-white/5">
+                                <div className="flex items-center justify-between py-2 border-b border-black/5 dark:border-border">
                                   <span className="text-muted-foreground font-medium">Nome:</span>
                                   <span>{dadosRegistro.nome}</span>
                                 </div>
                               )}
                               {dadosRegistro.titulo && (
-                                <div className="flex items-center justify-between py-2 border-b border-black/5 dark:border-white/5">
+                                <div className="flex items-center justify-between py-2 border-b border-black/5 dark:border-border">
                                   <span className="text-muted-foreground font-medium">Título:</span>
                                   <span>{dadosRegistro.titulo}</span>
                                 </div>
                               )}
                               {dadosRegistro.numero_processo && (
-                                <div className="flex items-center justify-between py-2 border-b border-black/5 dark:border-white/5">
+                                <div className="flex items-center justify-between py-2 border-b border-black/5 dark:border-border">
                                   <span className="text-muted-foreground font-medium">Nº Processo:</span>
                                   <span className="font-mono text-primary">{dadosRegistro.numero_processo}</span>
                                 </div>
                               )}
                               {dadosRegistro.email && (
-                                <div className="flex items-center justify-between py-2 border-b border-black/5 dark:border-white/5">
+                                <div className="flex items-center justify-between py-2 border-b border-black/5 dark:border-border">
                                   <span className="text-muted-foreground font-medium">Email:</span>
                                   <span className="text-blue-500">{dadosRegistro.email}</span>
                                 </div>
@@ -520,7 +520,7 @@ const Admin = () => {
                             </div>
 
                             {exclusao.motivo && (
-                              <div className="px-5 py-4 rounded-3xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/10 italic text-sm text-muted-foreground leading-relaxed">
+                              <div className="px-5 py-4 rounded-3xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-border italic text-sm text-muted-foreground leading-relaxed">
                                 "{exclusao.motivo}"
                               </div>
                             )}
@@ -531,7 +531,7 @@ const Admin = () => {
                                 size="lg"
                                 onClick={() => handleRejeitar(exclusao.id)}
                                 disabled={processando === exclusao.id}
-                                className="rounded-[1.5rem] h-14 font-black uppercase text-xs tracking-widest border-black/5 dark:border-white/10 hover:bg-rose-500/10 hover:text-rose-500 hover:border-rose-500/20 transition-all"
+                                className="rounded-[1.5rem] h-14 font-black uppercase text-xs tracking-widest border-black/5 dark:border-border hover:bg-rose-500/10 hover:text-rose-500 hover:border-rose-500/20 transition-all"
                               >
                                 <X className="h-5 w-5 mr-2" />
                                 Rejeitar

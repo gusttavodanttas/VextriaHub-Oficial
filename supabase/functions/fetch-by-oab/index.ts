@@ -269,7 +269,10 @@ function mapDatajudHit(hit: any, tribunalSigla?: string) {
     comarca: source.orgaoJulgador?.codigoMunicipioIBGE != null ? String(source.orgaoJulgador.codigoMunicipioIBGE) : "",
     orgaoJulgadorCodigo: source.orgaoJulgador?.codigo != null ? String(source.orgaoJulgador.codigo) : "",
     nivelSigilo: Number(source.nivelSigilo) || 0,
-    conteudo: andamentos
+    // conteudo = teor do último andamento (mais recente) — não o histórico completo
+    conteudo: andamentos[0]?.descricao || "",
+    // histórico completo separado para exibição na timeline do processo
+    historico: andamentos
       .map((a) => `[${a.data ? new Date(a.data).toLocaleDateString("pt-BR") : "sem data"}] ${a.descricao}`)
       .join("\n\n"),
     tipo_documento: classe || (andamentos[0]?.fase ?? null),
@@ -368,7 +371,8 @@ async function hydrateAllPoorRecords(records: any[], processKey: string): Promis
           p.ultimoAndamento = ands[0] ? { descricao: ands[0].descricao, data: ands[0].data } : p.ultimoAndamento;
           p.faseProcessual = ands[0]?.fase || p.faseProcessual;
           if (p.fonte !== "pje_comunica") {
-            p.conteudo = ands
+            p.conteudo = ands[0]?.descricao || p.conteudo;
+            p.historico = ands
               .map((a) => `[${a.data ? new Date(a.data).toLocaleDateString("pt-BR") : "sem data"}] ${a.descricao}`)
               .join("\n\n");
           }

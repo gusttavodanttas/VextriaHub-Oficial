@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -374,7 +374,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
             </div>
             
             {/* Controles de Paginação */}
-            <div className="flex items-center gap-2 border-l border-black/5 dark:border-white/10 ml-2 pl-4">
+            <div className="flex items-center gap-2 border-l border-black/5 dark:border-border ml-2 pl-4">
               <Button 
                 variant="ghost" 
                 size="icon" 

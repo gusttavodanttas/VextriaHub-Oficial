@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { 
   Table, 
   TableBody, 
@@ -81,16 +81,16 @@ export const PublicationTable = ({
   };
 
   return (
-    <div className="rounded-[2.5rem] border border-white/5 bg-card/30 backdrop-blur-md overflow-hidden shadow-premium">
+    <div className="rounded-[2.5rem] border border-border bg-card/30 backdrop-blur-md overflow-hidden shadow-premium">
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
-            <TableRow className="border-white/5 hover:bg-transparent">
+            <TableRow className="border-border hover:bg-transparent">
               <TableHead className="w-12 py-5 pl-8">
                 <Checkbox 
                   checked={publications.length > 0 && selectedIds.length === publications.length}
                   onCheckedChange={onToggleAll}
-                  className="rounded-lg border-white/20 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                  className="rounded-lg border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                 />
               </TableHead>
               <TableHead className="text-[10px] uppercase font-black tracking-widest text-muted-foreground/60 py-5">
@@ -116,7 +116,7 @@ export const PublicationTable = ({
               <TableRow 
                 key={pub.id} 
                 className={cn(
-                  "group border-white/5 cursor-pointer transition-all duration-300 hover:bg-white/[0.02]",
+                  "group border-border cursor-pointer transition-all duration-300 hover:bg-white/[0.02]",
                   selectedIds.includes(pub.id) && "bg-primary/5 hover:bg-primary/10"
                 )}
                 onClick={() => onViewDetails(pub)}
@@ -125,7 +125,7 @@ export const PublicationTable = ({
                   <Checkbox 
                     checked={selectedIds.includes(pub.id)}
                     onCheckedChange={() => onToggleSelection(pub.id)}
-                    className="rounded-lg border-white/20 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                    className="rounded-lg border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                   />
                 </TableCell>
 
@@ -185,7 +185,7 @@ export const PublicationTable = ({
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="border-white/10 rounded-2xl w-56 p-2 bg-background/80 backdrop-blur-xl">
+                    <DropdownMenuContent align="end" className="border-border rounded-2xl w-56 p-2 bg-background">
                       <DropdownMenuItem onClick={() => onViewDetails(pub)} className="rounded-xl cursor-pointer py-3 transition-colors focus:bg-primary/10">
                         <Eye className="mr-2 h-4 w-4" />
                         <span className="font-bold text-xs uppercase tracking-wider">Ver Detalhes</span>
@@ -199,7 +199,7 @@ export const PublicationTable = ({
                           {pub.status === 'lida' ? 'Marcar como Não Lida' : 'Marcar como Trata'}
                         </span>
                       </DropdownMenuItem>
-                      <DropdownMenuSeparator className="bg-white/5" />
+                      <DropdownMenuSeparator className="bg-muted/30" />
                       <DropdownMenuItem 
                         onClick={() => onDelete(pub.id)}
                         className="rounded-xl cursor-pointer py-3 text-destructive focus:text-destructive focus:bg-destructive/10"

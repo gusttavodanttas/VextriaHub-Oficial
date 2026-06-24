@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -179,7 +179,7 @@ const Processos = () => {
             variant="outline"
             size="sm"
             onClick={() => setIsIntegracaoOpen(true)}
-            className="rounded-xl h-9 px-4 font-semibold text-xs border-black/10 dark:border-white/10 gap-1.5"
+            className="rounded-xl h-9 px-4 font-semibold text-xs border-black/10 dark:border-border gap-1.5"
             title="Consulta processos no banco nacional de dados do CNJ (DataJud)"
           >
             <Database className="h-3.5 w-3.5 text-primary" />
@@ -189,7 +189,7 @@ const Processos = () => {
             variant="outline"
             size="sm"
             onClick={() => setIsSyncDialogOpen(true)}
-            className="rounded-xl h-9 px-4 font-semibold text-xs border-black/10 dark:border-white/10 gap-1.5"
+            className="rounded-xl h-9 px-4 font-semibold text-xs border-black/10 dark:border-border gap-1.5"
             title="Busca automaticamente novas publicações e andamentos pela OAB do advogado"
           >
             <RotateCw className="h-3.5 w-3.5 text-primary" />
@@ -219,7 +219,7 @@ const Processos = () => {
                 'relative flex items-center gap-3 p-4 rounded-2xl border text-left transition-all duration-200 hover:-translate-y-0.5',
                 isActive
                   ? `${tab.bg} ${tab.border} shadow-md`
-                  : 'bg-card/60 border-black/5 dark:border-white/5 hover:border-black/10 dark:hover:border-white/10'
+                  : 'bg-card/60 border-black/5 dark:border-border hover:border-black/10 dark:hover:border-border'
               )}
             >
               <div className={cn('p-2 rounded-xl', isActive ? tab.bg : 'bg-muted/50')}>
@@ -249,7 +249,7 @@ const Processos = () => {
             placeholder="Buscar por título, cliente ou número CNJ..."
             value={filters.search}
             onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-            className="pl-10 h-10 rounded-xl bg-background border-black/10 dark:border-white/10 text-sm"
+            className="pl-10 h-10 rounded-xl bg-background border-black/10 dark:border-border text-sm"
           />
         </div>
         <ProcessoFilters
@@ -263,7 +263,7 @@ const Processos = () => {
       </div>
 
       {/* Conteúdo */}
-      <Card className="border-black/5 dark:border-white/5 bg-card/50 rounded-2xl overflow-hidden">
+      <Card className="border-black/5 dark:border-border bg-card/50 rounded-2xl overflow-hidden">
         <div className={cn('h-1 w-full', activeTabDef.bar)} />
         <CardContent className="p-5">
           {filteredProcessos.length === 0 ? (

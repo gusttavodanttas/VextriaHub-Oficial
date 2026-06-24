@@ -1,4 +1,4 @@
-import { ArrowLeft, BarChart3, TrendingUp, DollarSign, Loader2 } from "lucide-react";
+﻿import { ArrowLeft, BarChart3, TrendingUp, DollarSign, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ClienteComProcessos } from "@/types/database";
@@ -19,7 +19,7 @@ export function CrmPipelineVendas({ onBack, data = [], loading = false }: Props)
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={onBack} className="rounded-xl h-12 w-12 p-0 border border-black/5 dark:border-white/5 hover:bg-primary/10 transition-all">
+          <Button variant="ghost" onClick={onBack} className="rounded-xl h-12 w-12 p-0 border border-black/5 dark:border-border hover:bg-primary/10 transition-all">
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
@@ -30,8 +30,8 @@ export function CrmPipelineVendas({ onBack, data = [], loading = false }: Props)
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="glass-card border-black/5 dark:border-white/5 rounded-[2rem] overflow-hidden">
-          <CardHeader className="border-b border-black/5 dark:border-white/5 bg-black/[0.01] dark:bg-white/[0.01]">
+        <Card className="glass-card border-black/5 dark:border-border rounded-[2rem] overflow-hidden">
+          <CardHeader className="border-b border-black/5 dark:border-border bg-black/[0.01] dark:bg-white/[0.01]">
             <CardTitle className="text-xl font-extrabold tracking-tight">Pipeline Ativo</CardTitle>
             <CardDescription className="text-xs font-medium uppercase tracking-widest opacity-60">Leads em negociação</CardDescription>
           </CardHeader>
@@ -64,8 +64,8 @@ export function CrmPipelineVendas({ onBack, data = [], loading = false }: Props)
           </CardContent>
         </Card>
 
-        <Card className="glass-card border-black/5 dark:border-white/5 rounded-[2rem] overflow-hidden flex flex-col">
-          <CardHeader className="border-b border-black/5 dark:border-white/5 bg-black/[0.01] dark:bg-white/[0.01]">
+        <Card className="glass-card border-black/5 dark:border-border rounded-[2rem] overflow-hidden flex flex-col">
+          <CardHeader className="border-b border-black/5 dark:border-border bg-black/[0.01] dark:bg-white/[0.01]">
             <CardTitle className="text-xl font-extrabold tracking-tight">Resumo Financeiro</CardTitle>
             <CardDescription className="text-xs font-medium uppercase tracking-widest opacity-60">Projeção de faturamento</CardDescription>
           </CardHeader>
@@ -88,7 +88,7 @@ export function CrmPipelineVendas({ onBack, data = [], loading = false }: Props)
               </div>
             </div>
 
-            <div className="pt-8 border-t border-black/5 dark:border-white/5">
+            <div className="pt-8 border-t border-black/5 dark:border-border">
               <div className="flex justify-between items-center px-2">
                 <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">Total Pipeline</span>
                 <span className="text-4xl font-black text-gradient">R$ {(confirmedValue + potentialValue).toFixed(1)}k</span>

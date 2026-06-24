@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -103,7 +103,7 @@ const Configuracoes = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8 min-w-0 w-full">
-        <div className="glass-card p-2 rounded-[2rem] border-black/5 dark:border-white/10 w-full overflow-x-auto h-auto no-scrollbar shadow-premium">
+        <div className="glass-card p-2 rounded-[2rem] border-black/5 dark:border-border w-full overflow-x-auto h-auto no-scrollbar shadow-premium">
           <TabsList className="bg-transparent h-auto p-0 flex flex-nowrap gap-1 min-w-max">
             {[
               { id: "geral", label: "Geral" },
@@ -128,8 +128,8 @@ const Configuracoes = () => {
         </div>
 
               <TabsContent value="geral" className="space-y-6">
-                <Card className="glass-card rounded-[2rem] border-black/5 dark:border-white/5 overflow-hidden shadow-premium">
-                  <CardHeader className="border-b border-black/5 dark:border-white/5 pb-4">
+                <Card className="glass-card rounded-[2rem] border-black/5 dark:border-border overflow-hidden shadow-premium">
+                  <CardHeader className="border-b border-black/5 dark:border-border pb-4">
                     <CardTitle className="text-xl font-black">Informações Gerais</CardTitle>
                     <CardDescription className="text-xs font-medium">
                       Gerencie suas informações pessoais e preferências
@@ -144,7 +144,7 @@ const Configuracoes = () => {
                           name="name"
                           value={formValues.name}
                           onChange={handleInputChange}
-                          className="h-12 rounded-2xl bg-black/[0.02] dark:bg-white/5 border-black/5 dark:border-white/10"
+                          className="h-12 rounded-2xl bg-black/[0.02] dark:bg-muted/30 border-black/5 dark:border-border"
                         />
                       </div>
                       <div className="space-y-2">
@@ -155,7 +155,7 @@ const Configuracoes = () => {
                           type="email"
                           value={formValues.email}
                           onChange={handleInputChange}
-                          className="h-12 rounded-2xl bg-black/[0.02] dark:bg-white/5 border-black/5 dark:border-white/10"
+                          className="h-12 rounded-2xl bg-black/[0.02] dark:bg-muted/30 border-black/5 dark:border-border"
                         />
                       </div>
                       <div className="flex items-center justify-between">
@@ -173,8 +173,8 @@ const Configuracoes = () => {
                   </CardContent>
                 </Card>
 
-                <Card className="glass-card rounded-[2rem] border-black/5 dark:border-white/5 overflow-hidden shadow-premium">
-                  <CardHeader className="border-b border-black/5 dark:border-white/5 pb-4">
+                <Card className="glass-card rounded-[2rem] border-black/5 dark:border-border overflow-hidden shadow-premium">
+                  <CardHeader className="border-b border-black/5 dark:border-border pb-4">
                     <CardTitle className="text-xl font-black">Preferências</CardTitle>
                     <CardDescription className="text-xs font-medium">
                       Personalize a aparência e o comportamento do sistema
@@ -190,7 +190,7 @@ const Configuracoes = () => {
                             setFormValues({ ...formValues, theme: value })
                           }
                         >
-                          <SelectTrigger className="h-12 rounded-2xl bg-black/[0.02] dark:bg-white/5 border-black/5 dark:border-white/10 font-bold">
+                          <SelectTrigger className="h-12 rounded-2xl bg-black/[0.02] dark:bg-muted/30 border-black/5 dark:border-border font-bold">
                             <SelectValue placeholder="Selecione o tema" />
                           </SelectTrigger>
                           <SelectContent>
@@ -208,7 +208,7 @@ const Configuracoes = () => {
                             setFormValues({ ...formValues, language: value })
                           }
                         >
-                          <SelectTrigger className="h-12 rounded-2xl bg-black/[0.02] dark:bg-white/5 border-black/5 dark:border-white/10 font-bold">
+                          <SelectTrigger className="h-12 rounded-2xl bg-black/[0.02] dark:bg-muted/30 border-black/5 dark:border-border font-bold">
                             <SelectValue placeholder="Selecione o idioma" />
                           </SelectTrigger>
                           <SelectContent>
@@ -226,7 +226,7 @@ const Configuracoes = () => {
                             setFormValues({ ...formValues, timezone: value })
                           }
                         >
-                          <SelectTrigger className="h-12 rounded-2xl bg-black/[0.02] dark:bg-white/5 border-black/5 dark:border-white/10 font-bold">
+                          <SelectTrigger className="h-12 rounded-2xl bg-black/[0.02] dark:bg-muted/30 border-black/5 dark:border-border font-bold">
                             <SelectValue placeholder="Selecione o fuso horário" />
                           </SelectTrigger>
                           <SelectContent>
@@ -245,7 +245,7 @@ const Configuracoes = () => {
                             <Button
                               variant={"outline"}
                               className={cn(
-                                "w-full h-12 rounded-2xl bg-black/[0.02] dark:bg-white/5 border-black/5 dark:border-white/10 justify-start text-left font-bold",
+                                "w-full h-12 rounded-2xl bg-black/[0.02] dark:bg-muted/30 border-black/5 dark:border-border justify-start text-left font-bold",
                                 !formValues.dateFormat && "text-muted-foreground"
                               )}
                             >
@@ -275,7 +275,7 @@ const Configuracoes = () => {
                             setFormValues({ ...formValues, timeFormat: value })
                           }
                         >
-                          <SelectTrigger className="h-12 rounded-2xl bg-black/[0.02] dark:bg-white/5 border-black/5 dark:border-white/10 font-bold">
+                          <SelectTrigger className="h-12 rounded-2xl bg-black/[0.02] dark:bg-muted/30 border-black/5 dark:border-border font-bold">
                             <SelectValue placeholder="Selecione o formato" />
                           </SelectTrigger>
                           <SelectContent>
@@ -290,8 +290,8 @@ const Configuracoes = () => {
               </TabsContent>
 
               <TabsContent value="usuarios" className="space-y-6">
-                <Card className="glass-card rounded-[2rem] border-black/5 dark:border-white/5 overflow-hidden shadow-premium">
-                  <CardHeader className="border-b border-black/5 dark:border-white/5 pb-4">
+                <Card className="glass-card rounded-[2rem] border-black/5 dark:border-border overflow-hidden shadow-premium">
+                  <CardHeader className="border-b border-black/5 dark:border-border pb-4">
                     <CardTitle className="text-xl font-black">Gerenciamento de Usuários</CardTitle>
                     <CardDescription className="text-xs font-medium uppercase tracking-widest opacity-60">
                       Adicione, edite e remova usuários do sistema

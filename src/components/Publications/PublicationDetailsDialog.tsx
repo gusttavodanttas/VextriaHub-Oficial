@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -220,7 +220,7 @@ export const PublicationDetailsDialog = ({ publication, open, onOpenChange, trig
           <div className="flex flex-wrap items-center gap-4 w-full">
              <Button 
                 onClick={() => onRegister?.(publication)}
-                className="rounded-2xl bg-primary hover:bg-primary/90 text-white px-8 font-black text-[11px] uppercase tracking-widest gap-2.5 h-14 transition-all shadow-xl shadow-primary/20 flex-1 md:flex-initial"
+                className="rounded-2xl bg-primary hover:bg-primary/90 text-foreground px-8 font-black text-[11px] uppercase tracking-widest gap-2.5 h-14 transition-all shadow-xl shadow-primary/20 flex-1 md:flex-initial"
              >
                <PlusCircle className="h-5 w-5" />
                Cadastrar Novo Processo

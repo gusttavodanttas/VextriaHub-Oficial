@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Trash2, X } from 'lucide-react';
@@ -26,7 +26,7 @@ export const ClientsSelectionControls: React.FC<ClientsSelectionControlsProps> =
       "flex items-center justify-between p-6 rounded-[2rem] border transition-all duration-500 shadow-premium",
       selectedCount > 0 
         ? "bg-primary/5 border-primary/20" 
-        : "glass-card border-black/5 dark:border-white/5"
+        : "glass-card border-black/5 dark:border-border"
     )}>
       <div className="flex items-center gap-6">
         <Checkbox
@@ -34,7 +34,7 @@ export const ClientsSelectionControls: React.FC<ClientsSelectionControlsProps> =
           onCheckedChange={() => 
             isAllSelected ? onClearSelection() : onSelectAll()
           }
-          className="h-5 w-5 rounded-md border-black/10 dark:border-white/20 data-[state=checked]:bg-primary transition-all"
+          className="h-5 w-5 rounded-md border-black/10 dark:border-border data-[state=checked]:bg-primary transition-all"
         />
         <div className="flex flex-col">
           <span className={cn(
@@ -59,7 +59,7 @@ export const ClientsSelectionControls: React.FC<ClientsSelectionControlsProps> =
             variant="ghost"
             size="sm"
             onClick={onClearSelection}
-            className="rounded-xl h-11 px-6 font-black text-[10px] uppercase tracking-widest text-muted-foreground/60 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-all"
+            className="rounded-xl h-11 px-6 font-black text-[10px] uppercase tracking-widest text-muted-foreground/60 hover:text-foreground hover:bg-black/5 dark:hover:bg-muted/30 transition-all"
           >
             <X className="h-4 w-4 mr-2" />
             Limpar

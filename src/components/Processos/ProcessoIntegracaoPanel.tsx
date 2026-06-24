@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RotateCw, Search, Plus, ArrowLeft, Loader2, Info, Gavel } from 'lucide-react';
@@ -147,7 +147,7 @@ const ProcessoIntegracaoBody: React.FC<ProcessoIntegracaoBodyProps> = ({
           <Button variant="ghost" size="icon" onClick={() => {
             setMode('choice');
             setCapturedData(null);
-          }} className="rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
+          }} className="rounded-full hover:bg-black/5 dark:hover:bg-muted/40 transition-colors">
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
@@ -177,7 +177,7 @@ const ProcessoIntegracaoBody: React.FC<ProcessoIntegracaoBodyProps> = ({
     return (
       <div className="flex flex-col h-full animate-in fade-in slide-in-from-right-4 duration-500">
         <div className="flex items-center gap-4 mb-8">
-          <Button variant="ghost" size="icon" onClick={() => setMode('choice')} className="rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
+          <Button variant="ghost" size="icon" onClick={() => setMode('choice')} className="rounded-full hover:bg-black/5 dark:hover:bg-muted/40 transition-colors">
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
@@ -202,7 +202,7 @@ const ProcessoIntegracaoBody: React.FC<ProcessoIntegracaoBodyProps> = ({
     return (
       <div className="flex flex-col h-full animate-in fade-in slide-in-from-right-4 duration-500">
         <div className="flex items-center gap-4 mb-8">
-          <Button variant="ghost" size="icon" onClick={() => setMode('choice')} className="rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
+          <Button variant="ghost" size="icon" onClick={() => setMode('choice')} className="rounded-full hover:bg-black/5 dark:hover:bg-muted/40 transition-colors">
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
@@ -279,7 +279,7 @@ const ProcessoIntegracaoBody: React.FC<ProcessoIntegracaoBodyProps> = ({
             </p>
           </div>
           <div className="pt-4">
-            <Button className="w-full rounded-2xl font-black uppercase tracking-widest text-[10px] h-12 group-hover:bg-primary group-hover:text-white transition-all border-border" variant="outline">
+            <Button className="w-full rounded-2xl font-black uppercase tracking-widest text-[10px] h-12 group-hover:bg-primary group-hover:text-foreground transition-all border-border" variant="outline">
               Iniciar Sincronismo
             </Button>
           </div>
@@ -303,7 +303,7 @@ const ProcessoIntegracaoBody: React.FC<ProcessoIntegracaoBodyProps> = ({
             </p>
           </div>
           <div className="pt-4">
-            <Button className="w-full rounded-2xl font-black uppercase tracking-widest text-[10px] h-12 group-hover:bg-emerald-600 dark:group-hover:bg-emerald-500 group-hover:text-white transition-all border-border" variant="outline">
+            <Button className="w-full rounded-2xl font-black uppercase tracking-widest text-[10px] h-12 group-hover:bg-emerald-600 dark:group-hover:bg-emerald-500 group-hover:text-foreground transition-all border-border" variant="outline">
               Buscar Processo
             </Button>
           </div>
@@ -329,14 +329,14 @@ const ProcessoIntegracaoBody: React.FC<ProcessoIntegracaoBodyProps> = ({
             </div>
           </div>
           <div className="pt-4">
-            <Button className="w-full rounded-2xl font-black uppercase tracking-widest text-[10px] h-12 group-hover:bg-amber-600 dark:group-hover:bg-amber-500 group-hover:text-white transition-all border-border" variant="outline">
+            <Button className="w-full rounded-2xl font-black uppercase tracking-widest text-[10px] h-12 group-hover:bg-amber-600 dark:group-hover:bg-amber-500 group-hover:text-foreground transition-all border-border" variant="outline">
               Cadastrar Agora
             </Button>
           </div>
         </Card>
       </div>
 
-      <div className="max-w-xl mx-auto p-6 rounded-3xl bg-blue-500/5 border border-blue-500/20 flex flex-col md:flex-row items-center gap-4 text-xs text-foreground backdrop-blur-3xl">
+      <div className="max-w-xl mx-auto p-6 rounded-3xl bg-blue-500/5 border border-blue-500/20 flex flex-col md:flex-row items-center gap-4 text-xs text-foreground">
         <Info className="h-6 w-6 shrink-0 text-blue-500" />
         <p className="text-center md:text-left leading-relaxed">
           <span className="font-bold text-blue-400">Nota Jurídica:</span> A sincronização judicial consome créditos do seu plano. Novos advogados possuem limites diferenciados para a busca profunda da OAB.

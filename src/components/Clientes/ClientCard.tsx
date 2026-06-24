@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Users, Trash2, Mail, Phone, Calendar, Search, MapPin, Scale } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -35,7 +35,7 @@ export const ClientCard: React.FC<ClientCardProps> = ({
   return (
     <Card 
       className={cn(
-        "relative bg-white dark:bg-black/20 border border-black/5 dark:border-white/10 backdrop-blur-md hover:bg-white dark:hover:bg-white/5 hover:border-primary/20 shadow-premium hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 overflow-hidden group cursor-pointer rounded-[2rem]",
+        "relative bg-white dark:bg-black/20 border border-black/5 dark:border-border backdrop-blur-md hover:bg-white dark:hover:bg-muted/30 hover:border-primary/20 shadow-premium hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 overflow-hidden group cursor-pointer rounded-[2rem]",
         isSelected ? "ring-2 ring-primary border-primary/50 shadow-lg shadow-primary/10" : ""
       )}
       onClick={() => onClientClick(client)}
@@ -48,14 +48,14 @@ export const ClientCard: React.FC<ClientCardProps> = ({
             <Checkbox
               checked={isSelected}
               onCheckedChange={() => onToggleSelect(client.id)}
-              className="mt-1 rounded-md border-black/10 dark:border-white/20 data-[state=checked]:bg-primary"
+              className="mt-1 rounded-md border-black/10 dark:border-border data-[state=checked]:bg-primary"
             />
           </div>
           
           <div className="flex items-center gap-4 relative z-10 w-full">
             <div className={cn(
               "h-14 w-14 rounded-2xl flex items-center justify-center transition-all duration-500 group-hover:scale-110 shadow-inner group-hover:rotate-3",
-              isSelected ? 'bg-primary/20 text-primary' : 'bg-black/5 dark:bg-white/5 text-muted-foreground group-hover:text-primary group-hover:bg-primary/5 border border-black/5 dark:border-white/5'
+              isSelected ? 'bg-primary/20 text-primary' : 'bg-black/5 dark:bg-muted/30 text-muted-foreground group-hover:text-primary group-hover:bg-primary/5 border border-black/5 dark:border-border'
             )}>
               <Users className="h-7 w-7" />
             </div>
@@ -77,7 +77,7 @@ export const ClientCard: React.FC<ClientCardProps> = ({
 
       <CardContent className="space-y-5 pt-2 px-6 pb-8 relative z-10">
         <div className="grid gap-3">
-          <div className="flex justify-between items-center text-sm p-3 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-100 dark:border-white/5 shadow-inner">
+          <div className="flex justify-between items-center text-sm p-3 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-100 dark:border-border shadow-inner">
             <div className="flex items-center gap-2">
                <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
                  <Search className="h-3 w-3" />
@@ -89,7 +89,7 @@ export const ClientCard: React.FC<ClientCardProps> = ({
             <span className="text-foreground font-mono text-xs font-black">{client.cpfCnpj || '---'}</span>
           </div>
 
-          <div className="flex justify-between items-center text-sm p-3 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-100 dark:border-white/5 shadow-inner">
+          <div className="flex justify-between items-center text-sm p-3 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-100 dark:border-border shadow-inner">
             <div className="flex items-center gap-2">
                <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
                  <Phone className="h-3 w-3" />
@@ -100,18 +100,18 @@ export const ClientCard: React.FC<ClientCardProps> = ({
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="p-4 rounded-2xl bg-white dark:bg-white/[0.02] border border-slate-100 dark:border-white/5 shadow-premium space-y-2">
+            <div className="p-4 rounded-2xl bg-white dark:bg-white/[0.02] border border-slate-100 dark:border-border shadow-premium space-y-2">
                <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40">Status do Cliente</p>
                <Badge className={cn(
                  "text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-tighter w-fit border shadow-sm",
                  client.status === "ativo" 
                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20" 
-                   : "bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-muted-foreground border-slate-200 dark:border-white/5"
+                   : "bg-slate-100 dark:bg-muted/30 text-slate-500 dark:text-muted-foreground border-slate-200 dark:border-border"
                )} variant="outline">
                  {client.status}
                </Badge>
             </div>
-            <div className="p-4 rounded-2xl bg-white dark:bg-white/[0.02] border border-slate-100 dark:border-white/5 shadow-premium space-y-2">
+            <div className="p-4 rounded-2xl bg-white dark:bg-white/[0.02] border border-slate-100 dark:border-border shadow-premium space-y-2">
                <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40">Processos Ativos</p>
                <div className="flex items-center gap-2">
                  <div className="p-1 rounded-lg bg-primary/10">
@@ -140,7 +140,7 @@ export const ClientCard: React.FC<ClientCardProps> = ({
             <Button 
               size="sm" 
               variant="outline"
-              className="w-full h-12 rounded-xl font-black text-[10px] uppercase tracking-widest border-black/5 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/10 transition-all"
+              className="w-full h-12 rounded-xl font-black text-[10px] uppercase tracking-widest border-black/5 dark:border-border hover:bg-black/5 dark:hover:bg-muted/40 transition-all"
               onClick={(e) => {
                 e.stopPropagation();
                 onViewAtendimentos(client.id, client.name);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Tarefa, TarefaFormData } from "@/types/tarefa";
 import { useTarefaService } from "@/services/tarefaService";
@@ -235,7 +235,7 @@ const Tarefas = () => {
           </p>
         </div>
         
-        <div className="flex items-center gap-3 glass-morphism p-2 rounded-2xl border border-black/5 dark:border-white/10 bg-black/[0.02] dark:bg-white/5">
+        <div className="flex items-center gap-3 glass-morphism p-2 rounded-2xl border border-black/5 dark:border-border bg-black/[0.02] dark:bg-muted/30">
           <Button 
             onClick={handleNewTarefa}
             size="lg"
@@ -249,7 +249,7 @@ const Tarefas = () => {
 
       {/* Grid de Estatísticas / Gamificação */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="glass-card p-6 rounded-3xl shadow-premium border border-black/5 dark:border-white/10 bg-card hover-lift group relative overflow-hidden">
+        <div className="glass-card p-6 rounded-3xl shadow-premium border border-black/5 dark:border-border bg-card hover-lift group relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
             <Target className="h-20 w-20" />
           </div>
@@ -258,7 +258,7 @@ const Tarefas = () => {
           <p className="text-[9px] font-black text-primary bg-primary/10 px-3 py-1 rounded-full mt-2 inline-block uppercase tracking-widest">Nível: Master</p>
         </div>
         
-        <div className="glass-card p-6 rounded-3xl shadow-premium border border-black/5 dark:border-white/10 bg-card hover-lift group">
+        <div className="glass-card p-6 rounded-3xl shadow-premium border border-black/5 dark:border-border bg-card hover-lift group">
           <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mb-2">Concluídas Hoje</p>
           <p className="text-4xl font-black text-foreground tracking-tighter">{stats.completed ?? 0}</p>
           <p className="text-[9px] font-black text-emerald-500 bg-emerald-500/10 px-3 py-1 rounded-full mt-2 inline-block uppercase tracking-widest">+{(stats.completed ?? 0) * 50} pontos</p>
@@ -277,7 +277,7 @@ const Tarefas = () => {
               <span>Progresso da Missão</span>
               <span>12 / 15</span>
             </div>
-            <div className="w-full h-3 bg-black/5 dark:bg-white/5 rounded-full overflow-hidden">
+            <div className="w-full h-3 bg-black/5 dark:bg-muted/30 rounded-full overflow-hidden">
               <div className="h-full bg-gradient-to-r from-primary to-primary/60 w-[80%] rounded-full shadow-[0_0_15px_rgba(var(--primary),0.3)]" />
             </div>
           </div>
@@ -285,8 +285,8 @@ const Tarefas = () => {
       </div>
 
       {/* Main Content Area */}
-      <div className="glass-card rounded-[2.5rem] shadow-premium border border-black/5 dark:border-white/10 overflow-hidden bg-card/40 backdrop-blur-xl">
-        <div className="p-8 border-b border-black/5 dark:border-white/5 bg-black/[0.01] dark:bg-white/2 space-y-6">
+      <div className="glass-card rounded-[2.5rem] shadow-premium border border-black/5 dark:border-border overflow-hidden bg-card/40">
+        <div className="p-8 border-b border-black/5 dark:border-border bg-black/[0.01] dark:bg-white/2 space-y-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <h3 className="text-2xl font-black tracking-tight">Lista de Afazeres</h3>
             <TarefasFilters
@@ -321,14 +321,14 @@ const Tarefas = () => {
             ) : (
               <div className="space-y-6">
                 {/* Controles de seleção premium */}
-                <div className="flex items-center justify-between p-6 bg-black/[0.03] dark:bg-white/5 rounded-3xl border border-black/5 dark:border-white/5 shadow-inner">
+                <div className="flex items-center justify-between p-6 bg-black/[0.03] dark:bg-muted/30 rounded-3xl border border-black/5 dark:border-border shadow-inner">
                   <div className="flex items-center gap-6">
                     <Checkbox
                       checked={multiSelect.isAllSelected}
                       onCheckedChange={() => 
                         multiSelect.isAllSelected ? multiSelect.clearSelection() : multiSelect.selectAll()
                       }
-                      className="h-6 w-6 border-2 border-black/10 dark:border-white/20 rounded-lg data-[state=checked]:bg-primary data-[state=checked]:border-primary transition-all shadow-sm"
+                      className="h-6 w-6 border-2 border-black/10 dark:border-border rounded-lg data-[state=checked]:bg-primary data-[state=checked]:border-primary transition-all shadow-sm"
                     />
                     <span className="text-xs font-black text-muted-foreground/60 uppercase tracking-widest">
                       {multiSelect.selectedCount > 0 ? (

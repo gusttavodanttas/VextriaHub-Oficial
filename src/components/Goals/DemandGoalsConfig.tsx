@@ -1,4 +1,4 @@
-
+﻿
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,7 +65,7 @@ export function DemandGoalsConfig() {
   return (
     <div className="space-y-8">
       {/* Resumo Geral */}
-      <Card className="border-black/5 dark:border-white/5 bg-card/40 backdrop-blur-xl rounded-[2rem] overflow-hidden shadow-premium">
+      <Card className="border-black/5 dark:border-border bg-card/40 rounded-[2rem] overflow-hidden shadow-premium">
         <CardHeader className="p-6 pb-2">
           <CardTitle className="flex items-center gap-3 text-lg font-black tracking-tight">
             <div className="p-2 rounded-xl bg-primary/10">
@@ -77,7 +77,7 @@ export function DemandGoalsConfig() {
         <CardContent className="p-6">
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             {metasDemanda.map((meta) => (
-              <div key={meta.id} className="p-5 border border-black/5 dark:border-white/5 rounded-2xl bg-black/[0.01] dark:bg-white/[0.01] space-y-4 shadow-sm hover:shadow-md transition-all duration-300">
+              <div key={meta.id} className="p-5 border border-black/5 dark:border-border rounded-2xl bg-black/[0.01] dark:bg-white/[0.01] space-y-4 shadow-sm hover:shadow-md transition-all duration-300">
                 <div className="flex items-center justify-between">
                   <h4 className="font-black text-xs uppercase tracking-widest text-muted-foreground/80">{meta.tipo}</h4>
                   <div className={`w-3 h-3 rounded-full ${meta.cor} shadow-lg shadow-black/10`}></div>
@@ -88,7 +88,7 @@ export function DemandGoalsConfig() {
                     <span>Processos</span>
                     <span>{meta.processosAtuais}/{meta.metaProcessos}</span>
                   </div>
-                  <div className="w-full bg-black/5 dark:bg-white/10 h-1.5 rounded-full overflow-hidden">
+                  <div className="w-full bg-black/5 dark:bg-muted/40 h-1.5 rounded-full overflow-hidden">
                     <div 
                       className={`h-full ${meta.cor} transition-all duration-1000 shadow-[0_0_10px_rgba(0,0,0,0.1)]`} 
                       style={{ width: `${Math.min(calcularPercentual(meta.processosAtuais, meta.metaProcessos), 100)}%` }}
@@ -101,7 +101,7 @@ export function DemandGoalsConfig() {
                     <span>Faturamento</span>
                     <span className="text-primary">R$ {meta.faturamentoAtual.toLocaleString()}</span>
                   </div>
-                  <div className="w-full bg-black/5 dark:bg-white/10 h-1.5 rounded-full overflow-hidden">
+                  <div className="w-full bg-black/5 dark:bg-muted/40 h-1.5 rounded-full overflow-hidden">
                     <div 
                       className={`h-full ${meta.cor} transition-all duration-1000 shadow-[0_0_10px_rgba(0,0,0,0.1)]`} 
                       style={{ width: `${Math.min(calcularPercentual(meta.faturamentoAtual, meta.metaFaturamento), 100)}%` }}
@@ -115,13 +115,13 @@ export function DemandGoalsConfig() {
       </Card>
 
       {/* Configuração Detalhada */}
-      <Card className="border-black/5 dark:border-white/5 bg-card/40 backdrop-blur-xl rounded-[2rem] overflow-hidden shadow-premium">
+      <Card className="border-black/5 dark:border-border bg-card/40 rounded-[2rem] overflow-hidden shadow-premium">
         <CardHeader className="p-8 pb-4">
           <CardTitle className="text-xl font-black tracking-tight">Configurar Metas por Demanda</CardTitle>
         </CardHeader>
         <CardContent className="p-8 pt-0 space-y-6">
           {metasDemanda.map((meta) => (
-            <div key={meta.id} className="border border-black/5 dark:border-white/10 rounded-[1.5rem] p-6 space-y-6 bg-black/[0.01] dark:bg-white/[0.01] hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
+            <div key={meta.id} className="border border-black/5 dark:border-border rounded-[1.5rem] p-6 space-y-6 bg-black/[0.01] dark:bg-white/[0.01] hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   <div className={`w-5 h-5 rounded-full ${meta.cor} shadow-lg shadow-black/10`}></div>
@@ -145,7 +145,7 @@ export function DemandGoalsConfig() {
                     type="number"
                     value={meta.metaProcessos}
                     onChange={(e) => atualizarMeta(meta.id, 'metaProcessos', parseInt(e.target.value))}
-                    className="h-12 rounded-xl border-black/5 dark:border-white/10 bg-black/[0.02] dark:bg-white/5 font-bold"
+                    className="h-12 rounded-xl border-black/5 dark:border-border bg-black/[0.02] dark:bg-muted/30 font-bold"
                   />
                 </div>
                 <div className="space-y-2">
@@ -154,7 +154,7 @@ export function DemandGoalsConfig() {
                     type="number"
                     value={meta.processosAtuais}
                     onChange={(e) => atualizarMeta(meta.id, 'processosAtuais', parseInt(e.target.value))}
-                    className="h-12 rounded-xl border-black/5 dark:border-white/10 bg-black/[0.02] dark:bg-white/5 font-bold"
+                    className="h-12 rounded-xl border-black/5 dark:border-border bg-black/[0.02] dark:bg-muted/30 font-bold"
                   />
                 </div>
                 <div className="space-y-2">
@@ -163,7 +163,7 @@ export function DemandGoalsConfig() {
                     type="number"
                     value={meta.metaFaturamento}
                     onChange={(e) => atualizarMeta(meta.id, 'metaFaturamento', parseInt(e.target.value))}
-                    className="h-12 rounded-xl border-black/5 dark:border-white/10 bg-black/[0.02] dark:bg-white/5 font-bold"
+                    className="h-12 rounded-xl border-black/5 dark:border-border bg-black/[0.02] dark:bg-muted/30 font-bold"
                   />
                 </div>
                 <div className="space-y-2">
@@ -172,14 +172,14 @@ export function DemandGoalsConfig() {
                     type="number"
                     value={meta.faturamentoAtual}
                     onChange={(e) => atualizarMeta(meta.id, 'faturamentoAtual', parseInt(e.target.value))}
-                    className="h-12 rounded-xl border-black/5 dark:border-white/10 bg-black/[0.02] dark:bg-white/5 font-bold"
+                    className="h-12 rounded-xl border-black/5 dark:border-border bg-black/[0.02] dark:bg-muted/30 font-bold"
                   />
                 </div>
               </div>
             </div>
           ))}
 
-          <div className="border-t border-black/5 dark:border-white/5 pt-8 mt-4">
+          <div className="border-t border-black/5 dark:border-border pt-8 mt-4">
             <h5 className="font-black text-xs uppercase tracking-widest text-muted-foreground/60 mb-6 flex items-center gap-2">
               <Plus className="h-4 w-4" />
               Adicionar Nova Meta Estratégica
@@ -192,7 +192,7 @@ export function DemandGoalsConfig() {
                   value={novaMeta.tipo}
                   onChange={(e) => setNovaMeta({...novaMeta, tipo: e.target.value})}
                   placeholder="Ex: Pensão por Morte"
-                  className="h-12 rounded-xl border-black/5 dark:border-white/10 bg-black/[0.02] dark:bg-white/5 font-bold"
+                  className="h-12 rounded-xl border-black/5 dark:border-border bg-black/[0.02] dark:bg-muted/30 font-bold"
                 />
               </div>
               <div className="space-y-2">
@@ -202,7 +202,7 @@ export function DemandGoalsConfig() {
                   type="number"
                   value={novaMeta.metaProcessos}
                   onChange={(e) => setNovaMeta({...novaMeta, metaProcessos: parseInt(e.target.value)})}
-                  className="h-12 rounded-xl border-black/5 dark:border-white/10 bg-black/[0.02] dark:bg-white/5 font-bold"
+                  className="h-12 rounded-xl border-black/5 dark:border-border bg-black/[0.02] dark:bg-muted/30 font-bold"
                 />
               </div>
               <div className="space-y-2">
@@ -212,12 +212,12 @@ export function DemandGoalsConfig() {
                   type="number"
                   value={novaMeta.metaFaturamento}
                   onChange={(e) => setNovaMeta({...novaMeta, metaFaturamento: parseInt(e.target.value)})}
-                  className="h-12 rounded-xl border-black/5 dark:border-white/10 bg-black/[0.02] dark:bg-white/5 font-bold"
+                  className="h-12 rounded-xl border-black/5 dark:border-border bg-black/[0.02] dark:bg-muted/30 font-bold"
                 />
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Identidade Visual</Label>
-                <div className="flex space-x-2 h-12 items-center px-4 bg-black/[0.02] dark:bg-white/5 rounded-xl border border-black/5 dark:border-white/10">
+                <div className="flex space-x-2 h-12 items-center px-4 bg-black/[0.02] dark:bg-muted/30 rounded-xl border border-black/5 dark:border-border">
                   {cores.slice(0, 4).map((cor) => (
                     <button
                       key={cor}

@@ -1,4 +1,4 @@
-
+﻿
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -57,7 +57,7 @@ const Equipe = () => {
 
       {/* Filtros */}
       {/* Filtros */}
-      <Card className="border-black/5 dark:border-white/5 bg-card/40 backdrop-blur-xl rounded-[2rem] overflow-hidden">
+      <Card className="border-black/5 dark:border-border bg-card/40 rounded-[2rem] overflow-hidden">
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1 relative">
@@ -66,11 +66,11 @@ const Equipe = () => {
                 placeholder="Buscar por nome, cargo ou equipe..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-12 bg-black/[0.02] dark:bg-muted/20 border-black/5 dark:border-white/5 rounded-xl font-medium"
+                className="pl-10 h-12 bg-black/[0.02] dark:bg-muted/20 border-black/5 dark:border-border rounded-xl font-medium"
               />
             </div>
             <Select value={equipeFilter} onValueChange={setEquipeFilter}>
-              <SelectTrigger className="w-full md:w-64 h-12 bg-black/[0.02] dark:bg-muted/20 border-black/5 dark:border-white/5 rounded-xl font-bold">
+              <SelectTrigger className="w-full md:w-64 h-12 bg-black/[0.02] dark:bg-muted/20 border-black/5 dark:border-border rounded-xl font-bold">
                 <SelectValue placeholder="Filtrar por Equipe" />
               </SelectTrigger>
               <SelectContent className="rounded-xl">
@@ -160,7 +160,7 @@ const Equipe = () => {
                         <p className="text-sm text-muted-foreground">{membro.cargo}</p>
                         <div className="mt-2">
                           <Badge 
-                            className={`${equipe.cor} text-white text-xs`}
+                            className={`${equipe.cor} text-foreground text-xs`}
                           >
                             {equipe.nome}
                           </Badge>

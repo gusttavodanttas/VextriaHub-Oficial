@@ -1,4 +1,4 @@
-
+﻿
 import { Bell, Search, User, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,7 +68,7 @@ export function AppHeader() {
   const displayEmail = profile?.email || user?.email || session?.user?.email || "email@exemplo.com";
 
   return (
-    <header className="h-16 md:h-20 border-b border-black/5 dark:border-white/5 bg-background/40 backdrop-blur-2xl sticky top-0 z-50 flex items-center justify-between px-6 md:px-10">
+    <header className="h-16 md:h-20 border-b border-black/5 dark:border-border bg-background sticky top-0 z-50 flex items-center justify-between px-6 md:px-10">
       {/* Sidebar Trigger & Branding Mobile */}
       <div className="flex items-center gap-4">
         <SidebarTrigger className="h-10 w-10 hover:bg-primary/10 transition-colors rounded-xl flex items-center justify-center" />
@@ -81,7 +81,7 @@ export function AppHeader() {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/50 group-focus-within:text-primary transition-colors" />
           <Input
             placeholder="Buscar casos, clientes, tarefas..."
-            className="pl-12 bg-black/[0.03] dark:bg-white/[0.03] border-black/5 dark:border-white/5 h-12 rounded-2xl text-base focus:ring-2 focus:ring-primary/20 transition-all font-medium shadow-inner"
+            className="pl-12 bg-black/[0.03] dark:bg-white/[0.03] border-black/5 dark:border-border h-12 rounded-2xl text-base focus:ring-2 focus:ring-primary/20 transition-all font-medium shadow-inner"
           />
         </div>
       </div>
@@ -90,26 +90,26 @@ export function AppHeader() {
       <div className="flex items-center gap-3 md:gap-5">
         <NotificationCenter />
 
-        <div className="h-10 w-10 flex items-center justify-center p-1 rounded-xl bg-primary/5 border border-black/5 dark:border-white/5 hover:bg-primary/10 transition-colors">
+        <div className="h-10 w-10 flex items-center justify-center p-1 rounded-xl bg-primary/5 border border-black/5 dark:border-border hover:bg-primary/10 transition-colors">
           <ThemeSelector />
         </div>
 
         {/* User Profile Hook */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-12 w-12 rounded-2xl p-0 hover:bg-primary/10 transition-all border border-black/5 dark:border-white/5 relative overflow-hidden group">
+            <Button variant="ghost" className="h-12 w-12 rounded-2xl p-0 hover:bg-primary/10 transition-all border border-black/5 dark:border-border relative overflow-hidden group">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
               <User className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64 p-2 rounded-3xl bg-popover/95 backdrop-blur-2xl border-black/5 dark:border-white/10 shadow-premium mt-4">
+          <DropdownMenuContent align="end" className="w-64 p-2 rounded-3xl bg-popover/95 border-black/5 dark:border-border shadow-premium mt-4">
             <DropdownMenuLabel className="p-4">
               <div className="flex flex-col space-y-1">
                 <p className="text-base font-extrabold uppercase tracking-tight text-gradient">{getUserDisplayName()}</p>
                 <p className="text-xs text-muted-foreground font-medium truncate">{displayEmail}</p>
               </div>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator className="bg-black/5 dark:bg-white/5 mx-2" />
+            <DropdownMenuSeparator className="bg-black/5 dark:bg-muted/30 mx-2" />
             <div className="grid gap-1 py-2">
               <DropdownMenuItem 
                 className="rounded-xl px-4 py-3 cursor-pointer hover:bg-primary/10 focus:bg-primary/10 font-bold transition-all"
@@ -124,7 +124,7 @@ export function AppHeader() {
                 Configurações
               </DropdownMenuItem>
             </div>
-            <DropdownMenuSeparator className="bg-black/5 dark:bg-white/5 mx-2" />
+            <DropdownMenuSeparator className="bg-black/5 dark:bg-muted/30 mx-2" />
             <DropdownMenuItem 
               className="text-destructive rounded-xl px-4 py-3 cursor-pointer hover:bg-destructive/10 focus:bg-destructive/10 font-bold transition-all mt-1"
               onClick={handleLogout}

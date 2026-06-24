@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -252,7 +252,7 @@ const Clientes = () => {
   return (
     <div className="flex-1 p-4 md:p-8 space-y-8 md:space-y-12 overflow-x-hidden entry-animate">
       {/* Page Header Moderno Premium */}
-      <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-primary/10 via-card/80 to-background border border-black/5 dark:border-white/10 p-8 shadow-premium">
+      <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-primary/10 via-card/80 to-background border border-black/5 dark:border-border p-8 shadow-premium">
         <div className="absolute top-0 right-0 -mt-16 -mr-16 w-64 h-64 bg-primary/10 rounded-full blur-[80px] pointer-events-none" />
         <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-40 h-40 bg-secondary/10 rounded-full blur-[60px] pointer-events-none" />
         
@@ -274,7 +274,7 @@ const Clientes = () => {
             </p>
           </div>
           
-          <div className="flex items-center gap-3 glass-morphism p-2 rounded-2xl border border-black/5 dark:border-white/10 shadow-premium">
+          <div className="flex items-center gap-3 glass-morphism p-2 rounded-2xl border border-black/5 dark:border-border shadow-premium">
             <Button 
               onClick={() => setNovoClienteDialogOpen(true)}
               size="lg"
@@ -289,7 +289,7 @@ const Clientes = () => {
 
       {/* Seção de Filtros e Busca Premium */}
       <div className="grid grid-cols-1 gap-6">
-        <div className="glass-card p-8 rounded-[2.5rem] shadow-premium border border-black/5 dark:border-white/10 bg-white dark:bg-card/40">
+        <div className="glass-card p-8 rounded-[2.5rem] shadow-premium border border-black/5 dark:border-border bg-white dark:bg-card/40">
           <div className="flex flex-col md:flex-row gap-6 mb-8">
             <div className="flex-1 relative group/search">
               <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/30 group-focus-within/search:text-primary transition-all duration-300" />
@@ -297,7 +297,7 @@ const Clientes = () => {
                 placeholder="Pesquisar por nome, email ou documento..."
                 value={searchValue}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                className="pl-14 h-16 bg-white dark:bg-white/[0.05] border-black/5 dark:border-white/10 rounded-[1.5rem] text-lg focus:ring-4 focus:ring-primary/10 transition-all shadow-premium font-black placeholder:text-muted-foreground/30 placeholder:font-medium tracking-tight"
+                className="pl-14 h-16 bg-white dark:bg-white/[0.05] border-black/5 dark:border-border rounded-[1.5rem] text-lg focus:ring-4 focus:ring-primary/10 transition-all shadow-premium font-black placeholder:text-muted-foreground/30 placeholder:font-medium tracking-tight"
               />
             </div>
           </div>
@@ -333,7 +333,7 @@ const Clientes = () => {
                 onDeleteSelected={handleDeleteSelected}
               />
               
-              <div className="flex items-center p-1 bg-black/5 dark:bg-black/20 rounded-xl border border-black/5 dark:border-white/10 backdrop-blur-sm self-end">
+              <div className="flex items-center p-1 bg-black/5 dark:bg-black/20 rounded-xl border border-black/5 dark:border-border backdrop-blur-sm self-end">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -342,7 +342,7 @@ const Clientes = () => {
                     "px-4 py-2 h-auto text-xs font-black uppercase tracking-widest transition-all rounded-lg",
                     viewMode === 'list' 
                       ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20' 
-                      : 'text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-muted/30'
                   )}
                 >
                   <List className="w-4 h-4 mr-2" />
@@ -356,7 +356,7 @@ const Clientes = () => {
                     "px-4 py-2 h-auto text-xs font-black uppercase tracking-widest transition-all rounded-lg",
                     viewMode === 'grid' 
                       ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20' 
-                      : 'text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-muted/30'
                   )}
                 >
                   <LayoutGrid className="w-4 h-4 mr-2" />

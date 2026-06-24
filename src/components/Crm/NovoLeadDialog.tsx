@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -211,17 +211,17 @@ export const NovoLeadDialog = ({ open, onOpenChange, onSave }: NovoLeadDialogPro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] bg-background/40 backdrop-blur-3xl border-white/5 shadow-2xl p-0 overflow-hidden rounded-[2.5rem]">
-        <DialogHeader className="p-8 pb-4 border-b border-white/5">
+      <DialogContent className="sm:max-w-[700px] bg-background border-border shadow-2xl p-0 overflow-hidden rounded-[2.5rem]">
+        <DialogHeader className="p-8 pb-4 border-b border-border">
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
               <Target className="h-6 w-6" />
             </div>
             <div>
-              <DialogTitle className="text-2xl font-black bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
+              <DialogTitle className="text-2xl font-black text-foreground">
                 Novo Lead
               </DialogTitle>
-              <p className="text-white/40 text-xs font-bold uppercase tracking-widest mt-1">Captação Estratégica</p>
+              <p className="text-muted-foreground/70 text-xs font-bold uppercase tracking-widest mt-1">Captação Estratégica</p>
             </div>
           </div>
         </DialogHeader>
@@ -233,30 +233,30 @@ export const NovoLeadDialog = ({ open, onOpenChange, onSave }: NovoLeadDialogPro
               <UserCheck className="h-4 w-4" /> 01. Identificação do Lead
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 rounded-3xl bg-white/5 border border-white/5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 rounded-3xl bg-muted/30 border border-border">
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="nome" className="text-white/60 ml-1">Nome completo / Razão Social *</Label>
+                <Label htmlFor="nome" className="text-muted-foreground ml-1">Nome completo / Razão Social *</Label>
                 <Input
                   id="nome"
                   value={formData.nome}
                   onChange={(e) => handleInputChange("nome", e.target.value)}
                   placeholder="Ex: João Silva"
-                  className="h-12 bg-white/5 border-white/10 rounded-xl focus:ring-primary/20 font-bold"
+                  className="h-12 bg-muted/30 border-border rounded-xl focus:ring-primary/20 font-bold"
                 />
               </div>
 
               <div className="space-y-3">
-                <Label className="text-white/60 ml-1">Tipo de Perfil</Label>
+                <Label className="text-muted-foreground ml-1">Tipo de Perfil</Label>
                 <RadioGroup
                   value={formData.tipo_pessoa}
                   onValueChange={(value) => handleInputChange("tipo_pessoa", value as any)}
                   className="flex gap-4"
                 >
-                  <div className="flex items-center space-x-2 bg-white/5 px-4 py-2 rounded-xl border border-white/10">
+                  <div className="flex items-center space-x-2 bg-muted/30 px-4 py-2 rounded-xl border border-border">
                     <RadioGroupItem value="fisica" id="fisica" className="border-primary" />
                     <Label htmlFor="fisica" className="text-xs font-bold cursor-pointer">Pessoa Física</Label>
                   </div>
-                  <div className="flex items-center space-x-2 bg-white/5 px-4 py-2 rounded-xl border border-white/10">
+                  <div className="flex items-center space-x-2 bg-muted/30 px-4 py-2 rounded-xl border border-border">
                     <RadioGroupItem value="juridica" id="juridica" className="border-primary" />
                     <Label htmlFor="juridica" className="text-xs font-bold cursor-pointer">Pessoa Jurídica</Label>
                   </div>
@@ -264,7 +264,7 @@ export const NovoLeadDialog = ({ open, onOpenChange, onSave }: NovoLeadDialogPro
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="cpf_cnpj" className="text-white/60 ml-1">
+                <Label htmlFor="cpf_cnpj" className="text-muted-foreground ml-1">
                   {formData.tipo_pessoa === "fisica" ? "Documento (CPF)" : "Documento (CNPJ)"}
                 </Label>
                 <Input
@@ -272,7 +272,7 @@ export const NovoLeadDialog = ({ open, onOpenChange, onSave }: NovoLeadDialogPro
                   value={formData.cpf_cnpj}
                   onChange={(e) => handleInputChange("cpf_cnpj", e.target.value)}
                   placeholder={formData.tipo_pessoa === "fisica" ? "000.000.000-00" : "00.000.000/0001-00"}
-                  className="h-12 bg-white/5 border-white/10 rounded-xl font-mono"
+                  className="h-12 bg-muted/30 border-border rounded-xl font-mono"
                 />
               </div>
             </div>
@@ -284,38 +284,38 @@ export const NovoLeadDialog = ({ open, onOpenChange, onSave }: NovoLeadDialogPro
               <Phone className="h-4 w-4" /> 02. Canais de Contato
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 rounded-3xl bg-white/5 border border-white/5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 rounded-3xl bg-muted/30 border border-border">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-white/60 ml-1">E-mail Corporativo/Pessoal</Label>
+                <Label htmlFor="email" className="text-muted-foreground ml-1">E-mail Corporativo/Pessoal</Label>
                 <Input
                   id="email"
                   type="email"
                   value={formData.email}
                   onChange={(e) => handleInputChange("email", e.target.value)}
                   placeholder="joao@email.com"
-                  className="h-12 bg-white/5 border-white/10 rounded-xl font-bold"
+                  className="h-12 bg-muted/30 border-border rounded-xl font-bold"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="telefone" className="text-white/60 ml-1">WhatsApp / Telefone *</Label>
+                <Label htmlFor="telefone" className="text-muted-foreground ml-1">WhatsApp / Telefone *</Label>
                 <Input
                   id="telefone"
                   value={formData.telefone}
                   onChange={(e) => handleInputChange("telefone", e.target.value)}
                   placeholder="(11) 99999-9999"
-                  className="h-12 bg-white/5 border-white/10 rounded-xl font-bold"
+                  className="h-12 bg-muted/30 border-border rounded-xl font-bold"
                 />
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="endereco" className="text-white/60 ml-1">Endereço de Correspondência</Label>
+                <Label htmlFor="endereco" className="text-muted-foreground ml-1">Endereço de Correspondência</Label>
                 <Input
                   id="endereco"
                   value={formData.endereco}
                   onChange={(e) => handleInputChange("endereco", e.target.value)}
                   placeholder="Rua, número, bairro, cidade - UF"
-                  className="h-12 bg-white/5 border-white/10 rounded-xl"
+                  className="h-12 bg-muted/30 border-border rounded-xl"
                 />
               </div>
             </div>
@@ -327,14 +327,14 @@ export const NovoLeadDialog = ({ open, onOpenChange, onSave }: NovoLeadDialogPro
               <Target className="h-4 w-4" /> 03. Inteligência Comercial
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 rounded-3xl bg-white/5 border border-white/5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 rounded-3xl bg-muted/30 border border-border">
               <div className="space-y-2">
-                <Label htmlFor="origem" className="text-white/60 ml-1">Origem do Lead</Label>
+                <Label htmlFor="origem" className="text-muted-foreground ml-1">Origem do Lead</Label>
                 <Select value={formData.origem} onValueChange={(value) => handleInputChange("origem", value)}>
-                  <SelectTrigger className="h-12 bg-white/5 border-white/10 rounded-xl font-bold">
+                  <SelectTrigger className="h-12 bg-muted/30 border-border rounded-xl font-bold">
                     <SelectValue placeholder="Fonte de aquisição" />
                   </SelectTrigger>
-                  <SelectContent className="bg-slate-900 border-white/10">
+                  <SelectContent className="bg-slate-900 border-border">
                     {origensLead.map((origem) => (
                       <SelectItem key={origem} value={origem} className="font-bold text-xs uppercase tracking-wider">{origem}</SelectItem>
                     ))}
@@ -343,12 +343,12 @@ export const NovoLeadDialog = ({ open, onOpenChange, onSave }: NovoLeadDialogPro
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="status" className="text-white/60 ml-1">Classificação (Temperatura)</Label>
+                <Label htmlFor="status" className="text-muted-foreground ml-1">Classificação (Temperatura)</Label>
                 <Select value={formData.status} onValueChange={(value) => handleInputChange("status", value as any)}>
-                  <SelectTrigger className="h-12 bg-white/5 border-white/10 rounded-xl font-bold">
+                  <SelectTrigger className="h-12 bg-muted/30 border-border rounded-xl font-bold">
                     <SelectValue placeholder="Nível de interesse" />
                   </SelectTrigger>
-                  <SelectContent className="bg-slate-900 border-white/10">
+                  <SelectContent className="bg-slate-900 border-border">
                     {statusLead.map((status) => (
                       <SelectItem key={status.value} value={status.value} className="font-bold text-xs uppercase tracking-wider">
                         <div className="flex items-center gap-2">
@@ -366,12 +366,12 @@ export const NovoLeadDialog = ({ open, onOpenChange, onSave }: NovoLeadDialogPro
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="interesse" className="text-white/60 ml-1">Área Jurídica de Interesse</Label>
+                <Label htmlFor="interesse" className="text-muted-foreground ml-1">Área Jurídica de Interesse</Label>
                 <Select value={formData.interesse} onValueChange={(value) => handleInputChange("interesse", value)}>
-                  <SelectTrigger className="h-12 bg-white/5 border-white/10 rounded-xl font-bold text-primary">
+                  <SelectTrigger className="h-12 bg-muted/30 border-border rounded-xl font-bold text-primary">
                     <SelectValue placeholder="Selecione a especialidade" />
                   </SelectTrigger>
-                  <SelectContent className="bg-slate-900 border-white/10">
+                  <SelectContent className="bg-slate-900 border-border">
                     {interessesLead.map((interesse) => (
                       <SelectItem key={interesse} value={interesse} className="font-bold text-xs uppercase tracking-wider">{interesse}</SelectItem>
                     ))}
@@ -380,22 +380,22 @@ export const NovoLeadDialog = ({ open, onOpenChange, onSave }: NovoLeadDialogPro
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="observacoes" className="text-white/60 ml-1">Observações Estratégicas</Label>
+                <Label htmlFor="observacoes" className="text-muted-foreground ml-1">Observações Estratégicas</Label>
                 <Textarea
                   id="observacoes"
                   value={formData.observacoes}
                   onChange={(e) => handleInputChange("observacoes", e.target.value)}
                   placeholder="Informações relevantes para o fechamento..."
                   rows={3}
-                  className="bg-white/5 border-white/10 rounded-xl font-medium"
+                  className="bg-muted/30 border-border rounded-xl font-medium"
                 />
               </div>
             </div>
           </div>
         </div>
 
-        <DialogFooter className="p-8 pt-4 bg-white/5 border-t border-white/5 flex gap-4">
-          <Button variant="ghost" onClick={handleCancel} disabled={isLoading} className="flex-1 h-12 rounded-xl font-bold text-white/40 hover:text-white">
+        <DialogFooter className="p-8 pt-4 bg-muted/30 border-t border-border flex gap-4">
+          <Button variant="ghost" onClick={handleCancel} disabled={isLoading} className="flex-1 h-12 rounded-xl font-bold text-muted-foreground/70 hover:text-foreground">
             Descartar
           </Button>
           <Button onClick={handleSave} disabled={isLoading} className="flex-1 h-12 rounded-xl font-bold bg-primary shadow-lg shadow-primary/20">

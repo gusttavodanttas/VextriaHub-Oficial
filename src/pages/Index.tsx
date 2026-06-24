@@ -1,4 +1,4 @@
-
+﻿
 import { StatsCards } from "@/components/Dashboard/StatsCards";
 import { RecentActivity } from "@/components/Dashboard/RecentActivity";
 import { PriorityTasks } from "@/components/Dashboard/PriorityTasks";
@@ -154,7 +154,7 @@ const Index = () => {
               <div className="absolute -top-8 -right-8 w-28 h-28 bg-primary/20 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-1000" />
               <div className="relative z-10 space-y-3">
                 <div className="flex items-center gap-2">
-                  <div className="p-2 bg-primary text-white rounded-xl w-fit shadow-lg">
+                  <div className="p-2 bg-primary text-foreground rounded-xl w-fit shadow-lg">
                     <Sparkles className="h-4 w-4" />
                   </div>
                   <span className="text-xs font-black uppercase tracking-widest text-primary">Vextria AI</span>

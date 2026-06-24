@@ -1,4 +1,4 @@
-
+﻿
 import { useState } from "react";
 import { Calendar, AlertTriangle, User, FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,7 +35,7 @@ export function PriorityTasks() {
   };
 
   return (
-    <Card className="h-full flex flex-col animate-fade-in glass-card border-black/5 dark:border-white/5 rounded-[2rem] overflow-hidden">
+    <Card className="h-full flex flex-col animate-fade-in glass-card border-black/5 dark:border-border rounded-[2rem] overflow-hidden">
       <CardHeader className="p-6 pb-2">
         <CardTitle className="flex items-center gap-3 text-lg font-black tracking-tight">
           <div className="p-2 rounded-xl bg-amber-500/10">
@@ -47,7 +47,7 @@ export function PriorityTasks() {
       <CardContent className="flex-1 flex flex-col p-6 space-y-4">
         {tasks.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
-            <div className="p-4 rounded-full bg-black/[0.03] dark:bg-white/[0.03] border border-black/5 dark:border-white/5">
+            <div className="p-4 rounded-full bg-black/[0.03] dark:bg-white/[0.03] border border-black/5 dark:border-border">
               <AlertTriangle className="h-10 w-10 text-muted-foreground/20" />
             </div>
             <div className="space-y-1">
@@ -65,14 +65,14 @@ export function PriorityTasks() {
               "p-5 rounded-[1.5rem] border transition-all duration-300 group",
               completedTasks.includes(task.id)
                 ? "bg-black/[0.05] dark:bg-white/[0.05] border-transparent opacity-60"
-                : "bg-black/[0.01] dark:bg-white/[0.01] border-black/5 dark:border-white/5 hover:border-primary/20 hover:shadow-lg"
+                : "bg-black/[0.01] dark:bg-white/[0.01] border-black/5 dark:border-border hover:border-primary/20 hover:shadow-lg"
             )}
           >
             <div className="flex items-start gap-4">
               <Checkbox
                 checked={completedTasks.includes(task.id)}
                 onCheckedChange={() => toggleTask(task.id)}
-                className="mt-1 rounded-md border-black/10 dark:border-white/20"
+                className="mt-1 rounded-md border-black/10 dark:border-border"
               />
               <div className="flex-1 space-y-3">
                 <div className="flex items-start justify-between gap-4">
@@ -115,7 +115,7 @@ export function PriorityTasks() {
         )}
         
         {tasks.length > 0 && (
-          <Button className="w-full rounded-2xl h-12 font-black uppercase text-xs tracking-widest border-black/5 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/5" variant="outline">
+          <Button className="w-full rounded-2xl h-12 font-black uppercase text-xs tracking-widest border-black/5 dark:border-border hover:bg-black/5 dark:hover:bg-muted/30" variant="outline">
             Ver Todas as Tarefas
           </Button>
         )}

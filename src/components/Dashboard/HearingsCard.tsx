@@ -1,4 +1,4 @@
-
+﻿
 import { Users, Calendar, MapPin, Clock, Plus, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,7 @@ export function HearingsCard() {
   const weekRange = getWeekRange();
 
   return (
-    <Card className="h-full flex flex-col border-black/5 dark:border-white/5 bg-card/40 backdrop-blur-xl rounded-[2rem] overflow-hidden group hover:shadow-xl transition-all duration-500">
+    <Card className="h-full flex flex-col border-black/5 dark:border-border bg-card/40 rounded-[2rem] overflow-hidden group hover:shadow-xl transition-all duration-500">
       <CardHeader className="pb-3 pt-5 px-6">
         <CardTitle className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-3">
@@ -70,7 +70,7 @@ export function HearingsCard() {
             </div>
 
             {/* Stat similar ao eLaw */}
-            <div className="bg-black/[0.03] dark:bg-background/40 rounded-2xl p-4 border border-black/5 dark:border-white/5 mb-4">
+            <div className="bg-black/[0.03] dark:bg-background rounded-2xl p-4 border border-black/5 dark:border-border mb-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs text-muted-foreground font-medium">Próximas Audiências</span>
                 <span className="text-2xl font-black text-orange-500">{stats.audienciasProximas}</span>
@@ -87,7 +87,7 @@ export function HearingsCard() {
             <Button
               variant="outline"
               size="sm"
-              className="rounded-xl border-black/5 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/5 font-black uppercase text-[10px] tracking-widest h-10 px-6 gap-2"
+              className="rounded-xl border-black/5 dark:border-border hover:bg-black/5 dark:hover:bg-muted/30 font-black uppercase text-[10px] tracking-widest h-10 px-6 gap-2"
               onClick={() => navigate("/agenda")}
             >
               <Plus className="h-3.5 w-3.5" /> Agendar Audiência
@@ -96,7 +96,7 @@ export function HearingsCard() {
         ) : (
           <div className="w-full space-y-2">
             {audiencias.map((a, i) => (
-              <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-black/[0.02] dark:bg-background/40 border border-black/5 dark:border-white/5 hover:border-orange-500/20 transition-colors cursor-pointer">
+              <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-black/[0.02] dark:bg-background border border-black/5 dark:border-border hover:border-orange-500/20 transition-colors cursor-pointer">
                 <div className="p-2 rounded-lg bg-orange-500/10 text-orange-500">
                   <Users className="h-4 w-4" />
                 </div>

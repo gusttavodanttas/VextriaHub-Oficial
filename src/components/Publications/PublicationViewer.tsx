@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { usePublicacoes } from "@/hooks/usePublicacoes";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -40,11 +40,11 @@ export const PublicationViewer = ({ publication }: PublicationViewerProps) => {
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
       case "alta":
-        return "bg-red-500 text-white";
+        return "bg-red-500 text-foreground";
       case "media":
-        return "bg-yellow-500 text-white";
+        return "bg-yellow-500 text-foreground";
       default:
-        return "bg-green-500 text-white";
+        return "bg-green-500 text-foreground";
     }
   };
 

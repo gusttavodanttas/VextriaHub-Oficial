@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PermissionGuard } from "@/components/Auth/PermissionGuard";
@@ -27,13 +27,13 @@ const Escritorio = () => {
         </div>
 
         <Tabs defaultValue="configuracoes" className="space-y-8">
-          <div className="border-b border-black/5 dark:border-white/5 bg-black/[0.01] dark:bg-background/30 backdrop-blur-sm p-1.5 rounded-2xl w-fit">
+          <div className="border-b border-black/5 dark:border-border bg-black/[0.01] dark:bg-background/30 backdrop-blur-sm p-1.5 rounded-2xl w-fit">
             <TabsList className="h-11 gap-1 bg-transparent border-none">
-              <TabsTrigger value="configuracoes" className="rounded-xl px-6 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-lg shadow-primary/20 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all">
+              <TabsTrigger value="configuracoes" className="rounded-xl px-6 data-[state=active]:bg-primary data-[state=active]:text-foreground data-[state=active]:shadow-lg shadow-primary/20 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all">
                 <Settings className="h-3.5 w-3.5" />
                 Configurações
               </TabsTrigger>
-              <TabsTrigger value="usuarios" className="rounded-xl px-6 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-lg shadow-primary/20 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all">
+              <TabsTrigger value="usuarios" className="rounded-xl px-6 data-[state=active]:bg-primary data-[state=active]:text-foreground data-[state=active]:shadow-lg shadow-primary/20 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all">
                 <Users className="h-3.5 w-3.5" />
                 Usuários
               </TabsTrigger>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -103,7 +103,7 @@ export const CriarUsuarioCortesia: React.FC<Props> = ({ onSuccess }) => {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2 rounded-2xl h-11 px-5 font-bold shadow-premium bg-emerald-600 hover:bg-emerald-700 text-white">
+        <Button className="gap-2 rounded-2xl h-11 px-5 font-bold shadow-premium bg-emerald-600 hover:bg-emerald-700 text-foreground">
           <Gift className="h-4 w-4" />
           Criar Usuário Cortesia
         </Button>
@@ -219,7 +219,7 @@ export const CriarUsuarioCortesia: React.FC<Props> = ({ onSuccess }) => {
             <Button
               type="submit"
               disabled={loading}
-              className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-2"
+              className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-foreground font-bold gap-2"
             >
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
               {loading ? 'Criando...' : 'Criar com Cortesia'}

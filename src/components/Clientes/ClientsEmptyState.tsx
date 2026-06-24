@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Users, Plus } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ export const ClientsEmptyState: React.FC<ClientsEmptyStateProps> = ({
   onNewClient
 }) => {
   return (
-    <Card className="border-dashed border-2 border-black/5 dark:border-white/5 p-12 glass-card rounded-[3rem] shadow-premium">
+    <Card className="border-dashed border-2 border-black/5 dark:border-border p-12 glass-card rounded-[3rem] shadow-premium">
       <CardContent className="flex flex-col items-center justify-center space-y-8 pt-6">
         <div className="relative">
           <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full" />

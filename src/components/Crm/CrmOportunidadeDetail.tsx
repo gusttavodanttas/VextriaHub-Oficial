@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { ArrowLeft, Calendar, Mail, Plus, Edit, Trash2, Loader2, MessageSquare, Clock, Phone } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -181,7 +181,7 @@ export function CrmOportunidadeDetail({ onBack, opportunity }: Props) {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={onBack} className="rounded-xl h-12 w-12 p-0 border border-black/5 dark:border-white/5 hover:bg-primary/10 hover:text-primary transition-all">
+          <Button variant="ghost" onClick={onBack} className="rounded-xl h-12 w-12 p-0 border border-black/5 dark:border-border hover:bg-primary/10 hover:text-primary transition-all">
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
@@ -193,13 +193,13 @@ export function CrmOportunidadeDetail({ onBack, opportunity }: Props) {
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1 space-y-6">
-          <Card className="glass-card border-black/5 dark:border-white/5 rounded-[2rem] overflow-hidden">
-            <CardHeader className="border-b border-black/5 dark:border-white/5 bg-black/[0.01] dark:bg-white/[0.01]">
+          <Card className="glass-card border-black/5 dark:border-border rounded-[2rem] overflow-hidden">
+            <CardHeader className="border-b border-black/5 dark:border-border bg-black/[0.01] dark:bg-white/[0.01]">
               <CardTitle className="text-lg font-bold">Resumo do Lead</CardTitle>
             </CardHeader>
             <CardContent className="p-6 space-y-6">
               <div className="space-y-4">
-                <div className="flex justify-between items-center p-3 bg-black/5 dark:bg-white/5 rounded-xl">
+                <div className="flex justify-between items-center p-3 bg-black/5 dark:bg-muted/30 rounded-xl">
                   <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Status Atual</span>
                   <Badge className={cn("px-4 py-1 rounded-lg font-black text-[10px] uppercase tracking-widest", 
                     opportunity?.status === 'quente' ? 'bg-red-500/10 text-red-600 border-red-500/20' : 
@@ -250,8 +250,8 @@ export function CrmOportunidadeDetail({ onBack, opportunity }: Props) {
         </div>
 
         <div className="lg:col-span-2">
-          <Card className="glass-card border-black/5 dark:border-white/5 rounded-[2rem] overflow-hidden h-full">
-            <CardHeader className="border-b border-black/5 dark:border-white/5 bg-black/[0.01] dark:bg-white/[0.01] flex flex-row items-center justify-between">
+          <Card className="glass-card border-black/5 dark:border-border rounded-[2rem] overflow-hidden h-full">
+            <CardHeader className="border-b border-black/5 dark:border-border bg-black/[0.01] dark:bg-white/[0.01] flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="text-lg font-bold">Linha do Tempo</CardTitle>
                 <CardDescription className="text-xs font-medium uppercase tracking-widest opacity-60">Histórico de interações e follow-ups</CardDescription>
@@ -268,12 +268,12 @@ export function CrmOportunidadeDetail({ onBack, opportunity }: Props) {
                   <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground opacity-40">Carregando interações...</p>
                 </div>
               ) : historyItems.length > 0 ? (
-                <div className="space-y-6 relative before:absolute before:left-6 before:top-2 before:bottom-2 before:w-px before:bg-black/5 dark:before:bg-white/10">
+                <div className="space-y-6 relative before:absolute before:left-6 before:top-2 before:bottom-2 before:w-px before:bg-black/5 dark:before:bg-muted/40">
                   {historyItems.map((item) => (
                     <div key={item.id} className="relative pl-12 group">
                       <div className="absolute left-4 top-1 -translate-x-1/2 w-4 h-4 rounded-full bg-background border-2 border-primary z-10 group-hover:scale-125 transition-all" />
                       
-                      <div className="glass-card p-5 rounded-2xl border-black/5 dark:border-white/5 bg-black/[0.01] dark:bg-white/[0.01] group-hover:bg-primary/[0.02] transition-all">
+                      <div className="glass-card p-5 rounded-2xl border-black/5 dark:border-border bg-black/[0.01] dark:bg-white/[0.01] group-hover:bg-primary/[0.02] transition-all">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                           <div className="flex items-center gap-3">
                              <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
@@ -313,7 +313,7 @@ export function CrmOportunidadeDetail({ onBack, opportunity }: Props) {
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-16 text-center space-y-4">
-                  <div className="p-4 rounded-full bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
+                  <div className="p-4 rounded-full bg-black/5 dark:bg-muted/30 border border-black/5 dark:border-border">
                     <MessageSquare className="h-10 w-10 text-muted-foreground/20" />
                   </div>
                   <div className="space-y-1">
@@ -344,7 +344,7 @@ export function CrmOportunidadeDetail({ onBack, opportunity }: Props) {
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Tipo de Contato</Label>
                 <Select value={newHistoryForm.type} onValueChange={(v) => setNewHistoryForm(prev => ({...prev, type: v}))}>
-                  <SelectTrigger className="h-12 rounded-xl bg-black/5 dark:bg-white/5 border-none font-bold">
+                  <SelectTrigger className="h-12 rounded-xl bg-black/5 dark:bg-muted/30 border-none font-bold">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl">
@@ -360,7 +360,7 @@ export function CrmOportunidadeDetail({ onBack, opportunity }: Props) {
                 <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Data e Hora</Label>
                 <Input
                   type="datetime-local"
-                  className="h-12 rounded-xl bg-black/5 dark:bg-white/5 border-none font-bold"
+                  className="h-12 rounded-xl bg-black/5 dark:bg-muted/30 border-none font-bold"
                   value={newHistoryForm.date}
                   onChange={(e) => setNewHistoryForm(prev => ({...prev, date: e.target.value}))}
                 />
@@ -370,7 +370,7 @@ export function CrmOportunidadeDetail({ onBack, opportunity }: Props) {
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Resumo / Título</Label>
               <Input
-                className="h-12 rounded-xl bg-black/5 dark:bg-white/5 border-none font-bold"
+                className="h-12 rounded-xl bg-black/5 dark:bg-muted/30 border-none font-bold"
                 placeholder="Ex: Apresentação da proposta de honorários"
                 value={newHistoryForm.title}
                 onChange={(e) => setNewHistoryForm(prev => ({...prev, title: e.target.value}))}
@@ -380,7 +380,7 @@ export function CrmOportunidadeDetail({ onBack, opportunity }: Props) {
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Observações Detalhadas</Label>
               <Textarea
-                className="rounded-xl bg-black/5 dark:bg-white/5 border-none font-medium min-h-[120px]"
+                className="rounded-xl bg-black/5 dark:bg-muted/30 border-none font-medium min-h-[120px]"
                 placeholder="Detalhe o que foi conversado, acordos feitos e próximos passos..."
                 value={newHistoryForm.description}
                 onChange={(e) => setNewHistoryForm(prev => ({...prev, description: e.target.value}))}
@@ -417,7 +417,7 @@ export function CrmOportunidadeDetail({ onBack, opportunity }: Props) {
              <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Observações</Label>
                 <Textarea
-                  className="rounded-xl bg-black/5 dark:bg-white/5 border-none font-medium min-h-[150px]"
+                  className="rounded-xl bg-black/5 dark:bg-muted/30 border-none font-medium min-h-[150px]"
                   value={editingHistoryItem?.observacoes || ''}
                   onChange={(e) => setEditingHistoryItem(prev => prev ? {...prev, observacoes: e.target.value} : null)}
                 />
@@ -430,7 +430,7 @@ export function CrmOportunidadeDetail({ onBack, opportunity }: Props) {
                     value={editingHistoryItem?.status || 'realizado'} 
                     onValueChange={(v) => setEditingHistoryItem(prev => prev ? {...prev, status: v} : null)}
                   >
-                    <SelectTrigger className="h-11 rounded-xl bg-black/5 dark:bg-white/5 border-none font-bold">
+                    <SelectTrigger className="h-11 rounded-xl bg-black/5 dark:bg-muted/30 border-none font-bold">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
@@ -446,7 +446,7 @@ export function CrmOportunidadeDetail({ onBack, opportunity }: Props) {
                     value={editingHistoryItem?.tipo_atendimento || 'Reunião'} 
                     onValueChange={(v) => setEditingHistoryItem(prev => prev ? {...prev, tipo_atendimento: v} : null)}
                   >
-                    <SelectTrigger className="h-11 rounded-xl bg-black/5 dark:bg-white/5 border-none font-bold">
+                    <SelectTrigger className="h-11 rounded-xl bg-black/5 dark:bg-muted/30 border-none font-bold">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">

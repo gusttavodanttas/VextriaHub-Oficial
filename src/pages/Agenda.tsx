@@ -1,4 +1,4 @@
-
+﻿
 import { Calendar, Clock, Users, MapPin, Plus, Trash2, CalendarCheck, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -151,7 +151,7 @@ export default function Agenda() {
 
   return (
     <div className="flex flex-col h-full entry-animate">
-      <div className="p-8 border-b border-black/5 dark:border-white/5 bg-background/50 backdrop-blur-xl">
+      <div className="p-8 border-b border-black/5 dark:border-border bg-background/50">
         <div className="max-w-7xl mx-auto space-y-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div className="space-y-2">
@@ -193,7 +193,7 @@ export default function Agenda() {
 
       <div className="flex-1 flex overflow-hidden">
         <Tabs defaultValue="calendar" className="flex-1 flex flex-col">
-          <div className="border-b border-black/5 dark:border-white/5 px-8 bg-black/[0.02] dark:bg-white/[0.02] backdrop-blur-sm">
+          <div className="border-b border-black/5 dark:border-border px-8 bg-black/[0.02] dark:bg-white/[0.02] backdrop-blur-sm">
             <TabsList className="h-14 w-fit gap-2 bg-transparent border-none">
               <TabsTrigger value="calendar" className="rounded-xl px-8 h-10 font-bold uppercase text-[10px] tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-premium transition-all">Calendário</TabsTrigger>
               <TabsTrigger value="list" className="rounded-xl px-8 h-10 font-bold uppercase text-[10px] tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-premium transition-all">Lista Diária</TabsTrigger>
@@ -213,21 +213,21 @@ export default function Agenda() {
           <TabsContent value="list" className="flex-1 p-8 overflow-auto">
             <div className="max-w-7xl mx-auto">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <Card className="glass-card border-black/5 dark:border-white/5 rounded-[2rem] overflow-hidden">
+                <Card className="glass-card border-black/5 dark:border-border rounded-[2rem] overflow-hidden">
                   <CardHeader className="p-8 pb-4">
                     <CardTitle className="text-xl font-black">Hoje - {format(new Date(), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}</CardTitle>
                     <CardDescription className="font-medium">Seus compromissos de hoje</CardDescription>
                   </CardHeader>
                   <CardContent className="p-8 pt-0 space-y-4">
                                          {todayEvents.length > 0 && (
-                      <div className="flex items-center justify-between p-4 bg-black/[0.03] dark:bg-white/[0.03] border border-black/5 dark:border-white/5 rounded-[1.5rem] mb-6">
+                      <div className="flex items-center justify-between p-4 bg-black/[0.03] dark:bg-white/[0.03] border border-black/5 dark:border-border rounded-[1.5rem] mb-6">
                         <div className="flex items-center gap-3">
                           <Checkbox
                             checked={multiSelect.isAllSelected}
                             onCheckedChange={() => 
                               multiSelect.isAllSelected ? multiSelect.clearSelection() : multiSelect.selectAll()
                             }
-                            className="rounded-md border-black/10 dark:border-white/20"
+                            className="rounded-md border-black/10 dark:border-border"
                           />
                           <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
                             {multiSelect.selectedCount > 0 ? (
@@ -242,7 +242,7 @@ export default function Agenda() {
                             variant="ghost"
                             size="sm"
                             onClick={multiSelect.clearSelection}
-                            className="rounded-xl h-8 text-[10px] font-black uppercase tracking-widest hover:bg-black/5 dark:hover:bg-white/5"
+                            className="rounded-xl h-8 text-[10px] font-black uppercase tracking-widest hover:bg-black/5 dark:hover:bg-muted/30"
                           >
                             Limpar seleção
                           </Button>
@@ -254,12 +254,12 @@ export default function Agenda() {
                         "flex items-start space-x-4 p-5 rounded-[1.5rem] border transition-all duration-300 group",
                         multiSelect.isSelected(event.id) 
                           ? "bg-primary/[0.03] border-primary/20 ring-2 ring-primary/10" 
-                          : "bg-black/[0.01] dark:bg-white/[0.01] border-black/5 dark:border-white/5 hover:border-primary/20"
+                          : "bg-black/[0.01] dark:bg-white/[0.01] border-black/5 dark:border-border hover:border-primary/20"
                       )}>
                         <Checkbox
                           checked={multiSelect.isSelected(event.id)}
                           onCheckedChange={() => multiSelect.toggleItem(event.id)}
-                          className="mt-1 rounded-md border-black/10 dark:border-white/20"
+                          className="mt-1 rounded-md border-black/10 dark:border-border"
                         />
                         <div className="flex-1 space-y-3">
                           <div className="flex items-center justify-between">
@@ -281,12 +281,12 @@ export default function Agenda() {
                             <div className="text-xs font-bold text-muted-foreground/60">{event.client}</div>
                           </div>
                           
-                          <div className="flex items-center justify-between pt-2 border-t border-black/5 dark:border-white/5">
+                          <div className="flex items-center justify-between pt-2 border-t border-black/5 dark:border-border">
                             <div className="flex items-center text-[10px] font-bold text-muted-foreground/40 uppercase tracking-widest">
                               <MapPin className="h-3 w-3 mr-1.5 text-primary/40" />
                               {event.location || 'Local não definido'}
                             </div>
-                            <Badge variant="outline" className={cn("rounded-md text-[9px] font-black uppercase tracking-tighter border-black/5 dark:border-white/10", getTypeColor(event.type))}>
+                            <Badge variant="outline" className={cn("rounded-md text-[9px] font-black uppercase tracking-tighter border-black/5 dark:border-border", getTypeColor(event.type))}>
                               {event.type}
                             </Badge>
                           </div>
@@ -309,14 +309,14 @@ export default function Agenda() {
                   </CardContent>
                 </Card>
 
-                <Card className="glass-card border-black/5 dark:border-white/5 rounded-[2rem] overflow-hidden">
+                <Card className="glass-card border-black/5 dark:border-border rounded-[2rem] overflow-hidden">
                   <CardHeader className="p-8 pb-4">
                     <CardTitle className="text-xl font-black">Próximos Compromissos</CardTitle>
                     <CardDescription className="font-medium">Agenda da próxima semana</CardDescription>
                   </CardHeader>
                   <CardContent className="p-8 pt-0 space-y-3">
                     {events.slice(0, 10).map((compromisso) => (
-                      <div key={compromisso.id} className="flex items-center justify-between p-4 rounded-2xl border border-black/5 dark:border-white/5 bg-black/[0.01] dark:bg-white/[0.01] hover:bg-primary/[0.03] transition-all group cursor-pointer" onClick={() => handleEventClick(compromisso)}>
+                      <div key={compromisso.id} className="flex items-center justify-between p-4 rounded-2xl border border-black/5 dark:border-border bg-black/[0.01] dark:bg-white/[0.01] hover:bg-primary/[0.03] transition-all group cursor-pointer" onClick={() => handleEventClick(compromisso)}>
                         <div className="flex items-center gap-4">
                           <div className={cn("p-2.5 rounded-xl transition-colors group-hover:bg-primary/10", getTypeColor(compromisso.type).split(' ')[0].replace('100', '10'))}>
                             {getTypeIcon(compromisso.type)}
@@ -333,7 +333,7 @@ export default function Agenda() {
                           <Badge className={cn("rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-tighter", getStatusColor(compromisso.status))}>
                             {compromisso.status}
                           </Badge>
-                          <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-tighter border-black/5 dark:border-white/10", getTypeColor(compromisso.type))}>
+                          <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-tighter border-black/5 dark:border-border", getTypeColor(compromisso.type))}>
                             {compromisso.type}
                           </Badge>
                         </div>
@@ -347,7 +347,7 @@ export default function Agenda() {
 
           <TabsContent value="agenda" className="flex-1 p-8 overflow-auto">
             <div className="max-w-4xl mx-auto">
-              <Card className="glass-card border-black/5 dark:border-white/5 rounded-[2rem] overflow-hidden">
+              <Card className="glass-card border-black/5 dark:border-border rounded-[2rem] overflow-hidden">
                 <CardHeader className="p-8 pb-4">
                   <CardTitle className="text-xl font-black">Agenda Completa</CardTitle>
                   <CardDescription className="font-medium">Visão detalhada de todos os compromissos</CardDescription>
@@ -367,7 +367,7 @@ export default function Agenda() {
                           {day.events.map((event) => (
                             <div 
                               key={event.id} 
-                              className="flex items-center gap-5 p-5 bg-black/[0.01] dark:bg-white/[0.01] border border-black/5 dark:border-white/5 rounded-[1.5rem] hover:shadow-xl hover:shadow-primary/5 hover:border-primary/20 transition-all cursor-pointer group"
+                              className="flex items-center gap-5 p-5 bg-black/[0.01] dark:bg-white/[0.01] border border-black/5 dark:border-border rounded-[1.5rem] hover:shadow-xl hover:shadow-primary/5 hover:border-primary/20 transition-all cursor-pointer group"
                               onClick={() => handleEventClick(event)}
                             >
                               <div className="flex items-center gap-3">
@@ -390,7 +390,7 @@ export default function Agenda() {
                                 <Badge className={cn("rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-tighter", getStatusColor(event.status))}>
                                   {event.status}
                                 </Badge>
-                                <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-tighter border-black/5 dark:border-white/10", getTypeColor(event.type))}>
+                                <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-tighter border-black/5 dark:border-border", getTypeColor(event.type))}>
                                   {event.type}
                                 </Badge>
                               </div>

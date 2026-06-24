@@ -1,4 +1,4 @@
-
+﻿
 import { useState, useMemo } from "react";
 import { formatCNJ } from "@/utils/formatCNJ";
 import { Card, CardContent } from "@/components/ui/card";
@@ -462,7 +462,7 @@ export default function Publicacoes() {
           {/* Bulk Actions Bar */}
           {selectedIds.length > 0 && (
             <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-10 fade-in duration-500">
-              <Card className="glass-card border-primary/20 bg-primary/10 backdrop-blur-2xl px-6 py-4 rounded-[2rem] shadow-2xl flex items-center gap-6 border-2">
+              <Card className="glass-card border-primary/20 bg-primary/10 px-6 py-4 rounded-[2rem] shadow-2xl flex items-center gap-6 border-2">
                 <div className="flex items-center gap-3 pr-6 border-r border-border text-primary">
                   <CheckSquare className="h-5 w-5" />
                   <span className="text-sm font-black uppercase tracking-widest">{selectedIds.length} Selecionados</span>
@@ -561,9 +561,9 @@ export default function Publicacoes() {
                         </div>
                         <Badge className={cn(
                           "px-4 py-1.5 rounded-full font-black text-[10px] uppercase tracking-[0.2em] shadow-lg",
-                          publication.status === 'lida' || publication.status === 'processada' ? "bg-emerald-500 text-white" : 
-                          publication.status === 'pendente' ? "bg-sky-500 text-white" :
-                          "bg-primary text-white"
+                          publication.status === 'lida' || publication.status === 'processada' ? "bg-emerald-500 text-foreground" : 
+                          publication.status === 'pendente' ? "bg-sky-500 text-foreground" :
+                          "bg-primary text-foreground"
                         )}>
                           {
                             publication.status === 'lida' || publication.status === 'processada' ? 'Tratada' : 
@@ -624,7 +624,7 @@ export default function Publicacoes() {
                               <AlertDialogCancel className="rounded-2xl border-border h-14 px-8 font-black uppercase text-xs tracking-widest bg-background">Cancelar</AlertDialogCancel>
                               <AlertDialogAction 
                                 onClick={() => deletePublication(publication.id)}
-                                className="bg-red-500 hover:bg-red-600 text-white rounded-2xl h-14 px-10 font-black uppercase text-xs tracking-widest shadow-lg shadow-red-500/20"
+                                className="bg-red-500 hover:bg-red-600 text-foreground rounded-2xl h-14 px-10 font-black uppercase text-xs tracking-widest shadow-lg shadow-red-500/20"
                               >
                                 Confirmar
                               </AlertDialogAction>

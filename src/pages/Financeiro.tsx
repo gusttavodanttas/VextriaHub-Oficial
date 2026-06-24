@@ -1,4 +1,4 @@
-
+﻿
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -63,7 +63,7 @@ const Financeiro = () => {
           </p>
         </div>
         
-        <div className="flex items-center gap-3 glass-morphism p-2 rounded-2xl border border-black/5 dark:border-white/10 bg-black/[0.02] dark:bg-white/5 shadow-premium">
+        <div className="flex items-center gap-3 glass-morphism p-2 rounded-2xl border border-black/5 dark:border-border bg-black/[0.02] dark:bg-muted/30 shadow-premium">
           <Button 
             size="lg"
             className="rounded-xl shadow-premium h-12 px-8 font-black uppercase text-xs tracking-widest bg-primary hover:bg-primary/90"
@@ -76,7 +76,7 @@ const Financeiro = () => {
 
       {/* Cards de Resumo Premium */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="glass-card p-6 rounded-3xl shadow-premium border border-black/5 dark:border-white/10 bg-card/40 backdrop-blur-xl hover-lift group">
+        <div className="glass-card p-6 rounded-3xl shadow-premium border border-black/5 dark:border-border bg-card/40 hover-lift group">
           <div className="flex items-center justify-between mb-4">
             <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Receita Mensal</p>
             <div className="p-2 bg-emerald-500/10 rounded-xl">
@@ -89,7 +89,7 @@ const Financeiro = () => {
           </div>
         </div>
         
-        <div className="glass-card p-6 rounded-3xl shadow-premium border border-black/5 dark:border-white/10 bg-card/40 backdrop-blur-xl hover-lift group">
+        <div className="glass-card p-6 rounded-3xl shadow-premium border border-black/5 dark:border-border bg-card/40 hover-lift group">
           <div className="flex items-center justify-between mb-4">
             <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">A Receber</p>
             <div className="p-2 bg-primary/10 rounded-xl">
@@ -100,7 +100,7 @@ const Financeiro = () => {
           <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 mt-2">3 faturas pendentes</p>
         </div>
 
-        <div className="glass-card p-6 rounded-3xl shadow-premium border border-black/5 dark:border-white/10 bg-card/40 backdrop-blur-xl hover-lift group">
+        <div className="glass-card p-6 rounded-3xl shadow-premium border border-black/5 dark:border-border bg-card/40 hover-lift group">
           <div className="flex items-center justify-between mb-4">
             <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">A Pagar</p>
             <div className="p-2 bg-orange-500/10 rounded-xl">
@@ -111,7 +111,7 @@ const Financeiro = () => {
           <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 mt-2">2 vencimentos próximos</p>
         </div>
 
-        <div className="glass-card p-6 rounded-3xl shadow-premium border border-black/5 dark:border-white/10 bg-card/40 backdrop-blur-xl hover-lift group">
+        <div className="glass-card p-6 rounded-3xl shadow-premium border border-black/5 dark:border-border bg-card/40 hover-lift group">
           <div className="flex items-center justify-between mb-4">
             <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Saldo Líquido</p>
             <div className="p-2 bg-primary/10 rounded-xl">
@@ -125,12 +125,12 @@ const Financeiro = () => {
 
       {/* Tabs para Contas */}
       <Tabs defaultValue="receber" className="w-full space-y-8">
-        <div className="glass-card p-2 rounded-3xl inline-flex h-auto border border-black/5 dark:border-white/10 bg-black/[0.02] dark:bg-white/5 shadow-inner">
+        <div className="glass-card p-2 rounded-3xl inline-flex h-auto border border-black/5 dark:border-border bg-black/[0.02] dark:bg-muted/30 shadow-inner">
           <TabsList className="bg-transparent h-auto p-0 gap-1">
-            <TabsTrigger value="receber" className="rounded-2xl px-10 py-3 font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-lg shadow-primary/20 transition-all">
+            <TabsTrigger value="receber" className="rounded-2xl px-10 py-3 font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-foreground data-[state=active]:shadow-lg shadow-primary/20 transition-all">
               Contas a Receber
             </TabsTrigger>
-            <TabsTrigger value="pagar" className="rounded-2xl px-10 py-3 font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-lg shadow-primary/20 transition-all">
+            <TabsTrigger value="pagar" className="rounded-2xl px-10 py-3 font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-foreground data-[state=active]:shadow-lg shadow-primary/20 transition-all">
               Contas a Pagar
             </TabsTrigger>
           </TabsList>
@@ -139,23 +139,23 @@ const Financeiro = () => {
           <TabsContent value="receber" className="space-y-6 entry-animate slide-in-from-bottom-4 duration-500">
             <div className="flex justify-between items-center px-4">
               <h3 className="text-2xl font-black tracking-tight">Contas a Receber</h3>
-              <Button className="rounded-xl font-black uppercase text-[10px] tracking-widest px-6 h-11 bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/20 transition-all">
+              <Button className="rounded-xl font-black uppercase text-[10px] tracking-widest px-6 h-11 bg-emerald-500 hover:bg-emerald-600 text-foreground shadow-lg shadow-emerald-500/20 transition-all">
                 Nova Cobrança
               </Button>
             </div>
             
             <div className="grid gap-6">
               {contasReceber.map((conta) => (
-                <div key={conta.id} className="glass-card hover-lift p-8 rounded-[2.5rem] border border-black/5 dark:border-white/5 bg-card/40 backdrop-blur-xl shadow-premium group">
+                <div key={conta.id} className="glass-card hover-lift p-8 rounded-[2.5rem] border border-black/5 dark:border-border bg-card/40 shadow-premium group">
                   <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
                     <div className="flex items-center gap-6">
-                      <div className="h-16 w-16 rounded-3xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 border border-emerald-500/10 group-hover:bg-emerald-500 group-hover:text-white transition-all duration-500">
+                      <div className="h-16 w-16 rounded-3xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 border border-emerald-500/10 group-hover:bg-emerald-500 group-hover:text-foreground transition-all duration-500">
                         <TrendingUp className="h-8 w-8" />
                       </div>
                       <div className="space-y-1">
                         <p className="font-black text-2xl group-hover:text-primary transition-colors duration-500 tracking-tight">{conta.cliente}</p>
                         <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground font-bold">
-                          <span className="flex items-center gap-2 bg-black/[0.03] dark:bg-white/5 px-3 py-1.5 rounded-xl border border-black/5 dark:border-white/10 uppercase tracking-widest text-[9px]">
+                          <span className="flex items-center gap-2 bg-black/[0.03] dark:bg-muted/30 px-3 py-1.5 rounded-xl border border-black/5 dark:border-border uppercase tracking-widest text-[9px]">
                             <Calendar className="h-3.5 w-3.5 text-primary" />
                             Vence {conta.vencimento}
                           </span>
@@ -165,7 +165,7 @@ const Financeiro = () => {
                       </div>
                     </div>
                     
-                    <div className="flex items-center justify-between w-full lg:w-auto gap-10 border-t lg:border-t-0 border-black/5 dark:border-white/5 pt-6 lg:pt-0">
+                    <div className="flex items-center justify-between w-full lg:w-auto gap-10 border-t lg:border-t-0 border-black/5 dark:border-border pt-6 lg:pt-0">
                       <div className="text-right">
                         <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 opacity-40">Valor Total</p>
                         <p className="text-3xl font-black tracking-tighter">R$ {conta.valor.toLocaleString()}</p>
@@ -184,23 +184,23 @@ const Financeiro = () => {
           <TabsContent value="pagar" className="space-y-6 entry-animate slide-in-from-bottom-4 duration-500">
             <div className="flex justify-between items-center px-4">
               <h3 className="text-2xl font-black tracking-tight">Contas a Pagar</h3>
-              <Button className="rounded-xl font-black uppercase text-[10px] tracking-widest px-6 h-11 bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20 transition-all">
+              <Button className="rounded-xl font-black uppercase text-[10px] tracking-widest px-6 h-11 bg-orange-500 hover:bg-orange-600 text-foreground shadow-lg shadow-orange-500/20 transition-all">
                 Nova Despesa
               </Button>
             </div>
             
             <div className="grid gap-6">
               {contasPagar.map((conta) => (
-                <div key={conta.id} className="glass-card hover-lift p-8 rounded-[2.5rem] border border-black/5 dark:border-white/5 bg-card/40 backdrop-blur-xl shadow-premium group">
+                <div key={conta.id} className="glass-card hover-lift p-8 rounded-[2.5rem] border border-black/5 dark:border-border bg-card/40 shadow-premium group">
                   <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
                     <div className="flex items-center gap-6">
-                      <div className="h-16 w-16 rounded-3xl bg-orange-500/10 flex items-center justify-center text-orange-500 border border-orange-500/10 group-hover:bg-orange-500 group-hover:text-white transition-all duration-500">
+                      <div className="h-16 w-16 rounded-3xl bg-orange-500/10 flex items-center justify-center text-orange-500 border border-orange-500/10 group-hover:bg-orange-500 group-hover:text-foreground transition-all duration-500">
                         <TrendingDown className="h-8 w-8" />
                       </div>
                       <div className="space-y-1">
                         <p className="font-black text-2xl group-hover:text-primary transition-colors duration-500 tracking-tight">{conta.fornecedor}</p>
                         <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground font-bold">
-                          <span className="flex items-center gap-2 bg-black/[0.03] dark:bg-white/5 px-3 py-1.5 rounded-xl border border-black/5 dark:border-white/10 uppercase tracking-widest text-[9px]">
+                          <span className="flex items-center gap-2 bg-black/[0.03] dark:bg-muted/30 px-3 py-1.5 rounded-xl border border-black/5 dark:border-border uppercase tracking-widest text-[9px]">
                             <Calendar className="h-3.5 w-3.5 text-primary" />
                             Vence {conta.vencimento}
                           </span>
@@ -210,7 +210,7 @@ const Financeiro = () => {
                       </div>
                     </div>
                     
-                    <div className="flex items-center justify-between w-full lg:w-auto gap-10 border-t lg:border-t-0 border-black/5 dark:border-white/5 pt-6 lg:pt-0">
+                    <div className="flex items-center justify-between w-full lg:w-auto gap-10 border-t lg:border-t-0 border-black/5 dark:border-border pt-6 lg:pt-0">
                       <div className="text-right">
                         <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 opacity-40">Valor Saída</p>
                         <p className="text-3xl font-black tracking-tighter text-orange-500">- R$ {conta.valor.toLocaleString()}</p>

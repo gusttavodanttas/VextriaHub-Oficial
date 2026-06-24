@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Calendar, FileText, Edit, Trash2, Clock, Building2, MapPin, ChevronRight, MoreHorizontal } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -48,7 +48,7 @@ export const ProcessoCard: React.FC<ProcessoCardProps> = ({
       case 'Suspenso':
         return 'border-orange-500/20 text-orange-600 dark:text-orange-400 bg-orange-500/5 font-black';
       default:
-        return 'border-black/5 dark:border-white/10 text-muted-foreground bg-black/5 dark:bg-white/5 font-black';
+        return 'border-black/5 dark:border-border text-muted-foreground bg-black/5 dark:bg-muted/30 font-black';
     }
   };
 
@@ -92,7 +92,7 @@ export const ProcessoCard: React.FC<ProcessoCardProps> = ({
 
   return (
     <Card 
-      className="relative overflow-hidden border border-black/5 dark:border-white/10 bg-white dark:bg-black/20 backdrop-blur-md group cursor-pointer hover:border-primary/20 transition-all duration-500 rounded-[2rem] shadow-premium hover:-translate-y-1"
+      className="relative overflow-hidden border border-black/5 dark:border-border bg-white dark:bg-black/20 backdrop-blur-md group cursor-pointer hover:border-primary/20 transition-all duration-500 rounded-[2rem] shadow-premium hover:-translate-y-1"
       onClick={onClick}
     >
       <div className={`absolute top-0 left-0 w-1 h-full opacity-40 group-hover:opacity-100 transition-all duration-500 ${getBarColor()}`} />
@@ -106,7 +106,7 @@ export const ProcessoCard: React.FC<ProcessoCardProps> = ({
                 {getStatusLabel(processo.status)}
               </Badge>
               {(processo.classeJudicial || processo.tipoProcesso) && (
-                <span className="text-[9px] bg-black/5 dark:bg-white/5 text-muted-foreground/60 dark:text-white/50 px-2 py-0.5 rounded-full font-black uppercase tracking-wider border border-black/5 dark:border-white/5">
+                <span className="text-[9px] bg-black/5 dark:bg-muted/30 text-muted-foreground/60 dark:text-muted-foreground px-2 py-0.5 rounded-full font-black uppercase tracking-wider border border-black/5 dark:border-border">
                   {processo.classeJudicial || processo.tipoProcesso}
                 </span>
               )}
@@ -136,7 +136,7 @@ export const ProcessoCard: React.FC<ProcessoCardProps> = ({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 rounded-xl hover:bg-white/5"
+                className="h-8 w-8 rounded-xl hover:bg-muted/30"
                 onClick={(e) => {
                   console.log('🟦 [card] clicou no botão de ações (...)', processo.id);
                   e.stopPropagation();
@@ -146,7 +146,7 @@ export const ProcessoCard: React.FC<ProcessoCardProps> = ({
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="border-white/10 rounded-xl w-44 p-1">
+              <DropdownMenuContent align="end" className="border-border rounded-xl w-44 p-1">
                 <PermissionGuard permission="canEditProcesses">
                   <DropdownMenuItem
                     onClick={(e) => {
@@ -160,7 +160,7 @@ export const ProcessoCard: React.FC<ProcessoCardProps> = ({
                   </DropdownMenuItem>
                 </PermissionGuard>
                 <PermissionGuard permission="canDeleteProcesses">
-                  <DropdownMenuSeparator className="bg-white/5" />
+                  <DropdownMenuSeparator className="bg-muted/30" />
                   <DropdownMenuItem
                     onClick={(e) => {
                       e.stopPropagation();

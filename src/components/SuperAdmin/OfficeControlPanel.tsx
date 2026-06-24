@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -157,7 +157,7 @@ export const OfficeControlPanel: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-4">
-        <Card className="border-black/5 dark:border-white/5 bg-card/40 backdrop-blur-xl rounded-3xl shadow-premium hover-lift">
+        <Card className="border-black/5 dark:border-border bg-card/40 rounded-3xl shadow-premium hover-lift">
           <CardContent className="p-4">
             <div className="flex items-center justify-between pb-1">
               <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Escritórios</p>
@@ -166,7 +166,7 @@ export const OfficeControlPanel: React.FC = () => {
             <div className="text-xl font-black">{stats.total}</div>
           </CardContent>
         </Card>
-        <Card className="border-black/5 dark:border-white/5 bg-card/40 backdrop-blur-xl rounded-3xl shadow-premium hover-lift">
+        <Card className="border-black/5 dark:border-border bg-card/40 rounded-3xl shadow-premium hover-lift">
           <CardContent className="p-4">
             <div className="flex items-center justify-between pb-1">
               <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Ativos</p>
@@ -175,7 +175,7 @@ export const OfficeControlPanel: React.FC = () => {
             <div className="text-xl font-black text-emerald-500">{stats.emDia}</div>
           </CardContent>
         </Card>
-        <Card className="border-black/5 dark:border-white/5 bg-card/40 backdrop-blur-xl rounded-3xl shadow-premium hover-lift">
+        <Card className="border-black/5 dark:border-border bg-card/40 rounded-3xl shadow-premium hover-lift">
           <CardContent className="p-4">
             <div className="flex items-center justify-between pb-1">
               <p className="text-[10px] font-black text-purple-500 uppercase tracking-widest">Trials</p>
@@ -184,7 +184,7 @@ export const OfficeControlPanel: React.FC = () => {
             <div className="text-xl font-black text-purple-500">{stats.trial}</div>
           </CardContent>
         </Card>
-        <Card className="border-black/5 dark:border-white/5 bg-card/40 backdrop-blur-xl rounded-3xl shadow-premium hover-lift">
+        <Card className="border-black/5 dark:border-border bg-card/40 rounded-3xl shadow-premium hover-lift">
           <CardContent className="p-4">
             <div className="flex items-center justify-between pb-1">
               <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest">Vencidos</p>
@@ -195,8 +195,8 @@ export const OfficeControlPanel: React.FC = () => {
         </Card>
       </div>
 
-      <Card className="border-black/5 dark:border-white/5 overflow-hidden bg-card/20 backdrop-blur-xl rounded-[2rem] shadow-premium">
-        <CardHeader className="border-b border-black/5 dark:border-white/5 pb-4">
+      <Card className="border-black/5 dark:border-border overflow-hidden bg-card/20 rounded-[2rem] shadow-premium">
+        <CardHeader className="border-b border-black/5 dark:border-border pb-4">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <CardTitle className="text-lg font-black flex items-center gap-2">
@@ -220,11 +220,11 @@ export const OfficeControlPanel: React.FC = () => {
                 placeholder="Escritório ou Administrador..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-9 bg-black/[0.02] dark:bg-white/5 border-black/5 dark:border-white/10 rounded-xl"
+                className="pl-10 h-9 bg-black/[0.02] dark:bg-muted/30 border-black/5 dark:border-border rounded-xl"
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-[150px] h-9 bg-black/[0.02] dark:bg-white/5 border-black/5 dark:border-white/10 rounded-xl">
+              <SelectTrigger className="w-full sm:w-[150px] h-9 bg-black/[0.02] dark:bg-muted/30 border-black/5 dark:border-border rounded-xl">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -239,7 +239,7 @@ export const OfficeControlPanel: React.FC = () => {
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="bg-black/[0.02] dark:bg-white/5 hover:bg-black/[0.02] dark:hover:bg-white/5 border-none">
+                <TableRow className="bg-black/[0.02] dark:bg-muted/30 hover:bg-black/[0.02] dark:hover:bg-muted/30 border-none">
                   <TableHead className="text-[10px] font-bold uppercase tracking-widest py-3 pl-6">Identidade</TableHead>
                   <TableHead className="text-[10px] font-bold uppercase tracking-widest py-3">Escritório</TableHead>
                   <TableHead className="text-[10px] font-bold uppercase tracking-widest py-3 text-center">Cadastro</TableHead>
@@ -252,7 +252,7 @@ export const OfficeControlPanel: React.FC = () => {
                 {loading && admins.length === 0 ? (
                   <TableRow><TableCell colSpan={6} className="text-center py-24 text-muted-foreground italic text-xs">Sincronizando base de dados...</TableCell></TableRow>
                 ) : filteredAdmins.map((admin) => (
-                  <TableRow key={admin.id} className="hover:bg-black/[0.02] dark:hover:bg-white/5 border-black/5 dark:border-white/5 transition-colors">
+                  <TableRow key={admin.id} className="hover:bg-black/[0.02] dark:hover:bg-muted/30 border-black/5 dark:border-border transition-colors">
                     <TableCell className="py-4 pl-6">
                       <div className="flex flex-col">
                         <span className="font-black text-sm tracking-tight">{admin.full_name}</span>

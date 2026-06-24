@@ -1,4 +1,4 @@
-
+﻿
 
 import { Bell, Clock, AlertTriangle, CheckCircle, X, FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -130,7 +130,7 @@ const Notificacoes = () => {
             <h1 className="text-3xl md:text-5xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary drop-shadow-sm flex items-center gap-3">
               Notificações
               {unreadCount > 0 && (
-                <Badge variant="destructive" className="bg-red-500 text-white text-sm font-black px-2 py-1 rounded-xl shadow-lg animate-pulse">
+                <Badge variant="destructive" className="bg-red-500 text-foreground text-sm font-black px-2 py-1 rounded-xl shadow-lg animate-pulse">
                   {unreadCount}
                 </Badge>
               )}
@@ -141,7 +141,7 @@ const Notificacoes = () => {
           </p>
         </div>
         {notificationList.length > 0 && (
-          <div className="flex items-center gap-2 glass-card p-2 rounded-2xl border-black/5 dark:border-white/5 shadow-premium">
+          <div className="flex items-center gap-2 glass-card p-2 rounded-2xl border-black/5 dark:border-border shadow-premium">
             <Button variant="ghost" size="sm" className="rounded-xl font-black uppercase tracking-widest text-[10px]" onClick={markAllAsRead}>
               <CheckCircle className="h-4 w-4 mr-2" />
               Marcar lidas
@@ -157,7 +157,7 @@ const Notificacoes = () => {
       {/* Notifications List */}
       <div className="space-y-3">
         {notificationList.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center space-y-6 glass-card rounded-[2.5rem] border-black/5 dark:border-white/5 shadow-premium">
+          <div className="flex flex-col items-center justify-center py-24 text-center space-y-6 glass-card rounded-[2.5rem] border-black/5 dark:border-border shadow-premium">
             <div className="p-8 rounded-full bg-primary/5 border border-primary/10 shadow-inner">
               <Bell className="h-16 w-16 text-primary/20" />
             </div>
@@ -172,7 +172,7 @@ const Notificacoes = () => {
           notificationList.map((notification) => (
             <Card
               key={notification.id}
-              className={`glass-card border-l-4 ${getNotificationColor(notification.type)} ${!notification.read ? 'shadow-premium border-black/5 dark:border-white/5' : 'opacity-60 border-transparent'} transition-all duration-500 rounded-2xl overflow-hidden hover-lift`}
+              className={`glass-card border-l-4 ${getNotificationColor(notification.type)} ${!notification.read ? 'shadow-premium border-black/5 dark:border-border' : 'opacity-60 border-transparent'} transition-all duration-500 rounded-2xl overflow-hidden hover-lift`}
             >
               <CardHeader className="pb-3">
                 <div className="flex justify-between items-start gap-3">

@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { 
   Table, 
   TableBody, 
@@ -55,11 +55,11 @@ export const ProcessoTable: React.FC<ProcessoTableProps> = ({
   };
 
   return (
-    <div className="rounded-[2.5rem] border border-black/5 dark:border-white/5 bg-white dark:bg-card/40 backdrop-blur-xl overflow-hidden shadow-premium">
+    <div className="rounded-[2.5rem] border border-black/5 dark:border-border bg-white dark:bg-card/40 overflow-hidden shadow-premium">
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
-            <TableRow className="border-black/5 dark:border-white/5 hover:bg-transparent bg-black/5 dark:bg-white/5">
+            <TableRow className="border-black/5 dark:border-border hover:bg-transparent bg-black/5 dark:bg-muted/30">
               <TableHead className="text-[10px] uppercase font-black tracking-[0.2em] text-muted-foreground/60 py-6 pl-8">Nº Processo</TableHead>
               <TableHead className="text-[10px] uppercase font-black tracking-[0.2em] text-muted-foreground/60 py-6">Título / Partes</TableHead>
               <TableHead className="text-[10px] uppercase font-black tracking-[0.2em] text-muted-foreground/60 py-6">Tribunal & Comarca</TableHead>
@@ -72,7 +72,7 @@ export const ProcessoTable: React.FC<ProcessoTableProps> = ({
             {processos.map((processo) => (
               <TableRow 
                 key={processo.id} 
-                className="group border-black/5 dark:border-white/5 cursor-pointer transition-all duration-300 hover:bg-primary/[0.04] dark:hover:bg-primary/[0.1]"
+                className="group border-black/5 dark:border-border cursor-pointer transition-all duration-300 hover:bg-primary/[0.04] dark:hover:bg-primary/[0.1]"
                 onClick={() => onViewDetails(processo)}
               >
                 {/* NÚMERO DO PROCESSO */}
@@ -80,7 +80,7 @@ export const ProcessoTable: React.FC<ProcessoTableProps> = ({
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
                        <div className="w-1.5 h-1.5 rounded-full bg-primary/40 group-hover:bg-primary transition-colors" />
-                       <span className="font-mono text-[13px] font-bold text-foreground/90 dark:text-white/90 group-hover:text-primary transition-colors tracking-tight">
+                       <span className="font-mono text-[13px] font-bold text-foreground/90 dark:text-foreground group-hover:text-primary transition-colors tracking-tight">
                          {formatCNJ(processo.numeroProcesso)}
                        </span>
                     </div>
@@ -96,7 +96,7 @@ export const ProcessoTable: React.FC<ProcessoTableProps> = ({
                 {/* TÍTULO / PARTES */}
                 <TableCell className="py-6">
                   <div className="flex flex-col gap-1 max-w-[280px]">
-                    <span className="font-bold text-[15px] truncate group-hover:text-primary dark:group-hover:text-white transition-colors">
+                    <span className="font-bold text-[15px] truncate group-hover:text-primary dark:group-hover:text-foreground transition-colors">
                       {processo.titulo}
                     </span>
                     {processo.valorCausa && processo.valorCausa > 0 && (
@@ -114,13 +114,13 @@ export const ProcessoTable: React.FC<ProcessoTableProps> = ({
                 <TableCell className="py-6">
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
-                      <div className="p-1 rounded-md bg-black/5 dark:bg-white/5">
+                      <div className="p-1 rounded-md bg-black/5 dark:bg-muted/30">
                         <Building2 className="h-3 w-3 text-primary/70" />
                       </div>
-                      <span className="text-xs font-bold text-foreground/70 dark:text-white/70 uppercase tracking-tight">{processo.tribunal || '—'}</span>
+                      <span className="text-xs font-bold text-foreground/70 dark:text-muted-foreground uppercase tracking-tight">{processo.tribunal || '—'}</span>
                     </div>
                     {processo.comarca && (
-                      <span className="text-[10px] text-foreground/30 dark:text-white/30 pl-7 font-medium uppercase">{processo.comarca}</span>
+                      <span className="text-[10px] text-foreground/30 dark:text-muted-foreground/60 pl-7 font-medium uppercase">{processo.comarca}</span>
                     )}
                   </div>
                 </TableCell>
@@ -128,10 +128,10 @@ export const ProcessoTable: React.FC<ProcessoTableProps> = ({
                 {/* TIPO / FASE */}
                 <TableCell className="py-6">
                    <div className="flex flex-col">
-                      <span className="text-xs font-bold text-foreground/60 dark:text-white/60">
+                      <span className="text-xs font-bold text-foreground/60 dark:text-muted-foreground">
                         {(processo as any).faseProcessual || processo.tipoProcesso || '—'}
                       </span>
-                      <span className="text-[10px] text-foreground/30 dark:text-white/30 uppercase tracking-tighter">Fase Processual</span>
+                      <span className="text-[10px] text-foreground/30 dark:text-muted-foreground/60 uppercase tracking-tighter">Fase Processual</span>
                    </div>
                 </TableCell>
 
@@ -146,23 +146,23 @@ export const ProcessoTable: React.FC<ProcessoTableProps> = ({
                 <TableCell className="py-6 pr-8 text-right" onClick={(e) => e.stopPropagation()}>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-10 w-10 p-0 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 hover:text-primary transition-all border border-transparent hover:border-black/10 dark:hover:border-white/10 shadow-lg">
+                      <Button variant="ghost" className="h-10 w-10 p-0 rounded-2xl hover:bg-black/5 dark:hover:bg-muted/30 hover:text-primary transition-all border border-transparent hover:border-black/10 dark:hover:border-border shadow-lg">
                         <MoreHorizontal className="h-5 w-5" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="glass-card border-black/10 dark:border-white/10 rounded-2xl w-52 p-1.5 shadow-2xl">
-                      <DropdownMenuItem onClick={() => onViewDetails(processo)} className="rounded-xl cursor-pointer py-3 transition-all hover:bg-primary/10 hover:text-primary dark:hover:text-white">
+                    <DropdownMenuContent align="end" className="glass-card border-black/10 dark:border-border rounded-2xl w-52 p-1.5 shadow-2xl">
+                      <DropdownMenuItem onClick={() => onViewDetails(processo)} className="rounded-xl cursor-pointer py-3 transition-all hover:bg-primary/10 hover:text-primary dark:hover:text-foreground">
                         <ExternalLink className="mr-3 h-4 w-4 text-primary" />
                         <span className="font-bold text-sm">Painel de Controle</span>
                       </DropdownMenuItem>
                       <PermissionGuard permission="canEditProcesses">
-                        <DropdownMenuItem onClick={() => onEdit(processo)} className="rounded-xl cursor-pointer py-3 transition-all hover:bg-blue-500/10 hover:text-white">
+                        <DropdownMenuItem onClick={() => onEdit(processo)} className="rounded-xl cursor-pointer py-3 transition-all hover:bg-blue-500/10 hover:text-foreground">
                           <Edit className="mr-3 h-4 w-4 text-blue-400" />
                           <span className="font-bold text-sm">Editar Capa</span>
                         </DropdownMenuItem>
                       </PermissionGuard>
                       <PermissionGuard permission="canDeleteProcesses">
-                        <DropdownMenuSeparator className="bg-white/5 my-1" />
+                        <DropdownMenuSeparator className="bg-muted/30 my-1" />
                         <DropdownMenuItem 
                           onClick={() => onDelete(processo)}
                           className="rounded-xl cursor-pointer py-3 text-destructive focus:text-destructive focus:bg-destructive/10 transition-all font-bold"

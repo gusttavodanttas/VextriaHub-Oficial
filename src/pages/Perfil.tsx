@@ -1,4 +1,4 @@
-
+﻿
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -160,7 +160,7 @@ const Perfil = () => {
             size="lg"
             className={cn(
               "rounded-xl h-12 font-black px-8 transition-all uppercase text-xs tracking-widest",
-              editMode ? "bg-primary text-white shadow-premium" : "bg-card/50 border-border hover:bg-card"
+              editMode ? "bg-primary text-foreground shadow-premium" : "bg-card/50 border-border hover:bg-card"
             )}
             onClick={() => editMode ? handleSave() : setEditMode(true)}
             disabled={isSaving}
@@ -218,7 +218,7 @@ const Perfil = () => {
               <div className="space-y-3">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50 px-1">Endereço de E-mail</Label>
                 <div className="flex items-center gap-4 p-4 rounded-2xl bg-background/50 border border-border group hover:border-primary/20 transition-all shadow-sm">
-                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all shadow-inner">
+                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-foreground transition-all shadow-inner">
                     <Mail className="h-5 w-5" />
                   </div>
                   {editMode ? (
@@ -236,7 +236,7 @@ const Perfil = () => {
               <div className="space-y-3">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50 px-1">Telefone / WhatsApp</Label>
                 <div className="flex items-center gap-4 p-4 rounded-2xl bg-background/50 border border-border group hover:border-primary/20 transition-all shadow-sm">
-                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all shadow-inner">
+                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-foreground transition-all shadow-inner">
                     <Phone className="h-5 w-5" />
                   </div>
                   {editMode ? (
@@ -255,7 +255,7 @@ const Perfil = () => {
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50 px-1">Registro OAB (Número e Estado)</Label>
                 <div className="flex items-center gap-3">
                   <div className="flex-1 flex items-center gap-4 p-4 rounded-2xl bg-background/50 border border-border group hover:border-primary/20 transition-all shadow-sm">
-                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all shadow-inner">
+                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-foreground transition-all shadow-inner">
                       <Scale className="h-5 w-5" />
                     </div>
                     {editMode ? (
@@ -292,7 +292,7 @@ const Perfil = () => {
               <div className="space-y-3">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50 px-1">Localização</Label>
                 <div className="flex items-center gap-4 p-4 rounded-2xl bg-background/50 border border-border group hover:border-primary/20 transition-all shadow-sm">
-                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all shadow-inner">
+                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-foreground transition-all shadow-inner">
                     <MapPin className="h-5 w-5" />
                   </div>
                   {editMode ? (
@@ -310,7 +310,7 @@ const Perfil = () => {
               <div className="space-y-3">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50 px-1">Área de Atuação / Especialidade</Label>
                 <div className="flex items-center gap-4 p-4 rounded-2xl bg-background/50 border border-border group hover:border-primary/20 transition-all shadow-sm">
-                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all shadow-inner">
+                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-foreground transition-all shadow-inner">
                     <Briefcase className="h-5 w-5" />
                   </div>
                   {editMode ? (

@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Plus, Trash2, Trophy, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -72,7 +72,7 @@ export const TarefasPageHeader: React.FC<TarefasPageHeaderProps> = ({
 
       {/* Estatísticas */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="hover-lift border-white/5 bg-card/40">
+        <Card className="hover-lift border-border bg-card/40">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
@@ -86,7 +86,7 @@ export const TarefasPageHeader: React.FC<TarefasPageHeaderProps> = ({
           </CardContent>
         </Card>
 
-        <Card className="hover-lift border-white/5 bg-card/40">
+        <Card className="hover-lift border-border bg-card/40">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
@@ -100,7 +100,7 @@ export const TarefasPageHeader: React.FC<TarefasPageHeaderProps> = ({
           </CardContent>
         </Card>
 
-        <Card className="hover-lift border-white/5 bg-card/40">
+        <Card className="hover-lift border-border bg-card/40">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
@@ -114,7 +114,7 @@ export const TarefasPageHeader: React.FC<TarefasPageHeaderProps> = ({
           </CardContent>
         </Card>
 
-        <Card className="hover-lift border-white/5 bg-card/40">
+        <Card className="hover-lift border-border bg-card/40">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
@@ -132,7 +132,7 @@ export const TarefasPageHeader: React.FC<TarefasPageHeaderProps> = ({
       </div>
 
       {/* Progresso */}
-      <Card className="border-white/5 bg-card/40 overflow-hidden">
+      <Card className="border-border bg-card/40 overflow-hidden">
         <CardContent className="p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="space-y-1">
@@ -143,7 +143,7 @@ export const TarefasPageHeader: React.FC<TarefasPageHeaderProps> = ({
               {stats.completionRate.toFixed(1)}%
             </Badge>
           </div>
-          <div className="w-full bg-muted/50 rounded-full h-3 p-1 border border-white/5">
+          <div className="w-full bg-muted/50 rounded-full h-3 p-1 border border-border">
             <div 
               className="bg-gradient-to-r from-primary to-primary/60 h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(var(--primary),0.3)]"
               style={{ width: `${stats.completionRate}%` }}

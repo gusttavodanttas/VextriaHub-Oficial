@@ -1,4 +1,4 @@
-import { ArrowLeft, UserCheck, Target, Loader2 } from "lucide-react";
+﻿import { ArrowLeft, UserCheck, Target, Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +22,7 @@ export function CrmFunilVendas({ onBack, data = [], loading = false }: Props) {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={onBack} className="rounded-xl h-12 w-12 p-0 border border-black/5 dark:border-white/5 hover:bg-primary/10 transition-all">
+          <Button variant="ghost" onClick={onBack} className="rounded-xl h-12 w-12 p-0 border border-black/5 dark:border-border hover:bg-primary/10 transition-all">
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
@@ -32,8 +32,8 @@ export function CrmFunilVendas({ onBack, data = [], loading = false }: Props) {
         </div>
       </div>
       
-      <Card className="glass-card border-black/5 dark:border-white/5 rounded-[2rem] overflow-hidden">
-        <CardHeader className="border-b border-black/5 dark:border-white/5 bg-black/[0.01] dark:bg-white/[0.01]">
+      <Card className="glass-card border-black/5 dark:border-border rounded-[2rem] overflow-hidden">
+        <CardHeader className="border-b border-black/5 dark:border-border bg-black/[0.01] dark:bg-white/[0.01]">
           <CardTitle className="text-xl font-extrabold tracking-tight text-center">Pipeline de Conversão</CardTitle>
           <CardDescription className="text-xs font-medium uppercase tracking-widest opacity-60 text-center">Acompanhe o progresso dos leads pelo funil</CardDescription>
         </CardHeader>
@@ -77,8 +77,8 @@ export function CrmFunilVendas({ onBack, data = [], loading = false }: Props) {
         </CardContent>
       </Card>
 
-      <Card className="glass-card border-black/5 dark:border-white/5 rounded-[2rem] overflow-hidden">
-        <CardHeader className="border-b border-black/5 dark:border-white/5 bg-black/[0.01] dark:bg-white/[0.01]">
+      <Card className="glass-card border-black/5 dark:border-border rounded-[2rem] overflow-hidden">
+        <CardHeader className="border-b border-black/5 dark:border-border bg-black/[0.01] dark:bg-white/[0.01]">
           <CardTitle className="text-xl font-extrabold tracking-tight">Leads por Estágio</CardTitle>
           <CardDescription className="text-xs font-medium uppercase tracking-widest opacity-60">Visualização detalhada das fases de venda</CardDescription>
         </CardHeader>
@@ -95,14 +95,14 @@ export function CrmFunilVendas({ onBack, data = [], loading = false }: Props) {
               
               if (stageLeads.length > 0) {
                 return (
-                  <div key={stage} className="border border-black/5 dark:border-white/5 rounded-2xl p-4 bg-black/[0.01] dark:bg-white/[0.01]">
+                  <div key={stage} className="border border-black/5 dark:border-border rounded-2xl p-4 bg-black/[0.01] dark:bg-white/[0.01]">
                     <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-4 flex items-center gap-2">
                        <div className={cn("w-2 h-2 rounded-full", getStatusColor(stage))} />
                        {stageNames[stage]} ({stageLeads.length})
                     </h4>
                     <div className="space-y-2">
                       {stageLeads.map((lead: any) => (
-                        <div key={lead.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-background border border-black/5 dark:border-white/5 rounded-xl gap-2 group hover:border-primary/30 transition-all">
+                        <div key={lead.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-background border border-black/5 dark:border-border rounded-xl gap-2 group hover:border-primary/30 transition-all">
                           <div className="flex items-center space-x-3">
                             <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center border", getStatusColor(lead.status))}>
                               <UserCheck className="h-5 w-5" />

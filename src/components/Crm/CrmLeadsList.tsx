@@ -1,4 +1,4 @@
-import { ArrowLeft, UserCheck, Mail, Phone, Calendar, Target } from "lucide-react";
+﻿import { ArrowLeft, UserCheck, Mail, Phone, Calendar, Target } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +26,7 @@ export function CrmLeadsList({ onBack, tipo, data = [], refresh }: Props) {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={onBack} className="rounded-xl h-12 w-12 p-0 border border-black/5 dark:border-white/5 hover:bg-primary/10 hover:text-primary transition-all">
+          <Button variant="ghost" onClick={onBack} className="rounded-xl h-12 w-12 p-0 border border-black/5 dark:border-border hover:bg-primary/10 hover:text-primary transition-all">
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
@@ -39,15 +39,15 @@ export function CrmLeadsList({ onBack, tipo, data = [], refresh }: Props) {
           </div>
         </div>
         
-        <div className="flex items-center gap-2 p-1.5 bg-black/5 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/5">
+        <div className="flex items-center gap-2 p-1.5 bg-black/5 dark:bg-muted/30 rounded-2xl border border-black/5 dark:border-border">
           <Badge variant="outline" className="rounded-xl border-none font-bold px-4 py-2 bg-background shadow-sm">
             {data.length} Registros
           </Badge>
         </div>
       </div>
       
-      <Card className="glass-card border-black/5 dark:border-white/5 overflow-hidden rounded-[2rem]">
-        <CardHeader className="border-b border-black/5 dark:border-white/5 bg-black/[0.01] dark:bg-white/[0.01]">
+      <Card className="glass-card border-black/5 dark:border-border overflow-hidden rounded-[2rem]">
+        <CardHeader className="border-b border-black/5 dark:border-border bg-black/[0.01] dark:bg-white/[0.01]">
           <div className="flex items-center gap-3">
              <div className={cn("p-2 rounded-xl", isQuentes ? "bg-red-500/10 text-red-600" : "bg-primary/10 text-primary")}>
                 <Target className="h-5 w-5" />
@@ -87,7 +87,7 @@ export function CrmLeadsList({ onBack, tipo, data = [], refresh }: Props) {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:items-center gap-4 lg:gap-8">
                       {lead.email && (
                         <div className="flex items-center text-sm font-bold text-muted-foreground/80">
-                          <div className="p-2 rounded-lg bg-black/5 dark:bg-white/5 mr-3 group-hover:text-primary transition-colors">
+                          <div className="p-2 rounded-lg bg-black/5 dark:bg-muted/30 mr-3 group-hover:text-primary transition-colors">
                             <Mail className="h-4 w-4" />
                           </div>
                           <span className="truncate max-w-[150px]">{lead.email}</span>
@@ -95,7 +95,7 @@ export function CrmLeadsList({ onBack, tipo, data = [], refresh }: Props) {
                       )}
                       {lead.telefone && (
                         <div className="flex items-center text-sm font-bold text-muted-foreground/80">
-                          <div className="p-2 rounded-lg bg-black/5 dark:bg-white/5 mr-3 group-hover:text-primary transition-colors">
+                          <div className="p-2 rounded-lg bg-black/5 dark:bg-muted/30 mr-3 group-hover:text-primary transition-colors">
                             <Phone className="h-4 w-4" />
                           </div>
                           {lead.telefone}
@@ -140,12 +140,12 @@ export function CrmLeadsList({ onBack, tipo, data = [], refresh }: Props) {
                             }}
                             variant="ghost" 
                             size="sm" 
-                            className="rounded-xl border border-emerald-500/20 text-emerald-600 hover:bg-emerald-500 hover:text-white transition-all font-bold"
+                            className="rounded-xl border border-emerald-500/20 text-emerald-600 hover:bg-emerald-500 hover:text-foreground transition-all font-bold"
                           >
                             Converter
                           </Button>
                         )}
-                        <Button variant="outline" size="sm" className="rounded-xl border-black/5 dark:border-white/5 hover:bg-primary hover:text-white transition-all font-bold">
+                        <Button variant="outline" size="sm" className="rounded-xl border-black/5 dark:border-border hover:bg-primary hover:text-foreground transition-all font-bold">
                           Gerenciar
                         </Button>
                       </div>
@@ -155,7 +155,7 @@ export function CrmLeadsList({ onBack, tipo, data = [], refresh }: Props) {
               ))
             ) : (
               <div className="p-20 text-center space-y-4">
-                <div className="w-20 h-20 bg-black/5 dark:bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6">
+                <div className="w-20 h-20 bg-black/5 dark:bg-muted/30 rounded-full flex items-center justify-center mx-auto mb-6">
                   <UserCheck className="h-10 w-10 text-muted-foreground/20" />
                 </div>
                 <h3 className="text-xl font-bold">Nenhum registro encontrado</h3>

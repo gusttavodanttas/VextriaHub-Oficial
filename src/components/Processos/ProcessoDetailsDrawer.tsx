@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -223,14 +223,14 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                 <Badge variant="outline" className={cn("px-3 py-1 text-[10px] font-black uppercase tracking-widest border-2", getStatusStyle(processo.status))}>
                    {processo.status}
                 </Badge>
-                <div className="flex items-center gap-1.5 text-foreground/30 dark:text-white/30 text-[10px] uppercase font-black tracking-widest leading-none">
+                <div className="flex items-center gap-1.5 text-foreground/30 dark:text-muted-foreground/60 text-[10px] uppercase font-black tracking-widest leading-none">
                   <Clock className="h-3 w-3" />
                   Desde {processo.dataInicio ? new Date(processo.dataInicio).toLocaleDateString() : '—'}
                 </div>
               </div>
               
               <div className="space-y-1">
-                <SheetTitle className="text-2xl md:text-3xl font-black text-foreground dark:text-white leading-tight tracking-tight">
+                <SheetTitle className="text-2xl md:text-3xl font-black text-foreground dark:text-foreground leading-tight tracking-tight">
                   {processo.titulo}
                 </SheetTitle>
                 <div className="flex items-center gap-2 group">
@@ -245,7 +245,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
 
           {/* Tab Selection Navigation */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="bg-black/5 dark:bg-white/5 p-1 h-12 rounded-2xl w-full justify-between">
+            <TabsList className="bg-black/5 dark:bg-muted/30 p-1 h-12 rounded-2xl w-full justify-between">
               <TabsTrigger value="resumo" className="flex-1 rounded-xl data-[state=active]:bg-background dark:data-[state=active]:bg-[#1A1A1B] data-[state=active]:text-primary font-bold text-xs">
                 <Info className="h-3.5 w-3.5 mr-2" /> RESUMO
               </TabsTrigger>
@@ -297,45 +297,45 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 rounded-[2rem] border border-border bg-muted/30">
                     <div className="space-y-1">
-                      <p className="text-[10px] text-foreground/30 dark:text-white/30 uppercase font-black tracking-widest">Classe</p>
-                      <p className="text-sm font-bold text-foreground/80 dark:text-white/80">{processo.classeJudicial || processo.tipoProcesso || '—'}</p>
+                      <p className="text-[10px] text-foreground/30 dark:text-muted-foreground/60 uppercase font-black tracking-widest">Classe</p>
+                      <p className="text-sm font-bold text-foreground/80 dark:text-foreground">{processo.classeJudicial || processo.tipoProcesso || '—'}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] text-foreground/30 dark:text-white/30 uppercase font-black tracking-widest">Assunto Principal</p>
-                      <p className="text-sm font-bold text-foreground/80 dark:text-white/80">{processo.assuntoPrincipal || '—'}</p>
+                      <p className="text-[10px] text-foreground/30 dark:text-muted-foreground/60 uppercase font-black tracking-widest">Assunto Principal</p>
+                      <p className="text-sm font-bold text-foreground/80 dark:text-foreground">{processo.assuntoPrincipal || '—'}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] text-foreground/30 dark:text-white/30 uppercase font-black tracking-widest">Fase Atual</p>
-                      <p className="text-sm font-bold text-foreground/80 dark:text-white/80">{processo.faseProcessual || '—'}</p>
+                      <p className="text-[10px] text-foreground/30 dark:text-muted-foreground/60 uppercase font-black tracking-widest">Fase Atual</p>
+                      <p className="text-sm font-bold text-foreground/80 dark:text-foreground">{processo.faseProcessual || '—'}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] text-foreground/30 dark:text-white/30 uppercase font-black tracking-widest">Instância</p>
-                      <p className="text-sm font-bold text-foreground/80 dark:text-white/80">{processo.instancia || '—'}</p>
+                      <p className="text-[10px] text-foreground/30 dark:text-muted-foreground/60 uppercase font-black tracking-widest">Instância</p>
+                      <p className="text-sm font-bold text-foreground/80 dark:text-foreground">{processo.instancia || '—'}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] text-foreground/30 dark:text-white/30 uppercase font-black tracking-widest">Tribunal</p>
+                      <p className="text-[10px] text-foreground/30 dark:text-muted-foreground/60 uppercase font-black tracking-widest">Tribunal</p>
                       <div className="flex items-center gap-2">
                         <Building2 className="h-3.5 w-3.5 text-primary/60" />
-                        <p className="text-sm font-bold text-foreground/80 dark:text-white/80">{processo.tribunal || '—'}</p>
+                        <p className="text-sm font-bold text-foreground/80 dark:text-foreground">{processo.tribunal || '—'}</p>
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] text-foreground/30 dark:text-white/30 uppercase font-black tracking-widest">Vara</p>
+                      <p className="text-[10px] text-foreground/30 dark:text-muted-foreground/60 uppercase font-black tracking-widest">Vara</p>
                       <div className="flex items-center gap-2">
                         <MapPin className="h-3.5 w-3.5 text-primary/60" />
-                        <p className="text-sm font-bold text-foreground/80 dark:text-white/80">{processo.vara || '—'}</p>
+                        <p className="text-sm font-bold text-foreground/80 dark:text-foreground">{processo.vara || '—'}</p>
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] text-foreground/30 dark:text-white/30 uppercase font-black tracking-widest">Comarca / UF</p>
-                      <p className="text-sm font-bold text-foreground/80 dark:text-white/80 pl-5.5">{processo.comarca || '—'}</p>
+                      <p className="text-[10px] text-foreground/30 dark:text-muted-foreground/60 uppercase font-black tracking-widest">Comarca / UF</p>
+                      <p className="text-sm font-bold text-foreground/80 dark:text-foreground pl-5.5">{processo.comarca || '—'}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[10px] text-foreground/30 dark:text-white/30 uppercase font-black tracking-widest">Sigilo / Justiça Grat.</p>
+                      <p className="text-[10px] text-foreground/30 dark:text-muted-foreground/60 uppercase font-black tracking-widest">Sigilo / Justiça Grat.</p>
                       <div className="flex gap-2 pl-3">
                          {processo.segredoJustica && <Badge variant="secondary" className="bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20 text-[9px]">Segredo</Badge>}
                          {processo.justicaGratuita && <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 text-[9px]">Gratuita</Badge>}
-                         {!processo.segredoJustica && !processo.justicaGratuita && <span className="text-xs text-foreground/20 dark:text-white/20">Não consta</span>}
+                         {!processo.segredoJustica && !processo.justicaGratuita && <span className="text-xs text-foreground/20 dark:text-muted-foreground/50">Não consta</span>}
                       </div>
                     </div>
                   </div>
@@ -346,7 +346,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
               {/* ABA: TIMELINE */}
               <TabsContent value="timeline" className="space-y-6 animate-in fade-in duration-300">
                  <div className="flex items-center justify-between -mt-2 mb-2">
-                   <p className="text-[10px] text-foreground/30 dark:text-white/30 uppercase font-black tracking-widest">
+                   <p className="text-[10px] text-foreground/30 dark:text-muted-foreground/60 uppercase font-black tracking-widest">
                      {syncing ? 'Sincronizando com o tribunal…' : `${movements.length} movimentação(ões)`}
                    </p>
                    <button
@@ -377,7 +377,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                                    {mov.tipo || mov.metadata?.fase || 'Andamento'}
                                  </Badge>
                                </div>
-                               <h4 className="font-bold text-foreground/90 dark:text-white/90 leading-tight whitespace-pre-wrap">
+                               <h4 className="font-bold text-foreground/90 dark:text-foreground leading-tight whitespace-pre-wrap">
                                  {mov.texto}
                                </h4>
                             </div>
@@ -404,8 +404,8 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                         <User className="h-4 w-4" />
                         <span className="text-[10px] font-black uppercase tracking-widest">Polo Ativo (Autor / Requerente)</span>
                       </div>
-                      <p className="text-base font-bold text-foreground/90 dark:text-white/90 leading-relaxed">
-                        {processo.parteAutora || <span className="text-foreground/30 dark:text-white/30 italic">Não identificado</span>}
+                      <p className="text-base font-bold text-foreground/90 dark:text-foreground leading-relaxed">
+                        {processo.parteAutora || <span className="text-foreground/30 dark:text-muted-foreground/60 italic">Não identificado</span>}
                       </p>
                     </div>
                     <div className="p-6 rounded-[2rem] border border-rose-500/15 bg-rose-500/5 space-y-3">
@@ -413,11 +413,11 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                         <Users className="h-4 w-4" />
                         <span className="text-[10px] font-black uppercase tracking-widest">Polo Passivo (Réu / Requerido)</span>
                       </div>
-                      <p className="text-base font-bold text-foreground/90 dark:text-white/90 leading-relaxed">
-                        {processo.requerido || <span className="text-foreground/30 dark:text-white/30 italic">Não identificado</span>}
+                      <p className="text-base font-bold text-foreground/90 dark:text-foreground leading-relaxed">
+                        {processo.requerido || <span className="text-foreground/30 dark:text-muted-foreground/60 italic">Não identificado</span>}
                       </p>
                     </div>
-                    <p className="text-[10px] text-foreground/30 dark:text-white/30 italic text-center">
+                    <p className="text-[10px] text-foreground/30 dark:text-muted-foreground/60 italic text-center">
                       Histórico de advogados e prepostos será exibido em breve.
                     </p>
                   </div>
