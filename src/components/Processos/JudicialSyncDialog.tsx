@@ -742,22 +742,15 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
                           </div>
                         </div>
                       ))
-                    ) : (() => {
-                      const varaClasse = `${previewProc.vara || ''} ${previewProc.classe || ''} ${previewProc.faseProcessual || ''}`.toLowerCase();
-                      const isSegredo = (previewProc.nivelSigilo ?? 0) > 0 || /famíl|família|orfão|órfão|sucess|criança|infância|adoção|tutela|curatela|interdição/i.test(varaClasse);
-                      return isSegredo ? (
-                        <div className="flex flex-col items-center justify-center py-8 gap-3">
-                          <ShieldCheck className="h-8 w-8 text-yellow-500 opacity-80" />
-                          <p className="text-[10px] uppercase font-black tracking-widest text-center text-yellow-500">Processo em segredo de justiça</p>
-                          <p className="text-xs text-muted-foreground text-center max-w-xs">As movimentações não estão disponíveis via API pública e deverão ser adicionadas manualmente após a importação.</p>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center justify-center py-8 opacity-20">
-                          <AlertCircle className="h-8 w-8 mb-2" />
-                          <p className="text-[10px] uppercase font-black tracking-widest">Nenhum andamento extraído</p>
-                        </div>
-                      );
-                    })()}
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-8 gap-3 opacity-70">
+                        <AlertCircle className="h-8 w-8 text-yellow-500" />
+                        <p className="text-[10px] uppercase font-black tracking-widest text-center text-yellow-500">Nenhum andamento extraído</p>
+                        <p className="text-xs text-muted-foreground text-center max-w-xs">
+                          Pode ser que este processo corra em segredo de justiça ou que o tribunal ainda não indexou os movimentos. Adicione os andamentos manualmente após importar.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
