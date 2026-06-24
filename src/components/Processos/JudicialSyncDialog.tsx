@@ -617,6 +617,9 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
 
       <Dialog open={!!previewProc} onOpenChange={(open) => !open && setPreviewProc(null)}>
         <DialogContent className="max-w-2xl bg-background border border-border p-8 shadow-2xl rounded-2xl max-h-[90vh] flex flex-col gap-0">
+          <DialogTitle className="sr-only">
+            {previewProc ? `Processo ${previewProc.numeroProcesso}` : 'Detalhes do processo'}
+          </DialogTitle>
           {previewProc && (
             <div className="flex flex-col flex-1 min-h-0 h-full gap-0">
               {/* Header Fixo */}
