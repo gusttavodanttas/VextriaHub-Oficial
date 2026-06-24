@@ -370,35 +370,23 @@ export function useProcessosV2() {
     mutationFn: async (id: string) => {
       if (!user) throw new Error('Not authenticated');
 
-      console.log('🗑️ [delete] iniciando hard delete do processo:', id);
-
       const { data, error } = await supabase
         .from('processos')
-        .delete()
+        .update({ deletado: true, deletado_pendente: true, updated_at: new Date().toISOString() })
         .eq('id', id)
         .select('id');
 
-      if (error) {
-        console.error('🗑️ [delete] erro Supabase:', {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint,
-        });
-        throw error;
-      }
+      if (error) throw error;
 
       if (!data || data.length === 0) {
-        console.error('🗑️ [delete] delete retornou 0 linhas — provável bloqueio de RLS', { id });
-        throw new Error('Não foi possível excluir este processo. Verifique sua permissão (RLS).');
+        throw new Error('Não foi possível arquivar este processo. Verifique sua permissão.');
       }
 
-      console.log('🗑️ [delete] sucesso, linhas removidas:', data.length);
       return id;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['processos'] });
-      toast({ title: 'Processo excluído', description: 'O registro foi removido permanentemente.' });
+      toast({ title: 'Processo arquivado', description: 'O processo foi arquivado. O suporte pode restaurá-lo se necessário.' });
     },
     onError: (err: any) => {
       console.error('🗑️ [delete] mutation onError:', err);

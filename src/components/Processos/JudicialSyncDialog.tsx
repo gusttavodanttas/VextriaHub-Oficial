@@ -185,16 +185,19 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
         andamentos: Array.isArray(item.andamentos) ? item.andamentos : [],
       }));
 
-      // Filtra processos já importados no escritório
+      // Filtra processos já importados e descartados no escritório
       const numeros = mappedResults.map(r => (r.numeroProcesso || '').replace(/\D/g, ''));
-      const { data: existentes } = await supabase
-        .from('processos')
-        .select('numero_processo')
-        .eq('office_id', user?.office_id)
-        .in('numero_processo', numeros);
 
-      const jaImportados = new Set((existentes || []).map(e => e.numero_processo));
-      const filteredResults = mappedResults.filter(r => !jaImportados.has((r.numeroProcesso || '').replace(/\D/g, '')));
+      const [{ data: existentes }, { data: descartados }] = await Promise.all([
+        supabase.from('processos').select('numero_processo').eq('office_id', user?.office_id).in('numero_processo', numeros),
+        supabase.from('processos_descartados').select('numero_processo').eq('office_id', user?.office_id).in('numero_processo', numeros),
+      ]);
+
+      const ocultos = new Set([
+        ...(existentes || []).map(e => e.numero_processo),
+        ...(descartados || []).map(d => d.numero_processo),
+      ]);
+      const filteredResults = mappedResults.filter(r => !ocultos.has((r.numeroProcesso || '').replace(/\D/g, '')));
 
       setResults(filteredResults);
       setSearched(true);
@@ -234,7 +237,24 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
     }
   };
 
-  const ignorarProcesso = (id: string) => {
+  const ignorarProcesso = async (id: string) => {
+    const proc = results.find(r => r.id === id);
+    // Salvar no Supabase para não aparecer mais e para o suporte poder recuperar
+    if (proc && user?.office_id) {
+      try {
+        await supabase.from('processos_descartados').insert({
+          office_id: user.office_id,
+          user_id: user.id,
+          numero_processo: (proc.numeroProcesso || '').replace(/\D/g, ''),
+          titulo: proc.titulo,
+          tribunal: proc.tribunal,
+          motivo: 'descartado_busca_oab',
+          dados_originais: proc as any,
+        });
+      } catch (err) {
+        console.error('[sync] erro ao salvar descarte:', err);
+      }
+    }
     setResults(prev => prev.filter(item => item.id !== id));
     setSelectedIds(prev => {
       const next = new Set(prev);
@@ -243,8 +263,8 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
     });
     setPreviewProc(null);
     toast({
-      title: "Processo ignorado",
-      description: "O processo foi removido da lista de busca.",
+      title: "Processo descartado",
+      description: "Removido da lista. O suporte pode recuperá-lo se necessário.",
     });
   };
 

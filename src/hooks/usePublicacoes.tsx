@@ -237,23 +237,23 @@ export const usePublicacoes = () => {
     try {
       const { error } = await supabase
         .from('publicacoes')
-        .delete()
+        .update({ status: 'arquivada' })
         .eq('id', id);
 
       if (error) throw error;
-      
+
       setPublications(prev => prev.filter(p => p.id !== id));
-      
+
       toast({
-        title: "Publicação excluída",
-        description: "A publicação foi removida com sucesso.",
+        title: "Publicação arquivada",
+        description: "A publicação foi arquivada. O suporte pode restaurá-la se necessário.",
       });
-      
+
       return true;
     } catch (error) {
       toast({
-        title: "Erro ao excluir",
-        description: "Não foi possível remover a publicação.",
+        title: "Erro ao arquivar",
+        description: "Não foi possível arquivar a publicação.",
         variant: "destructive",
       });
       return false;
