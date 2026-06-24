@@ -522,6 +522,11 @@ serve(async (req) => {
         // Vara/comarca: prioriza DataJud, fallback PJE
         merged.vara = baseProcesso.vara || pjeFallback.vara;
         merged.comarca = baseProcesso.comarca || pjeFallback.comarca;
+        // Preserva o conteúdo (teor original da publicação) se vier do PJE
+        if (pjeFallback.conteudo) {
+          merged.conteudo = pjeFallback.conteudo;
+          merged.fonte = "pje_comunica";
+        }
       }
 
       // Adiciona andamentos do PJE-Comunica que não estejam já cobertos pelo DataJud

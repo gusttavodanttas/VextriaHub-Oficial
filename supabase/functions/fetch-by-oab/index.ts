@@ -469,20 +469,56 @@ serve(async (req) => {
       }
     });
     const pjeBatches = await Promise.all(pjePromises);
-    const existingNumbers = new Set(allResults.map((p) => p.numeroProcesso));
+    const existingMap = new Map(allResults.map((p) => [p.numeroProcesso, p]));
     for (const batch of pjeBatches) {
       for (const p of batch) {
-        if (!existingNumbers.has(p.numeroProcesso)) {
-          allResults.push(p);
-          existingNumbers.add(p.numeroProcesso);
+        if (p) {
+          const existing = existingMap.get(p.numeroProcesso);
+          if (existing) {
+            if (p.conteudo) {
+              existing.conteudo = p.conteudo;
+              existing.fonte = "pje_comunica";
+            }
+            if (existing.autor === "Não identificado" && p.autor) {
+              existing.autor = p.autor;
+            }
+            if (existing.reu === "Não identificado" && p.reu) {
+              existing.reu = p.reu;
+            }
+            if (existing.autor !== "Não identificado" || existing.reu !== "Não identificado") {
+              existing.titulo = `${existing.autor} x ${existing.reu}`;
+              existing.partes = existing.titulo;
+            }
+            if (p.andamentos && p.andamentos.length > 0) {
+              const dataJudAndamentos = existing.andamentos || [];
+              const existingTexts = new Set(
+                dataJudAndamentos.map((a: any) => (a.descricao || a.resumo || "").trim().toLowerCase().slice(0, 200))
+              );
+              const novos = p.andamentos.filter((a: any) => {
+                const key = (a.descricao || "").trim().toLowerCase().slice(0, 200);
+                return key && !existingTexts.has(key);
+              });
+              if (novos.length > 0) {
+                existing.andamentos = [...novos, ...dataJudAndamentos].sort((a, b) => {
+                  const da = a.data ? new Date(a.data).getTime() : 0;
+                  const db = b.data ? new Date(b.data).getTime() : 0;
+                  return db - da;
+                });
+                existing.ultimoAndamento = existing.andamentos[0]
+                  ? { descricao: existing.andamentos[0].descricao, data: existing.andamentos[0].data }
+                  : existing.ultimoAndamento;
+              }
+            }
+          } else {
+            allResults.push(p);
+            existingMap.set(p.numeroProcesso, p);
+          }
         }
       }
     }
 
     // 3. Dedup final
-    const uniqueResults = Array.from(
-      new Map(allResults.map((it) => [it.numeroProcesso, it])).values()
-    );
+    const uniqueResults = Array.from(existingMap.values());
 
     console.log(`[OAB] ${uniqueResults.length} processos únicos antes da hidratação`);
 
