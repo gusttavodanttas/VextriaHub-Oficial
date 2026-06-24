@@ -179,8 +179,6 @@ export function useProcessosV2() {
         result = inserted;
       }
 
-      if (error) throw error;
-
       if (andamentos.length > 0) {
         await persistAndamentos(result.id, user.office_id, andamentos);
       }

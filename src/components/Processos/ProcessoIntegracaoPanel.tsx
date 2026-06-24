@@ -93,7 +93,7 @@ const ProcessoIntegracaoBody: React.FC<ProcessoIntegracaoBodyProps> = ({
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
 
-      const response = await fetch(`https://xrtmyhuqbbtaelczemag.supabase.co/functions/v1/fetch-processo`, {
+      const response = await fetch(`https://mzhnlhfxfoigkqgxseeu.supabase.co/functions/v1/fetch-processo`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
