@@ -217,7 +217,10 @@ export default function Publicacoes() {
                            (pub.numero_processo || '').includes(filters.search) ||
                            (pub.conteudo || '').toLowerCase().includes(searchTerm);
       
-      const matchesStatus = filters.status === 'all' || pub.status === filters.status;
+      // 'all' exclui arquivadas — arquivadas só aparecem quando filtro = 'arquivada'
+      const matchesStatus = filters.status === 'all'
+        ? pub.status !== 'arquivada'
+        : pub.status === filters.status;
       const matchesUrgencia = filters.urgencia === 'all' || pub.urgencia === filters.urgencia;
       
       let matchesDate = true;

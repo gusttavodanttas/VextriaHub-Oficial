@@ -111,6 +111,7 @@ export const PublicationFilters = ({
               <SelectItem value="nova">Novas</SelectItem>
               <SelectItem value="pendente">Pendentes</SelectItem>
               <SelectItem value="lida">Tratadas</SelectItem>
+              <SelectItem value="arquivada">Arquivadas</SelectItem>
             </SelectContent>
           </Select>
 
