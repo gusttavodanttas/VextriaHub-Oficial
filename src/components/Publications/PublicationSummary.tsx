@@ -65,7 +65,7 @@ interface PublicationSummaryProps {
 }
 
 export const PublicationSummary = ({ stats, loading, onCardClick }: PublicationSummaryProps) => {
-  const pct = stats.total && stats.tratadas != null
+  const pct = stats.total && stats.total > 0 && stats.tratadas != null
     ? Math.round((stats.tratadas / stats.total) * 100)
     : null;
 

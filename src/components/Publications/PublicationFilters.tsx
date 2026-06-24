@@ -1,5 +1,6 @@
 ﻿import React from "react";
-import { Search, Filter, X, Calendar as CalendarIcon, Loader2 } from "lucide-react";
+import { Search, X, Calendar as CalendarIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,24 +39,36 @@ export const PublicationFilters = ({
   activeFiltersCount,
   onClear
 }: PublicationFiltersProps) => {
+  const getActiveQuickFilter = (): 'today' | 'week' | 'month' | null => {
+    if (!filters.dateRange.from || !filters.dateRange.to) return null;
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
+    const fromStr = filters.dateRange.from.toDateString();
+    if (fromStr === todayStart.toDateString() && filters.dateRange.to.toDateString() === todayEnd.toDateString()) return 'today';
+    const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+    if (fromStr === monthStart.toDateString()) return 'month';
+    return 'week';
+  };
+  const activeQuick = getActiveQuickFilter();
+
   const handleQuickFilter = (period: 'today' | 'week' | 'month') => {
-    const now = new Date();
-    let from = new Date();
+    // Toggle off if already active
+    if (activeQuick === period) {
+      setFilters({ ...filters, dateRange: { from: undefined, to: undefined } });
+      return;
+    }
+    const from = new Date();
     from.setHours(0, 0, 0, 0);
-    
     if (period === 'week') {
-      // Começar da Segunda-feira da semana atual
-      const day = from.getDay();
-      const diff = from.getDate() - day + (day === 0 ? -6 : 1); 
-      from.setDate(diff);
+      // Segunda-feira da semana atual
+      const day = from.getDay(); // 0=dom,1=seg,...,6=sab
+      const daysToMon = day === 0 ? 6 : day - 1;
+      from.setDate(from.getDate() - daysToMon);
     } else if (period === 'month') {
-      // Começar do dia 1 do mês atual
       from.setDate(1);
     }
-    
     const to = new Date();
     to.setHours(23, 59, 59, 999);
-    
     setFilters({ ...filters, dateRange: { from, to } });
   };
 
@@ -63,30 +76,24 @@ export const PublicationFilters = ({
     <div className="flex flex-col gap-4 w-full">
       {/* Quick Filters Row */}
       <div className="flex flex-wrap items-center gap-2 px-2">
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={() => handleQuickFilter('today')}
-          className="rounded-xl h-8 px-4 font-black text-[10px] uppercase tracking-widest border-primary/20 hover:bg-primary/10 transition-all"
-        >
-          Hoje
-        </Button>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={() => handleQuickFilter('week')}
-          className="rounded-xl h-8 px-4 font-black text-[10px] uppercase tracking-widest border-primary/20 hover:bg-primary/10 transition-all"
-        >
-          Esta Semana
-        </Button>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={() => handleQuickFilter('month')}
-          className="rounded-xl h-8 px-4 font-black text-[10px] uppercase tracking-widest border-primary/20 hover:bg-primary/10 transition-all"
-        >
-          Este Mês
-        </Button>
+        {(['today', 'week', 'month'] as const).map(period => {
+          const labels = { today: 'Hoje', week: 'Esta Semana', month: 'Este Mês' };
+          const isActive = activeQuick === period;
+          return (
+            <Button
+              key={period}
+              variant={isActive ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => handleQuickFilter(period)}
+              className={cn(
+                "rounded-xl h-8 px-4 font-black text-[10px] uppercase tracking-widest transition-all",
+                isActive ? "bg-primary text-primary-foreground shadow-md" : "border-primary/20 hover:bg-primary/10"
+              )}
+            >
+              {labels[period]}
+            </Button>
+          );
+        })}
       </div>
 
       {/* Main Filter Row */}

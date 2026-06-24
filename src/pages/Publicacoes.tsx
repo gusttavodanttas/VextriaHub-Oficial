@@ -257,6 +257,30 @@ export default function Publicacoes() {
     ].filter(Boolean).length;
   }, [filters]);
 
+  const handleExportCSV = () => {
+    const rows = [
+      ['Título', 'Processo', 'Tribunal', 'Comarca', 'Data', 'Status', 'Urgência'],
+      ...filteredPublications.map(p => [
+        `"${(p.titulo || '').replace(/"/g, '""')}"`,
+        p.numero_processo,
+        p.tribunal || '',
+        p.comarca || '',
+        p.data_publicacao ? new Date(p.data_publicacao).toLocaleDateString('pt-BR') : '',
+        p.status,
+        p.urgencia,
+      ]),
+    ];
+    const csv = rows.map(r => r.join(';')).join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `publicacoes_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: 'Exportado', description: `${filteredPublications.length} publicações exportadas.` });
+  };
+
   // Handlers
   const handleToggleSelection = (id: string) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
@@ -271,20 +295,21 @@ export default function Publicacoes() {
   };
 
   const handleBulkUpdateStatus = async (newStatus: string) => {
-    toast({
-      title: "Processando...",
-      description: `Atualizando ${selectedIds.length} publicações para "${newStatus}".`,
-    });
-    
+    const count = selectedIds.length;
+    toast({ title: "Processando...", description: `Atualizando ${count} publicações...` });
+
+    let erros = 0;
     for (const id of selectedIds) {
-      await updateStatus(id, newStatus as any);
+      const ok = await updateStatus(id, newStatus as any);
+      if (!ok) erros++;
     }
-    
+
     setSelectedIds([]);
-    toast({
-      title: "Sucesso",
-      description: `${selectedIds.length} publicações atualizadas com sucesso.`,
-    });
+    if (erros > 0) {
+      toast({ title: "Parcialmente concluído", description: `${count - erros} atualizadas, ${erros} falharam.`, variant: "destructive" });
+    } else {
+      toast({ title: "Sucesso", description: `${count} publicações atualizadas.` });
+    }
   };
 
   const handleManualSync = async (days: number) => {
@@ -335,6 +360,12 @@ export default function Publicacoes() {
             <h1 className="text-3xl md:text-5xl font-black tracking-tighter text-foreground">
               Publicações
             </h1>
+            {registering && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-primary/10 border border-primary/20 text-primary text-xs font-bold animate-pulse">
+                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                Buscando dados...
+              </div>
+            )}
           </div>
           <p className="text-sm md:text-lg text-muted-foreground font-medium max-w-2xl px-1">
             Gestão automatizada de intimações e andamentos processuais.
@@ -400,22 +431,13 @@ export default function Publicacoes() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl bg-card border-black/5 dark:border-border shadow-2xl">
-                  <DropdownMenuItem className="rounded-xl py-3 cursor-pointer group flex items-center gap-3">
+                  <DropdownMenuItem onClick={() => handleExportCSV()} className="rounded-xl py-3 cursor-pointer group flex items-center gap-3">
                     <div className="p-1.5 rounded-lg bg-emerald-500/10 group-hover:bg-emerald-500/20 transition-colors">
                       <FileSpreadsheet className="h-4 w-4 text-emerald-500" />
                     </div>
                     <div className="flex flex-col">
-                      <span className="font-bold text-xs uppercase tracking-tight">Excel (.xlsx)</span>
-                      <span className="text-[10px] text-muted-foreground/60 italic">Relatório em planilha</span>
-                    </div>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="rounded-xl py-3 cursor-pointer group flex items-center gap-3">
-                    <div className="p-1.5 rounded-lg bg-red-500/10 group-hover:bg-red-500/20 transition-colors">
-                      <FileTextIcon className="h-4 w-4 text-red-500" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="font-bold text-xs uppercase tracking-tight">PDF (.pdf)</span>
-                      <span className="text-[10px] text-muted-foreground/60 italic">Documento formatado</span>
+                      <span className="font-bold text-xs uppercase tracking-tight">CSV / Excel</span>
+                      <span className="text-[10px] text-muted-foreground/60 italic">{filteredPublications.length} publicações</span>
                     </div>
                   </DropdownMenuItem>
                 </DropdownMenuContent>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,7 +39,11 @@ export const NovoPrazoStandaloneDialog = ({
     status: "pendente",
   });
 
-  // Atualizar defaults quando a publicação muda
+  // Re-sincronizar form quando dialog abre com nova publicação
+  useEffect(() => {
+    if (open) resetForm();
+  }, [open, tituloSugerido, numeroProcesso]);
+
   const resetForm = () => {
     setFormData({
       titulo: tituloSugerido || "",
