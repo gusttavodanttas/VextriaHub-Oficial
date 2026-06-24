@@ -80,9 +80,9 @@ export const NovaTarefaDialog = ({ open, onOpenChange, onAddTarefa }: NovaTarefa
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Nova Tarefa</DialogTitle>
+      <DialogContent className="max-w-2xl bg-background border border-border p-6 rounded-[2rem] shadow-2xl">
+        <DialogHeader className="pb-3 border-b border-border">
+          <DialogTitle className="text-xl font-black text-foreground">Nova Tarefa</DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">

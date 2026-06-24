@@ -613,7 +613,7 @@ export default function Publicacoes() {
                               <Trash2 className="h-5 w-5 text-red-500/50 group-hover/del:text-red-500" />
                             </Button>
                           </AlertDialogTrigger>
-                          <AlertDialogContent className="rounded-[2.5rem] border-black/5 dark:border-border bg-card/80 backdrop-blur-2xl p-10 shadow-2xl">
+                          <AlertDialogContent className="rounded-[2.5rem] border border-border bg-background p-10 shadow-2xl">
                             <AlertDialogHeader>
                               <AlertDialogTitle className="text-3xl font-black tracking-tighter">Eliminar Expediente</AlertDialogTitle>
                               <AlertDialogDescription className="text-base font-medium text-muted-foreground">

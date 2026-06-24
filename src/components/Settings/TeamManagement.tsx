@@ -51,10 +51,10 @@ export function TeamManagement() {
               Nova Equipe
             </Button>
           </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Criar Nova Equipe</DialogTitle>
-              <DialogDescription>
+          <DialogContent className="bg-background border border-border p-6 rounded-[2rem] shadow-2xl">
+            <DialogHeader className="pb-3 border-b border-border">
+              <DialogTitle className="text-xl font-black text-foreground">Criar Nova Equipe</DialogTitle>
+              <DialogDescription className="text-muted-foreground mt-1">
                 Adicione uma nova equipe especializada ao seu escritório
               </DialogDescription>
             </DialogHeader>

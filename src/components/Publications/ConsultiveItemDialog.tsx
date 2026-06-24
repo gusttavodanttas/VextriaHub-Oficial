@@ -140,9 +140,9 @@ export const ConsultiveItemDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-background border border-border p-6 rounded-[2rem] shadow-2xl">
+        <DialogHeader className="pb-3 border-b border-border">
+          <DialogTitle className="text-xl font-black text-foreground">
             {mode === "view" ? "Detalhes do Item Consultivo" : "Editar Item Consultivo"}
           </DialogTitle>
         </DialogHeader>
@@ -323,10 +323,10 @@ export const ConsultiveItemDialog = ({
                       Excluir
                     </Button>
                   </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
-                      <AlertDialogDescription>
+                  <AlertDialogContent className="bg-background border border-border rounded-[2rem] shadow-2xl p-6">
+                    <AlertDialogHeader className="pb-3 border-b border-border">
+                      <AlertDialogTitle className="text-xl font-black text-foreground">Confirmar Exclusão</AlertDialogTitle>
+                      <AlertDialogDescription className="text-muted-foreground mt-2">
                         Tem certeza que deseja excluir este item consultivo? Esta ação não pode ser desfeita.
                       </AlertDialogDescription>
                     </AlertDialogHeader>

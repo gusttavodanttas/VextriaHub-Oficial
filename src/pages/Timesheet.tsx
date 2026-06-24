@@ -227,10 +227,10 @@ export default function Timesheet() {
                   Novo Timer
                 </Button>
               </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px] rounded-2xl">
-              <DialogHeader>
-                <DialogTitle className="text-2xl">Iniciar Novo Timer</DialogTitle>
-                <DialogDescription>
+            <DialogContent className="sm:max-w-[425px] bg-background border border-border p-6 rounded-[2rem] shadow-2xl">
+              <DialogHeader className="pb-3 border-b border-border">
+                <DialogTitle className="text-xl font-black text-foreground">Iniciar Novo Timer</DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground mt-1">
                   Descreva a atividade que você vai realizar e selecione a categoria
                 </DialogDescription>
               </DialogHeader>

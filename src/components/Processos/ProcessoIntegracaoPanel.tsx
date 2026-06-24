@@ -58,7 +58,7 @@ export const ProcessoIntegracaoPanel: React.FC<ProcessoIntegracaoPanelProps> = (
   if (isDialogMode) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-[1280px] w-[95vw] glass-card border border-black/5 dark:border-white/10 p-0 overflow-hidden flex flex-col h-[90vh] max-h-[90vh] shadow-2xl">
+        <DialogContent className="max-w-[1280px] w-[95vw] bg-background border border-border p-0 overflow-hidden flex flex-col h-[90vh] max-h-[90vh] shadow-2xl rounded-[2rem]">
           <div className="flex-1 overflow-y-auto px-8 py-6">
             {body}
           </div>
@@ -185,7 +185,7 @@ const ProcessoIntegracaoBody: React.FC<ProcessoIntegracaoBodyProps> = ({
             <p className="text-muted-foreground/60 text-sm font-medium">Busca automática em tribunais (PJE/DataJud)</p>
           </div>
         </div>
-        <div className="flex-1 glass-card rounded-[2rem] border border-black/5 dark:border-white/10 p-8 shadow-premium min-h-[600px] flex flex-col">
+        <div className="flex-1 bg-muted/10 rounded-[2rem] border border-border p-8 shadow-premium min-h-[600px] flex flex-col">
           <JudicialSyncContent 
             onImport={async (procs) => {
               await onAddProcesso(procs);
@@ -211,7 +211,7 @@ const ProcessoIntegracaoBody: React.FC<ProcessoIntegracaoBodyProps> = ({
           </div>
         </div>
         
-        <Card className="max-w-2xl mx-auto w-full p-12 glass-card border border-black/5 dark:border-white/10 rounded-[2.5rem] shadow-premium">
+        <Card className="max-w-2xl mx-auto w-full p-12 bg-card border border-border rounded-[2.5rem] shadow-premium">
           <div className="space-y-8 text-center">
             <div className="mx-auto w-20 h-20 rounded-3xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
               <Search className="h-10 w-10" />
@@ -223,12 +223,12 @@ const ProcessoIntegracaoBody: React.FC<ProcessoIntegracaoBodyProps> = ({
             
             <div className="space-y-4 max-w-md mx-auto">
               <div className="space-y-2 text-left">
-                <Label className="text-white/60 ml-1">Número do Processo</Label>
+                <Label className="text-foreground ml-1">Número do Processo</Label>
                 <Input 
                   placeholder="0000000-00.0000.0.00.0000"
                   value={cnjInput}
                   onChange={(e) => setCnjInput(formatCNJ(e.target.value))}
-                  className="h-14 bg-white/10 border-white/10 rounded-2xl font-mono text-center tracking-widest text-xl"
+                  className="h-14 bg-background border-border text-foreground rounded-2xl font-mono text-center tracking-widest text-xl"
                 />
               </div>
               <Button 
@@ -263,7 +263,7 @@ const ProcessoIntegracaoBody: React.FC<ProcessoIntegracaoBodyProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto px-4">
         {/* Card OAB Premium */}
         <Card 
-          className="group relative overflow-hidden cursor-pointer bg-card/40 dark:bg-black/20 border border-black/5 dark:border-white/10 hover:border-primary/30 transition-all p-10 space-y-6 rounded-[3rem] shadow-premium hover:shadow-2xl hover:-translate-y-2"
+          className="group relative overflow-hidden cursor-pointer bg-card border border-border hover:border-primary/30 transition-all p-10 space-y-6 rounded-[3rem] shadow-premium hover:shadow-2xl hover:-translate-y-2"
           onClick={() => setMode('oab')}
         >
           <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-10 transition-opacity">
@@ -279,7 +279,7 @@ const ProcessoIntegracaoBody: React.FC<ProcessoIntegracaoBodyProps> = ({
             </p>
           </div>
           <div className="pt-4">
-            <Button className="w-full rounded-2xl font-black uppercase tracking-widest text-[10px] h-12 group-hover:bg-primary group-hover:text-white transition-all border-black/5 dark:border-white/10" variant="outline">
+            <Button className="w-full rounded-2xl font-black uppercase tracking-widest text-[10px] h-12 group-hover:bg-primary group-hover:text-white transition-all border-border" variant="outline">
               Iniciar Sincronismo
             </Button>
           </div>
@@ -287,7 +287,7 @@ const ProcessoIntegracaoBody: React.FC<ProcessoIntegracaoBodyProps> = ({
 
         {/* Card CNJ Premium */}
         <Card 
-          className="group relative overflow-hidden cursor-pointer bg-card/40 dark:bg-black/20 border border-black/5 dark:border-white/10 hover:border-emerald-500/30 transition-all p-10 space-y-6 rounded-[3rem] shadow-premium hover:shadow-2xl hover:-translate-y-2"
+          className="group relative overflow-hidden cursor-pointer bg-card border border-border hover:border-emerald-500/30 transition-all p-10 space-y-6 rounded-[3rem] shadow-premium hover:shadow-2xl hover:-translate-y-2"
           onClick={() => setMode('cnj')}
         >
           <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-10 transition-opacity">
@@ -303,7 +303,7 @@ const ProcessoIntegracaoBody: React.FC<ProcessoIntegracaoBodyProps> = ({
             </p>
           </div>
           <div className="pt-4">
-            <Button className="w-full rounded-2xl font-black uppercase tracking-widest text-[10px] h-12 group-hover:bg-emerald-600 dark:group-hover:bg-emerald-500 group-hover:text-white transition-all border-black/5 dark:border-white/10" variant="outline">
+            <Button className="w-full rounded-2xl font-black uppercase tracking-widest text-[10px] h-12 group-hover:bg-emerald-600 dark:group-hover:bg-emerald-500 group-hover:text-white transition-all border-border" variant="outline">
               Buscar Processo
             </Button>
           </div>
@@ -311,7 +311,7 @@ const ProcessoIntegracaoBody: React.FC<ProcessoIntegracaoBodyProps> = ({
 
         {/* Card Manual Premium */}
         <Card 
-          className="group relative overflow-hidden cursor-pointer bg-card/40 dark:bg-black/20 border border-black/5 dark:border-white/10 hover:border-amber-500/30 transition-all p-10 space-y-6 rounded-[3rem] shadow-premium hover:shadow-2xl hover:-translate-y-2 min-h-[320px] flex flex-col justify-between"
+          className="group relative overflow-hidden cursor-pointer bg-card border border-border hover:border-amber-500/30 transition-all p-10 space-y-6 rounded-[3rem] shadow-premium hover:shadow-2xl hover:-translate-y-2 min-h-[320px] flex flex-col justify-between"
           onClick={() => setMode('manual')}
         >
           <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-10 transition-opacity">
@@ -329,14 +329,14 @@ const ProcessoIntegracaoBody: React.FC<ProcessoIntegracaoBodyProps> = ({
             </div>
           </div>
           <div className="pt-4">
-            <Button className="w-full rounded-2xl font-black uppercase tracking-widest text-[10px] h-12 group-hover:bg-amber-600 dark:group-hover:bg-amber-500 group-hover:text-white transition-all border-black/5 dark:border-white/10" variant="outline">
+            <Button className="w-full rounded-2xl font-black uppercase tracking-widest text-[10px] h-12 group-hover:bg-amber-600 dark:group-hover:bg-amber-500 group-hover:text-white transition-all border-border" variant="outline">
               Cadastrar Agora
             </Button>
           </div>
         </Card>
       </div>
 
-      <div className="max-w-xl mx-auto p-6 rounded-3xl bg-blue-500/5 border border-blue-500/20 flex flex-col md:flex-row items-center gap-4 text-xs text-blue-300 backdrop-blur-3xl">
+      <div className="max-w-xl mx-auto p-6 rounded-3xl bg-blue-500/5 border border-blue-500/20 flex flex-col md:flex-row items-center gap-4 text-xs text-foreground backdrop-blur-3xl">
         <Info className="h-6 w-6 shrink-0 text-blue-500" />
         <p className="text-center md:text-left leading-relaxed">
           <span className="font-bold text-blue-400">Nota Jurídica:</span> A sincronização judicial consome créditos do seu plano. Novos advogados possuem limites diferenciados para a busca profunda da OAB.
@@ -418,7 +418,7 @@ const ManualProcessoForm: React.FC<ManualProcessoFormProps> = ({ initialData, on
   };
 
   return (
-    <Card className="p-8 glass-card border border-black/5 dark:border-white/10 rounded-[2.5rem] shadow-premium">
+    <Card className="p-8 bg-card border border-border rounded-[2.5rem] shadow-premium">
       <form onSubmit={handleSubmit} className="space-y-8">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2 md:col-span-2">
@@ -428,7 +428,7 @@ const ManualProcessoForm: React.FC<ManualProcessoFormProps> = ({ initialData, on
               value={formData.titulo}
               onChange={(e) => setFormData({...formData, titulo: e.target.value})}
               placeholder="Ex: João da Silva x Banco SA"
-              className="h-12 bg-black/[0.02] dark:bg-white/[0.05] border-black/5 dark:border-white/10 rounded-xl focus:ring-4 focus:ring-primary/10 font-bold transition-all"
+              className="h-12 bg-background border-border text-foreground rounded-xl focus:ring-4 focus:ring-primary/10 font-bold transition-all"
             />
           </div>
 
@@ -438,7 +438,7 @@ const ManualProcessoForm: React.FC<ManualProcessoFormProps> = ({ initialData, on
               value={formData.numeroProcesso}
               onChange={(e) => setFormData({...formData, numeroProcesso: formatCNJ(e.target.value)})}
               placeholder="0000000-00.0000.0.00.0000"
-              className="h-12 bg-black/[0.02] dark:bg-white/[0.05] border-black/5 dark:border-white/10 rounded-xl font-mono font-bold tracking-wider"
+              className="h-12 bg-background border-border text-foreground rounded-xl font-mono font-bold tracking-wider"
             />
           </div>
 
@@ -448,7 +448,7 @@ const ManualProcessoForm: React.FC<ManualProcessoFormProps> = ({ initialData, on
               value={formData.tipoProcesso}
               onChange={(e) => setFormData({...formData, tipoProcesso: e.target.value})}
               placeholder="Ex: Procedimento Comum Cível"
-              className="h-12 bg-black/[0.02] dark:bg-white/[0.05] border-black/5 dark:border-white/10 rounded-xl font-bold"
+              className="h-12 bg-background border-border text-foreground rounded-xl font-bold"
             />
           </div>
 
@@ -458,7 +458,7 @@ const ManualProcessoForm: React.FC<ManualProcessoFormProps> = ({ initialData, on
               value={formData.tribunal}
               onChange={(e) => setFormData({...formData, tribunal: e.target.value})}
               placeholder="Ex: TJSP"
-              className="h-12 bg-black/[0.02] dark:bg-white/[0.05] border-black/5 dark:border-white/10 rounded-xl font-bold"
+              className="h-12 bg-background border-border text-foreground rounded-xl font-bold"
             />
           </div>
 
@@ -468,7 +468,7 @@ const ManualProcessoForm: React.FC<ManualProcessoFormProps> = ({ initialData, on
               value={formData.vara}
               onChange={(e) => setFormData({...formData, vara: e.target.value})}
               placeholder="Ex: 2ª Vara Cível"
-              className="h-12 bg-black/[0.02] dark:bg-white/[0.05] border-black/5 dark:border-white/10 rounded-xl font-bold"
+              className="h-12 bg-background border-border text-foreground rounded-xl font-bold"
             />
           </div>
 
@@ -478,7 +478,7 @@ const ManualProcessoForm: React.FC<ManualProcessoFormProps> = ({ initialData, on
               value={formData.comarca}
               onChange={(e) => setFormData({...formData, comarca: e.target.value})}
               placeholder="Ex: São Paulo"
-              className="h-12 bg-black/[0.02] dark:bg-white/[0.05] border-black/5 dark:border-white/10 rounded-xl font-bold"
+              className="h-12 bg-background border-border text-foreground rounded-xl font-bold"
             />
           </div>
 
@@ -488,7 +488,7 @@ const ManualProcessoForm: React.FC<ManualProcessoFormProps> = ({ initialData, on
               value={formData.parteAutora}
               onChange={(e) => setFormData({ ...formData, parteAutora: e.target.value })}
               placeholder="Ex: João da Silva"
-              className="h-12 bg-black/[0.02] dark:bg-white/[0.05] border-black/5 dark:border-white/10 rounded-xl font-bold"
+              className="h-12 bg-background border-border text-foreground rounded-xl font-bold"
             />
           </div>
 
@@ -498,7 +498,7 @@ const ManualProcessoForm: React.FC<ManualProcessoFormProps> = ({ initialData, on
               value={formData.requerido}
               onChange={(e) => setFormData({...formData, requerido: e.target.value})}
               placeholder="Ex: Empresa de Energia S.A."
-              className="h-12 bg-black/[0.02] dark:bg-white/[0.05] border-black/5 dark:border-white/10 rounded-xl font-bold"
+              className="h-12 bg-background border-border text-foreground rounded-xl font-bold"
             />
           </div>
 
@@ -508,7 +508,7 @@ const ManualProcessoForm: React.FC<ManualProcessoFormProps> = ({ initialData, on
               value={formData.descricao}
               onChange={(e) => setFormData({...formData, descricao: e.target.value})}
               placeholder="Informações adicionais sobre o processo..."
-              className="bg-black/[0.02] dark:bg-white/[0.05] border-black/5 dark:border-white/10 rounded-xl min-h-[100px] font-medium"
+              className="bg-background border-border text-foreground rounded-xl min-h-[100px] font-medium"
             />
           </div>
         </div>
@@ -518,7 +518,7 @@ const ManualProcessoForm: React.FC<ManualProcessoFormProps> = ({ initialData, on
             type="button" 
             variant="ghost" 
             onClick={onCancel}
-            className="flex-1 h-14 rounded-2xl font-black uppercase tracking-widest text-[10px] text-muted-foreground/60 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-all"
+            className="flex-1 h-14 rounded-2xl font-black uppercase tracking-widest text-[10px] text-muted-foreground/60 hover:text-foreground hover:bg-muted transition-all"
           >
             Cancelar
           </Button>

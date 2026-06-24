@@ -97,10 +97,10 @@ export const ProcessoEditDialog: React.FC<ProcessoEditDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] p-0 overflow-hidden flex flex-col max-h-[90vh]">
-        <DialogHeader className="p-6 pb-2">
-          <DialogTitle>Editar Processo</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="sm:max-w-[700px] bg-background border border-border p-0 overflow-hidden flex flex-col max-h-[90vh] rounded-[2rem] shadow-2xl">
+        <DialogHeader className="p-8 pb-5 border-b border-border bg-muted/20">
+          <DialogTitle className="text-2xl font-black text-foreground">Editar Processo</DialogTitle>
+          <DialogDescription className="text-muted-foreground font-medium">
             Atualize as informações do processo jurídico.
           </DialogDescription>
         </DialogHeader>
@@ -109,11 +109,16 @@ export const ProcessoEditDialog: React.FC<ProcessoEditDialogProps> = ({
           <form onSubmit={handleSubmit} className="space-y-8 py-4">
             {/* Seção 1: Identificação Básica */}
             <div className="space-y-4">
-              <div className="flex items-center gap-2 text-primary font-semibold border-b pb-2">
-                <Info className="h-4 w-4" />
-                <span>Identificação Básica</span>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-primary/10 border border-primary/20 text-primary">
+                  <Info className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground">Identificação Básica</h3>
+                  <p className="text-xs text-muted-foreground">Informações essenciais de registro</p>
+                </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-5 rounded-xl bg-muted/30 border border-border">
                 <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="edit-titulo">Título do Processo *</Label>
                   <Input
@@ -147,11 +152,16 @@ export const ProcessoEditDialog: React.FC<ProcessoEditDialogProps> = ({
 
             {/* Seção 2: Capa Jurídica */}
             <div className="space-y-4 pt-2">
-              <div className="flex items-center gap-2 text-primary font-semibold border-b pb-2">
-                <Gavel className="h-4 w-4" />
-                <span>Capa Jurídica</span>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-primary/10 border border-primary/20 text-primary">
+                  <Gavel className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground">Capa Jurídica</h3>
+                  <p className="text-xs text-muted-foreground">Dados de localização do processo</p>
+                </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-5 rounded-xl bg-muted/30 border border-border">
                 <div className="space-y-2">
                   <Label htmlFor="edit-tribunal">Tribunal / Instância</Label>
                   <Input
@@ -193,11 +203,16 @@ export const ProcessoEditDialog: React.FC<ProcessoEditDialogProps> = ({
 
             {/* Seção 3: Gestão Processual */}
             <div className="space-y-4 pt-2">
-              <div className="flex items-center gap-2 text-primary font-semibold border-b pb-2">
-                <Scale className="h-4 w-4" />
-                <span>Gestão e Prazos</span>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-primary/10 border border-primary/20 text-primary">
+                  <Scale className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground">Gestão e Prazos</h3>
+                  <p className="text-xs text-muted-foreground">Controle de andamento e responsáveis</p>
+                </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-5 rounded-xl bg-muted/30 border border-border">
                 <div className="space-y-2">
                   <Label>Status</Label>
                   <Select 
@@ -294,36 +309,43 @@ export const ProcessoEditDialog: React.FC<ProcessoEditDialogProps> = ({
 
             {/* Seção 4: Opções e Observações */}
             <div className="space-y-4 pt-2">
-              <div className="flex items-center gap-2 text-primary font-semibold border-b pb-2">
-                <ShieldCheck className="h-4 w-4" />
-                <span>Configurações Extras</span>
-              </div>
-              <div className="flex flex-wrap gap-6 py-2">
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="edit-segredoJustica" 
-                    checked={formData.segredoJustica}
-                    onCheckedChange={(checked) => handleChange('segredoJustica', !!checked)}
-                  />
-                  <Label htmlFor="edit-segredoJustica" className="cursor-pointer">Segredo de Justiça</Label>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-primary/10 border border-primary/20 text-primary">
+                  <ShieldCheck className="h-4 w-4" />
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="edit-justicaGratuita" 
-                    checked={formData.justicaGratuita}
-                    onCheckedChange={(checked) => handleChange('justicaGratuita', !!checked)}
-                  />
-                  <Label htmlFor="edit-justicaGratuita" className="cursor-pointer">Justiça Gratuita</Label>
+                <div>
+                  <h3 className="text-base font-bold text-foreground">Configurações Extras</h3>
+                  <p className="text-xs text-muted-foreground">Preferências e observações do processo</p>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-descricao">Descrição / Observações</Label>
-                <Textarea
-                  id="edit-descricao"
-                  value={formData.descricao || ''}
-                  onChange={(e) => handleChange('descricao', e.target.value)}
-                  rows={3}
-                />
+              <div className="space-y-4 p-5 rounded-xl bg-muted/30 border border-border">
+                <div className="flex flex-wrap gap-6 py-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="edit-segredoJustica" 
+                      checked={formData.segredoJustica}
+                      onCheckedChange={(checked) => handleChange('segredoJustica', !!checked)}
+                    />
+                    <Label htmlFor="edit-segredoJustica" className="cursor-pointer">Segredo de Justiça</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="edit-justicaGratuita" 
+                      checked={formData.justicaGratuita}
+                      onCheckedChange={(checked) => handleChange('justicaGratuita', !!checked)}
+                    />
+                    <Label htmlFor="edit-justicaGratuita" className="cursor-pointer">Justiça Gratuita</Label>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-descricao">Descrição / Observações</Label>
+                  <Textarea
+                    id="edit-descricao"
+                    value={formData.descricao || ''}
+                    onChange={(e) => handleChange('descricao', e.target.value)}
+                    rows={3}
+                  />
+                </div>
               </div>
             </div>
 

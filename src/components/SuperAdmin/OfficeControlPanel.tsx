@@ -305,14 +305,14 @@ export const OfficeControlPanel: React.FC = () => {
                               <Eye size={16} className="text-primary/70" />
                             </Button>
                           </DialogTrigger>
-                          <DialogContent className="sm:max-w-[550px] border-none shadow-2xl rounded-[2rem] bg-background max-h-[90vh] flex flex-col">
+                          <DialogContent className="sm:max-w-[550px] border border-border shadow-2xl rounded-[2rem] bg-background max-h-[90vh] flex flex-col">
                             <form onSubmit={handleSave} className="flex flex-col flex-1 overflow-hidden">
-                              <div className="p-6 bg-black/[0.02] dark:bg-white/5 border-b border-black/5 dark:border-white/10 shrink-0">
+                              <div className="p-6 bg-muted/20 border-b border-border shrink-0">
                                 <DialogHeader>
-                                  <DialogTitle className="flex items-center gap-2 text-xl font-black">
+                                  <DialogTitle className="flex items-center gap-2 text-xl font-black text-foreground">
                                     <Building2 className="text-primary" /> Editar Escritório
                                   </DialogTitle>
-                                  <DialogDescription className="text-xs">Ajuste os dados cadastrais e as configurações de plano.</DialogDescription>
+                                  <DialogDescription className="text-xs text-muted-foreground">Ajuste os dados cadastrais e as configurações de plano.</DialogDescription>
                                 </DialogHeader>
                               </div>
                               <div className="p-6 space-y-6 overflow-y-auto flex-1">

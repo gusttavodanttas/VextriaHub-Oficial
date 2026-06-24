@@ -313,10 +313,10 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
         <div className="space-y-2">
           <Label className="text-muted-foreground/60 font-black uppercase tracking-widest text-[10px] ml-1">UF do Tribunal</Label>
           <Select value={uf} onValueChange={setUf}>
-            <SelectTrigger className="bg-black/[0.02] dark:bg-white/[0.05] border-black/5 dark:border-white/10 h-11 rounded-xl font-bold">
+            <SelectTrigger className="bg-background border-border text-foreground h-11 rounded-xl font-bold">
               <SelectValue placeholder="UF" />
             </SelectTrigger>
-            <SelectContent className="glass-card border-black/10 dark:border-white/10 rounded-2xl shadow-2xl">
+            <SelectContent className="bg-background border-border rounded-2xl shadow-2xl">
               {UFs.map(state => <SelectItem key={state} value={state}>{state}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -326,7 +326,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
           <div className="relative group">
             <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/30 group-focus-within:text-primary transition-colors" />
             <Input 
-              className="pl-12 bg-black/[0.02] dark:bg-white/[0.05] border-black/5 dark:border-white/10 h-11 rounded-xl font-bold transition-all focus:ring-4 focus:ring-primary/10"
+              className="pl-12 bg-background border-border text-foreground h-11 rounded-xl font-bold transition-all focus:ring-4 focus:ring-primary/10"
               placeholder="Ex: 61199" 
               value={oab}
               onChange={(e) => setOab(e.target.value.replace(/\D/g, ''))}
@@ -342,7 +342,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
       {results.length > 0 && (
         <div className="bg-primary/5 border border-primary/20 p-3 rounded-xl mb-4 flex items-center gap-2">
           <Info className="h-4 w-4 text-primary" />
-          <span className="text-xs font-medium text-white/70">
+          <span className="text-xs font-medium text-foreground">
             Dica: Clique no processo para ver a pasta e configurar quem é o cliente (Autor ou Réu).
           </span>
         </div>
@@ -350,7 +350,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
 
       {/* Resultados e Paginação Premium */}
       {results.length > 0 && (
-        <div className="bg-card/40 dark:bg-slate-900/50 border border-black/5 dark:border-white/10 p-4 rounded-2xl mb-4 flex items-center justify-between px-6 shrink-0 shadow-premium">
+        <div className="bg-muted/30 border border-border p-4 rounded-2xl mb-4 flex items-center justify-between px-6 shrink-0 shadow-premium">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <div className="p-2 rounded-lg bg-primary/10 text-primary">
@@ -364,7 +364,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="h-8 w-8 text-muted-foreground/40 hover:bg-black/5 dark:hover:bg-white/5"
+                className="h-8 w-8 text-muted-foreground hover:bg-muted"
                 disabled={currentPage === 1}
                 onClick={() => setCurrentPage(p => p - 1)}
               >
@@ -376,7 +376,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="h-8 w-8 text-muted-foreground/40 hover:bg-black/5 dark:hover:bg-white/5"
+                className="h-8 w-8 text-muted-foreground hover:bg-muted"
                 disabled={currentPage === totalPages}
                 onClick={() => setCurrentPage(p => p + 1)}
               >
@@ -397,17 +397,17 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
         </div>
       )}
 
-      <div className="flex-1 min-h-[300px] border border-black/5 dark:border-white/10 rounded-[2rem] bg-card/20 dark:bg-white/5 backdrop-blur-md overflow-hidden flex flex-col mb-4 shadow-inner">
+      <div className="flex-1 min-h-[300px] border border-border rounded-[2rem] bg-muted/10 overflow-hidden flex flex-col mb-4 shadow-inner">
         <div className="flex-1 overflow-y-auto custom-scrollbar">
           {results.length > 0 ? (
             <Table>
-              <TableHeader className="bg-slate-100/80 dark:bg-slate-950/80 sticky top-0 z-20 backdrop-blur-md">
-                <TableRow className="border-black/5 dark:border-white/5 hover:bg-transparent">
+              <TableHeader className="bg-muted sticky top-0 z-20 backdrop-blur-md">
+                <TableRow className="border-border hover:bg-transparent">
                   <TableHead className="w-[40px] px-6">
                     <Checkbox 
                       checked={selectedIds.size === results.length && results.length > 0} 
                       onCheckedChange={toggleSelectAll}
-                      className="border-black/20 dark:border-white/20 data-[state=checked]:bg-primary"
+                      className="border-border data-[state=checked]:bg-primary"
                     />
                   </TableHead>
                   <TableHead className="text-muted-foreground/60 text-[10px] uppercase tracking-widest font-black py-5">Processo</TableHead>
@@ -423,8 +423,8 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
                   <TableRow 
                     key={proc.id} 
                     className={cn(
-                       "group border-black/5 dark:border-white/5 transition-colors cursor-pointer",
-                       selectedIds.has(proc.id) ? "bg-primary/[0.04] dark:bg-primary/[0.08]" : "hover:bg-black/[0.02] dark:hover:bg-white/[0.02]"
+                       "group border-border transition-colors cursor-pointer",
+                       selectedIds.has(proc.id) ? "bg-primary/[0.04] dark:bg-primary/[0.08]" : "hover:bg-muted/30"
                     )}
                     onClick={(e) => {
                       if ((e.target as HTMLElement).closest('.checkbox-cell')) return;
@@ -435,7 +435,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
                       <Checkbox 
                         checked={selectedIds.has(proc.id)} 
                         onCheckedChange={() => toggleSelect(proc.id)}
-                        className="border-white/20 data-[state=checked]:bg-primary"
+                        className="border-border data-[state=checked]:bg-primary"
                       />
                     </TableCell>
                     <TableCell>
@@ -453,7 +453,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
                               {proc.autor || 'Não identificado'}
                             </div>
                           </TooltipTrigger>
-                          <TooltipContent className="glass-card border-black/10 dark:border-white/10 text-foreground dark:text-white max-w-sm">
+                          <TooltipContent className="bg-background border-border text-foreground max-w-sm">
                             {proc.autor || 'Não identificado'}
                           </TooltipContent>
                         </Tooltip>
@@ -467,14 +467,14 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
                               {proc.reu || 'Não identificada'}
                             </div>
                           </TooltipTrigger>
-                          <TooltipContent className="glass-card border-black/10 dark:border-white/10 text-foreground dark:text-white max-w-sm">
+                          <TooltipContent className="bg-background border-border text-foreground max-w-sm">
                             {proc.reu || 'Não identificada'}
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="text-[8px] h-5 uppercase font-black bg-black/5 dark:bg-white/5 border-black/5 dark:border-white/10 text-muted-foreground/60 whitespace-nowrap rounded-md">
+                      <Badge variant="outline" className="text-[8px] h-5 uppercase font-black bg-muted border-border text-muted-foreground/60 whitespace-nowrap rounded-md">
                         {proc.faseProcessual}
                       </Badge>
                     </TableCell>
@@ -498,18 +498,18 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
               </TableBody>
             </Table>
           ) : (
-            <div className="flex flex-col items-center justify-center p-12 text-center text-white/20 h-full">
+            <div className="flex flex-col items-center justify-center p-12 text-center text-muted-foreground/30 h-full">
               {loading ? (
                 <>
                   <Loader2 className="h-10 w-10 animate-spin mb-4 text-primary" />
-                  <p className="text-white/60 animate-pulse">Sincronizando com tribunais...</p>
-                  <p className="text-[10px] text-white/30 mt-2">Isso pode levar alguns segundos.</p>
+                  <p className="text-muted-foreground animate-pulse">Sincronizando com tribunais...</p>
+                  <p className="text-[10px] text-muted-foreground/60 mt-2">Isso pode levar alguns segundos.</p>
                 </>
               ) : searched ? (
                 <>
                   <AlertCircle className="h-12 w-12 mb-4 text-orange-500 opacity-60" />
-                  <p className="text-lg font-medium text-white/80">Nenhum processo encontrado</p>
-                  <p className="text-xs mt-2 max-w-[300px] mx-auto text-white/40 italic">
+                  <p className="text-lg font-medium text-foreground">Nenhum processo encontrado</p>
+                  <p className="text-xs mt-2 max-w-[300px] mx-auto text-muted-foreground italic">
                     Não encontramos processos vinculados à OAB {oab}/{uf} nos tribunais integrados. 
                     Confira se o número está correto ou tente buscar por outros critérios.
                   </p>
@@ -517,8 +517,8 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
               ) : (
                 <>
                   <Database className="h-12 w-12 mb-4 opacity-10" />
-                  <p className="text-lg font-medium text-white/40">Busca pronta</p>
-                  <p className="text-xs mt-2 max-w-[240px] mx-auto text-white/30">
+                  <p className="text-lg font-medium text-muted-foreground">Busca pronta</p>
+                  <p className="text-xs mt-2 max-w-[240px] mx-auto text-muted-foreground">
                     Informe sua OAB e Estado para sincronizar processos diretamente dos tribunais.
                   </p>
                 </>
@@ -528,8 +528,8 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
         </div>
       </div>
 
-      <div className="mt-4 pt-6 border-t border-black/5 dark:border-white/10 flex items-center justify-between bg-transparent">
-        <Button variant="ghost" onClick={onCancel} disabled={importing} className="text-muted-foreground/40 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 font-black uppercase tracking-widest text-[10px] h-11 px-6 rounded-xl transition-all">
+      <div className="mt-4 pt-6 border-t border-border flex items-center justify-between bg-transparent">
+        <Button variant="ghost" onClick={onCancel} disabled={importing} className="text-muted-foreground hover:text-foreground hover:bg-muted font-black uppercase tracking-widest text-[10px] h-11 px-6 rounded-xl transition-all">
           Cancelar
         </Button>
         <Button 
@@ -543,10 +543,10 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
       </div>
 
       <Dialog open={!!previewProc} onOpenChange={(open) => !open && setPreviewProc(null)}>
-        <DialogContent className="max-w-2xl glass-card border-black/5 dark:border-white/10 p-8 shadow-2xl">
+        <DialogContent className="max-w-2xl bg-background border border-border p-8 shadow-2xl rounded-2xl">
           {previewProc && (
             <div className="space-y-6">
-              <div className="flex items-center gap-4 border-b border-black/5 dark:border-white/10 pb-6">
+              <div className="flex items-center gap-4 border-b border-border pb-6">
                 <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20 shrink-0">
                   <Gavel className="h-6 w-6" />
                 </div>
@@ -554,7 +554,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
                   <h3 className="text-xl font-black font-mono text-primary tracking-tight">
                     {formatCNJ(previewProc.numeroProcesso)}
                   </h3>
-                  <p className="text-muted-foreground/40 text-[10px] font-black uppercase tracking-widest mt-1">
+                  <p className="text-muted-foreground text-[10px] font-black uppercase tracking-widest mt-1">
                     {previewProc.tribunal} • {previewProc.faseProcessual}
                   </p>
                 </div>
@@ -568,7 +568,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
                   </div>
                   <div className="space-y-3">
                     <Input 
-                      className="bg-black/[0.02] dark:bg-white/5 border-black/5 dark:border-white/10 text-xs h-10 rounded-xl focus:ring-4 focus:ring-primary/10 font-bold"
+                      className="bg-background border-border text-foreground text-xs h-10 rounded-xl focus:ring-4 focus:ring-primary/10 font-bold"
                       placeholder="Nome do Autor"
                       value={previewProc.autor}
                       onChange={(e) => updateResultLocally(previewProc.id, { autor: e.target.value })}
@@ -592,7 +592,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
                   </div>
                   <div className="space-y-3">
                     <Input 
-                      className="bg-black/[0.02] dark:bg-white/5 border-black/5 dark:border-white/10 text-xs h-10 rounded-xl focus:ring-4 focus:ring-primary/10 font-bold"
+                      className="bg-background border-border text-foreground text-xs h-10 rounded-xl focus:ring-4 focus:ring-primary/10 font-bold"
                       placeholder="Nome do Réu"
                       value={previewProc.reu}
                       onChange={(e) => updateResultLocally(previewProc.id, { reu: e.target.value })}
@@ -611,11 +611,11 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
               </div>
 
               {/* Vara e Comarca Premium */}
-              <div className="grid grid-cols-2 gap-4 bg-black/[0.02] dark:bg-white/5 p-5 rounded-[1.5rem] border border-black/5 dark:border-white/5 shadow-inner">
+              <div className="grid grid-cols-2 gap-4 bg-muted/30 p-5 rounded-[1.5rem] border border-border shadow-inner">
                 <div className="space-y-1.5">
                   <Label className="text-[10px] text-muted-foreground/40 uppercase font-black tracking-widest ml-1">Vara / Órgão</Label>
                   <Input 
-                    className="bg-transparent border-black/10 dark:border-white/10 text-xs h-9 font-bold"
+                    className="bg-background border-border text-foreground text-xs h-9 font-bold"
                     value={previewProc.vara}
                     onChange={(e) => updateResultLocally(previewProc.id, { vara: e.target.value })}
                   />
@@ -623,14 +623,14 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
                 <div className="space-y-1.5">
                   <Label className="text-[10px] text-muted-foreground/40 uppercase font-black tracking-widest ml-1">Comarca / UF</Label>
                   <Input 
-                    className="bg-transparent border-black/10 dark:border-white/10 text-xs h-9 font-bold"
+                    className="bg-background border-border text-foreground text-xs h-9 font-bold"
                     value={previewProc.comarca}
                     onChange={(e) => updateResultLocally(previewProc.id, { comarca: e.target.value })}
                   />
                 </div>
               </div>
 
-              <Separator className="bg-white/5" />
+              <Separator className="bg-border" />
 
               <div className="space-y-4">
                 <div className="text-muted-foreground/60 text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
@@ -640,7 +640,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
                   <span>Linha do Tempo de Movimentações</span>
                 </div>
                 
-                <div className="bg-black/[0.02] dark:bg-white/5 rounded-[1.5rem] p-6 border border-black/5 dark:border-white/5 max-h-[250px] overflow-y-auto custom-scrollbar space-y-6 relative pl-8 shadow-inner">
+                <div className="bg-muted/30 rounded-[1.5rem] p-6 border border-border max-h-[250px] overflow-y-auto custom-scrollbar space-y-6 relative pl-8 shadow-inner">
                   {/* Linha vertical da timeline */}
                   <div className="absolute left-[31px] top-6 bottom-6 w-0.5 bg-primary/20" />
                   
@@ -677,7 +677,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
               </div>
 
               <DialogFooter className="pt-2">
-                <Button variant="ghost" onClick={() => setPreviewProc(null)} className="text-muted-foreground/40 text-[10px] font-black uppercase tracking-widest hover:bg-black/5 dark:hover:bg-white/5 h-11 rounded-xl transition-all">Fechar</Button>
+                <Button variant="ghost" onClick={() => setPreviewProc(null)} className="text-muted-foreground text-[10px] font-black uppercase tracking-widest hover:bg-muted h-11 rounded-xl transition-all">Fechar</Button>
                 <Button 
                   className="bg-primary hover:bg-primary/90 font-black uppercase tracking-widest text-[10px] px-8 h-11 rounded-xl shadow-premium transition-all"
                   onClick={() => {
@@ -751,8 +751,8 @@ export const JudicialSyncDialog: React.FC<JudicialSyncDialogProps> = ({
           )}
         </DialogTrigger>
       )}
-      <DialogContent className="max-w-[1200px] w-[95vw] glass-card border border-black/5 dark:border-white/10 p-0 overflow-hidden flex flex-col h-[90vh] max-h-[90vh] shadow-2xl">
-        <DialogHeader className="p-8 pb-4 border-b border-black/5 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02]">
+      <DialogContent className="max-w-[1200px] w-[95vw] bg-background border border-border p-0 overflow-hidden flex flex-col h-[90vh] max-h-[90vh] shadow-2xl rounded-[2rem]">
+        <DialogHeader className="p-8 pb-4 border-b border-border bg-muted/20">
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20 shadow-inner">
               <Database className="h-6 w-6" />

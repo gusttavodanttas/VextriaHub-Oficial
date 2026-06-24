@@ -102,29 +102,29 @@ export const PublicationDetailsDialog = ({ publication, open, onOpenChange, trig
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-      <DialogContent className="max-w-4xl h-[90vh] md:h-auto md:max-h-[90vh] border-white/5 bg-[#0A0A0B]/95 backdrop-blur-3xl rounded-[2.5rem] shadow-2xl p-0 overflow-hidden flex flex-col focus:outline-none ring-0">
-        <DialogHeader className="p-8 pb-6 shrink-0 border-b border-white/5 bg-gradient-to-b from-white/[0.02] to-transparent">
+      <DialogContent className="max-w-4xl h-[90vh] md:h-auto md:max-h-[90vh] border-border bg-background rounded-[2.5rem] shadow-2xl p-0 overflow-hidden flex flex-col focus:outline-none ring-0">
+        <DialogHeader className="p-8 pb-6 shrink-0 border-b border-border bg-muted/20">
           <div className="flex items-center justify-between gap-4">
              <div className="flex items-center gap-4">
                 <div className="p-3 bg-primary/10 rounded-2xl border border-primary/20">
-                  <FileText className="h-6 w-6 text-primary" />
+                   <FileText className="h-6 w-6 text-primary" />
                 </div>
                 <div className="space-y-1">
-                  <DialogTitle className="text-xl md:text-2xl font-black tracking-tight text-white/95">
-                    Detalhes da Publicação
-                  </DialogTitle>
-                  <p className="text-[10px] uppercase font-black tracking-[0.2em] text-white/30">
-                    Processamento Judicial V20
-                  </p>
+                   <DialogTitle className="text-xl md:text-2xl font-black tracking-tight text-foreground">
+                     Detalhes da Publicação
+                   </DialogTitle>
+                   <p className="text-[10px] uppercase font-black tracking-[0.2em] text-muted-foreground/50">
+                     Processamento Judicial V20
+                   </p>
                 </div>
              </div>
              
              <Badge className={cn(
-                "px-5 py-2 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl ring-2 ring-white/5",
-                publication.status === 'lida' || publication.status === 'processada' ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-primary/20 text-primary border-primary/30"
+                "px-5 py-2 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl ring-2 ring-border",
+                publication.status === 'lida' || publication.status === 'processada' ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" : "bg-primary/20 text-primary border-primary/30"
               )}>
-                {publication.status === 'lida' || publication.status === 'processada' ? 'Processada' : 'Pendente'}
-              </Badge>
+                 {publication.status === 'lida' || publication.status === 'processada' ? 'Processada' : 'Pendente'}
+               </Badge>
           </div>
         </DialogHeader>
         
@@ -133,15 +133,15 @@ export const PublicationDetailsDialog = ({ publication, open, onOpenChange, trig
             {/* Header Info */}
             <div className="space-y-6">
               <div className="flex flex-col gap-4">
-                <h3 className="text-xl md:text-2xl font-black leading-tight text-white tracking-tight uppercase">{publication.titulo}</h3>
+                <h3 className="text-xl md:text-2xl font-black leading-tight text-foreground tracking-tight uppercase">{publication.titulo}</h3>
                 
                 <div className="flex flex-wrap items-center gap-4">
-                  <div className="flex items-center gap-2 text-xs text-white/40 font-bold">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground font-bold">
                     <Calendar className="h-3.5 w-3.5 text-primary/60" />
                     <span>Publicado em: {new Date(publication.data_publicacao).toLocaleDateString('pt-BR')}</span>
                   </div>
-                  <div className="w-1.5 h-1.5 rounded-full bg-white/10" />
-                  <div className="flex items-center gap-2 text-xs text-white/40 font-bold">
+                  <div className="w-1.5 h-1.5 rounded-full bg-muted" />
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground font-bold">
                     <Building2 className="h-3.5 w-3.5 text-primary/60" />
                     <span>{publication.tribunal || '—'}</span>
                   </div>
@@ -150,19 +150,19 @@ export const PublicationDetailsDialog = ({ publication, open, onOpenChange, trig
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] uppercase font-black tracking-[0.2em] text-white/20 pl-1">Número do Processo</label>
+                  <label className="text-[10px] uppercase font-black tracking-[0.2em] text-muted-foreground pl-1">Número do Processo</label>
                   <div className="group relative">
-                    <p className="text-[15px] font-mono bg-white/[0.03] border border-white/5 p-4 rounded-[1.2rem] font-black text-primary transition-all group-hover:bg-white/5">
+                    <p className="text-[15px] font-mono bg-muted/30 border border-border p-4 rounded-[1.2rem] font-black text-primary transition-all group-hover:bg-muted/50">
                       {formatCNJ(publication.numero_processo)}
                     </p>
-                    <ExternalLink className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 opacity-0 group-hover:opacity-40 transition-opacity text-white" />
+                    <ExternalLink className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 opacity-0 group-hover:opacity-40 transition-opacity text-foreground" />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] uppercase font-black tracking-[0.2em] text-white/20 pl-1">Localização Judiciária</label>
-                  <div className="flex items-center gap-3 bg-white/[0.03] border border-white/5 p-4 rounded-[1.2rem] transition-all">
+                  <label className="text-[10px] uppercase font-black tracking-[0.2em] text-muted-foreground pl-1">Localização Judiciária</label>
+                  <div className="flex items-center gap-3 bg-muted/30 border border-border p-4 rounded-[1.2rem] transition-all">
                     <MapPin className="h-4 w-4 text-primary/60" />
-                    <span className="text-[13px] font-bold text-white/80 uppercase truncate">
+                    <span className="text-[13px] font-bold text-foreground uppercase truncate">
                       {publication.comarca || 'Comarca Geral'}{publication.vara ? ` - ${publication.vara}` : ''}
                     </span>
                   </div>
@@ -170,27 +170,27 @@ export const PublicationDetailsDialog = ({ publication, open, onOpenChange, trig
               </div>
             </div>
             
-            <Separator className="bg-white/5" />
+            <Separator className="bg-border" />
             
             {/* Content Area */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <label className="text-[10px] uppercase font-black tracking-[0.2em] text-white/20 pl-1">Teor da Publicação</label>
+                <label className="text-[10px] uppercase font-black tracking-[0.2em] text-muted-foreground pl-1">Teor da Publicação</label>
                 <Button 
                    onClick={handleCopy}
                    variant="ghost" 
                    size="sm" 
-                   className="h-8 px-4 rounded-xl hover:bg-white/5 text-[10px] font-black uppercase tracking-widest gap-2"
+                   className="h-8 px-4 rounded-xl hover:bg-muted text-[10px] font-black uppercase tracking-widest gap-2"
                 >
-                  {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
                   {copied ? "Copiado!" : "Copiar Texto"}
                 </Button>
               </div>
               
               <div className="relative group">
                 <div className="absolute inset-0 bg-primary/5 blur-3xl opacity-0 group-hover:opacity-20 transition-opacity rounded-full pointer-events-none" />
-                <div className="relative bg-black/40 p-6 md:p-10 rounded-[2rem] border border-white/5 shadow-2xl overflow-hidden min-h-[300px]">
-                  <p className="text-[15px] md:text-[17px] leading-[1.8] whitespace-pre-wrap font-medium text-white/80 selection:bg-primary/30">
+                <div className="relative bg-muted/10 p-6 md:p-10 rounded-[2rem] border border-border shadow-2xl overflow-hidden min-h-[300px]">
+                  <p className="text-[15px] md:text-[17px] leading-[1.8] whitespace-pre-wrap font-medium text-foreground selection:bg-primary/30">
                     {cleanContent || "O conteúdo integral desta publicação está sendo processado ou não está disponível."}
                   </p>
                 </div>
@@ -199,16 +199,16 @@ export const PublicationDetailsDialog = ({ publication, open, onOpenChange, trig
 
             {/* Tags */}
             <div className="space-y-3 pb-4">
-              <label className="text-[10px] uppercase font-black tracking-[0.2em] text-white/20 pl-1">Etiquetas</label>
+              <label className="text-[10px] uppercase font-black tracking-[0.2em] text-muted-foreground pl-1">Etiquetas</label>
               <div className="flex gap-2 flex-wrap">
                 {publication.tags?.filter(t => t !== 'auto-sync').length > 0 ? (
                   publication.tags.filter(t => t !== 'auto-sync').map((tag) => (
-                    <Badge key={tag} variant="outline" className="text-[9px] font-black uppercase tracking-widest bg-white/[0.03] border-white/5 py-1.5 px-4 rounded-xl shadow-lg text-white/50">
+                    <Badge key={tag} variant="outline" className="text-[9px] font-black uppercase tracking-widest bg-muted border-border py-1.5 px-4 rounded-xl shadow-lg text-muted-foreground">
                       {tag}
                     </Badge>
                   ))
                 ) : (
-                  <span className="text-xs text-white/10 italic">Nenhuma etiqueta automática identificada</span>
+                  <span className="text-xs text-muted-foreground/30 italic">Nenhuma etiqueta automática identificada</span>
                 )}
               </div>
             </div>
@@ -216,7 +216,7 @@ export const PublicationDetailsDialog = ({ publication, open, onOpenChange, trig
         </div>
         
         {/* Actions bar */}
-        <div className="p-6 md:p-8 bg-[#0D0D0E] shrink-0 border-t border-white/5">
+        <div className="p-6 md:p-8 bg-muted/20 shrink-0 border-t border-border">
           <div className="flex flex-wrap items-center gap-4 w-full">
              <Button 
                 onClick={() => onRegister?.(publication)}
@@ -230,7 +230,7 @@ export const PublicationDetailsDialog = ({ publication, open, onOpenChange, trig
                 onClick={() => onProcess?.(publication.id)}
                 variant="outline" 
                 className={cn(
-                  "rounded-2xl border-white/10 hover:bg-emerald-500/10 hover:text-emerald-400 px-8 font-black text-[11px] uppercase tracking-widest gap-2.5 h-14 transition-all flex-1 md:flex-initial",
+                  "rounded-2xl border-border hover:bg-emerald-500/10 hover:text-emerald-600 px-8 font-black text-[11px] uppercase tracking-widest gap-2.5 h-14 transition-all flex-1 md:flex-initial",
                   publication.status === 'lida' && "opacity-40 grayscale pointer-events-none"
                 )}
              >
@@ -241,7 +241,7 @@ export const PublicationDetailsDialog = ({ publication, open, onOpenChange, trig
              <Button 
                 onClick={() => onDelete?.(publication.id)}
                 variant="ghost" 
-                className="rounded-2xl hover:bg-red-500/10 hover:text-red-400 px-8 font-black text-[11px] uppercase tracking-widest gap-2.5 h-14 transition-all ml-auto w-full md:w-auto"
+                className="rounded-2xl hover:bg-red-500/10 hover:text-red-600 px-8 font-black text-[11px] uppercase tracking-widest gap-2.5 h-14 transition-all ml-auto w-full md:w-auto"
              >
                <Trash2 className="h-5 w-5" />
                Arquivar Permanente

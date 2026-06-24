@@ -45,10 +45,10 @@ export function DeleteConfirmDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>{description}</AlertDialogDescription>
+      <AlertDialogContent className="bg-background border border-border p-6 rounded-[2rem] shadow-2xl">
+        <AlertDialogHeader className="pb-3 border-b border-border">
+          <AlertDialogTitle className="text-xl font-black text-foreground">{title}</AlertDialogTitle>
+          <AlertDialogDescription className="text-muted-foreground mt-2">{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isLoading}>Cancelar</AlertDialogCancel>

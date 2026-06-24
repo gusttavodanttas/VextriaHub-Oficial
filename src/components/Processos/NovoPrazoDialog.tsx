@@ -64,9 +64,9 @@ export const NovoPrazoDialog = ({ onAddPrazo }: NovoPrazoDialogProps) => {
           Novo Prazo
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Adicionar Prazo</DialogTitle>
+      <DialogContent className="max-w-md bg-background border border-border p-6 rounded-[2rem] shadow-2xl">
+        <DialogHeader className="pb-3 border-b border-border">
+          <DialogTitle className="text-xl font-black text-foreground">Adicionar Prazo</DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">

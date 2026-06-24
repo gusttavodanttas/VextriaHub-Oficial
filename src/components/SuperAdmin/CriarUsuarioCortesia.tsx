@@ -109,13 +109,13 @@ export const CriarUsuarioCortesia: React.FC<Props> = ({ onSuccess }) => {
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="max-w-lg rounded-3xl max-h-[90vh] flex flex-col">
-        <DialogHeader className="shrink-0">
-          <DialogTitle className="flex items-center gap-2 text-xl font-black">
+      <DialogContent className="max-w-lg bg-background border border-border rounded-[2rem] max-h-[90vh] flex flex-col shadow-2xl p-6">
+        <DialogHeader className="pb-3 border-b border-border shrink-0">
+          <DialogTitle className="flex items-center gap-2 text-xl font-black text-foreground">
             <UserPlus className="h-5 w-5 text-emerald-600" />
             Novo Usuário — Acesso Cortesia
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-muted-foreground mt-1">
             Crie um usuário e escritório com acesso gratuito. Sem cobrança, sem período de trial.
           </DialogDescription>
         </DialogHeader>

@@ -66,10 +66,10 @@ export const PublicationViewer = ({ publication }: PublicationViewerProps) => {
           Visualizar
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Eye className="h-5 w-5" />
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto bg-background border border-border p-6 rounded-[2rem] shadow-2xl">
+        <DialogHeader className="pb-3 border-b border-border">
+          <DialogTitle className="flex items-center gap-2 text-xl font-black text-foreground">
+            <Eye className="h-5 w-5 text-primary" />
             Detalhes da Publicação
           </DialogTitle>
         </DialogHeader>
