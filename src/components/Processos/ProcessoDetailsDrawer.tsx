@@ -275,7 +275,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl w-[95vw] max-h-[92vh] p-0 rounded-3xl border border-border bg-background shadow-2xl flex flex-col overflow-hidden gap-0">
+      <DialogContent className="max-w-4xl w-[95vw] h-[90vh] p-0 rounded-3xl border border-border bg-background shadow-2xl flex flex-col overflow-hidden gap-0">
 
         {/* ═══ HEADER ═══ */}
         <div className="px-8 pt-8 pb-4 space-y-5 border-b border-border shrink-0 relative overflow-hidden">
@@ -349,7 +349,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
         </div>
 
         {/* ═══ CONTEÚDO ═══ */}
-        <ScrollArea className="flex-1 min-h-0">
+        <div className="flex-1 min-h-0 overflow-y-auto">
           <div className="p-8">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
 
@@ -536,7 +536,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
 
             </Tabs>
           </div>
-        </ScrollArea>
+        </div>
 
       </DialogContent>
     </Dialog>
