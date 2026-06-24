@@ -294,8 +294,9 @@ const Processos = () => {
           ) : (
             <ProcessoTable
               processos={filteredProcessos}
-              onEdit={(p) => setSelectedProcesso(p)}
+              onEdit={(p) => { setSelectedProcesso(p); setIsDetailsOpen(true); }}
               onDelete={(p) => { setProcessoToDelete(p); setIsDeleteDialogOpen(true); }}
+              onViewDetails={(p) => { setSelectedProcesso(p); setIsDetailsOpen(true); }}
             />
           )}
         </CardContent>

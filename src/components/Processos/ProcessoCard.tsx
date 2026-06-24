@@ -100,7 +100,7 @@ export const ProcessoCard: React.FC<ProcessoCardProps> = ({
       <CardHeader className="pb-3 pt-5 px-6">
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0 pr-8">
-            {/* Status Badge */}
+            {/* Status + Classe */}
             <div className="flex flex-wrap items-center gap-2 mb-3">
               <Badge variant="outline" className={cn("px-2 py-0.5 text-[9px] font-black uppercase tracking-widest rounded-md", getStatusColor(processo.status))}>
                 {getStatusLabel(processo.status)}
@@ -108,11 +108,6 @@ export const ProcessoCard: React.FC<ProcessoCardProps> = ({
               {(processo.classeJudicial || processo.tipoProcesso) && (
                 <span className="text-[9px] bg-black/5 dark:bg-muted/30 text-muted-foreground/60 dark:text-muted-foreground px-2 py-0.5 rounded-full font-black uppercase tracking-wider border border-black/5 dark:border-border">
                   {processo.classeJudicial || processo.tipoProcesso}
-                </span>
-              )}
-              {processo.faseProcessual && (
-                <span className="text-[9px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-black uppercase tracking-wider border border-primary/20">
-                  {processo.faseProcessual}
                 </span>
               )}
             </div>
