@@ -150,14 +150,34 @@ export function useProcessosV2() {
         insertPayload.cliente_id = r.clienteId || r.cliente_id;
       }
 
-      const { data: result, error } = await supabase
+      // Verifica se já existe antes de inserir
+      const numeroLimpo = insertPayload.numero_processo;
+      const { data: existing } = await supabase
         .from('processos')
-        .upsert(insertPayload, {
-          onConflict: 'office_id, numero_processo',
-          ignoreDuplicates: false,
-        })
-        .select('*, cliente:clientes(nome)')
-        .single();
+        .select('id')
+        .eq('office_id', user.office_id)
+        .eq('numero_processo', numeroLimpo)
+        .maybeSingle();
+
+      let result;
+      if (existing) {
+        const { data: updated, error: updateError } = await supabase
+          .from('processos')
+          .update(insertPayload)
+          .eq('id', existing.id)
+          .select('*, cliente:clientes(nome)')
+          .single();
+        if (updateError) throw updateError;
+        result = updated;
+      } else {
+        const { data: inserted, error: insertError } = await supabase
+          .from('processos')
+          .insert(insertPayload)
+          .select('*, cliente:clientes(nome)')
+          .single();
+        if (insertError) throw insertError;
+        result = inserted;
+      }
 
       if (error) throw error;
 
