@@ -543,14 +543,9 @@ serve(async (req) => {
     // 3. Dedup final
     const uniqueResults = Array.from(existingMap.values());
 
-    console.log(`[OAB] ${uniqueResults.length} processos únicos antes da hidratação`);
+    console.log(`[OAB] retornando ${uniqueResults.length} processos`);
 
-    // 4. HIDRATAÇÃO: corrige processos com 0 ou 1 andamento
-    const hydrated = await hydrateAllPoorRecords(uniqueResults, processKey);
-
-    console.log(`[OAB] retornando ${hydrated.length} processos`);
-
-    return new Response(JSON.stringify({ status: "ok", items: hydrated }), {
+    return new Response(JSON.stringify({ status: "ok", items: uniqueResults }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
