@@ -642,12 +642,16 @@ export default function Publicacoes() {
       </div>
 
       {selectedPub && (
-        <PublicationDetailsDialog 
+        <PublicationDetailsDialog
           publication={selectedPub}
           open={detailDialogOpen}
           onOpenChange={setDetailDialogOpen}
           onDelete={deletePublication}
-          onProcess={(id) => updateStatus(id, 'processada')}
+          onProcess={(id) => {
+            const pub = publications.find(p => p.id === id);
+            const isTratada = pub?.status === 'lida' || pub?.status === 'processada';
+            updateStatus(id, isTratada ? 'nova' : 'processada');
+          }}
           onRegister={handleRegister}
           onSchedule={handleSchedule}
         />
@@ -671,16 +675,16 @@ export default function Publicacoes() {
         }}
       />
 
-      <NovoPrazoStandaloneDialog 
+      <NovoPrazoStandaloneDialog
         open={scheduleDialogOpen}
         onOpenChange={setScheduleDialogOpen}
+        publicacaoId={selectedPub?.id}
+        numeroProcesso={selectedPub?.numero_processo}
+        tituloSugerido={selectedPub ? `Prazo — ${selectedPub.titulo || selectedPub.numero_processo}` : ''}
         onSuccess={async () => {
           if (selectedPub?.id) {
             await updateStatus(selectedPub.id, 'processada');
-            toast({
-              title: "Prazo Agendado",
-              description: "O prazo foi criado e a publicação marcada como tratada."
-            });
+            toast({ title: "Prazo Agendado", description: "Prazo salvo e publicação marcada como tratada." });
           }
           setScheduleDialogOpen(false);
           refresh();
