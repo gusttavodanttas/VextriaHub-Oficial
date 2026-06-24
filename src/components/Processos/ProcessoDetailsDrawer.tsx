@@ -419,6 +419,78 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
     toast({ title: `Urgência: ${urgencia}` });
   };
 
+  // ── Tratar publicação (criar prazo/tarefa a partir dela) ──
+  const [tratandoPubId, setTratandoPubId] = useState<string | null>(null);
+
+  const handleTratarPub = async (e: React.FormEvent<HTMLFormElement>, pub: any) => {
+    e.preventDefault();
+    if (!processo?.id || !user) return;
+    setAddLoading(true);
+    const fd = new FormData(e.currentTarget);
+    const tipo = fd.get('tipo_tratamento') as string;
+    try {
+      if (tipo === 'prazo') {
+        await supabase.from('prazos').insert({
+          user_id: user.id, office_id: user.office_id, processo_id: processo.id,
+          titulo: fd.get('titulo') as string,
+          descricao: `Originado da publicação de ${fmtDate(pub.data_publicacao)}: ${pub.titulo}`,
+          data_vencimento: fd.get('data_vencimento') as string,
+          prioridade: fd.get('prioridade') as string || 'alta',
+          status: 'pendente',
+        });
+        toast({ title: 'Prazo criado a partir da publicação' });
+      } else if (tipo === 'tarefa') {
+        await supabase.from('tarefas').insert({
+          user_id: user.id, processo_id: processo.id,
+          titulo: fd.get('titulo') as string,
+          descricao: `Originado da publicação de ${fmtDate(pub.data_publicacao)}: ${pub.titulo}`,
+          data_vencimento: fd.get('data_vencimento') as string || null,
+          prioridade: fd.get('prioridade') as string || 'media',
+          status: 'pendente',
+        });
+        toast({ title: 'Tarefa criada a partir da publicação' });
+      } else if (tipo === 'audiencia') {
+        await supabase.from('audiencias').insert({
+          user_id: user.id, office_id: user.office_id, processo_id: processo.id,
+          titulo: fd.get('titulo') as string,
+          data_audiencia: new Date(`${fd.get('data_vencimento')}T${fd.get('horario') || '00:00'}`).toISOString(),
+          observacoes: `Originado da publicação de ${fmtDate(pub.data_publicacao)}`,
+          status: 'agendado',
+        });
+        toast({ title: 'Audiência criada a partir da publicação' });
+      }
+      // Marcar publicação como processada
+      await supabase.from('publicacoes').update({ status: 'processada' }).eq('id', pub.id);
+      setPublicacoes(prev => prev.map(p => p.id === pub.id ? { ...p, status: 'processada' } : p));
+      setTratandoPubId(null);
+    } catch (err: any) { toast({ title: 'Erro', description: err.message, variant: 'destructive' }); }
+    finally { setAddLoading(false); }
+  };
+
+  // ── Andamento manual ──
+  const [showAddAndamento, setShowAddAndamento] = useState(false);
+
+  const handleAddAndamento = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!processo?.id || !user) return;
+    setAddLoading(true);
+    const fd = new FormData(e.currentTarget);
+    try {
+      await supabase.from('movimentacoes_processo').insert({
+        processo_id: processo.id,
+        office_id: user.office_id,
+        data_movimentacao: fd.get('data') as string,
+        descricao: fd.get('descricao') as string,
+        tipo: fd.get('tipo') as string || 'manual',
+        fonte: 'manual',
+      });
+      toast({ title: 'Andamento registrado' });
+      setShowAddAndamento(false);
+      fetchMovements();
+    } catch (err: any) { toast({ title: 'Erro', description: err.message, variant: 'destructive' }); }
+    finally { setAddLoading(false); }
+  };
+
   // ── Style helpers ──
   const getStatusStyle = (status: string) => {
     const s = (status || '').toLowerCase();
@@ -636,11 +708,35 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                   <p className="text-[10px] text-muted-foreground/60 uppercase font-black tracking-widest">
                     {syncing ? 'Sincronizando…' : `${movements.length} movimentação(ões)`}
                   </p>
-                  <button onClick={() => syncFromOrigin()} disabled={syncing} className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-black text-primary/70 hover:text-primary disabled:opacity-30 transition-colors">
-                    <RotateCw className={cn("h-3 w-3", syncing && "animate-spin")} />
-                    {syncing ? 'Atualizando' : 'Atualizar'}
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <Button variant="outline" size="sm" onClick={() => setShowAddAndamento(true)} className="h-7 rounded-xl text-[10px] gap-1 px-3 font-black uppercase tracking-widest">
+                      <Plus className="h-3 w-3" /> Andamento Manual
+                    </Button>
+                    <button onClick={() => syncFromOrigin()} disabled={syncing} className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-black text-primary/70 hover:text-primary disabled:opacity-30 transition-colors">
+                      <RotateCw className={cn("h-3 w-3", syncing && "animate-spin")} />
+                      {syncing ? 'Atualizando' : 'Atualizar'}
+                    </button>
+                  </div>
                 </div>
+
+                {showAddAndamento && (
+                  <AddForm onSubmit={handleAddAndamento} onCancel={() => setShowAddAndamento(false)}>
+                    <Input name="descricao" placeholder="Descrição do andamento" required className="h-9 rounded-xl text-sm" />
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input name="data" type="date" required defaultValue={new Date().toISOString().split('T')[0]} className="h-9 rounded-xl text-sm" />
+                      <select name="tipo" className="h-9 rounded-xl text-sm border border-border bg-background px-3">
+                        <option value="despacho">Despacho</option>
+                        <option value="decisão">Decisão</option>
+                        <option value="sentença">Sentença</option>
+                        <option value="petição">Petição</option>
+                        <option value="audiência">Audiência</option>
+                        <option value="juntada">Juntada</option>
+                        <option value="distribuição">Distribuição</option>
+                        <option value="outro">Outro</option>
+                      </select>
+                    </div>
+                  </AddForm>
+                )}
                 {loadingMovements && movements.length === 0 ? (
                   <div className="py-20 flex flex-col items-center justify-center space-y-4 opacity-40">
                     <Clock className="h-10 w-10 animate-pulse text-primary" />
@@ -734,7 +830,43 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                         <Button variant="ghost" size="sm" className="h-7 rounded-xl text-[10px] gap-1 font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground" onClick={() => handlePubStatus(pub.id, 'arquivada')}>
                           <X className="h-3 w-3" /> Arquivar
                         </Button>
+                        {pub.status !== 'processada' && (
+                          <Button variant="ghost" size="sm" className="h-7 rounded-xl text-[10px] gap-1 font-bold uppercase tracking-widest text-violet-600 hover:text-violet-700 hover:bg-violet-500/10" onClick={() => setTratandoPubId(tratandoPubId === pub.id ? null : pub.id)}>
+                            <CalendarClock className="h-3 w-3" /> Tratar
+                          </Button>
+                        )}
                       </div>
+
+                      {/* Formulário de tratamento */}
+                      {tratandoPubId === pub.id && (
+                        <div className="px-5 pb-5">
+                          <form onSubmit={(e) => handleTratarPub(e, pub)} className="p-5 rounded-2xl border border-violet-500/20 bg-violet-500/5 space-y-4 animate-in fade-in duration-300">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-violet-600">Criar a partir desta publicação</p>
+                            <select name="tipo_tratamento" required className="h-9 w-full rounded-xl text-sm border border-border bg-background px-3">
+                              <option value="prazo">Prazo</option>
+                              <option value="tarefa">Tarefa</option>
+                              <option value="audiencia">Audiência</option>
+                            </select>
+                            <Input name="titulo" placeholder="Título" required defaultValue={pub.titulo?.slice(0, 80)} className="h-9 rounded-xl text-sm" />
+                            <div className="grid grid-cols-3 gap-3">
+                              <Input name="data_vencimento" type="date" required className="h-9 rounded-xl text-sm" />
+                              <Input name="horario" type="time" placeholder="Horário" className="h-9 rounded-xl text-sm" />
+                              <select name="prioridade" className="h-9 rounded-xl text-sm border border-border bg-background px-3">
+                                <option value="baixa">Baixa</option>
+                                <option value="media">Média</option>
+                                <option value="alta" selected>Alta</option>
+                                <option value="urgente">Urgente</option>
+                              </select>
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              <Button type="button" variant="ghost" size="sm" onClick={() => setTratandoPubId(null)} className="rounded-xl text-xs h-8">Cancelar</Button>
+                              <Button type="submit" size="sm" disabled={addLoading} className="rounded-xl text-xs h-8 gap-1.5 bg-violet-600 hover:bg-violet-700 text-white">
+                                {addLoading ? <RotateCw className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />} Criar e Processar
+                              </Button>
+                            </div>
+                          </form>
+                        </div>
+                      )}
                     </div>
                   );
                 }) : <EmptySub icon={Megaphone} label="publicação" />}
