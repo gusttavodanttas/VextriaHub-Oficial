@@ -1,0 +1,27 @@
+<svg width="200" height="60" viewBox="0 0 200 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle with gradient -->
+  <defs>
+    <linearGradient id="circleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4FD1C7"/>
+      <stop offset="100%" style="stop-color:#6366F1"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Main circle background -->
+  <circle cx="30" cy="30" r="25" fill="url(#circleGradient)" opacity="0.2"/>
+  
+  <!-- Smaller circles -->
+  <circle cx="20" cy="20" r="6" fill="#4FD1C7"/>
+  <circle cx="40" cy="20" r="8" fill="#6366F1"/>
+  <circle cx="15" cy="35" r="8" fill="#4FD1C7"/>
+  <circle cx="35" cy="40" r="6" fill="#4FD1C7"/>
+  <circle cx="45" cy="35" r="7" fill="#6366F1"/>
+  
+  <!-- VextriaHub text -->
+  <text x="70" y="25" font-family="Inter, sans-serif" font-size="18" font-weight="700" fill="white">
+    Vextria
+  </text>
+  <text x="70" y="45" font-family="Inter, sans-serif" font-size="18" font-weight="700" fill="#4FD1C7">
+    Hub
+  </text>
+</svg>
