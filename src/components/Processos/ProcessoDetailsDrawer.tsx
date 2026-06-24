@@ -5,6 +5,7 @@ import { Processo } from '@/types/processo';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import {
   User,
   Scale,
@@ -21,8 +22,16 @@ import {
   Edit,
   X,
   Check,
+  FileText,
+  CalendarClock,
+  Megaphone,
+  ListTodo,
+  Timer,
+  Plus,
+  AlertTriangle,
+  CheckCircle2,
+  Circle,
 } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { formatCNJ } from '@/utils/formatCNJ';
@@ -46,6 +55,15 @@ interface ProcessoDetailsDrawerProps {
   onOpenChange: (open: boolean) => void;
 }
 
+const fmtDate = (d: string | null | undefined) => d ? new Date(d).toLocaleDateString('pt-BR') : '—';
+const fmtDateTime = (d: string | null | undefined) => d ? new Date(d).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+const fmtDuration = (min: number | null | undefined) => {
+  if (!min) return '—';
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return h > 0 ? `${h}h${m > 0 ? `${String(m).padStart(2, '0')}min` : ''}` : `${m}min`;
+};
+
 export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
   processo,
   open,
@@ -66,6 +84,24 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savingCliente, setSavingCliente] = useState(false);
+
+  // Sub-tab data
+  const [publicacoes, setPublicacoes] = useState<any[]>([]);
+  const [prazos, setPrazos] = useState<any[]>([]);
+  const [audiencias, setAudiencias] = useState<any[]>([]);
+  const [atendimentos, setAtendimentos] = useState<any[]>([]);
+  const [tarefas, setTarefas] = useState<any[]>([]);
+  const [timesheets, setTimesheets] = useState<any[]>([]);
+  const [loadingSub, setLoadingSub] = useState(false);
+
+  // Add forms
+  const [showAddPrazo, setShowAddPrazo] = useState(false);
+  const [showAddAudiencia, setShowAddAudiencia] = useState(false);
+  const [showAddTarefa, setShowAddTarefa] = useState(false);
+  const [showAddTimesheet, setShowAddTimesheet] = useState(false);
+  const [showAddAtendimento, setShowAddAtendimento] = useState(false);
+  const [addLoading, setAddLoading] = useState(false);
+
   const [editData, setEditData] = useState({
     titulo: '',
     parte_autora: '',
@@ -100,47 +136,6 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
     }
   }, [processo?.id, open]);
 
-  const handleSetCliente = async (polo: 'autor' | 'reu') => {
-    if (!processo?.id || !user?.office_id) return;
-    setSavingCliente(true);
-    try {
-      const rawName = polo === 'autor' ? (editData.parte_autora || processo.parteAutora) : (editData.requerido || processo.requerido);
-      if (!rawName) {
-        toast({ title: 'Nome não identificado', description: `Preencha o nome do ${polo === 'autor' ? 'autor' : 'réu'} antes de vincular.`, variant: 'destructive' });
-        return;
-      }
-      const nomeCliente = rawName.replace(/\s+/g, ' ').trim().split(' ').slice(0, 8).join(' ').slice(0, 100);
-
-      const { data: existing } = await supabase
-        .from('clientes')
-        .select('id')
-        .eq('nome', nomeCliente)
-        .eq('office_id', user.office_id)
-        .maybeSingle();
-
-      let clienteId: string;
-      if (existing) {
-        clienteId = existing.id;
-      } else {
-        const { data: novo } = await supabase
-          .from('clientes')
-          .insert({ nome: nomeCliente, office_id: user.office_id, user_id: user.id })
-          .select('id')
-          .single();
-        if (!novo) throw new Error('Erro ao criar cliente');
-        clienteId = novo.id;
-      }
-
-      await supabase.from('processos').update({ cliente_id: clienteId }).eq('id', processo.id);
-      queryClient.invalidateQueries({ queryKey: ['processos'] });
-      toast({ title: 'Cliente vinculado', description: `${nomeCliente} vinculado como cliente deste processo.` });
-    } catch (e: any) {
-      toast({ title: 'Erro', description: e.message, variant: 'destructive' });
-    } finally {
-      setSavingCliente(false);
-    }
-  };
-
   const handleSave = async () => {
     if (!processo?.id) return;
     setSaving(true);
@@ -167,68 +162,99 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
     }
   };
 
+  const handleSetCliente = async (polo: 'autor' | 'reu') => {
+    if (!processo?.id || !user?.office_id) return;
+    setSavingCliente(true);
+    try {
+      const rawName = polo === 'autor' ? (editData.parte_autora || processo.parteAutora) : (editData.requerido || processo.requerido);
+      if (!rawName) {
+        toast({ title: 'Nome não identificado', description: `Preencha o nome do ${polo === 'autor' ? 'autor' : 'réu'} antes de vincular.`, variant: 'destructive' });
+        return;
+      }
+      const nomeCliente = rawName.replace(/\s+/g, ' ').trim().split(' ').slice(0, 8).join(' ').slice(0, 100);
+      const { data: existing } = await supabase.from('clientes').select('id').eq('nome', nomeCliente).eq('office_id', user.office_id).maybeSingle();
+      let clienteId: string;
+      if (existing) {
+        clienteId = existing.id;
+      } else {
+        const { data: novo } = await supabase.from('clientes').insert({ nome: nomeCliente, office_id: user.office_id, user_id: user.id }).select('id').single();
+        if (!novo) throw new Error('Erro ao criar cliente');
+        clienteId = novo.id;
+      }
+      await supabase.from('processos').update({ cliente_id: clienteId }).eq('id', processo.id);
+      queryClient.invalidateQueries({ queryKey: ['processos'] });
+      toast({ title: 'Cliente vinculado', description: `${nomeCliente} vinculado como cliente deste processo.` });
+    } catch (e: any) {
+      toast({ title: 'Erro', description: e.message, variant: 'destructive' });
+    } finally {
+      setSavingCliente(false);
+    }
+  };
+
   const fetchMovements = useCallback(async () => {
     if (!processo?.id) return;
     setLoadingMovements(true);
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('movimentacoes_processo')
         .select('id, data:data_movimentacao, texto:descricao, tipo, metadata')
         .eq('processo_id', processo.id)
         .order('data_movimentacao', { ascending: false });
-      if (!error && data) setMovements(data as any);
-    } catch (err) {
-      console.error('Erro ao buscar movimentações:', err);
-    } finally {
-      setLoadingMovements(false);
-    }
+      if (data) setMovements(data as any);
+    } catch (err) { console.error(err); }
+    finally { setLoadingMovements(false); }
   }, [processo?.id]);
+
+  const fetchSubData = useCallback(async (tab: string) => {
+    if (!processo?.id) return;
+    setLoadingSub(true);
+    try {
+      if (tab === 'publicacoes') {
+        const numero = (processo.numeroProcesso || '').replace(/\D/g, '');
+        const { data } = await supabase.from('publicacoes').select('*').or(`processo_id.eq.${processo.id},numero_processo.eq.${numero}`).order('data_publicacao', { ascending: false });
+        setPublicacoes(data || []);
+      } else if (tab === 'prazos') {
+        const { data } = await supabase.from('prazos').select('*').eq('processo_id', processo.id).order('data_vencimento', { ascending: true });
+        setPrazos(data || []);
+      } else if (tab === 'audiencias') {
+        const { data } = await supabase.from('audiencias').select('*').eq('processo_id', processo.id).order('data_audiencia', { ascending: false });
+        setAudiencias(data || []);
+      } else if (tab === 'atendimentos') {
+        const { data } = await supabase.from('atendimentos').select('*').eq('processo_id', processo.id).order('data_atendimento', { ascending: false });
+        setAtendimentos(data || []);
+      } else if (tab === 'tarefas') {
+        const { data } = await supabase.from('tarefas').select('*').eq('processo_id', processo.id).eq('deletado', false).order('created_at', { ascending: false });
+        setTarefas(data || []);
+      } else if (tab === 'timesheet') {
+        const { data } = await supabase.from('timesheets').select('*').eq('processo_id', processo.id).eq('deletado', false).order('data_inicio', { ascending: false });
+        setTimesheets(data || []);
+      }
+    } catch (err) { console.error(err); }
+    finally { setLoadingSub(false); }
+  }, [processo?.id, processo?.numeroProcesso]);
 
   const syncFromOrigin = useCallback(async () => {
     if (!processo?.id || !processo.numeroProcesso || syncing) return;
     setSyncing(true);
     try {
       const { data, error } = await supabase.functions.invoke('fetch-processo', {
-        body: {
-          numeroProcesso: processo.numeroProcesso,
-          oab: (profile as any)?.oab,
-          uf: (profile as any)?.oab_uf,
-        },
+        body: { numeroProcesso: processo.numeroProcesso, oab: (profile as any)?.oab, uf: (profile as any)?.oab_uf },
       });
       if (error || !data || data.error) return;
-
       const andamentos = Array.isArray(data.andamentos) ? data.andamentos : [];
       if (andamentos.length > 0) {
         const inseridos = await persistAndamentos(processo.id, user?.office_id, andamentos, 'datajud');
-        if (inseridos > 0) {
-          toast({ title: 'Histórico atualizado', description: `${inseridos} nova(s) movimentação(ões) sincronizada(s).` });
-        }
-
-        const ultimo = data.ultimoAndamento?.data || andamentos[0]?.data;
-        const updatePayload: any = {
-          sincronizado_em: new Date().toISOString(),
-          data_ultima_atualizacao: ultimo ? String(ultimo).split('T')[0] : new Date().toISOString().split('T')[0],
-        };
+        if (inseridos > 0) toast({ title: 'Histórico atualizado', description: `${inseridos} nova(s) movimentação(ões).` });
+        const updatePayload: any = { sincronizado_em: new Date().toISOString() };
         if (data.titulo && data.titulo !== 'Processo' && (!processo.titulo || processo.titulo.includes('(Auto)'))) updatePayload.titulo = data.titulo;
         if (data.autor && data.autor !== 'Não identificado' && !processo.parteAutora) updatePayload.parte_autora = data.autor;
         if (data.reu && data.reu !== 'Não identificado' && !processo.requerido) updatePayload.requerido = data.reu;
-        if (data.classe && !processo.classeJudicial) updatePayload.classe_judicial = data.classe;
-        if (data.assunto && !processo.assuntoPrincipal) updatePayload.assunto_principal = data.assunto;
-        if (data.faseProcessual && !processo.faseProcessual) updatePayload.fase_processual = data.faseProcessual;
-        if (data.instancia && !processo.instancia) updatePayload.instancia = data.instancia;
-        if (data.valorCausa && !processo.valorCausa) updatePayload.valor_causa = data.valorCausa;
-        if (data.vara && !processo.vara) updatePayload.vara = data.vara;
-        if (data.comarca && !processo.comarca) updatePayload.comarca = data.comarca;
-
         await supabase.from('processos').update(updatePayload).eq('id', processo.id);
         queryClient.invalidateQueries({ queryKey: ['processos'] });
       }
       await fetchMovements();
-    } catch (err: any) {
-      console.error('[drawer] erro no sync:', err);
-    } finally {
-      setSyncing(false);
-    }
+    } catch (err) { console.error(err); }
+    finally { setSyncing(false); }
   }, [processo?.id, processo?.numeroProcesso, syncing, user?.office_id, profile, persistAndamentos, toast, fetchMovements, queryClient]);
 
   useEffect(() => {
@@ -237,22 +263,150 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
   }, [processo?.id, open, fetchMovements]);
 
   useEffect(() => {
-    if (!open || activeTab !== 'timeline' || !processo?.id) return;
-    if (lastSyncedProcessoId === processo.id) return;
-    setLastSyncedProcessoId(processo.id);
-    syncFromOrigin();
-  }, [open, activeTab, processo?.id, lastSyncedProcessoId, syncFromOrigin]);
+    if (!open || !processo?.id) return;
+    if (activeTab === 'timeline') {
+      if (lastSyncedProcessoId !== processo.id) {
+        setLastSyncedProcessoId(processo.id);
+        syncFromOrigin();
+      }
+    } else if (['publicacoes', 'prazos', 'audiencias', 'atendimentos', 'tarefas', 'timesheet'].includes(activeTab)) {
+      fetchSubData(activeTab);
+    }
+  }, [open, activeTab, processo?.id]);
 
   useEffect(() => {
     if (!open) setLastSyncedProcessoId(null);
   }, [open]);
 
+  // ── Add handlers ──
+  const handleAddPrazo = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!processo?.id || !user) return;
+    setAddLoading(true);
+    const fd = new FormData(e.currentTarget);
+    try {
+      await supabase.from('prazos').insert({
+        user_id: user.id, office_id: user.office_id, processo_id: processo.id,
+        titulo: fd.get('titulo') as string,
+        descricao: fd.get('descricao') as string || null,
+        data_vencimento: fd.get('data_vencimento') as string,
+        prioridade: fd.get('prioridade') as string || 'media',
+        status: 'pendente',
+      });
+      toast({ title: 'Prazo criado' });
+      setShowAddPrazo(false);
+      fetchSubData('prazos');
+    } catch (err: any) { toast({ title: 'Erro', description: err.message, variant: 'destructive' }); }
+    finally { setAddLoading(false); }
+  };
+
+  const handleAddAudiencia = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!processo?.id || !user) return;
+    setAddLoading(true);
+    const fd = new FormData(e.currentTarget);
+    try {
+      await supabase.from('audiencias').insert({
+        user_id: user.id, office_id: user.office_id, processo_id: processo.id,
+        titulo: fd.get('titulo') as string,
+        data_audiencia: new Date(`${fd.get('data')}T${fd.get('horario') || '00:00'}`).toISOString(),
+        local: fd.get('local') as string || null,
+        tipo: fd.get('tipo') as string || null,
+        observacoes: fd.get('observacoes') as string || null,
+        status: 'agendado',
+      });
+      toast({ title: 'Audiência criada' });
+      setShowAddAudiencia(false);
+      fetchSubData('audiencias');
+    } catch (err: any) { toast({ title: 'Erro', description: err.message, variant: 'destructive' }); }
+    finally { setAddLoading(false); }
+  };
+
+  const handleAddTarefa = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!processo?.id || !user) return;
+    setAddLoading(true);
+    const fd = new FormData(e.currentTarget);
+    try {
+      await supabase.from('tarefas').insert({
+        user_id: user.id, processo_id: processo.id,
+        titulo: fd.get('titulo') as string,
+        descricao: fd.get('descricao') as string || null,
+        data_vencimento: fd.get('data_vencimento') as string || null,
+        prioridade: fd.get('prioridade') as string || 'media',
+        status: 'pendente',
+      });
+      toast({ title: 'Tarefa criada' });
+      setShowAddTarefa(false);
+      fetchSubData('tarefas');
+    } catch (err: any) { toast({ title: 'Erro', description: err.message, variant: 'destructive' }); }
+    finally { setAddLoading(false); }
+  };
+
+  const handleAddTimesheet = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!processo?.id || !user) return;
+    setAddLoading(true);
+    const fd = new FormData(e.currentTarget);
+    const duracao = Number(fd.get('duracao')) || 0;
+    try {
+      const now = new Date();
+      await supabase.from('timesheets').insert({
+        user_id: user.id, office_id: user.office_id, processo_id: processo.id,
+        tarefa_descricao: fd.get('descricao') as string,
+        categoria: fd.get('categoria') as string || 'geral',
+        data_inicio: new Date(now.getTime() - duracao * 60000).toISOString(),
+        data_fim: now.toISOString(),
+        duracao_minutos: duracao,
+        status: 'finalizado',
+      });
+      toast({ title: 'Tempo registrado' });
+      setShowAddTimesheet(false);
+      fetchSubData('timesheet');
+    } catch (err: any) { toast({ title: 'Erro', description: err.message, variant: 'destructive' }); }
+    finally { setAddLoading(false); }
+  };
+
+  const handleAddAtendimento = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!processo?.id || !user) return;
+    setAddLoading(true);
+    const fd = new FormData(e.currentTarget);
+    try {
+      await supabase.from('atendimentos').insert({
+        user_id: user.id, office_id: user.office_id, processo_id: processo.id,
+        cliente_id: processo.clienteId || null,
+        tipo_atendimento: fd.get('tipo') as string || 'reuniao',
+        data_atendimento: new Date(`${fd.get('data')}T${fd.get('horario') || '00:00'}`).toISOString(),
+        observacoes: fd.get('observacoes') as string || null,
+        status: 'agendado',
+      });
+      toast({ title: 'Atendimento criado' });
+      setShowAddAtendimento(false);
+      fetchSubData('atendimentos');
+    } catch (err: any) { toast({ title: 'Erro', description: err.message, variant: 'destructive' }); }
+    finally { setAddLoading(false); }
+  };
+
+  const toggleTarefa = async (t: any) => {
+    const newStatus = t.concluida ? false : true;
+    await supabase.from('tarefas').update({ concluida: newStatus, status: newStatus ? 'concluida' : 'pendente' }).eq('id', t.id);
+    fetchSubData('tarefas');
+  };
+
+  // ── Style helpers ──
   const getStatusStyle = (status: string) => {
     const s = (status || '').toLowerCase();
     if (s.includes('andamento') || s === 'ativo') return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20';
     if (s.includes('concluído') || s.includes('encerrado')) return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
     if (s.includes('suspenso')) return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20';
     return 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20';
+  };
+
+  const getPrioridadeStyle = (p: string) => {
+    if (p === 'alta' || p === 'urgente') return 'text-rose-600 bg-rose-500/10 border-rose-500/20';
+    if (p === 'media') return 'text-amber-600 bg-amber-500/10 border-amber-500/20';
+    return 'text-slate-600 bg-slate-500/10 border-slate-500/20';
   };
 
   const Field = ({ label, field, icon }: { label: string; field: keyof typeof editData; icon?: React.ReactNode }) => (
@@ -273,16 +427,61 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
     </div>
   );
 
+  // ── Quick add form wrapper ──
+  const AddForm = ({ children, onSubmit, onCancel }: { children: React.ReactNode; onSubmit: (e: React.FormEvent<HTMLFormElement>) => void; onCancel: () => void }) => (
+    <form onSubmit={onSubmit} className="p-5 rounded-2xl border border-primary/20 bg-primary/5 space-y-4 animate-in fade-in duration-300">
+      {children}
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="ghost" size="sm" onClick={onCancel} className="rounded-xl text-xs h-8">Cancelar</Button>
+        <Button type="submit" size="sm" disabled={addLoading} className="rounded-xl text-xs h-8 gap-1.5">
+          {addLoading ? <RotateCw className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />} Salvar
+        </Button>
+      </div>
+    </form>
+  );
+
+  const EmptySub = ({ icon: Icon, label }: { icon: any; label: string }) => (
+    <div className="py-16 flex flex-col items-center justify-center text-center space-y-3 opacity-30">
+      <Icon className="h-10 w-10" />
+      <p className="font-black uppercase tracking-widest text-xs">Nenhum(a) {label}</p>
+    </div>
+  );
+
+  const SectionHeader = ({ label, count, onAdd }: { label: string; count: number; onAdd?: () => void }) => (
+    <div className="flex items-center justify-between mb-4">
+      <p className="text-[10px] text-muted-foreground/60 uppercase font-black tracking-widest">
+        {loadingSub ? 'Carregando...' : `${count} ${label}`}
+      </p>
+      {onAdd && (
+        <Button variant="outline" size="sm" onClick={onAdd} className="h-7 rounded-xl text-[10px] gap-1 px-3 font-black uppercase tracking-widest">
+          <Plus className="h-3 w-3" /> Novo
+        </Button>
+      )}
+    </div>
+  );
+
+  const tabs = [
+    { value: 'resumo', label: 'Resumo', icon: Info },
+    { value: 'timeline', label: 'Histórico', icon: History },
+    { value: 'publicacoes', label: 'Publicações', icon: Megaphone },
+    { value: 'prazos', label: 'Prazos', icon: CalendarClock },
+    { value: 'audiencias', label: 'Audiências', icon: Gavel },
+    { value: 'atendimentos', label: 'Atendimentos', icon: Users },
+    { value: 'tarefas', label: 'Tarefas', icon: ListTodo },
+    { value: 'timesheet', label: 'Timesheet', icon: Timer },
+    { value: 'partes', label: 'Partes', icon: User },
+  ];
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl w-[95vw] h-[90vh] p-0 rounded-3xl border border-border bg-background shadow-2xl flex flex-col overflow-hidden gap-0">
+      <DialogContent className="max-w-5xl w-[96vw] h-[92vh] p-0 rounded-3xl border border-border bg-background shadow-2xl flex flex-col overflow-hidden gap-0">
 
         {/* ═══ HEADER ═══ */}
-        <div className="px-8 pt-8 pb-4 space-y-5 border-b border-border shrink-0 relative overflow-hidden">
+        <div className="px-8 pt-7 pb-4 space-y-4 border-b border-border shrink-0 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-80 h-80 bg-primary/5 blur-[120px] -mr-40 -mt-40 rounded-full pointer-events-none" />
 
           <div className="flex items-start justify-between relative">
-            <div className="space-y-3 flex-1 min-w-0 pr-4">
+            <div className="space-y-2.5 flex-1 min-w-0 pr-4">
               <div className="flex items-center gap-3 flex-wrap">
                 <Badge variant="outline" className={cn("px-3 py-1 text-[10px] font-black uppercase tracking-widest border-2", getStatusStyle(processo.status))}>
                   {processo.status}
@@ -294,11 +493,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
               </div>
 
               {editing ? (
-                <Input
-                  className="text-2xl font-black rounded-xl bg-background border-border h-14 focus:ring-2 focus:ring-primary/20"
-                  value={editData.titulo}
-                  onChange={(e) => setEditData({ ...editData, titulo: e.target.value })}
-                />
+                <Input className="text-2xl font-black rounded-xl bg-background border-border h-14 focus:ring-2 focus:ring-primary/20" value={editData.titulo} onChange={(e) => setEditData({ ...editData, titulo: e.target.value })} />
               ) : (
                 <DialogTitle className="text-2xl md:text-3xl font-black text-foreground leading-tight tracking-tight pr-8">
                   {processo.titulo}
@@ -307,55 +502,53 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
 
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-primary/50 animate-pulse" />
-                <span className="font-mono text-sm font-bold text-primary tracking-tight">
-                  {formatCNJ(processo.numeroProcesso)}
-                </span>
+                <span className="font-mono text-sm font-bold text-primary tracking-tight">{formatCNJ(processo.numeroProcesso)}</span>
               </div>
             </div>
 
-            {/* Botões Editar / Salvar no header */}
             <div className="flex items-center gap-2 shrink-0">
               {editing ? (
                 <>
-                  <Button variant="ghost" size="sm" onClick={() => setEditing(false)} className="h-9 rounded-xl text-xs gap-1.5">
-                    <X className="h-3.5 w-3.5" /> Cancelar
-                  </Button>
-                  <Button size="sm" onClick={handleSave} disabled={saving} className="h-9 rounded-xl text-xs gap-1.5 shadow-md">
-                    <Save className="h-3.5 w-3.5" /> {saving ? 'Salvando...' : 'Salvar'}
-                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setEditing(false)} className="h-9 rounded-xl text-xs gap-1.5"><X className="h-3.5 w-3.5" /> Cancelar</Button>
+                  <Button size="sm" onClick={handleSave} disabled={saving} className="h-9 rounded-xl text-xs gap-1.5 shadow-md"><Save className="h-3.5 w-3.5" /> {saving ? 'Salvando...' : 'Salvar'}</Button>
                 </>
               ) : (
-                <Button variant="outline" size="sm" onClick={() => setEditing(true)} className="h-9 rounded-xl text-xs gap-1.5 border-border">
-                  <Edit className="h-3.5 w-3.5" /> Editar Capa
-                </Button>
+                <Button variant="outline" size="sm" onClick={() => setEditing(true)} className="h-9 rounded-xl text-xs gap-1.5 border-border"><Edit className="h-3.5 w-3.5" /> Editar</Button>
               )}
             </div>
           </div>
 
-          {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="bg-muted/40 p-1 h-11 rounded-2xl w-full justify-between">
-              <TabsTrigger value="resumo" className="flex-1 rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary font-bold text-xs gap-2">
-                <Info className="h-3.5 w-3.5" /> Resumo
-              </TabsTrigger>
-              <TabsTrigger value="timeline" className="flex-1 rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary font-bold text-xs gap-2">
-                <History className="h-3.5 w-3.5" /> Histórico
-              </TabsTrigger>
-              <TabsTrigger value="partes" className="flex-1 rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary font-bold text-xs gap-2">
-                <Users className="h-3.5 w-3.5" /> Partes
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          {/* Tabs - scrollable */}
+          <div className="overflow-x-auto -mx-8 px-8 pb-1">
+            <div className="flex gap-1 bg-muted/40 p-1 rounded-2xl w-max min-w-full">
+              {tabs.map(t => {
+                const Icon = t.icon;
+                const isActive = activeTab === t.value;
+                return (
+                  <button
+                    key={t.value}
+                    onClick={() => setActiveTab(t.value)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all",
+                      isActive ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {/* ═══ CONTEÚDO ═══ */}
         <div className="flex-1 min-h-0 overflow-y-auto">
           <div className="p-8">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
 
-              {/* ── RESUMO ── */}
-              <TabsContent value="resumo" className="space-y-8 mt-0">
-                {/* KPIs */}
+            {/* ── RESUMO ── */}
+            {activeTab === 'resumo' && (
+              <div className="space-y-8">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-5 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 space-y-2">
                     <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
@@ -381,11 +574,9 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                   </div>
                 </div>
 
-                {/* Capa Jurídica */}
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 text-primary font-black text-[10px] uppercase tracking-[.2em]">
-                    <Gavel className="h-4 w-4" />
-                    <span>Capa Jurídica</span>
+                    <Gavel className="h-4 w-4" /><span>Capa Jurídica</span>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5 p-6 rounded-2xl border border-border bg-muted/20">
                     <Field label="Classe" field="classe_judicial" />
@@ -398,39 +589,33 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                   </div>
                 </div>
 
-                {/* Partes resumidas */}
                 {(processo.parteAutora || processo.requerido) && !editing && (
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-primary font-black text-[10px] uppercase tracking-[.2em]">
-                      <Users className="h-4 w-4" />
-                      <span>Partes</span>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 rounded-2xl border border-emerald-500/10 bg-emerald-500/5">
+                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-black uppercase tracking-widest mb-1">Autor</p>
+                      <p className="text-sm font-bold">{processo.parteAutora || 'Não identificado'}</p>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="p-4 rounded-2xl border border-emerald-500/10 bg-emerald-500/5">
-                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-black uppercase tracking-widest mb-1">Autor</p>
-                        <p className="text-sm font-bold">{processo.parteAutora || 'Não identificado'}</p>
-                      </div>
-                      <div className="p-4 rounded-2xl border border-rose-500/10 bg-rose-500/5">
-                        <p className="text-[10px] text-rose-600 dark:text-rose-400 font-black uppercase tracking-widest mb-1">Réu</p>
-                        <p className="text-sm font-bold">{processo.requerido || 'Não identificado'}</p>
-                      </div>
+                    <div className="p-4 rounded-2xl border border-rose-500/10 bg-rose-500/5">
+                      <p className="text-[10px] text-rose-600 dark:text-rose-400 font-black uppercase tracking-widest mb-1">Réu</p>
+                      <p className="text-sm font-bold">{processo.requerido || 'Não identificado'}</p>
                     </div>
                   </div>
                 )}
-              </TabsContent>
+              </div>
+            )}
 
-              {/* ── HISTÓRICO ── */}
-              <TabsContent value="timeline" className="space-y-6 mt-0">
+            {/* ── HISTÓRICO ── */}
+            {activeTab === 'timeline' && (
+              <div className="space-y-6">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-[10px] text-muted-foreground/60 uppercase font-black tracking-widest">
-                    {syncing ? 'Sincronizando com o tribunal…' : `${movements.length} movimentação(ões)`}
+                    {syncing ? 'Sincronizando…' : `${movements.length} movimentação(ões)`}
                   </p>
                   <button onClick={() => syncFromOrigin()} disabled={syncing} className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-black text-primary/70 hover:text-primary disabled:opacity-30 transition-colors">
                     <RotateCw className={cn("h-3 w-3", syncing && "animate-spin")} />
-                    {syncing ? 'Atualizando' : 'Atualizar agora'}
+                    {syncing ? 'Atualizando' : 'Atualizar'}
                   </button>
                 </div>
-
                 {loadingMovements && movements.length === 0 ? (
                   <div className="py-20 flex flex-col items-center justify-center space-y-4 opacity-40">
                     <Clock className="h-10 w-10 animate-pulse text-primary" />
@@ -443,98 +628,267 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                         <div className="absolute -left-[29px] top-1 h-3.5 w-3.5 rounded-full bg-background border-2 border-primary/40 ring-4 ring-primary/5" />
                         <div className="space-y-1.5 pl-2">
                           <div className="flex items-center justify-between gap-4">
-                            <span className="text-[10px] font-black text-primary/80 bg-primary/5 px-2.5 py-0.5 rounded-lg">
-                              {new Date(mov.data).toLocaleDateString('pt-BR')}
-                            </span>
-                            <span className="text-[9px] uppercase tracking-widest text-muted-foreground/40 font-bold">
-                              {mov.tipo || mov.metadata?.fase || 'Andamento'}
-                            </span>
+                            <span className="text-[10px] font-black text-primary/80 bg-primary/5 px-2.5 py-0.5 rounded-lg">{fmtDate(mov.data)}</span>
+                            <span className="text-[9px] uppercase tracking-widest text-muted-foreground/40 font-bold">{mov.tipo || 'Andamento'}</span>
                           </div>
-                          <p className="text-sm font-semibold text-foreground/85 leading-relaxed">
-                            {mov.texto}
-                          </p>
+                          <p className="text-sm font-semibold text-foreground/85 leading-relaxed">{mov.texto}</p>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="py-24 flex flex-col items-center justify-center text-center space-y-4 opacity-30">
-                    <History className="h-14 w-14" />
-                    <div className="space-y-1.5">
-                      <p className="font-black uppercase tracking-widest text-sm">Sem Histórico</p>
-                      <p className="text-xs max-w-xs mx-auto">Clique em "Atualizar agora" para buscar movimentações do tribunal.</p>
+                  <EmptySub icon={History} label="movimentação" />
+                )}
+              </div>
+            )}
+
+            {/* ── PUBLICAÇÕES ── */}
+            {activeTab === 'publicacoes' && (
+              <div className="space-y-4">
+                <SectionHeader label="publicação(ões)" count={publicacoes.length} />
+                {publicacoes.length > 0 ? publicacoes.map(pub => (
+                  <div key={pub.id} className="p-5 rounded-2xl border border-border bg-muted/10 space-y-3">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[10px] font-black text-primary/80 bg-primary/5 px-2.5 py-0.5 rounded-lg">{fmtDate(pub.data_publicacao)}</span>
+                        {pub.tipo_documento && <Badge variant="outline" className="text-[9px] font-bold uppercase">{pub.tipo_documento}</Badge>}
+                        <Badge variant="outline" className={cn("text-[9px] font-bold uppercase", pub.urgencia === 'alta' ? 'border-rose-500/30 text-rose-600' : pub.urgencia === 'media' ? 'border-amber-500/30 text-amber-600' : '')}>
+                          {pub.urgencia}
+                        </Badge>
+                      </div>
+                      <Badge variant="outline" className="text-[9px] font-bold uppercase">{pub.status}</Badge>
                     </div>
+                    <h4 className="font-bold text-sm">{pub.titulo}</h4>
+                    <p className="text-xs text-muted-foreground leading-relaxed line-clamp-6">{pub.conteudo}</p>
+                    {pub.tribunal && <p className="text-[10px] text-muted-foreground/50">{pub.tribunal} {pub.vara ? `· ${pub.vara}` : ''}</p>}
+                  </div>
+                )) : <EmptySub icon={Megaphone} label="publicação" />}
+              </div>
+            )}
+
+            {/* ── PRAZOS ── */}
+            {activeTab === 'prazos' && (
+              <div className="space-y-4">
+                <SectionHeader label="prazo(s)" count={prazos.length} onAdd={() => setShowAddPrazo(true)} />
+                {showAddPrazo && (
+                  <AddForm onSubmit={handleAddPrazo} onCancel={() => setShowAddPrazo(false)}>
+                    <Input name="titulo" placeholder="Título do prazo" required className="h-9 rounded-xl text-sm" />
+                    <Input name="descricao" placeholder="Descrição (opcional)" className="h-9 rounded-xl text-sm" />
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input name="data_vencimento" type="date" required className="h-9 rounded-xl text-sm" />
+                      <select name="prioridade" className="h-9 rounded-xl text-sm border border-border bg-background px-3">
+                        <option value="baixa">Baixa</option>
+                        <option value="media" selected>Média</option>
+                        <option value="alta">Alta</option>
+                        <option value="urgente">Urgente</option>
+                      </select>
+                    </div>
+                  </AddForm>
+                )}
+                {prazos.length > 0 ? prazos.map(p => {
+                  const vencido = p.status !== 'concluido' && new Date(p.data_vencimento) < new Date();
+                  return (
+                    <div key={p.id} className={cn("p-4 rounded-2xl border flex items-center gap-4", vencido ? 'border-rose-500/20 bg-rose-500/5' : 'border-border bg-muted/10')}>
+                      {vencido ? <AlertTriangle className="h-5 w-5 text-rose-500 shrink-0" /> : p.status === 'concluido' ? <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" /> : <CalendarClock className="h-5 w-5 text-amber-500 shrink-0" />}
+                      <div className="flex-1 min-w-0">
+                        <p className={cn("font-bold text-sm", p.status === 'concluido' && 'line-through opacity-50')}>{p.titulo}</p>
+                        {p.descricao && <p className="text-xs text-muted-foreground mt-0.5">{p.descricao}</p>}
+                      </div>
+                      <div className="text-right shrink-0 space-y-1">
+                        <p className={cn("text-xs font-bold", vencido ? 'text-rose-600' : 'text-muted-foreground')}>{fmtDate(p.data_vencimento)}</p>
+                        {p.prioridade && <Badge variant="outline" className={cn("text-[9px] font-bold uppercase", getPrioridadeStyle(p.prioridade))}>{p.prioridade}</Badge>}
+                      </div>
+                    </div>
+                  );
+                }) : !showAddPrazo && <EmptySub icon={CalendarClock} label="prazo" />}
+              </div>
+            )}
+
+            {/* ── AUDIÊNCIAS ── */}
+            {activeTab === 'audiencias' && (
+              <div className="space-y-4">
+                <SectionHeader label="audiência(s)" count={audiencias.length} onAdd={() => setShowAddAudiencia(true)} />
+                {showAddAudiencia && (
+                  <AddForm onSubmit={handleAddAudiencia} onCancel={() => setShowAddAudiencia(false)}>
+                    <Input name="titulo" placeholder="Título da audiência" required className="h-9 rounded-xl text-sm" />
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input name="data" type="date" required className="h-9 rounded-xl text-sm" />
+                      <Input name="horario" type="time" required className="h-9 rounded-xl text-sm" />
+                    </div>
+                    <Input name="local" placeholder="Local (opcional)" className="h-9 rounded-xl text-sm" />
+                    <Input name="tipo" placeholder="Tipo (conciliação, instrução...)" className="h-9 rounded-xl text-sm" />
+                    <Input name="observacoes" placeholder="Observações (opcional)" className="h-9 rounded-xl text-sm" />
+                  </AddForm>
+                )}
+                {audiencias.length > 0 ? audiencias.map(a => (
+                  <div key={a.id} className="p-4 rounded-2xl border border-border bg-muted/10 flex items-center gap-4">
+                    <div className="p-2.5 rounded-xl bg-violet-500/10"><Gavel className="h-5 w-5 text-violet-500" /></div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-sm">{a.titulo}</p>
+                      {a.local && <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5"><MapPin className="h-3 w-3" />{a.local}</p>}
+                      {a.tipo && <Badge variant="outline" className="text-[9px] font-bold uppercase mt-1">{a.tipo}</Badge>}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-xs font-bold text-primary">{fmtDateTime(a.data_audiencia)}</p>
+                      <Badge variant="outline" className="text-[9px] font-bold uppercase mt-1">{a.status}</Badge>
+                    </div>
+                  </div>
+                )) : !showAddAudiencia && <EmptySub icon={Gavel} label="audiência" />}
+              </div>
+            )}
+
+            {/* ── ATENDIMENTOS ── */}
+            {activeTab === 'atendimentos' && (
+              <div className="space-y-4">
+                <SectionHeader label="atendimento(s)" count={atendimentos.length} onAdd={() => setShowAddAtendimento(true)} />
+                {showAddAtendimento && (
+                  <AddForm onSubmit={handleAddAtendimento} onCancel={() => setShowAddAtendimento(false)}>
+                    <Input name="tipo" placeholder="Tipo (reunião, ligação, email...)" required className="h-9 rounded-xl text-sm" />
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input name="data" type="date" required className="h-9 rounded-xl text-sm" />
+                      <Input name="horario" type="time" required className="h-9 rounded-xl text-sm" />
+                    </div>
+                    <Textarea name="observacoes" placeholder="Observações (opcional)" className="rounded-xl text-sm min-h-[80px]" />
+                  </AddForm>
+                )}
+                {atendimentos.length > 0 ? atendimentos.map(a => (
+                  <div key={a.id} className="p-4 rounded-2xl border border-border bg-muted/10 flex items-center gap-4">
+                    <div className="p-2.5 rounded-xl bg-sky-500/10"><Users className="h-5 w-5 text-sky-500" /></div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-sm capitalize">{a.tipo_atendimento}</p>
+                      {a.observacoes && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{a.observacoes}</p>}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-xs font-bold text-primary">{fmtDateTime(a.data_atendimento)}</p>
+                      {a.duracao && <p className="text-[10px] text-muted-foreground">{a.duracao} min</p>}
+                    </div>
+                  </div>
+                )) : !showAddAtendimento && <EmptySub icon={Users} label="atendimento" />}
+              </div>
+            )}
+
+            {/* ── TAREFAS ── */}
+            {activeTab === 'tarefas' && (
+              <div className="space-y-4">
+                <SectionHeader label="tarefa(s)" count={tarefas.length} onAdd={() => setShowAddTarefa(true)} />
+                {showAddTarefa && (
+                  <AddForm onSubmit={handleAddTarefa} onCancel={() => setShowAddTarefa(false)}>
+                    <Input name="titulo" placeholder="Título da tarefa" required className="h-9 rounded-xl text-sm" />
+                    <Input name="descricao" placeholder="Descrição (opcional)" className="h-9 rounded-xl text-sm" />
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input name="data_vencimento" type="date" className="h-9 rounded-xl text-sm" />
+                      <select name="prioridade" className="h-9 rounded-xl text-sm border border-border bg-background px-3">
+                        <option value="baixa">Baixa</option>
+                        <option value="media" selected>Média</option>
+                        <option value="alta">Alta</option>
+                      </select>
+                    </div>
+                  </AddForm>
+                )}
+                {tarefas.length > 0 ? tarefas.map(t => (
+                  <div key={t.id} className="p-4 rounded-2xl border border-border bg-muted/10 flex items-center gap-4">
+                    <button onClick={() => toggleTarefa(t)} className="shrink-0">
+                      {t.concluida ? <CheckCircle2 className="h-5 w-5 text-emerald-500" /> : <Circle className="h-5 w-5 text-muted-foreground/40 hover:text-primary transition-colors" />}
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <p className={cn("font-bold text-sm", t.concluida && 'line-through opacity-50')}>{t.titulo}</p>
+                      {t.descricao && <p className="text-xs text-muted-foreground mt-0.5">{t.descricao}</p>}
+                    </div>
+                    <div className="text-right shrink-0 space-y-1">
+                      {t.data_vencimento && <p className="text-xs text-muted-foreground">{fmtDate(t.data_vencimento)}</p>}
+                      {t.prioridade && <Badge variant="outline" className={cn("text-[9px] font-bold uppercase", getPrioridadeStyle(t.prioridade))}>{t.prioridade}</Badge>}
+                    </div>
+                  </div>
+                )) : !showAddTarefa && <EmptySub icon={ListTodo} label="tarefa" />}
+              </div>
+            )}
+
+            {/* ── TIMESHEET ── */}
+            {activeTab === 'timesheet' && (
+              <div className="space-y-4">
+                <SectionHeader label="registro(s)" count={timesheets.length} onAdd={() => setShowAddTimesheet(true)} />
+                {showAddTimesheet && (
+                  <AddForm onSubmit={handleAddTimesheet} onCancel={() => setShowAddTimesheet(false)}>
+                    <Input name="descricao" placeholder="Descrição da atividade" required className="h-9 rounded-xl text-sm" />
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input name="duracao" type="number" placeholder="Duração (min)" required className="h-9 rounded-xl text-sm" />
+                      <select name="categoria" className="h-9 rounded-xl text-sm border border-border bg-background px-3">
+                        <option value="geral">Geral</option>
+                        <option value="audiencia">Audiência</option>
+                        <option value="peticao">Petição</option>
+                        <option value="reuniao">Reunião</option>
+                        <option value="pesquisa">Pesquisa</option>
+                        <option value="administrativo">Administrativo</option>
+                      </select>
+                    </div>
+                  </AddForm>
+                )}
+                {timesheets.length > 0 ? (
+                  <>
+                    <div className="p-4 rounded-2xl bg-primary/5 border border-primary/10 flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-primary">Total</span>
+                      <span className="font-black text-lg text-primary">{fmtDuration(timesheets.reduce((s, t) => s + (t.duracao_minutos || 0), 0))}</span>
+                    </div>
+                    {timesheets.map(t => (
+                      <div key={t.id} className="p-4 rounded-2xl border border-border bg-muted/10 flex items-center gap-4">
+                        <div className="p-2.5 rounded-xl bg-orange-500/10"><Timer className="h-5 w-5 text-orange-500" /></div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-sm">{t.tarefa_descricao}</p>
+                          <p className="text-[10px] text-muted-foreground uppercase mt-0.5">{t.categoria}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="font-black text-sm text-orange-600 dark:text-orange-400">{fmtDuration(t.duracao_minutos)}</p>
+                          <p className="text-[10px] text-muted-foreground">{fmtDate(t.data_inicio)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                ) : !showAddTimesheet && <EmptySub icon={Timer} label="registro" />}
+              </div>
+            )}
+
+            {/* ── PARTES ── */}
+            {activeTab === 'partes' && (
+              <div className="space-y-6">
+                <div className="p-6 rounded-2xl border border-emerald-500/15 bg-emerald-500/5 space-y-4">
+                  <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                    <User className="h-4 w-4" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Polo Ativo (Autor / Requerente)</span>
+                  </div>
+                  {editing ? (
+                    <Input className="h-10 rounded-xl bg-background border-border" value={editData.parte_autora} onChange={(e) => setEditData({ ...editData, parte_autora: e.target.value })} placeholder="Nome do autor..." />
+                  ) : (
+                    <p className="text-base font-bold text-foreground leading-relaxed">{processo.parteAutora || <span className="text-muted-foreground/50 italic">Não identificado</span>}</p>
+                  )}
+                  <Button variant={processo.clienteId && processo.cliente === (processo.parteAutora || '') ? 'default' : 'outline'} size="sm" className="w-full rounded-xl gap-2 font-black text-[10px] h-9 uppercase tracking-widest" disabled={savingCliente || !(editData.parte_autora || processo.parteAutora)} onClick={() => handleSetCliente('autor')}>
+                    {savingCliente ? <RotateCw className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />} Este é meu cliente
+                  </Button>
+                </div>
+
+                <div className="p-6 rounded-2xl border border-rose-500/15 bg-rose-500/5 space-y-4">
+                  <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
+                    <Users className="h-4 w-4" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Polo Passivo (Réu / Requerido)</span>
+                  </div>
+                  {editing ? (
+                    <Input className="h-10 rounded-xl bg-background border-border" value={editData.requerido} onChange={(e) => setEditData({ ...editData, requerido: e.target.value })} placeholder="Nome do réu..." />
+                  ) : (
+                    <p className="text-base font-bold text-foreground leading-relaxed">{processo.requerido || <span className="text-muted-foreground/50 italic">Não identificado</span>}</p>
+                  )}
+                  <Button variant={processo.clienteId && processo.cliente === (processo.requerido || '') ? 'default' : 'outline'} size="sm" className="w-full rounded-xl gap-2 font-black text-[10px] h-9 uppercase tracking-widest" disabled={savingCliente || !(editData.requerido || processo.requerido)} onClick={() => handleSetCliente('reu')}>
+                    {savingCliente ? <RotateCw className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />} Este é meu cliente
+                  </Button>
+                </div>
+
+                {editing && (
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button variant="ghost" size="sm" onClick={() => setEditing(false)} className="h-9 rounded-xl text-xs gap-1.5"><X className="h-3.5 w-3.5" /> Cancelar</Button>
+                    <Button size="sm" onClick={handleSave} disabled={saving} className="h-9 rounded-xl text-xs gap-1.5 shadow-md"><Save className="h-3.5 w-3.5" /> {saving ? 'Salvando...' : 'Salvar'}</Button>
                   </div>
                 )}
-              </TabsContent>
+              </div>
+            )}
 
-              {/* ── PARTES ── */}
-              <TabsContent value="partes" className="space-y-6 mt-0">
-                <div className="space-y-6">
-                  {/* Polo Ativo */}
-                  <div className="p-6 rounded-2xl border border-emerald-500/15 bg-emerald-500/5 space-y-4">
-                    <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
-                      <User className="h-4 w-4" />
-                      <span className="text-[10px] font-black uppercase tracking-widest">Polo Ativo (Autor / Requerente)</span>
-                    </div>
-                    {editing ? (
-                      <Input className="h-10 rounded-xl bg-background border-border" value={editData.parte_autora} onChange={(e) => setEditData({ ...editData, parte_autora: e.target.value })} placeholder="Nome do autor..." />
-                    ) : (
-                      <p className="text-base font-bold text-foreground leading-relaxed">
-                        {processo.parteAutora || <span className="text-muted-foreground/50 italic">Não identificado</span>}
-                      </p>
-                    )}
-                    <Button
-                      variant={processo.clienteId && processo.cliente === (processo.parteAutora || '') ? 'default' : 'outline'}
-                      size="sm"
-                      className="w-full rounded-xl gap-2 font-black text-[10px] h-9 uppercase tracking-widest"
-                      disabled={savingCliente || !(editData.parte_autora || processo.parteAutora)}
-                      onClick={() => handleSetCliente('autor')}
-                    >
-                      {savingCliente ? <RotateCw className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                      Este é meu cliente
-                    </Button>
-                  </div>
-
-                  {/* Polo Passivo */}
-                  <div className="p-6 rounded-2xl border border-rose-500/15 bg-rose-500/5 space-y-4">
-                    <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
-                      <Users className="h-4 w-4" />
-                      <span className="text-[10px] font-black uppercase tracking-widest">Polo Passivo (Réu / Requerido)</span>
-                    </div>
-                    {editing ? (
-                      <Input className="h-10 rounded-xl bg-background border-border" value={editData.requerido} onChange={(e) => setEditData({ ...editData, requerido: e.target.value })} placeholder="Nome do réu..." />
-                    ) : (
-                      <p className="text-base font-bold text-foreground leading-relaxed">
-                        {processo.requerido || <span className="text-muted-foreground/50 italic">Não identificado</span>}
-                      </p>
-                    )}
-                    <Button
-                      variant={processo.clienteId && processo.cliente === (processo.requerido || '') ? 'default' : 'outline'}
-                      size="sm"
-                      className="w-full rounded-xl gap-2 font-black text-[10px] h-9 uppercase tracking-widest"
-                      disabled={savingCliente || !(editData.requerido || processo.requerido)}
-                      onClick={() => handleSetCliente('reu')}
-                    >
-                      {savingCliente ? <RotateCw className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                      Este é meu cliente
-                    </Button>
-                  </div>
-
-                  {editing && (
-                    <div className="flex justify-end gap-2 pt-2">
-                      <Button variant="ghost" size="sm" onClick={() => setEditing(false)} className="h-9 rounded-xl text-xs gap-1.5">
-                        <X className="h-3.5 w-3.5" /> Cancelar
-                      </Button>
-                      <Button size="sm" onClick={handleSave} disabled={saving} className="h-9 rounded-xl text-xs gap-1.5 shadow-md">
-                        <Save className="h-3.5 w-3.5" /> {saving ? 'Salvando...' : 'Salvar'}
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </TabsContent>
-
-            </Tabs>
           </div>
         </div>
 
