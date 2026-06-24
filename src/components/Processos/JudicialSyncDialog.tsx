@@ -728,6 +728,12 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
                         <Loader2 className="h-6 w-6 animate-spin text-primary" />
                         <p className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">Buscando andamentos...</p>
                       </div>
+                    ) : (previewProc.nivelSigilo ?? 0) > 0 ? (
+                      <div className="flex flex-col items-center justify-center py-8 gap-3 opacity-60">
+                        <ShieldCheck className="h-8 w-8 text-yellow-500" />
+                        <p className="text-[10px] uppercase font-black tracking-widest text-center text-yellow-500">Processo em segredo de justiça</p>
+                        <p className="text-xs text-muted-foreground text-center">As movimentações não estão disponíveis via API pública e deverão ser adicionadas manualmente após a importação.</p>
+                      </div>
                     ) : previewProc.andamentos && previewProc.andamentos.length > 0 ? (
                       previewProc.andamentos.map((and, idx) => (
                         <div key={idx} className="relative">
