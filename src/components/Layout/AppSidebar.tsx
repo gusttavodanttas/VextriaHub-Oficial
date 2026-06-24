@@ -24,7 +24,8 @@ import {
   Building2,
   AlertCircle,
   Clock,
-  CreditCard
+  CreditCard,
+  Trash2
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -144,6 +145,7 @@ export function AppSidebar() {
     { title: "Escritórios", url: "/admin?tab=offices", icon: Building2 },
     { title: "Assinaturas", url: "/admin?tab=subscriptions", icon: CreditCard },
     { title: "Solicitações", url: "/admin?tab=requests", icon: AlertCircle },
+    { title: "Lixeira", url: "/lixeira", icon: Trash2 },
   ];
 
   // Combinar itens do menu baseado no papel do usuário

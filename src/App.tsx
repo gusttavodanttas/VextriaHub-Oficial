@@ -46,6 +46,7 @@ import Timesheet from "./pages/Timesheet";
 import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
 import Pagamento from "./pages/Pagamento";
 import Obrigado from "./pages/Obrigado";
+import Lixeira from "./pages/Lixeira";
 import { useState, useEffect } from "react";
 
 const queryClient = new QueryClient({
@@ -328,6 +329,13 @@ const AppWithRouter = () => {
           <PrivateRoute requireRole="super_admin">
             <AppLayout>
               <Subscriptions />
+            </AppLayout>
+          </PrivateRoute>
+        } />
+        <Route path="/lixeira" element={
+          <PrivateRoute requireRole="super_admin">
+            <AppLayout>
+              <Lixeira />
             </AppLayout>
           </PrivateRoute>
         } />
