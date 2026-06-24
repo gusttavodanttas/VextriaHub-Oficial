@@ -134,8 +134,6 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
   const [clientPolos, setClientPolos] = useState<Record<string, 'autor' | 'reu'>>({});
   const [previewProc, setPreviewProc] = useState<JudicialProcessResult | null>(null);
 
-  const cache = React.useRef<Map<string, JudicialProcessResult[]>>(new Map());
-
   const handleSearch = async () => {
     const cleanOab = oab.replace(/\D/g, '');
     if (!cleanOab || !uf) {
@@ -148,13 +146,6 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
     }
 
     const key = `${cleanOab}-${uf}`;
-    if (cache.current.has(key)) {
-      setResults(cache.current.get(key)!);
-      setSearched(true);
-      setSelectedIds(new Set());
-      setCurrentPage(1);
-      return;
-    }
 
     setLoading(true);
     setResults([]);
@@ -205,7 +196,6 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
       const jaImportados = new Set((existentes || []).map(e => e.numero_processo));
       const filteredResults = mappedResults.filter(r => !jaImportados.has((r.numeroProcesso || '').replace(/\D/g, '')));
 
-      cache.current.set(key, filteredResults);
       setResults(filteredResults);
       setSearched(true);
     } catch (error: any) {
