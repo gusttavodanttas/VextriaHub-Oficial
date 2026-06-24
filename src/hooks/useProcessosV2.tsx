@@ -243,7 +243,7 @@ export function useProcessosV2() {
       console.error('[persistAndamentos] officeId não encontrado nem no processo. Abortando insert.');
       return 0;
     }
-    const officeId = resolvedOfficeId;
+    const effectiveOfficeId = resolvedOfficeId;
 
     const candidates = andamentos
       .map((a) => {
@@ -252,7 +252,7 @@ export function useProcessosV2() {
         const data = a.data || new Date().toISOString();
         return {
           processo_id: processoId,
-          office_id: officeId,
+          office_id: effectiveOfficeId,
           descricao: texto,
           data_movimentacao: data,
           tipo: a.fase || null,
@@ -263,7 +263,7 @@ export function useProcessosV2() {
 
     if (!candidates.length) return 0;
 
-    console.log(`[persistAndamentos] tentando inserir ${candidates.length} movs em movimentacoes_processo (processo=${processoId}, office=${officeId})`);
+    console.log(`[persistAndamentos] tentando inserir ${candidates.length} movs em movimentacoes_processo (processo=${processoId}, office=${effectiveOfficeId})`);
 
     // Busca movimentações existentes para deduplicar em memória
     const { data: existingMovs, error: fetchError } = await supabase
