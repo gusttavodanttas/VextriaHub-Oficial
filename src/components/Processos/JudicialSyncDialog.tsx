@@ -233,6 +233,20 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
     }
   };
 
+  const ignorarProcesso = (id: string) => {
+    setResults(prev => prev.filter(item => item.id !== id));
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    setPreviewProc(null);
+    toast({
+      title: "Processo ignorado",
+      description: "O processo foi removido da lista de busca.",
+    });
+  };
+
   const handleImport = async () => {
     setImporting(true);
     try {
@@ -543,10 +557,11 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
       </div>
 
       <Dialog open={!!previewProc} onOpenChange={(open) => !open && setPreviewProc(null)}>
-        <DialogContent className="max-w-2xl bg-background border border-border p-8 shadow-2xl rounded-2xl">
+        <DialogContent className="max-w-2xl bg-background border border-border p-8 shadow-2xl rounded-2xl max-h-[90vh] flex flex-col gap-0">
           {previewProc && (
-            <div className="space-y-6">
-              <div className="flex items-center gap-4 border-b border-border pb-6">
+            <div className="flex flex-col flex-1 min-h-0 h-full gap-0">
+              {/* Header Fixo */}
+              <div className="flex items-center gap-4 border-b border-border pb-6 shrink-0">
                 <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20 shrink-0">
                   <Gavel className="h-6 w-6" />
                 </div>
@@ -560,133 +575,153 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-8">
-                {/* Lado Autor */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-muted-foreground/60 text-[10px] font-black uppercase tracking-widest">
-                    <User className="h-4 w-4 text-primary" /> Autor / Requerente
-                  </div>
-                  <div className="space-y-3">
-                    <Input 
-                      className="bg-background border-border text-foreground text-xs h-10 rounded-xl focus:ring-4 focus:ring-primary/10 font-bold"
-                      placeholder="Nome do Autor"
-                      value={previewProc.autor}
-                      onChange={(e) => updateResultLocally(previewProc.id, { autor: e.target.value })}
-                    />
-                    <Button 
-                      variant={clientPolos[previewProc.id] === 'autor' ? 'default' : 'outline'}
-                      size="sm"
-                      className="w-full rounded-xl gap-2 font-black text-[10px] h-9 uppercase tracking-widest shadow-premium"
-                      onClick={() => setClientPolos({...clientPolos, [previewProc.id]: 'autor'})}
-                    >
-                      {clientPolos[previewProc.id] === 'autor' && <ShieldCheck className="h-3 w-3" />}
-                      Este é meu cliente
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Lado Réu */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-muted-foreground/60 text-[10px] font-black uppercase tracking-widest">
-                    <Users className="h-4 w-4 text-primary" /> Réu / Requerido
-                  </div>
-                  <div className="space-y-3">
-                    <Input 
-                      className="bg-background border-border text-foreground text-xs h-10 rounded-xl focus:ring-4 focus:ring-primary/10 font-bold"
-                      placeholder="Nome do Réu"
-                      value={previewProc.reu}
-                      onChange={(e) => updateResultLocally(previewProc.id, { reu: e.target.value })}
-                    />
-                    <Button 
-                      variant={clientPolos[previewProc.id] === 'reu' ? 'default' : 'outline'}
-                      size="sm"
-                      className="w-full rounded-xl gap-2 font-black text-[10px] h-9 uppercase tracking-widest shadow-premium"
-                      onClick={() => setClientPolos({...clientPolos, [previewProc.id]: 'reu'})}
-                    >
-                      {clientPolos[previewProc.id] === 'reu' && <ShieldCheck className="h-3 w-3" />}
-                      Este é meu cliente
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Vara e Comarca Premium */}
-              <div className="grid grid-cols-2 gap-4 bg-muted/30 p-5 rounded-[1.5rem] border border-border shadow-inner">
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] text-muted-foreground/40 uppercase font-black tracking-widest ml-1">Vara / Órgão</Label>
-                  <Input 
-                    className="bg-background border-border text-foreground text-xs h-9 font-bold"
-                    value={previewProc.vara}
-                    onChange={(e) => updateResultLocally(previewProc.id, { vara: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] text-muted-foreground/40 uppercase font-black tracking-widest ml-1">Comarca / UF</Label>
-                  <Input 
-                    className="bg-background border-border text-foreground text-xs h-9 font-bold"
-                    value={previewProc.comarca}
-                    onChange={(e) => updateResultLocally(previewProc.id, { comarca: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <Separator className="bg-border" />
-
-              <div className="space-y-4">
-                <div className="text-muted-foreground/60 text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
-                    <Clock className="h-3 w-3" />
-                  </div>
-                  <span>Linha do Tempo de Movimentações</span>
-                </div>
-                
-                <div className="bg-muted/30 rounded-[1.5rem] p-6 border border-border max-h-[250px] overflow-y-auto custom-scrollbar space-y-6 relative pl-8 shadow-inner">
-                  {/* Linha vertical da timeline */}
-                  <div className="absolute left-[31px] top-6 bottom-6 w-0.5 bg-primary/20" />
-                  
-                  {previewProc.andamentos && previewProc.andamentos.length > 0 ? (
-                    previewProc.andamentos.map((and, idx) => (
-                      <div key={idx} className="relative">
-                        {/* Pontinho */}
-                        <div className="absolute -left-[37px] top-1.5 h-3 w-3 rounded-full bg-primary ring-4 ring-card" />
-                        
-                        <div className="space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-black text-primary uppercase">
-                              {and.data ? new Date(and.data).toLocaleDateString('pt-BR') : 'Sem data'}
-                            </span>
-                            {and.fase && (
-                              <Badge variant="outline" className="text-[8px] h-4 py-0 border-primary/30 text-primary/60 rounded-md font-black">
-                                {and.fase}
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-xs font-bold text-foreground/80 leading-relaxed">
-                            {and.resumo}
-                          </p>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-8 opacity-20">
-                       <AlertCircle className="h-8 w-8 mb-2" />
-                       <p className="text-[10px] uppercase font-black tracking-widest">Nenhum andamento extraído</p>
+              {/* Corpo Rolável */}
+              <div className="flex-1 overflow-y-auto py-6 pr-2 space-y-6 custom-scrollbar max-h-[calc(90vh-220px)]">
+                <div className="grid grid-cols-2 gap-8">
+                  {/* Lado Autor */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-muted-foreground/60 text-[10px] font-black uppercase tracking-widest">
+                      <User className="h-4 w-4 text-primary" /> Autor / Requerente
                     </div>
-                  )}
+                    <div className="space-y-3">
+                      <Input 
+                        className="bg-background border-border text-foreground text-xs h-10 rounded-xl focus:ring-4 focus:ring-primary/10 font-bold"
+                        placeholder="Nome do Autor"
+                        value={previewProc.autor}
+                        onChange={(e) => updateResultLocally(previewProc.id, { autor: e.target.value })}
+                      />
+                      <Button 
+                        variant={clientPolos[previewProc.id] === 'autor' ? 'default' : 'outline'}
+                        size="sm"
+                        className="w-full rounded-xl gap-2 font-black text-[10px] h-9 uppercase tracking-widest shadow-premium"
+                        onClick={() => setClientPolos({...clientPolos, [previewProc.id]: 'autor'})}
+                      >
+                        {clientPolos[previewProc.id] === 'autor' && <ShieldCheck className="h-3 w-3" />}
+                        Este é meu cliente
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Lado Réu */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-muted-foreground/60 text-[10px] font-black uppercase tracking-widest">
+                      <Users className="h-4 w-4 text-primary" /> Réu / Requerido
+                    </div>
+                    <div className="space-y-3">
+                      <Input 
+                        className="bg-background border-border text-foreground text-xs h-10 rounded-xl focus:ring-4 focus:ring-primary/10 font-bold"
+                        placeholder="Nome do Réu"
+                        value={previewProc.reu}
+                        onChange={(e) => updateResultLocally(previewProc.id, { reu: e.target.value })}
+                      />
+                      <Button 
+                        variant={clientPolos[previewProc.id] === 'reu' ? 'default' : 'outline'}
+                        size="sm"
+                        className="w-full rounded-xl gap-2 font-black text-[10px] h-9 uppercase tracking-widest shadow-premium"
+                        onClick={() => setClientPolos({...clientPolos, [previewProc.id]: 'reu'})}
+                      >
+                        {clientPolos[previewProc.id] === 'reu' && <ShieldCheck className="h-3 w-3" />}
+                        Este é meu cliente
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Vara e Comarca Premium */}
+                <div className="grid grid-cols-2 gap-4 bg-muted/30 p-5 rounded-[1.5rem] border border-border shadow-inner">
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] text-muted-foreground/40 uppercase font-black tracking-widest ml-1">Vara / Órgão</Label>
+                    <Input 
+                      className="bg-background border-border text-foreground text-xs h-9 font-bold"
+                      value={previewProc.vara}
+                      onChange={(e) => updateResultLocally(previewProc.id, { vara: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] text-muted-foreground/40 uppercase font-black tracking-widest ml-1">Comarca / UF</Label>
+                    <Input 
+                      className="bg-background border-border text-foreground text-xs h-9 font-bold"
+                      value={previewProc.comarca}
+                      onChange={(e) => updateResultLocally(previewProc.id, { comarca: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <Separator className="bg-border" />
+
+                <div className="space-y-4">
+                  <div className="text-muted-foreground/60 text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+                      <Clock className="h-3 w-3" />
+                    </div>
+                    <span>Linha do Tempo de Movimentações</span>
+                  </div>
+                  
+                  <div className="bg-muted/30 rounded-[1.5rem] p-6 border border-border max-h-[250px] overflow-y-auto custom-scrollbar space-y-6 relative pl-8 shadow-inner">
+                    {/* Linha vertical da timeline */}
+                    <div className="absolute left-[31px] top-6 bottom-6 w-0.5 bg-primary/20" />
+                    
+                    {previewProc.andamentos && previewProc.andamentos.length > 0 ? (
+                      previewProc.andamentos.map((and, idx) => (
+                        <div key={idx} className="relative">
+                          {/* Pontinho */}
+                          <div className="absolute -left-[37px] top-1.5 h-3 w-3 rounded-full bg-primary ring-4 ring-card" />
+                          
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-black text-primary uppercase">
+                                {and.data ? new Date(and.data).toLocaleDateString('pt-BR') : 'Sem data'}
+                              </span>
+                            </div>
+                            <p className="text-xs font-bold text-foreground/80 leading-relaxed">
+                              {and.resumo}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-8 opacity-20">
+                         <AlertCircle className="h-8 w-8 mb-2" />
+                         <p className="text-[10px] uppercase font-black tracking-widest">Nenhum andamento extraído</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <DialogFooter className="pt-2">
-                <Button variant="ghost" onClick={() => setPreviewProc(null)} className="text-muted-foreground text-[10px] font-black uppercase tracking-widest hover:bg-muted h-11 rounded-xl transition-all">Fechar</Button>
+              {/* Footer Fixo */}
+              <DialogFooter className="pt-4 border-t border-border mt-4 shrink-0 flex flex-row items-center justify-between w-full">
                 <Button 
-                  className="bg-primary hover:bg-primary/90 font-black uppercase tracking-widest text-[10px] px-8 h-11 rounded-xl shadow-premium transition-all"
-                  onClick={() => {
-                    toggleSelect(previewProc.id);
-                    setPreviewProc(null);
-                  }}
+                  variant="ghost" 
+                  onClick={() => setPreviewProc(null)} 
+                  className="text-muted-foreground text-[10px] font-black uppercase tracking-widest hover:bg-muted h-11 rounded-xl transition-all"
                 >
-                  {selectedIds.has(previewProc.id) ? 'Remover Seleção' : 'Selecionar para Importação'}
+                  Sair
                 </Button>
+                
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    className="border-red-500/30 text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20 font-black uppercase tracking-widest text-[10px] px-6 h-11 rounded-xl transition-all"
+                    onClick={() => ignorarProcesso(previewProc.id)}
+                  >
+                    Ignorar Processo
+                  </Button>
+                  <Button 
+                    className={cn(
+                      "font-black uppercase tracking-widest text-[10px] px-8 h-11 rounded-xl shadow-premium transition-all",
+                      selectedIds.has(previewProc.id) 
+                        ? "bg-muted text-muted-foreground hover:bg-muted/80" 
+                        : "bg-primary hover:bg-primary/90 text-primary-foreground"
+                    )}
+                    onClick={() => {
+                      toggleSelect(previewProc.id);
+                      setPreviewProc(null);
+                    }}
+                  >
+                    {selectedIds.has(previewProc.id) ? 'Remover Seleção' : 'Selecionar para Importar'}
+                  </Button>
+                </div>
               </DialogFooter>
             </div>
           )}
