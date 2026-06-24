@@ -228,10 +228,22 @@ export function useProcessosV2() {
       console.log('[persistAndamentos] sem andamentos — skip');
       return 0;
     }
-    if (!officeId) {
-      console.error('[persistAndamentos] officeId vazio! O insert vai falhar por NOT NULL. user.office_id:', officeId);
+
+    // Se officeId não veio do caller, busca pelo próprio processo como fallback
+    let resolvedOfficeId = officeId;
+    if (!resolvedOfficeId) {
+      const { data: proc } = await supabase
+        .from('processos')
+        .select('office_id')
+        .eq('id', processoId)
+        .maybeSingle();
+      resolvedOfficeId = proc?.office_id ?? undefined;
+    }
+    if (!resolvedOfficeId) {
+      console.error('[persistAndamentos] officeId não encontrado nem no processo. Abortando insert.');
       return 0;
     }
+    const officeId = resolvedOfficeId;
 
     const candidates = andamentos
       .map((a) => {
