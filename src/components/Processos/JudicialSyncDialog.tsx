@@ -728,12 +728,6 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
                         <Loader2 className="h-6 w-6 animate-spin text-primary" />
                         <p className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">Buscando andamentos...</p>
                       </div>
-                    ) : (previewProc.nivelSigilo ?? 0) > 0 ? (
-                      <div className="flex flex-col items-center justify-center py-8 gap-3 opacity-60">
-                        <ShieldCheck className="h-8 w-8 text-yellow-500" />
-                        <p className="text-[10px] uppercase font-black tracking-widest text-center text-yellow-500">Processo em segredo de justiça</p>
-                        <p className="text-xs text-muted-foreground text-center">As movimentações não estão disponíveis via API pública e deverão ser adicionadas manualmente após a importação.</p>
-                      </div>
                     ) : previewProc.andamentos && previewProc.andamentos.length > 0 ? (
                       previewProc.andamentos.map((and, idx) => (
                         <div key={idx} className="relative">
@@ -748,12 +742,22 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
                           </div>
                         </div>
                       ))
-                    ) : (
-                      <div className="flex flex-col items-center justify-center py-8 opacity-20">
-                         <AlertCircle className="h-8 w-8 mb-2" />
-                         <p className="text-[10px] uppercase font-black tracking-widest">Nenhum andamento extraído</p>
-                      </div>
-                    )}
+                    ) : (() => {
+                      const varaClasse = `${previewProc.vara || ''} ${previewProc.classe || ''} ${previewProc.faseProcessual || ''}`.toLowerCase();
+                      const isSegredo = (previewProc.nivelSigilo ?? 0) > 0 || /famíl|família|orfão|órfão|sucess|criança|infância|adoção|tutela|curatela|interdição/i.test(varaClasse);
+                      return isSegredo ? (
+                        <div className="flex flex-col items-center justify-center py-8 gap-3">
+                          <ShieldCheck className="h-8 w-8 text-yellow-500 opacity-80" />
+                          <p className="text-[10px] uppercase font-black tracking-widest text-center text-yellow-500">Processo em segredo de justiça</p>
+                          <p className="text-xs text-muted-foreground text-center max-w-xs">As movimentações não estão disponíveis via API pública e deverão ser adicionadas manualmente após a importação.</p>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-8 opacity-20">
+                          <AlertCircle className="h-8 w-8 mb-2" />
+                          <p className="text-[10px] uppercase font-black tracking-widest">Nenhum andamento extraído</p>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
