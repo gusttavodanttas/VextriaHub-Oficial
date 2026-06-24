@@ -747,7 +747,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
                         <AlertCircle className="h-8 w-8 text-yellow-500" />
                         <p className="text-[10px] uppercase font-black tracking-widest text-center text-yellow-500">Nenhum andamento extraído</p>
                         <p className="text-xs text-muted-foreground text-center max-w-xs">
-                          Segredo de justiça ou tribunal sem indexação. Adicione manualmente após importar.
+                          Movimentos não disponíveis publicamente. Adicione manualmente após importar.
                         </p>
                       </div>
                     )}
