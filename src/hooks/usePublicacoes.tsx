@@ -105,12 +105,10 @@ export const usePublicacoes = () => {
           ? new Date(item.ultimoAndamento.data).toISOString().split('T')[0]
           : new Date().toISOString().split('T')[0];
 
-        // Título: tipo de comunicação + nome das partes (ou número do processo)
-        const tipoComunicacao = item.tipo_documento || item.tipo_comunicacao || '';
-        const partes = item.titulo && !item.titulo.startsWith('Publicação') ? item.titulo : '';
-        const titulo = tipoComunicacao && partes
-          ? `${tipoComunicacao} — ${partes}`
-          : tipoComunicacao || partes || `Publicação ${item.numeroProcesso}`;
+        // Título vem pronto do mapPjeItem: "Autor x Réu" ou "Intimação" etc.
+        const titulo = item.titulo && !item.titulo.startsWith('Publicação')
+          ? item.titulo
+          : item.tipo_documento || item.tipo_comunicacao || `Publicação ${item.numeroProcesso}`;
 
         const newRecord = {
           titulo,

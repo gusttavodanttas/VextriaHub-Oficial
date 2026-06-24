@@ -302,8 +302,8 @@ function mapPjeItem(item: any, ufFallback: string) {
   return {
     id: String(item.id || numProc),
     numeroProcesso: numProc,
-    titulo: extAutor && extReu ? `${extAutor} x ${extReu}` : (tipoComunicacao || "Comunicação"),
-    partes: extAutor && extReu ? `${extAutor} x ${extReu}` : "",
+    titulo: (extAutor?.trim() && extReu?.trim()) ? `${extAutor.trim()} x ${extReu.trim()}` : (tipoComunicacao || "Intimação"),
+    partes: (extAutor?.trim() && extReu?.trim()) ? `${extAutor.trim()} x ${extReu.trim()}` : "",
     autor: extAutor || "",
     reu: extReu || "",
     tribunal: tribunalReal,
