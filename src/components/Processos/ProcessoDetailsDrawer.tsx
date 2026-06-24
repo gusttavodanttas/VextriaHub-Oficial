@@ -134,10 +134,33 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
       setEditing(false);
       setActiveTab("resumo");
     }
+    // Limpa todos os sub-dados ao fechar ou trocar de processo para evitar dados fantasmas
+    if (!open) {
+      setMovements([]);
+      setPublicacoes([]);
+      setPrazos([]);
+      setAudiencias([]);
+      setAtendimentos([]);
+      setTarefas([]);
+      setTimesheets([]);
+      setExpandedPubId(null);
+      setTratandoPubId(null);
+      setLastSyncedProcessoId(null);
+      setShowAddAndamento(false);
+      setShowAddPrazo(false);
+      setShowAddAudiencia(false);
+      setShowAddTarefa(false);
+      setShowAddTimesheet(false);
+      setShowAddAtendimento(false);
+    }
   }, [processo?.id, open]);
 
   const handleSave = async () => {
     if (!processo?.id) return;
+    if (!editData.titulo.trim()) {
+      toast({ title: 'Título obrigatório', description: 'O processo precisa ter um título.', variant: 'destructive' });
+      return;
+    }
     setSaving(true);
     try {
       await update(processo.id, {
@@ -181,7 +204,8 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
         if (!novo) throw new Error('Erro ao criar cliente');
         clienteId = novo.id;
       }
-      await supabase.from('processos').update({ cliente_id: clienteId }).eq('id', processo.id);
+      const { error: updateError } = await supabase.from('processos').update({ cliente_id: clienteId }).eq('id', processo.id);
+      if (updateError) throw updateError;
       queryClient.invalidateQueries({ queryKey: ['processos'] });
       toast({ title: 'Cliente vinculado', description: `${nomeCliente} vinculado como cliente deste processo.` });
     } catch (e: any) {
@@ -194,43 +218,39 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
   const fetchMovements = useCallback(async () => {
     if (!processo?.id) return;
     setLoadingMovements(true);
-    try {
-      const { data } = await supabase
-        .from('movimentacoes_processo')
-        .select('id, data:data_movimentacao, texto:descricao, tipo, metadata')
-        .eq('processo_id', processo.id)
-        .order('data_movimentacao', { ascending: false });
-      if (data) setMovements(data as any);
-    } catch (err) { console.error(err); }
-    finally { setLoadingMovements(false); }
+    const { data, error } = await supabase
+      .from('movimentacoes_processo')
+      .select('id, data:data_movimentacao, texto:descricao, tipo, metadata')
+      .eq('processo_id', processo.id)
+      .order('data_movimentacao', { ascending: false });
+    if (!error && data) setMovements(data as any);
+    setLoadingMovements(false);
   }, [processo?.id]);
 
   const fetchSubData = useCallback(async (tab: string) => {
     if (!processo?.id) return;
     setLoadingSub(true);
-    try {
-      if (tab === 'publicacoes') {
-        const numero = (processo.numeroProcesso || '').replace(/\D/g, '');
-        const { data } = await supabase.from('publicacoes').select('*').or(`processo_id.eq.${processo.id},numero_processo.eq.${numero}`).order('data_publicacao', { ascending: false });
-        setPublicacoes(data || []);
-      } else if (tab === 'prazos') {
-        const { data } = await supabase.from('prazos').select('*').eq('processo_id', processo.id).order('data_vencimento', { ascending: true });
-        setPrazos(data || []);
-      } else if (tab === 'audiencias') {
-        const { data } = await supabase.from('audiencias').select('*').eq('processo_id', processo.id).order('data_audiencia', { ascending: false });
-        setAudiencias(data || []);
-      } else if (tab === 'atendimentos') {
-        const { data } = await supabase.from('atendimentos').select('*').eq('processo_id', processo.id).order('data_atendimento', { ascending: false });
-        setAtendimentos(data || []);
-      } else if (tab === 'tarefas') {
-        const { data } = await supabase.from('tarefas').select('*').eq('processo_id', processo.id).eq('deletado', false).order('created_at', { ascending: false });
-        setTarefas(data || []);
-      } else if (tab === 'timesheet') {
-        const { data } = await supabase.from('timesheets').select('*').eq('processo_id', processo.id).eq('deletado', false).order('data_inicio', { ascending: false });
-        setTimesheets(data || []);
-      }
-    } catch (err) { console.error(err); }
-    finally { setLoadingSub(false); }
+    if (tab === 'publicacoes') {
+      const numero = (processo.numeroProcesso || '').replace(/\D/g, '');
+      const { data } = await supabase.from('publicacoes').select('*').or(`processo_id.eq.${processo.id},numero_processo.eq.${numero}`).order('data_publicacao', { ascending: false });
+      setPublicacoes(data || []);
+    } else if (tab === 'prazos') {
+      const { data } = await supabase.from('prazos').select('*').eq('processo_id', processo.id).order('data_vencimento', { ascending: true });
+      setPrazos(data || []);
+    } else if (tab === 'audiencias') {
+      const { data } = await supabase.from('audiencias').select('*').eq('processo_id', processo.id).order('data_audiencia', { ascending: false });
+      setAudiencias(data || []);
+    } else if (tab === 'atendimentos') {
+      const { data } = await supabase.from('atendimentos').select('*').eq('processo_id', processo.id).order('data_atendimento', { ascending: false });
+      setAtendimentos(data || []);
+    } else if (tab === 'tarefas') {
+      const { data } = await supabase.from('tarefas').select('*').eq('processo_id', processo.id).eq('deletado', false).order('created_at', { ascending: false });
+      setTarefas(data || []);
+    } else if (tab === 'timesheet') {
+      const { data } = await supabase.from('timesheets').select('*').eq('processo_id', processo.id).eq('deletado', false).order('data_inicio', { ascending: false });
+      setTimesheets(data || []);
+    }
+    setLoadingSub(false);
   }, [processo?.id, processo?.numeroProcesso]);
 
   const syncFromOrigin = useCallback(async () => {
@@ -240,11 +260,20 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
       const { data, error } = await supabase.functions.invoke('fetch-processo', {
         body: { numeroProcesso: processo.numeroProcesso, oab: (profile as any)?.oab, uf: (profile as any)?.oab_uf },
       });
-      if (error || !data || data.error) return;
+      if (error || !data || data.error) {
+        toast({ title: 'Sem dados disponíveis', description: 'Não foi possível buscar andamentos no momento.', variant: 'destructive' });
+        return;
+      }
       const andamentos = Array.isArray(data.andamentos) ? data.andamentos : [];
-      if (andamentos.length > 0) {
+      if (andamentos.length === 0) {
+        toast({ title: 'Já atualizado', description: 'Nenhum andamento novo encontrado.' });
+      } else {
         const inseridos = await persistAndamentos(processo.id, user?.office_id, andamentos, 'datajud');
-        if (inseridos > 0) toast({ title: 'Histórico atualizado', description: `${inseridos} nova(s) movimentação(ões).` });
+        if (inseridos > 0) {
+          toast({ title: 'Histórico atualizado', description: `${inseridos} nova(s) movimentação(ões) adicionada(s).` });
+        } else {
+          toast({ title: 'Já atualizado', description: 'Todos os andamentos já estavam registrados.' });
+        }
         const updatePayload: any = { sincronizado_em: new Date().toISOString() };
         if (data.titulo && data.titulo !== 'Processo' && (!processo.titulo || processo.titulo.includes('(Auto)'))) updatePayload.titulo = data.titulo;
         if (data.autor && data.autor !== 'Não identificado' && !processo.parteAutora) updatePayload.parte_autora = data.autor;
@@ -273,10 +302,6 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
       fetchSubData(activeTab);
     }
   }, [open, activeTab, processo?.id]);
-
-  useEffect(() => {
-    if (!open) setLastSyncedProcessoId(null);
-  }, [open]);
 
   // ── Add handlers ──
   const handleAddPrazo = async (e: React.FormEvent<HTMLFormElement>) => {
