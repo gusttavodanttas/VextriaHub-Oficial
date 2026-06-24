@@ -65,6 +65,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
   const [activeTab, setActiveTab] = useState("resumo");
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savingCliente, setSavingCliente] = useState(false);
   const [editData, setEditData] = useState({
     titulo: '',
     parte_autora: '',
@@ -98,6 +99,47 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
       setActiveTab("resumo");
     }
   }, [processo?.id, open]);
+
+  const handleSetCliente = async (polo: 'autor' | 'reu') => {
+    if (!processo?.id || !user?.office_id) return;
+    setSavingCliente(true);
+    try {
+      const rawName = polo === 'autor' ? (editData.parte_autora || processo.parteAutora) : (editData.requerido || processo.requerido);
+      if (!rawName) {
+        toast({ title: 'Nome não identificado', description: `Preencha o nome do ${polo === 'autor' ? 'autor' : 'réu'} antes de vincular.`, variant: 'destructive' });
+        return;
+      }
+      const nomeCliente = rawName.replace(/\s+/g, ' ').trim().split(' ').slice(0, 8).join(' ').slice(0, 100);
+
+      const { data: existing } = await supabase
+        .from('clientes')
+        .select('id')
+        .eq('nome', nomeCliente)
+        .eq('office_id', user.office_id)
+        .maybeSingle();
+
+      let clienteId: string;
+      if (existing) {
+        clienteId = existing.id;
+      } else {
+        const { data: novo } = await supabase
+          .from('clientes')
+          .insert({ nome: nomeCliente, office_id: user.office_id, user_id: user.id })
+          .select('id')
+          .single();
+        if (!novo) throw new Error('Erro ao criar cliente');
+        clienteId = novo.id;
+      }
+
+      await supabase.from('processos').update({ cliente_id: clienteId }).eq('id', processo.id);
+      queryClient.invalidateQueries({ queryKey: ['processos'] });
+      toast({ title: 'Cliente vinculado', description: `${nomeCliente} vinculado como cliente deste processo.` });
+    } catch (e: any) {
+      toast({ title: 'Erro', description: e.message, variant: 'destructive' });
+    } finally {
+      setSavingCliente(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!processo?.id) return;
@@ -429,7 +471,8 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
               {/* ── PARTES ── */}
               <TabsContent value="partes" className="space-y-6 mt-0">
                 <div className="space-y-6">
-                  <div className="p-6 rounded-2xl border border-emerald-500/15 bg-emerald-500/5 space-y-3">
+                  {/* Polo Ativo */}
+                  <div className="p-6 rounded-2xl border border-emerald-500/15 bg-emerald-500/5 space-y-4">
                     <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
                       <User className="h-4 w-4" />
                       <span className="text-[10px] font-black uppercase tracking-widest">Polo Ativo (Autor / Requerente)</span>
@@ -441,9 +484,20 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                         {processo.parteAutora || <span className="text-muted-foreground/50 italic">Não identificado</span>}
                       </p>
                     )}
+                    <Button
+                      variant={processo.clienteId && processo.cliente === (processo.parteAutora || '') ? 'default' : 'outline'}
+                      size="sm"
+                      className="w-full rounded-xl gap-2 font-black text-[10px] h-9 uppercase tracking-widest"
+                      disabled={savingCliente || !(editData.parte_autora || processo.parteAutora)}
+                      onClick={() => handleSetCliente('autor')}
+                    >
+                      {savingCliente ? <RotateCw className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                      Este é meu cliente
+                    </Button>
                   </div>
 
-                  <div className="p-6 rounded-2xl border border-rose-500/15 bg-rose-500/5 space-y-3">
+                  {/* Polo Passivo */}
+                  <div className="p-6 rounded-2xl border border-rose-500/15 bg-rose-500/5 space-y-4">
                     <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
                       <Users className="h-4 w-4" />
                       <span className="text-[10px] font-black uppercase tracking-widest">Polo Passivo (Réu / Requerido)</span>
@@ -455,6 +509,16 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                         {processo.requerido || <span className="text-muted-foreground/50 italic">Não identificado</span>}
                       </p>
                     )}
+                    <Button
+                      variant={processo.clienteId && processo.cliente === (processo.requerido || '') ? 'default' : 'outline'}
+                      size="sm"
+                      className="w-full rounded-xl gap-2 font-black text-[10px] h-9 uppercase tracking-widest"
+                      disabled={savingCliente || !(editData.requerido || processo.requerido)}
+                      onClick={() => handleSetCliente('reu')}
+                    >
+                      {savingCliente ? <RotateCw className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                      Este é meu cliente
+                    </Button>
                   </div>
 
                   {editing && (

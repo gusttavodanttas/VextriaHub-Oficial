@@ -194,8 +194,19 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
         andamentos: Array.isArray(item.andamentos) ? item.andamentos : [],
       }));
 
-      cache.current.set(key, mappedResults);
-      setResults(mappedResults);
+      // Filtra processos já importados no escritório
+      const numeros = mappedResults.map(r => (r.numeroProcesso || '').replace(/\D/g, ''));
+      const { data: existentes } = await supabase
+        .from('processos')
+        .select('numero_processo')
+        .eq('office_id', user?.office_id)
+        .in('numero_processo', numeros);
+
+      const jaImportados = new Set((existentes || []).map(e => e.numero_processo));
+      const filteredResults = mappedResults.filter(r => !jaImportados.has((r.numeroProcesso || '').replace(/\D/g, '')));
+
+      cache.current.set(key, filteredResults);
+      setResults(filteredResults);
       setSearched(true);
     } catch (error: any) {
       toast({
