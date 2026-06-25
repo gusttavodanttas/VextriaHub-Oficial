@@ -11,7 +11,8 @@ export function useProcessos() {
   const queryClient = useQueryClient();
 
   // Helper: Map database row -> frontend Processo
-  const mapDatabaseToProcesso = (dbRecord: any): Processo => {
+  // Fase 2: typed as Record for dynamic joined data
+  const mapDatabaseToProcesso = (dbRecord: Record<string, any>): Processo => {
     // Extrair ano do CNJ como fallback para data_inicio se estiver nulo
     let inferredYear = '';
     if (!dbRecord.data_inicio && dbRecord.numero_processo?.length === 20) {
@@ -91,28 +92,30 @@ export function useProcessos() {
     mutationFn: async (newRecord: NovoProcesso) => {
       if (!user) throw new Error('Not authenticated');
 
+      // Fase 2: use Record for mixed camelCase/snake input
+      const r = newRecord as Record<string, any>;
       const insertPayload: Record<string, any> = {
         user_id: user.id,
         office_id: user.office_id,
         titulo: newRecord.titulo,
-        numero_processo: ( (newRecord as any).numeroProcesso || (newRecord as any).numero_processo || '').replace(/\D/g, ''),
-        status: ( (newRecord as any).status === 'Em andamento' || (newRecord as any).status === 'ativo') ? 'ativo' : (newRecord as any).status,
-        tipo_processo: (newRecord as any).tipoProcesso || (newRecord as any).tipo_processo,
-        tribunal: (newRecord as any).tribunal,
-        vara: (newRecord as any).vara,
-        comarca: (newRecord as any).comarca,
-        valor_causa: (newRecord as any).valorCausa || (newRecord as any).valor_causa,
-        proximo_prazo: (newRecord as any).proximoPrazo || (newRecord as any).proximo_prazo,
-        observacoes: (newRecord as any).descricao || (newRecord as any).observacoes || '',
-        requerido: (newRecord as any).requerido || '',
-        segredo_justica: (newRecord as any).segredoJustica || (newRecord as any).segredo_justica || false,
-        justica_gratuita: (newRecord as any).justicaGratuita || (newRecord as any).justica_gratuita || false,
-        data_inicio: (newRecord as any).dataInicio || (newRecord as any).data_inicio,
-        data_distribuicao: (newRecord as any).dataInicio || (newRecord as any).data_inicio,
+        numero_processo: (r.numeroProcesso || r.numero_processo || '').replace(/\D/g, ''),
+        status: (r.status === 'Em andamento' || r.status === 'ativo') ? 'ativo' : r.status,
+        tipo_processo: r.tipoProcesso || r.tipo_processo,
+        tribunal: r.tribunal,
+        vara: r.vara,
+        comarca: r.comarca,
+        valor_causa: r.valorCausa || r.valor_causa,
+        proximo_prazo: r.proximoPrazo || r.proximo_prazo,
+        observacoes: r.descricao || r.observacoes || '',
+        requerido: r.requerido || '',
+        segredo_justica: r.segredoJustica || r.segredo_justica || false,
+        justica_gratuita: r.justicaGratuita || r.justica_gratuita || false,
+        data_inicio: r.dataInicio || r.data_inicio,
+        data_distribuicao: r.dataInicio || r.data_inicio,
       };
 
-      if ((newRecord as any).clienteId || (newRecord as any).cliente_id) {
-        insertPayload.cliente_id = (newRecord as any).clienteId || (newRecord as any).cliente_id;
+      if (r.clienteId || r.cliente_id) {
+        insertPayload.cliente_id = r.clienteId || r.cliente_id;
       }
 
       // Upsert logic based on (office_id, numero_processo)
@@ -132,11 +135,12 @@ export function useProcessos() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['processos'] });
     },
-    onError: (err: any) => {
-      console.error('Erro ao criar/sincronizar processo:', err);
+    onError: (err: unknown) => {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error('Erro ao criar/sincronizar processo:', error);
       toast({
         title: 'Erro na sincronização',
-        description: err.message || 'Não foi possível salvar os dados.',
+        description: error.message || 'Não foi possível salvar os dados.',
         variant: 'destructive',
       });
     }
@@ -164,8 +168,9 @@ export function useProcessos() {
       if (updates.segredoJustica !== undefined) updatePayload.segredo_justica = updates.segredoJustica;
       if (updates.justicaGratuita !== undefined) updatePayload.justica_gratuita = updates.justicaGratuita;
       
-      if (updates.descricao !== undefined || (updates as any).observacoes !== undefined) {
-        updatePayload.observacoes = updates.descricao || (updates as any).observacoes;
+      if (updates.descricao !== undefined || (updates as Record<string, any>).observacoes !== undefined) {
+        const u = updates as Record<string, any>;
+        updatePayload.observacoes = updates.descricao || u.observacoes;
       }
 
       const { data: result, error } = await supabase
@@ -202,7 +207,7 @@ export function useProcessos() {
     }
   });
 
-  const addMovimentacao = async (processoId: string, movData: any) => {
+  const addMovimentacao = async (processoId: string, movData: Record<string, any>) => {
     if (!user) return null;
     try {
       const data = movData.data || new Date().toISOString();
@@ -246,7 +251,7 @@ export function useProcessos() {
   return {
     data,
     loading,
-    error: error ? (error as any).message : null,
+    error: error ? (error instanceof Error ? error.message : String(error)) : null,
     refresh,
     create: createMutation.mutateAsync,
     update: (id: string, updates: Partial<any>) => updateMutation.mutateAsync({ id, updates }),

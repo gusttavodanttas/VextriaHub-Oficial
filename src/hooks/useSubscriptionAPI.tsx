@@ -66,7 +66,7 @@ export function useSubscriptionAPI() {
   const { user } = useAuth();
 
   // Função para fazer chamadas às Edge Functions
-  const callEdgeFunction = useCallback(async (functionName: string, options: any = {}) => {
+  const callEdgeFunction = useCallback(async (functionName: string, options: Record<string, any> = {}) => {
     try {
       const { data, error } = await supabase.functions.invoke(functionName, {
         headers: {
@@ -80,14 +80,15 @@ export function useSubscriptionAPI() {
       }
 
       return data;
-    } catch (err: any) {
-      console.error(`Error calling ${functionName}:`, err);
-      throw new Error(err.message || `Error calling ${functionName}`);
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error(`Error calling ${functionName}:`, error);
+      throw new Error(error.message || `Error calling ${functionName}`);
     }
   }, []);
 
   // Buscar dados de assinaturas
-  const fetchSubscriptions = useCallback(async (filters: any = {}) => {
+  const fetchSubscriptions = useCallback(async (filters: Record<string, any> = {}) => {
     if (!user) return;
 
     setLoading(true);
@@ -115,9 +116,10 @@ export function useSubscriptionAPI() {
         throw new Error(response.error || 'Failed to fetch subscriptions');
       }
 
-    } catch (err: any) {
-      console.error('Error fetching subscriptions:', err);
-      setError(err.message || 'Erro ao carregar dados de assinaturas');
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error('Error fetching subscriptions:', error);
+      setError(error.message || 'Erro ao carregar dados de assinaturas');
       setSubscriptions([]);
       setStats(null);
     } finally {
@@ -141,9 +143,10 @@ export function useSubscriptionAPI() {
         throw new Error(response.error || 'Failed to execute override');
       }
 
-    } catch (err: any) {
-      console.error('Error executing override:', err);
-      throw new Error(err.message || 'Erro ao executar alteração manual');
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error('Error executing override:', error);
+      throw new Error(error.message || 'Erro ao executar alteração manual');
     }
   }, [callEdgeFunction, fetchSubscriptions]);
 
@@ -166,14 +169,15 @@ export function useSubscriptionAPI() {
         throw new Error(response.error || 'Failed to fetch override logs');
       }
 
-    } catch (err: any) {
-      console.error('Error fetching override logs:', err);
-      throw new Error(err.message || 'Erro ao carregar logs de alterações');
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error('Error fetching override logs:', error);
+      throw new Error(error.message || 'Erro ao carregar logs de alterações');
     }
   }, [callEdgeFunction]);
 
   // Filtrar dados localmente
-  const filterSubscriptions = useCallback((filters: any) => {
+  const filterSubscriptions = useCallback((filters: Record<string, any>) => {
     let filtered = subscriptions;
 
     if (filters.search) {
