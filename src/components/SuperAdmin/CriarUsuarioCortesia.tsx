@@ -50,7 +50,7 @@ export const CriarUsuarioCortesia: React.FC<Props> = ({ onSuccess }) => {
       // 1. Criar usuário no Auth
       const { data: authData, error: authError } = await supabase.auth.admin
         ? // Admin API não disponível no client — usamos signUp que auto-confirma via e-mail
-          await (supabase.auth as any).admin.createUser({
+          await (supabase.auth as Record<string, any>).admin.createUser({
             email: form.email,
             password: form.senha,
             email_confirm: true,
@@ -93,7 +93,7 @@ export const CriarUsuarioCortesia: React.FC<Props> = ({ onSuccess }) => {
       reset();
       setOpen(false);
       onSuccess?.();
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({ title: 'Erro ao criar usuário', description: err.message, variant: 'destructive' });
     } finally {
       setLoading(false);
@@ -193,7 +193,7 @@ export const CriarUsuarioCortesia: React.FC<Props> = ({ onSuccess }) => {
 
             <div className="col-span-2 space-y-1">
               <Label>Plano cortesia</Label>
-              <Select value={form.plano} onValueChange={v => setForm(f => ({ ...f, plano: v as any }))}>
+              <Select value={form.plano} onValueChange={v => setForm(f => ({ ...f, plano: v as string }))}>
                 <SelectTrigger className="rounded-xl">
                   <SelectValue />
                 </SelectTrigger>

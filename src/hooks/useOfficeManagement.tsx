@@ -45,7 +45,7 @@ export const useOfficeManagement = () => {
       return data;
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(['offices', isSuperAdmin, user?.id], (old: any[] = []) => [data, ...old]);
+      queryClient.setQueryData(['offices', isSuperAdmin, user?.id], (old: Record<string, any>[] = []) => [data, ...old]);
     },
   });
 
@@ -61,7 +61,7 @@ export const useOfficeManagement = () => {
       return data;
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(['offices', isSuperAdmin, user?.id], (old: any[] = []) => 
+      queryClient.setQueryData(['offices', isSuperAdmin, user?.id], (old: Record<string, any>[] = []) => 
         old.map(o => o.id === data.id ? data : o)
       );
     },
@@ -78,7 +78,7 @@ export const useOfficeManagement = () => {
       return true;
     },
     onSuccess: (_, officeId) => {
-      queryClient.setQueryData(['offices', isSuperAdmin, user?.id], (old: any[] = []) => 
+      queryClient.setQueryData(['offices', isSuperAdmin, user?.id], (old: Record<string, any>[] = []) => 
         old.filter(o => o.id !== officeId)
       );
     },

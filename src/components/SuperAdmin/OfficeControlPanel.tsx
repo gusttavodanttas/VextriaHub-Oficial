@@ -48,7 +48,7 @@ export const OfficeControlPanel: React.FC = () => {
         office_email: selectedAdmin.office_email,
         phone: selectedAdmin.phone,
         address: selectedAdmin.address,
-        plan_name: selectedAdmin.plan_name as any,
+        plan_name: selectedAdmin.plan_name as string,
         is_lifetime: selectedAdmin.is_lifetime
       });
       setDiscountInput('');
@@ -291,7 +291,7 @@ export const OfficeControlPanel: React.FC = () => {
                                 office_email: admin.office_email,
                                 phone: admin.phone,
                                 address: admin.address,
-                                plan_name: admin.plan_name as any,
+                                plan_name: admin.plan_name as string,
                                 is_lifetime: admin.is_lifetime,
                               });
                               setDialogOpen(true);
@@ -403,7 +403,7 @@ export const OfficeControlPanel: React.FC = () => {
                                         <Label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">Plano UI (Dashboard)</Label>
                                         <Select
                                           value={editFormData.plan_name}
-                                          onValueChange={(val) => setEditFormData({ ...editFormData, plan_name: val as any })}
+                                          onValueChange={(val) => setEditFormData({ ...editFormData, plan_name: val as string })}
                                         >
                                           <SelectTrigger className="h-10 bg-muted/20 border-none rounded-xl">
                                             <SelectValue placeholder="Selecione o plano" />

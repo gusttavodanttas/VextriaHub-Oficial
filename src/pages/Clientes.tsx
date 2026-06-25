@@ -63,7 +63,7 @@ const Clientes = () => {
       status: c.status || 'Ativo',
       lastContact: c.updated_at,
       cpfCnpj: c.cpf_cnpj || '',
-      tipoPessoa: (c.tipo_pessoa || "fisica") as any,
+      tipoPessoa: (c.tipo_pessoa || "fisica") as "fisica" | "juridica",
       origem: c.origem || '',
       endereco: c.endereco || '',
       dataAniversario: c.data_aniversario || '',
@@ -93,7 +93,7 @@ const Clientes = () => {
   const multiSelect = useMultiSelect(filteredClients);
 
   // Aplicar filtros
-  const applyFilters = (clientsList: Client[], search: string, advancedFilters: any) => {
+  const applyFilters = (clientsList: Client[], search: string, advancedFilters: Record<string, any>) => {
     let filtered = [...clientsList];
 
     // Filtro de busca
@@ -245,7 +245,7 @@ const Clientes = () => {
     applyFilters(clients, value, {});
   };
 
-  const handleAdvancedFiltersChange = (filters: any) => {
+  const handleAdvancedFiltersChange = (filters: Record<string, any>) => {
     applyFilters(clients, searchValue, filters);
   };
 

@@ -33,7 +33,7 @@ export const useExclusoesPendentes = () => {
   const aprovarMutation = useMutation({
     mutationFn: async (exclusaoId: string) => {
       if (!user || !isSuperAdmin) return false;
-      const exclusao = data.find((e: any) => e.id === exclusaoId) as Record<string, any>; // dynamic tabela + join fields from DB
+      const exclusao = data.find((e: Record<string, any>) => e.id === exclusaoId) as Record<string, any>; // dynamic tabela + join fields from DB
       if (!exclusao) return false;
 
       const { error: deleteError } = await supabase
@@ -62,7 +62,7 @@ export const useExclusoesPendentes = () => {
   const rejeitarMutation = useMutation({
     mutationFn: async (exclusaoId: string) => {
       if (!user || !isSuperAdmin) return false;
-      const exclusao = data.find((e: any) => e.id === exclusaoId) as Record<string, any>;
+      const exclusao = data.find((e: Record<string, any>) => e.id === exclusaoId) as Record<string, any>;
       if (!exclusao) return false;
 
       const { error: revertError } = await supabase
@@ -91,7 +91,7 @@ export const useExclusoesPendentes = () => {
   const aprovarMultiplasMutation = useMutation({
     mutationFn: async (exclusaoIds: string[]) => {
       if (!user || !isSuperAdmin || exclusaoIds.length === 0) return false;
-      const exclusoes = data.filter((e: any) => exclusaoIds.includes(e.id));
+      const exclusoes = data.filter((e: Record<string, any>) => exclusaoIds.includes(e.id));
       for (const exclusao of exclusoes) {
         const ex = exclusao as Record<string, any>;
         const { error: deleteError } = await supabase

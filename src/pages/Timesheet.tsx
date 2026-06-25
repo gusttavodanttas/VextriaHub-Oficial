@@ -142,7 +142,7 @@ export default function Timesheet() {
       setElapsedTime(prev => prev + 1);
     }, 1000);
 
-    (window as any).timerInterval = interval;
+    (window as Record<string, any>).timerInterval = interval;
   };
 
   const handleStopTimer = async () => {
@@ -163,8 +163,8 @@ export default function Timesheet() {
     console.log('Parando timer local');
     setIsTimerActive(false);
     setElapsedTime(0);
-    if ((window as any).timerInterval) {
-      clearInterval((window as any).timerInterval);
+    if ((window as Record<string, any>).timerInterval) {
+      clearInterval((window as Record<string, any>).timerInterval);
     }
   };
 

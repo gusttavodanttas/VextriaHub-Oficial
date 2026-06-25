@@ -43,7 +43,7 @@ function Pagamento() {
   const loadCheckoutData = async () => {
     try {
       const { data, error } = await supabase
-        .from('stripe_checkouts' as any)
+        .from('stripe_checkouts' as string)
         .select('*')
         .eq('id', checkoutId)
         .single();
@@ -59,7 +59,7 @@ function Pagamento() {
       }
 
       // Check if checkout is expired
-      if (new Date((data as any).expires_at) < new Date()) {
+      if (new Date((data as Record<string, any>).expires_at) < new Date()) {
         toast({
           title: "Checkout Expirado",
           description: "Este link de pagamento expirou. Tente novamente.",
@@ -94,7 +94,7 @@ function Pagamento() {
       });
 
       // Prepare payment data
-      const paymentData: any = {
+      const paymentData: Record<string, any> = {
         checkoutId: checkout.id,
         billingType: selectedBillingType,
       };
