@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,8 +8,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { CalendarClock, Newspaper, Shield, AlertOctagon } from "lucide-react";
+import { CalendarClock, Newspaper, Shield, AlertOctagon, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+interface ProcessoOption {
+  id: string;
+  titulo: string;
+  numero_processo: string;
+}
 
 export interface PrazoFormData {
   id?: string;
@@ -119,11 +125,51 @@ export const NovoPrazoStandaloneDialog = ({
 
   const isEditing = !!prazoParaEditar?.id;
 
+  // Busca de processo
+  const [processoSearch, setProcessoSearch] = useState('');
+  const [processoOptions, setProcessoOptions] = useState<ProcessoOption[]>([]);
+  const [selectedProcesso, setSelectedProcesso] = useState<ProcessoOption | null>(null);
+  const [showOptions, setShowOptions] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (open) {
       setFormData(prazoParaEditar ? prazoToForm(prazoParaEditar) : emptyForm(tituloSugerido, numeroProcesso));
+      setProcessoSearch('');
+      setSelectedProcesso(null);
+      setProcessoOptions([]);
     }
   }, [open, prazoParaEditar, tituloSugerido, numeroProcesso]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setShowOptions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (!processoSearch.trim() || processoSearch.length < 2 || !user?.office_id) {
+      setProcessoOptions([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      const term = processoSearch.trim();
+      const { data } = await supabase
+        .from('processos')
+        .select('id, titulo, numero_processo')
+        .eq('office_id', user.office_id)
+        .eq('deletado', false)
+        .or(`titulo.ilike.%${term}%,numero_processo.ilike.%${term}%`)
+        .limit(6);
+      setProcessoOptions((data || []) as ProcessoOption[]);
+      setShowOptions(true);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [processoSearch, user?.office_id]);
 
   const set = (field: string, value: string) =>
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -165,8 +211,8 @@ export const NovoPrazoStandaloneDialog = ({
         toast({ title: "Prazo atualizado", description: "As alterações foram salvas." });
       } else {
         // INSERT
-        let processoId: string | null = null;
-        if (numeroProcesso && user.office_id) {
+        let processoId: string | null = selectedProcesso?.id || null;
+        if (!processoId && numeroProcesso && user.office_id) {
           const { data } = await supabase
             .from('processos')
             .select('id')
@@ -236,6 +282,60 @@ export const NovoPrazoStandaloneDialog = ({
               required
             />
           </div>
+
+          {/* Processo vinculado */}
+          {!numeroProcesso && (
+            <div className="space-y-1.5" ref={searchRef}>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                Processo vinculado
+              </Label>
+              {selectedProcesso ? (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-primary/30 bg-primary/5">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold truncate">{selectedProcesso.titulo}</p>
+                    <p className="text-[10px] text-muted-foreground font-mono">{selectedProcesso.numero_processo}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedProcesso(null); setProcessoSearch(''); }}
+                    className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/50" />
+                  <Input
+                    value={processoSearch}
+                    onChange={e => setProcessoSearch(e.target.value)}
+                    onFocus={() => processoOptions.length > 0 && setShowOptions(true)}
+                    placeholder="Buscar por número ou nome..."
+                    className="pl-9 h-10 rounded-xl text-sm"
+                  />
+                  {showOptions && processoOptions.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-xl shadow-lg overflow-hidden">
+                      {processoOptions.map(p => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onMouseDown={() => {
+                            setSelectedProcesso(p);
+                            setProcessoSearch('');
+                            setShowOptions(false);
+                          }}
+                          className="w-full text-left px-4 py-2.5 hover:bg-muted/50 transition-colors border-b border-border/40 last:border-0"
+                        >
+                          <p className="text-xs font-bold truncate">{p.titulo}</p>
+                          <p className="text-[10px] text-muted-foreground font-mono">{p.numero_processo}</p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* 3 datas */}
           <div className="space-y-2">
