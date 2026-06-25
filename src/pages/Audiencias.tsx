@@ -7,7 +7,7 @@ import { Calendar as CalendarUI } from "@/components/ui/calendar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Calendar, Clock, MapPin, User, Users, Plus, Search, Trash2, Pencil,
-  CheckCircle2, XCircle, MoreHorizontal, CalendarCheck, CalendarClock, Gavel, Loader2, Tag,
+  CheckCircle2, XCircle, MoreHorizontal, CalendarCheck, CalendarClock, Gavel, Loader2,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
@@ -248,10 +248,6 @@ const Audiencias = () => {
               {tipos.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Button variant="outline" onClick={() => setTiposDialogOpen(true)}
-            className="h-11 rounded-xl gap-2 font-bold border-black/5 dark:border-border shrink-0" title="Gerenciar tipos de audiência">
-            <Tag className="h-4 w-4" /> <span className="hidden sm:inline">Tipos</span>
-          </Button>
         </div>
       </div>
 
