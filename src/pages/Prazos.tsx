@@ -1,284 +1,423 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
-import { Plus, AlertCircle, Clock, Calendar, Search, Filter, Eye } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { NovoPrazoStandaloneDialog } from "@/components/Processos/NovoPrazoStandaloneDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useQuery } from "@tanstack/react-query";
-import { format } from 'date-fns';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { format, differenceInCalendarDays, isToday, isPast, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
+import {
+  Plus, Search, AlertTriangle, Clock, CalendarClock, CheckCircle2,
+  ChevronRight, Flame, Calendar, Inbox, MoreHorizontal, Pencil, Trash2,
+  CheckCheck, Timer,
+} from 'lucide-react';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
-const Prazos = () => {
+interface Prazo {
+  id: string;
+  titulo: string;
+  descricao?: string | null;
+  data_vencimento: string;
+  prioridade: 'alta' | 'media' | 'baixa';
+  status: string;
+  processo_id?: string | null;
+  user_id: string;
+  office_id?: string | null;
+}
+
+type Urgency = 'vencido' | 'hoje' | 'critico' | 'normal' | 'concluido';
+
+function getUrgency(prazo: Prazo): Urgency {
+  if (prazo.status === 'concluido') return 'concluido';
+  const days = differenceInCalendarDays(new Date(prazo.data_vencimento), startOfDay(new Date()));
+  if (days < 0) return 'vencido';
+  if (days === 0) return 'hoje';
+  if (days <= 3) return 'critico';
+  return 'normal';
+}
+
+const URGENCY_CONFIG: Record<Urgency, {
+  label: string; color: string; border: string; badge: string; icon: React.ElementType; dot: string;
+}> = {
+  vencido:  { label: 'Vencido',      color: 'text-red-600',    border: 'border-l-red-500',    badge: 'bg-red-500/10 text-red-600 border-red-500/20',    icon: AlertTriangle,  dot: 'bg-red-500' },
+  hoje:     { label: 'Hoje',         color: 'text-amber-600',  border: 'border-l-amber-500',  badge: 'bg-amber-500/10 text-amber-600 border-amber-500/20', icon: Flame,         dot: 'bg-amber-500' },
+  critico:  { label: 'Crítico',      color: 'text-orange-600', border: 'border-l-orange-400', badge: 'bg-orange-500/10 text-orange-600 border-orange-500/20', icon: Timer,       dot: 'bg-orange-400' },
+  normal:   { label: 'No prazo',     color: 'text-sky-600',    border: 'border-l-sky-400',    badge: 'bg-sky-500/10 text-sky-600 border-sky-500/20',    icon: CalendarClock,  dot: 'bg-sky-400' },
+  concluido:{ label: 'Concluído',    color: 'text-emerald-600',border: 'border-l-emerald-400',badge: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20', icon: CheckCircle2, dot: 'bg-emerald-400' },
+};
+
+const PRIORITY_CONFIG: Record<string, { label: string; color: string }> = {
+  alta:  { label: 'Alta',  color: 'bg-red-500/10 text-red-600 border-red-500/20' },
+  media: { label: 'Média', color: 'bg-amber-500/10 text-amber-600 border-amber-500/20' },
+  baixa: { label: 'Baixa', color: 'bg-slate-500/10 text-slate-500 border-slate-500/20' },
+};
+
+function getDaysLabel(data_vencimento: string, status: string): string {
+  if (status === 'concluido') return 'Concluído';
+  const days = differenceInCalendarDays(new Date(data_vencimento), startOfDay(new Date()));
+  if (days < 0) return `Vencido há ${Math.abs(days)}d`;
+  if (days === 0) return 'Vence hoje';
+  if (days === 1) return 'Amanhã';
+  return `${days} dias`;
+}
+
+const SECTION_ORDER: Urgency[] = ['vencido', 'hoje', 'critico', 'normal', 'concluido'];
+const SECTION_LABELS: Record<Urgency, string> = {
+  vencido:  'Vencidos',
+  hoje:     'Vencem hoje',
+  critico:  'Próximos 3 dias',
+  normal:   'Futuros',
+  concluido:'Concluídos',
+};
+
+export default function Prazos() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [filterPriority, setFilterPriority] = useState('all');
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const queryClient = useQueryClient();
 
-  // Fetch prazos from database
-  const { data: prazos = [], refetch } = useQuery({
-    queryKey: ['prazos', user?.id],
+  const [search, setSearch] = useState('');
+  const [filterPriority, setFilterPriority] = useState<'all' | 'alta' | 'media' | 'baixa'>('all');
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<Prazo | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Prazo | null>(null);
+
+  const { data: prazos = [], isLoading } = useQuery<Prazo[]>({
+    queryKey: ['prazos', user?.office_id, user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
-      
-      const { data, error } = await supabase
+      const query = supabase
         .from('prazos')
         .select('*')
-        .eq('user_id', user.id)
         .order('data_vencimento', { ascending: true });
-
+      if (user.office_id) {
+        query.eq('office_id', user.office_id);
+      } else {
+        query.eq('user_id', user.id);
+      }
+      const { data, error } = await query;
       if (error) throw error;
-      return data || [];
+      return (data || []) as Prazo[];
     },
     enabled: !!user?.id,
   });
 
-  // Filter prazos based on search and filters
-  const filteredPrazos = prazos.filter(prazo => {
-    const matchesSearch = prazo.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         prazo.descricao?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = filterStatus === 'all' || prazo.status === filterStatus;
-    const matchesPriority = filterPriority === 'all' || prazo.prioridade === filterPriority;
-    
-    return matchesSearch && matchesStatus && matchesPriority;
+  const concludeMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('prazos').update({ status: 'concluido' }).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['prazos'] });
+      toast({ title: 'Prazo concluído', description: 'Marcado como concluído com sucesso.' });
+    },
   });
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'alta': return 'bg-red-500';
-      case 'media': return 'bg-yellow-500';
-      case 'baixa': return 'bg-green-500';
-      default: return 'bg-gray-500';
-    }
-  };
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('prazos').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['prazos'] });
+      toast({ title: 'Prazo excluído' });
+      setDeleteTarget(null);
+    },
+  });
 
-  const getStatusColor = (status: string, dataVencimento: string) => {
-    const hoje = new Date();
-    const vencimento = new Date(dataVencimento);
-    
-    if (status === 'concluido') return 'bg-green-100 text-green-800';
-    if (vencimento < hoje) return 'bg-red-100 text-red-800';
-    if (vencimento.getTime() - hoje.getTime() <= 3 * 24 * 60 * 60 * 1000) return 'bg-yellow-100 text-yellow-800';
-    return 'bg-blue-100 text-blue-800';
-  };
+  const filtered = useMemo(() => prazos.filter(p => {
+    const matchSearch = !search || p.titulo.toLowerCase().includes(search.toLowerCase()) || (p.descricao || '').toLowerCase().includes(search.toLowerCase());
+    const matchPriority = filterPriority === 'all' || p.prioridade === filterPriority;
+    return matchSearch && matchPriority;
+  }), [prazos, search, filterPriority]);
 
-  const getDaysUntilDeadline = (dataVencimento: string) => {
-    const hoje = new Date();
-    const vencimento = new Date(dataVencimento);
-    const diffTime = vencimento.getTime() - hoje.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays < 0) return `Vencido há ${Math.abs(diffDays)} dia(s)`;
-    if (diffDays === 0) return 'Vence hoje';
-    if (diffDays === 1) return 'Vence amanhã';
-    return `${diffDays} dias restantes`;
-  };
+  const grouped = useMemo(() => {
+    const map: Record<Urgency, Prazo[]> = { vencido: [], hoje: [], critico: [], normal: [], concluido: [] };
+    filtered.forEach(p => map[getUrgency(p)].push(p));
+    return map;
+  }, [filtered]);
 
-  const categorizedPrazos = {
-    vencidos: filteredPrazos.filter(p => new Date(p.data_vencimento) < new Date() && p.status !== 'concluido'),
-    hoje: filteredPrazos.filter(p => {
-      const hoje = new Date();
-      const vencimento = new Date(p.data_vencimento);
-      return vencimento.toDateString() === hoje.toDateString() && p.status !== 'concluido';
-    }),
-    proximosSete: filteredPrazos.filter(p => {
-      const hoje = new Date();
-      const vencimento = new Date(p.data_vencimento);
-      const diffTime = vencimento.getTime() - hoje.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays > 0 && diffDays <= 7 && p.status !== 'concluido';
-    }),
-    futuros: filteredPrazos.filter(p => {
-      const hoje = new Date();
-      const vencimento = new Date(p.data_vencimento);
-      const diffTime = vencimento.getTime() - hoje.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays > 7 && p.status !== 'concluido';
-    }),
-    concluidos: filteredPrazos.filter(p => p.status === 'concluido'),
-  };
-
-  const handleSuccess = () => {
-    refetch();
-    toast({
-      title: "Prazo adicionado com sucesso",
-      description: "O prazo foi salvo e está sendo monitorado.",
-    });
-  };
+  const kpis = useMemo(() => ({
+    vencidos: grouped.vencido.length,
+    hoje: grouped.hoje.length,
+    criticos: grouped.critico.length,
+    total: prazos.filter(p => p.status !== 'concluido').length,
+  }), [grouped, prazos]);
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-6 animate-in fade-in duration-500">
+
+      {/* Header */}
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Prazos</h1>
-          <p className="text-muted-foreground">
-            Gerencie e monitore todos os seus prazos judiciais
-          </p>
+          <h1 className="text-2xl font-black tracking-tight flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20">
+              <CalendarClock className="h-5 w-5" />
+            </div>
+            Prazos
+          </h1>
+          <p className="text-muted-foreground mt-1 text-sm ml-1">Monitore e gerencie seus prazos judiciais</p>
         </div>
-        <Button onClick={() => setDialogOpen(true)} className="flex items-center gap-2">
-          <Plus className="h-4 w-4" />
-          Novo Prazo
+        <Button
+          onClick={() => setDialogOpen(true)}
+          className="rounded-2xl h-11 gap-2 px-6 font-black text-[11px] uppercase tracking-widest shadow-lg shadow-primary/20"
+        >
+          <Plus className="h-4 w-4" /> Novo Prazo
         </Button>
       </div>
 
-      {/* Search and Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar prazos..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-full sm:w-48">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os Status</SelectItem>
-            <SelectItem value="pendente">Pendente</SelectItem>
-            <SelectItem value="em_andamento">Em Andamento</SelectItem>
-            <SelectItem value="concluido">Concluído</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={filterPriority} onValueChange={setFilterPriority}>
-          <SelectTrigger className="w-full sm:w-48">
-            <SelectValue placeholder="Prioridade" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas as Prioridades</SelectItem>
-            <SelectItem value="alta">Alta</SelectItem>
-            <SelectItem value="media">Média</SelectItem>
-            <SelectItem value="baixa">Baixa</SelectItem>
-          </SelectContent>
-        </Select>
+      {/* KPI Strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'Vencidos',       value: kpis.vencidos,  icon: AlertTriangle,  color: 'text-red-600',    bg: 'bg-red-500/8 border-red-500/15' },
+          { label: 'Vencem hoje',    value: kpis.hoje,      icon: Flame,          color: 'text-amber-600',  bg: 'bg-amber-500/8 border-amber-500/15' },
+          { label: 'Próximos 3 dias',value: kpis.criticos,  icon: Timer,          color: 'text-orange-600', bg: 'bg-orange-500/8 border-orange-500/15' },
+          { label: 'Total pendente', value: kpis.total,     icon: Calendar,       color: 'text-sky-600',    bg: 'bg-sky-500/8 border-sky-500/15' },
+        ].map(({ label, value, icon: Icon, color, bg }) => (
+          <div key={label} className={cn('rounded-2xl border p-4 flex items-center gap-3', bg)}>
+            <div className={cn('p-2 rounded-xl bg-background/60', color)}>
+              <Icon className="h-4 w-4" />
+            </div>
+            <div>
+              <p className={cn('text-2xl font-black', color)}>{value}</p>
+              <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest">{label}</p>
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* Prazos Tabs */}
-      <Tabs defaultValue="vencidos" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5">
-          <TabsTrigger value="vencidos" className="flex items-center gap-2">
-            <AlertCircle className="h-4 w-4" />
-            <span className="hidden sm:inline">Vencidos</span>
-            <span className="sm:hidden">Venc.</span>
-            <Badge variant="destructive" className="ml-1">
-              {categorizedPrazos.vencidos.length}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="hoje" className="flex items-center gap-2">
-            <Clock className="h-4 w-4" />
-            <span className="hidden sm:inline">Hoje</span>
-            <Badge variant="secondary" className="ml-1">
-              {categorizedPrazos.hoje.length}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="proximosSete" className="flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
-            <span className="hidden sm:inline">7 Dias</span>
-            <Badge variant="secondary" className="ml-1">
-              {categorizedPrazos.proximosSete.length}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="futuros" className="flex items-center gap-2">
-            <Eye className="h-4 w-4" />
-            <span className="hidden sm:inline">Futuros</span>
-            <Badge variant="secondary" className="ml-1">
-              {categorizedPrazos.futuros.length}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="concluidos" className="flex items-center gap-2">
-            <span className="hidden sm:inline">Concluídos</span>
-            <span className="sm:hidden">Concl.</span>
-            <Badge variant="outline" className="ml-1">
-              {categorizedPrazos.concluidos.length}
-            </Badge>
-          </TabsTrigger>
-        </TabsList>
+      {/* Search + Filter */}
+      <div className="flex gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+          <Input
+            placeholder="Buscar prazos..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="pl-10 h-10 rounded-xl bg-background border-border text-sm"
+          />
+        </div>
+        <div className="flex gap-2">
+          {(['all', 'alta', 'media', 'baixa'] as const).map(p => (
+            <button
+              key={p}
+              onClick={() => setFilterPriority(p)}
+              className={cn(
+                'h-10 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border',
+                filterPriority === p
+                  ? 'bg-foreground text-background border-foreground'
+                  : 'bg-background text-muted-foreground border-border hover:border-foreground/30'
+              )}
+            >
+              {p === 'all' ? 'Todos' : PRIORITY_CONFIG[p].label}
+            </button>
+          ))}
+        </div>
+      </div>
 
-        {/* Render prazos for each category */}
-        {Object.entries(categorizedPrazos).map(([category, prazosData]) => (
-          <TabsContent key={category} value={category} className="space-y-4">
-            {prazosData.length === 0 ? (
-              <Card>
-                <CardContent className="py-8">
-                  <div className="text-center text-muted-foreground">
-                    <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>Nenhum prazo encontrado nesta categoria</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid gap-4">
-                {prazosData.map((prazo) => (
-                  <Card key={prazo.id} className="hover:shadow-md transition-shadow">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <CardTitle className="text-lg">{prazo.titulo}</CardTitle>
-                          <CardDescription className="mt-1">
-                            {prazo.descricao}
-                          </CardDescription>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className={`w-2 h-2 rounded-full ${getPriorityColor(prazo.prioridade)}`} />
-                          <Badge 
-                            variant="secondary" 
-                            className={getStatusColor(prazo.status, prazo.data_vencimento)}
+      {/* Loading */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-20">
+          <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      )}
+
+      {/* Empty global */}
+      {!isLoading && filtered.length === 0 && (
+        <div className="py-20 flex flex-col items-center justify-center text-center space-y-3 opacity-30">
+          <Inbox className="h-14 w-14" />
+          <p className="font-black uppercase tracking-widest text-sm">Nenhum prazo encontrado</p>
+          <p className="text-xs max-w-xs">Crie um novo prazo ou ajuste os filtros.</p>
+        </div>
+      )}
+
+      {/* Sections */}
+      {!isLoading && SECTION_ORDER.map(urgency => {
+        const items = grouped[urgency];
+        if (items.length === 0) return null;
+        const cfg = URGENCY_CONFIG[urgency];
+        const Icon = cfg.icon;
+
+        return (
+          <div key={urgency} className="space-y-2">
+            {/* Section header */}
+            <div className="flex items-center gap-2 mb-1">
+              <Icon className={cn('h-3.5 w-3.5', cfg.color)} />
+              <span className={cn('text-[10px] font-black uppercase tracking-widest', cfg.color)}>
+                {SECTION_LABELS[urgency]}
+              </span>
+              <Badge variant="outline" className={cn('text-[9px] font-black px-2 py-0.5 border', cfg.badge)}>
+                {items.length}
+              </Badge>
+              <div className="flex-1 h-px bg-border/50 ml-1" />
+            </div>
+
+            {/* Cards */}
+            <div className="space-y-2">
+              {items.map(prazo => {
+                const priCfg = PRIORITY_CONFIG[prazo.prioridade] || PRIORITY_CONFIG.media;
+                const daysLabel = getDaysLabel(prazo.data_vencimento, prazo.status);
+                const isConcluido = prazo.status === 'concluido';
+
+                return (
+                  <div
+                    key={prazo.id}
+                    className={cn(
+                      'group relative flex items-center gap-4 bg-background border border-border/60 rounded-2xl px-5 py-4 border-l-4 transition-all hover:border-border hover:shadow-sm',
+                      cfg.border,
+                      isConcluido && 'opacity-60'
+                    )}
+                  >
+                    {/* Left: urgency dot */}
+                    <div className={cn('w-2 h-2 rounded-full shrink-0', cfg.dot)} />
+
+                    {/* Middle: content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                        <span className={cn('font-black text-sm', isConcluido && 'line-through text-muted-foreground')}>
+                          {prazo.titulo}
+                        </span>
+                        <Badge variant="outline" className={cn('text-[9px] font-black uppercase tracking-widest border px-2 py-0.5', priCfg.color)}>
+                          {priCfg.label}
+                        </Badge>
+                      </div>
+                      {prazo.descricao && (
+                        <p className="text-xs text-muted-foreground truncate max-w-md">{prazo.descricao}</p>
+                      )}
+                      <div className="flex items-center gap-3 mt-1.5 text-[11px] text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {format(new Date(prazo.data_vencimento), "dd 'de' MMMM", { locale: ptBR })}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Right: days pill + actions */}
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className={cn(
+                        'text-[11px] font-black px-3 py-1 rounded-full border whitespace-nowrap',
+                        cfg.badge
+                      )}>
+                        {daysLabel}
+                      </span>
+
+                      {/* Quick action: mark done */}
+                      {!isConcluido && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => concludeMutation.mutate(prazo.id)}
+                          disabled={concludeMutation.isPending}
+                          className="h-8 w-8 p-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-700"
+                          title="Marcar como concluído"
+                        >
+                          <CheckCheck className="h-4 w-4" />
+                        </Button>
+                      )}
+
+                      {/* More actions */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"
                           >
-                            {prazo.status}
-                          </Badge>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                      <div className="flex items-center justify-between text-sm text-muted-foreground">
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="h-4 w-4" />
-                            <span>
-                              {format(new Date(prazo.data_vencimento), 'dd/MM/yyyy', { locale: ptBR })}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-4 w-4" />
-                            <span>{getDaysUntilDeadline(prazo.data_vencimento)}</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs">Prioridade:</span>
-                          <Badge variant="outline" className="text-xs capitalize">
-                            {prazo.prioridade}
-                          </Badge>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-        ))}
-      </Tabs>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="rounded-xl w-44">
+                          {!isConcluido && (
+                            <DropdownMenuItem
+                              onClick={() => concludeMutation.mutate(prazo.id)}
+                              className="rounded-lg cursor-pointer gap-2 text-emerald-600 focus:text-emerald-600"
+                            >
+                              <CheckCircle2 className="h-4 w-4" /> Concluir
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem
+                            onClick={() => setEditTarget(prazo)}
+                            className="rounded-lg cursor-pointer gap-2"
+                          >
+                            <Pencil className="h-4 w-4" /> Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => setDeleteTarget(prazo)}
+                            className="rounded-lg cursor-pointer gap-2 text-red-600 focus:text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4" /> Excluir
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+
+                      <ChevronRight className="h-4 w-4 text-muted-foreground/30 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
 
       {/* New Prazo Dialog */}
-      <NovoPrazoStandaloneDialog 
-        open={dialogOpen} 
+      <NovoPrazoStandaloneDialog
+        open={dialogOpen}
         onOpenChange={setDialogOpen}
-        onSuccess={handleSuccess}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['prazos'] });
+          toast({ title: 'Prazo adicionado', description: 'O prazo foi salvo e está sendo monitorado.' });
+        }}
       />
+
+      {/* Edit Dialog */}
+      {editTarget && (
+        <NovoPrazoStandaloneDialog
+          open={!!editTarget}
+          onOpenChange={v => { if (!v) setEditTarget(null); }}
+          tituloSugerido={editTarget.titulo}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['prazos'] });
+            setEditTarget(null);
+            toast({ title: 'Prazo atualizado' });
+          }}
+        />
+      )}
+
+      {/* Delete Confirm */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" /> Excluir prazo?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              O prazo <strong>"{deleteTarget?.titulo}"</strong> será excluído permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+              disabled={deleteMutation.isPending}
+              className="rounded-xl bg-red-600 hover:bg-red-700 text-white"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
-};
-
-export default Prazos;
+}
