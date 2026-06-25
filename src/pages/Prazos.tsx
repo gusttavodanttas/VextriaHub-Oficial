@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 import {
   Plus, Search, AlertTriangle, Clock, CalendarClock, CheckCircle2,
   ChevronRight, Flame, Calendar, Inbox, MoreHorizontal, Pencil, Trash2,
-  CheckCheck, Timer,
+  CheckCheck, Timer, Newspaper, Shield, AlertOctagon,
 } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -29,6 +29,8 @@ interface Prazo {
   titulo: string;
   descricao?: string | null;
   data_vencimento?: string | null;
+  data_publicacao?: string | null;
+  data_prazo_interno?: string | null;
   data_fim_prazo?: string | null;
   prioridade: 'alta' | 'media' | 'baixa';
   status: string;
@@ -37,9 +39,9 @@ interface Prazo {
   office_id?: string | null;
 }
 
-// Suporta prazos manuais (data_vencimento) e de publicações (data_fim_prazo)
+// Prazo fatal: data_fim_prazo (novo padrão) ou data_vencimento (legado)
 function getDataPrazo(prazo: Prazo): string | null {
-  return prazo.data_vencimento || prazo.data_fim_prazo || null;
+  return prazo.data_fim_prazo || prazo.data_vencimento || null;
 }
 
 type Urgency = 'vencido' | 'hoje' | 'critico' | 'normal' | 'concluido';
@@ -292,7 +294,7 @@ export default function Prazos() {
 
                     {/* Middle: content */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span className={cn('font-black text-sm', isConcluido && 'line-through text-muted-foreground')}>
                           {prazo.titulo}
                         </span>
@@ -301,16 +303,32 @@ export default function Prazos() {
                         </Badge>
                       </div>
                       {prazo.descricao && (
-                        <p className="text-xs text-muted-foreground truncate max-w-md">{prazo.descricao}</p>
+                        <p className="text-xs text-muted-foreground truncate max-w-md mb-1.5">{prazo.descricao}</p>
                       )}
-                      {getDataPrazo(prazo) && (
-                        <div className="flex items-center gap-3 mt-1.5 text-[11px] text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            {format(new Date(getDataPrazo(prazo)!), "dd 'de' MMMM", { locale: ptBR })}
+                      {/* Linha das 3 datas */}
+                      <div className="flex flex-wrap items-center gap-3 text-[11px]">
+                        {prazo.data_publicacao && (
+                          <span className="flex items-center gap-1 text-sky-600">
+                            <Newspaper className="h-3 w-3" />
+                            <span className="text-muted-foreground">Publicação:</span>
+                            {format(new Date(prazo.data_publicacao), 'dd/MM/yy', { locale: ptBR })}
                           </span>
-                        </div>
-                      )}
+                        )}
+                        {prazo.data_prazo_interno && (
+                          <span className="flex items-center gap-1 text-amber-600">
+                            <Shield className="h-3 w-3" />
+                            <span className="text-muted-foreground">Interno:</span>
+                            {format(new Date(prazo.data_prazo_interno), 'dd/MM/yy', { locale: ptBR })}
+                          </span>
+                        )}
+                        {getDataPrazo(prazo) && (
+                          <span className="flex items-center gap-1 text-red-600 font-bold">
+                            <AlertOctagon className="h-3 w-3" />
+                            <span className="text-muted-foreground font-normal">Fatal:</span>
+                            {format(new Date(getDataPrazo(prazo)!), 'dd/MM/yy', { locale: ptBR })}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Right: days pill + actions */}
