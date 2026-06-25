@@ -134,10 +134,10 @@ const Index = () => {
       </section>
 
       {/* Grid principal */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
 
         {/* Coluna operacional */}
-        <div className="lg:col-span-8 space-y-5">
+        <div className="lg:col-span-8 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <DeadlinesCard />
             <HearingsCard />
@@ -145,11 +145,11 @@ const Index = () => {
           <PriorityTasks />
         </div>
 
-        {/* Coluna lateral */}
+        {/* Coluna lateral — calendário + financeiro */}
         <div className="lg:col-span-4">
           <div className="sticky top-24 space-y-4">
 
-            <div className="rounded-[2rem] overflow-hidden border border-black/5 dark:border-border bg-card/40 shadow-sm">
+            <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 shadow-sm overflow-hidden">
               <CalendarWidget />
             </div>
 

@@ -161,7 +161,7 @@ export function AppSidebar() {
                         >
                           <SidebarMenuItem>
                             <CollapsibleTrigger asChild>
-                              <SidebarMenuButton tooltip={item.title} className={getNavClasses(isActive)}>
+                              <button className={getNavClasses(isActive)}>
                                 <item.icon className="h-4 w-4 shrink-0" />
                                 {!collapsed && (
                                   <>
@@ -169,7 +169,7 @@ export function AppSidebar() {
                                     <ChevronDown className="ml-auto h-3.5 w-3.5 opacity-40 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
                                   </>
                                 )}
-                              </SidebarMenuButton>
+                              </button>
                             </CollapsibleTrigger>
                             {!collapsed && (
                               <CollapsibleContent>
