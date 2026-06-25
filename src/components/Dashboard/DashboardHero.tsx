@@ -1,6 +1,5 @@
-﻿
 import { useAuth } from "@/contexts/AuthContext";
-import { Sparkles } from "lucide-react";
+import { Gift, CheckCircle2 } from "lucide-react";
 
 const getGreeting = () => {
   const h = new Date().getHours();
@@ -23,24 +22,19 @@ export function DashboardHero() {
   const today = getTodayStr();
 
   return (
-    <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-card/80 via-card/40 to-background border border-black/5 dark:border-border px-8 py-7 shadow-premium entry-animate fade-in slide-in-from-bottom-4 duration-700">
+    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-card/90 via-card/60 to-background border border-black/5 dark:border-border px-6 py-5 shadow-sm">
       {/* Background orbs */}
-      <div className="absolute top-0 right-0 -mt-16 -mr-16 w-64 h-64 bg-primary/10 rounded-full blur-[80px] animate-pulse pointer-events-none" />
-      <div className="absolute bottom-0 left-0 -mb-12 -ml-12 w-48 h-48 bg-secondary/10 rounded-full blur-[60px] pointer-events-none" />
+      <div className="absolute top-0 right-0 -mt-12 -mr-12 w-48 h-48 bg-primary/8 rounded-full blur-[60px] pointer-events-none" />
+      <div className="absolute bottom-0 left-0 -mb-8 -ml-8 w-36 h-36 bg-secondary/8 rounded-full blur-[50px] pointer-events-none" />
 
-      <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        {/* Left: greeting */}
-        <div className="space-y-1">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-bold uppercase tracking-widest">
-            <Sparkles className="h-3 w-3" />
-            Vextria AI Hub
-          </div>
-          <h1 className="text-2xl md:text-4xl font-black tracking-tight leading-tight">
+      <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        {/* Saudação */}
+        <div className="space-y-0.5">
+          <h1 className="text-xl md:text-3xl font-black tracking-tight leading-tight">
             {greeting},{" "}
             {isLoading || !firstName ? (
-              /* Skeleton while profile loads — prevents "Doutor(a)" flash */
               <span className="inline-block align-middle ml-1">
-                <span className="inline-block h-8 md:h-10 w-32 md:w-44 rounded-xl bg-primary/10 animate-pulse" />
+                <span className="inline-block h-7 md:h-9 w-28 md:w-40 rounded-xl bg-primary/10 animate-pulse" />
               </span>
             ) : (
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary via-primary/80 to-secondary">
@@ -48,20 +42,25 @@ export function DashboardHero() {
               </span>
             )}
           </h1>
-          <p className="text-sm text-muted-foreground font-medium capitalize">{today}</p>
+          <p className="text-xs text-muted-foreground font-medium capitalize">{today}</p>
         </div>
 
-        {/* Right: motivational badge */}
-        <div className="hidden md:flex flex-col items-end gap-1 text-right">
-          <div className="text-xs text-muted-foreground font-medium">Seu escritório está</div>
-          <div className="text-lg font-black text-emerald-500 flex items-center gap-1.5">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
-            </span>
-            Operando normalmente
+        {/* Direita: plano + status */}
+        <div className="flex items-center gap-3 sm:flex-col sm:items-end">
+          {/* Badge plano de cortesia */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-600 dark:text-violet-400">
+            <Gift className="h-3.5 w-3.5 shrink-0" />
+            <span className="text-[10px] font-black uppercase tracking-widest">Plano Cortesia</span>
           </div>
-          <div className="text-[10px] text-muted-foreground/60">Todos os sistemas ativos</div>
+
+          {/* Status escritório */}
+          <div className="hidden sm:flex items-center gap-1.5 text-emerald-500">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+            </span>
+            <span className="text-xs font-bold">Operando normalmente</span>
+          </div>
         </div>
       </div>
     </div>

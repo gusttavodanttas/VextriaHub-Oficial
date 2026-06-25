@@ -158,7 +158,7 @@ const Processos = () => {
   const activeTabDef = STATUS_TABS.find(t => t.key === activeTab)!;
 
   return (
-    <div className="space-y-5 animate-in fade-in duration-500">
+    <div className="space-y-5 p-4 md:p-6 animate-in fade-in duration-500">
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

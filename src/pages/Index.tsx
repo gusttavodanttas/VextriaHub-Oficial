@@ -3,12 +3,10 @@ import { DeadlinesCard } from "@/components/Dashboard/DeadlinesCard";
 import { HearingsCard } from "@/components/Dashboard/HearingsCard";
 import { CalendarWidget } from "@/components/Dashboard/CalendarWidget";
 import { DashboardHero } from "@/components/Dashboard/DashboardHero";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Clock, AlertCircle, FileText, Users, CheckSquare, TrendingUp, ArrowRight, Plus } from "lucide-react";
-import { useState, useEffect } from "react";
+import { AlertCircle, FileText, Users, CheckSquare, TrendingUp, ArrowRight, Plus, CalendarCheck, UserCheck } from "lucide-react";
+import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useStats } from "@/hooks/useStats";
 import { cn } from "@/lib/utils";
@@ -68,7 +66,6 @@ const Index = () => {
   const { isSuperAdmin, validatePayment } = useAuth();
   const navigate = useNavigate();
   const { stats, loading: statsLoading } = useStats();
-  const [trialDays, setTrialDays] = useState<number | null>(null);
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
@@ -81,17 +78,6 @@ const Index = () => {
   useEffect(() => {
     if (isSuperAdmin) navigate('/admin', { replace: true });
   }, [isSuperAdmin, navigate]);
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (!data?.user) return;
-      const created = new Date(data.user.created_at);
-      const end = new Date(created);
-      end.setDate(end.getDate() + 7);
-      const days = Math.ceil((end.getTime() - Date.now()) / 86400000);
-      if (days > 0) setTrialDays(days);
-    });
-  }, []);
 
   if (isSuperAdmin) {
     return (
@@ -107,18 +93,6 @@ const Index = () => {
 
       {/* Saudação */}
       <DashboardHero />
-
-      {/* Aviso trial */}
-      {trialDays !== null && (
-        <Alert className="bg-primary/5 border-primary/20 py-3 rounded-2xl relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent" />
-          <Clock className="h-4 w-4 text-primary" />
-          <AlertTitle className="font-bold text-sm">Período de Teste</AlertTitle>
-          <AlertDescription className="text-muted-foreground text-xs">
-            <span className="font-bold text-primary">{trialDays} dia{trialDays > 1 ? 's' : ''}</span> restante{trialDays > 1 ? 's' : ''} no período premium.
-          </AlertDescription>
-        </Alert>
-      )}
 
       {/* KPIs clicáveis */}
       <section className="space-y-2.5">
@@ -144,16 +118,16 @@ const Index = () => {
           <KpiCard icon={AlertCircle} label="Prazos urgentes" value={stats.prazosVencendo}
             sub="próx. 3 dias" color="text-rose-500" bg="bg-rose-500/10"
             onClick={() => navigate("/prazos")} urgent={stats.prazosVencendo > 0} loading={statsLoading} />
-          <KpiCard icon={Users} label="Audiências" value={stats.audienciasProximas}
+          <KpiCard icon={CalendarCheck} label="Audiências" value={stats.audienciasProximas}
             sub="próx. 7 dias" color="text-orange-500" bg="bg-orange-500/10"
             onClick={() => navigate("/agenda")} loading={statsLoading} />
           <KpiCard icon={FileText} label="Processos ativos" value={stats.processosAtivos}
             sub="em andamento" color="text-blue-500" bg="bg-blue-500/10"
             onClick={() => navigate("/processos")} loading={statsLoading} />
-          <KpiCard icon={CheckSquare} label="Tarefas pendentes" value={stats.tarefasPendentes}
-            sub="abertas" color="text-purple-500" bg="bg-purple-500/10"
+          <KpiCard icon={CheckSquare} label="Tarefas abertas" value={stats.tarefasPendentes}
+            sub="pendentes" color="text-purple-500" bg="bg-purple-500/10"
             onClick={() => navigate("/tarefas")} urgent={stats.tarefasPendentes > 5} loading={statsLoading} />
-          <KpiCard icon={Users} label="Clientes ativos" value={stats.clientes}
+          <KpiCard icon={UserCheck} label="Clientes ativos" value={stats.clientes}
             sub="cadastrados" color="text-emerald-500" bg="bg-emerald-500/10"
             onClick={() => navigate("/clientes")} loading={statsLoading} />
         </div>
