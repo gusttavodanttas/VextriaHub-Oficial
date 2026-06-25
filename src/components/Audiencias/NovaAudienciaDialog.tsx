@@ -15,14 +15,10 @@ interface NovaAudienciaDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   clientes: ClienteOption[];
+  tipos: string[];
   audiencia?: Audiencia | null;
   onSubmit: (input: AudienciaInput, id?: string) => Promise<void>;
 }
-
-const tiposAudiencia = [
-  "Conciliação", "Instrução", "Una", "Julgamento",
-  "Trabalhista", "Família", "Previdenciário", "Cível", "Criminal", "Tributário",
-];
 
 const statusOptions = [
   { value: "agendada", label: "Agendada" },
@@ -34,7 +30,7 @@ const statusOptions = [
 
 const empty = { titulo: "", cliente_id: "", data: "", hora: "", tipo: "", local: "", observacao: "", status: "agendada" };
 
-export const NovaAudienciaDialog = ({ open, onOpenChange, clientes, audiencia, onSubmit }: NovaAudienciaDialogProps) => {
+export const NovaAudienciaDialog = ({ open, onOpenChange, clientes, tipos, audiencia, onSubmit }: NovaAudienciaDialogProps) => {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState(empty);
@@ -131,7 +127,8 @@ export const NovaAudienciaDialog = ({ open, onOpenChange, clientes, audiencia, o
               <Select value={formData.tipo} onValueChange={(v) => setFormData({ ...formData, tipo: v })}>
                 <SelectTrigger className="rounded-xl"><SelectValue placeholder="Selecionar" /></SelectTrigger>
                 <SelectContent className="rounded-xl">
-                  {tiposAudiencia.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  {tipos.length === 0 && <SelectItem value="none" disabled>Nenhum tipo cadastrado</SelectItem>}
+                  {tipos.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

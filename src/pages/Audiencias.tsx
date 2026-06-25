@@ -7,11 +7,13 @@ import { Calendar as CalendarUI } from "@/components/ui/calendar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Calendar, Clock, MapPin, User, Users, Plus, Search, Trash2, Pencil,
-  CheckCircle2, XCircle, MoreHorizontal, CalendarCheck, CalendarClock, Gavel, Loader2,
+  CheckCircle2, XCircle, MoreHorizontal, CalendarCheck, CalendarClock, Gavel, Loader2, Tag,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
 import { NovaAudienciaDialog } from "@/components/Audiencias/NovaAudienciaDialog";
+import { GerenciarTiposDialog } from "@/components/Audiencias/GerenciarTiposDialog";
+import { useAudienciaTipos } from "@/hooks/useAudienciaTipos";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -46,17 +48,24 @@ function StatCard({ icon: Icon, label, value, color, bg }: { icon: React.Element
 const Audiencias = () => {
   const { audiencias, isLoading, create, update, updateStatus, remove } = useAudiencias();
   const { data: clientesData } = useClientes();
+  const { tipos: tiposCadastrados } = useAudienciaTipos();
   const clientes = useMemo(() => (clientesData || []).map((c: any) => ({ id: c.id, nome: c.nome })), [clientesData]);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("todas");
   const [tipoFilter, setTipoFilter] = useState("todos");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [tiposDialogOpen, setTiposDialogOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Audiencia | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [calSelected, setCalSelected] = useState<Date | undefined>(new Date());
 
-  const tipos = useMemo(() => Array.from(new Set(audiencias.map(a => a.tipo).filter(Boolean))) as string[], [audiencias]);
+  // União dos tipos cadastrados (gerenciáveis) + tipos já usados em audiências
+  const tipos = useMemo(() => {
+    const set = new Set<string>(tiposCadastrados);
+    audiencias.forEach(a => { if (a.tipo) set.add(a.tipo); });
+    return Array.from(set);
+  }, [tiposCadastrados, audiencias]);
 
   const filtered = useMemo(() => audiencias.filter(a => {
     const q = searchTerm.toLowerCase();
@@ -239,6 +248,10 @@ const Audiencias = () => {
               {tipos.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Button variant="outline" onClick={() => setTiposDialogOpen(true)}
+            className="h-11 rounded-xl gap-2 font-bold border-black/5 dark:border-border shrink-0" title="Gerenciar tipos de audiência">
+            <Tag className="h-4 w-4" /> <span className="hidden sm:inline">Tipos</span>
+          </Button>
         </div>
       </div>
 
@@ -308,7 +321,9 @@ const Audiencias = () => {
         </TabsContent>
       </Tabs>
 
-      <NovaAudienciaDialog open={dialogOpen} onOpenChange={setDialogOpen} clientes={clientes} audiencia={editTarget} onSubmit={handleSubmit} />
+      <NovaAudienciaDialog open={dialogOpen} onOpenChange={setDialogOpen} clientes={clientes} tipos={tiposCadastrados} audiencia={editTarget} onSubmit={handleSubmit} />
+
+      <GerenciarTiposDialog open={tiposDialogOpen} onOpenChange={setTiposDialogOpen} />
 
       <DeleteConfirmDialog
         open={deleteDialogOpen}
