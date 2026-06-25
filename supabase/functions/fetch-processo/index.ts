@@ -130,6 +130,35 @@ function classifyInstancia(grau?: string | number, classeNome?: string): string 
   return "1ª Instância";
 }
 
+// Alguns tribunais (ex: TJDFT) gravam "?" no lugar de acentos perdidos na
+// própria base do CNJ. Não dá pra recuperar o byte original, então corrigimos
+// os termos jurídicos/topônimos mais frequentes por heurística.
+function fixAccents(s: string | null | undefined): string {
+  if (!s || !s.includes("?")) return s || "";
+  let r = s;
+  // Ordinais: dígito seguido de "?" => º  (ex: "2?" => "2º")
+  r = r.replace(/(\d)\?/g, "$1º");
+  const dict: Array<[RegExp, string]> = [
+    [/\bC\?VEL\b/gi, "CÍVEL"],
+    [/\bCRIMINAL\b/gi, "CRIMINAL"],
+    [/\bFAM\?LIA\b/gi, "FAMÍLIA"],
+    [/\b\?RF\?OS\b/gi, "ÓRFÃOS"],
+    [/\bSUCESS\?ES\b/gi, "SUCESSÕES"],
+    [/\bEXECU\?\?O\b/gi, "EXECUÇÃO"],
+    [/\bEXECU\?\?ES\b/gi, "EXECUÇÕES"],
+    [/\bFAL\?NCIA[S]?\b/gi, "FALÊNCIA"],
+    [/\bF\?RUM\b/gi, "FÓRUM"],
+    [/\bREGI\?O\b/gi, "REGIÃO"],
+    [/\bPREVID\?NCIA\b/gi, "PREVIDÊNCIA"],
+    [/\bBRAS\?LIA\b/gi, "BRASÍLIA"],
+    [/\bTRIBUTA\?\?O\b/gi, "TRIBUTAÇÃO"],
+    [/\bINF\?NCIA\b/gi, "INFÂNCIA"],
+    [/\bJUVENTUDE\b/gi, "JUVENTUDE"],
+  ];
+  for (const [re, v] of dict) r = r.replace(re, v);
+  return r;
+}
+
 function summarize(descricao: string, max = 3000): string {
   if (!descricao) return "";
   const clean = descricao.replace(/\s+/g, " ").trim();
@@ -248,7 +277,7 @@ function mapDatajudHit(hit: any, tribunalSigla?: string) {
     dataAjuizamento,
     instancia,
     valorCausa: Number(source.valorCausa) || 0,
-    vara: (source.orgaoJulgador?.nome || "").trim(),
+    vara: fixAccents((source.orgaoJulgador?.nome || "").trim()),
     comarca: source.orgaoJulgador?.codigoMunicipioIBGE != null ? String(source.orgaoJulgador.codigoMunicipioIBGE) : "",
     orgaoJulgadorCodigo: source.orgaoJulgador?.codigo != null ? String(source.orgaoJulgador.codigo) : "",
     nivelSigilo: Number(source.nivelSigilo) || 0,
@@ -256,7 +285,7 @@ function mapDatajudHit(hit: any, tribunalSigla?: string) {
       .map((a) => `[${a.data ? new Date(a.data).toLocaleDateString("pt-BR") : "sem data"}] ${a.descricao}`)
       .join("\n\n"),
     tipo_documento: classe || (andamentos[0]?.fase ?? null),
-    nome_orgao: (source.orgaoJulgador?.nome || "").trim() || null,
+    nome_orgao: fixAccents((source.orgaoJulgador?.nome || "").trim()) || null,
     data_disponibilizacao: andamentos[0]?.data || null,
     fonte: "datajud",
   };
