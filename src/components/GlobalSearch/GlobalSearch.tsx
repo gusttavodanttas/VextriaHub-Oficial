@@ -151,7 +151,7 @@ export function GlobalSearchBar() {
           sub: t.data_vencimento
             ? `Vence ${format(new Date(t.data_vencimento + "T12:00:00"), "dd 'de' MMM", { locale: ptBR })}`
             : undefined,
-          url: "/tarefas", badge: t.prioridade || undefined, badgeColor: pc(t.prioridade),
+          url: `/tarefas?openId=${t.id}`, badge: t.prioridade || undefined, badgeColor: pc(t.prioridade),
         })),
       ]);
       setSelectedIdx(0);

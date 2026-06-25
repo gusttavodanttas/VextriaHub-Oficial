@@ -1,395 +1,284 @@
-﻿import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
-import { Tarefa, TarefaFormData } from "@/types/tarefa";
-import { useTarefaService } from "@/services/tarefaService";
-import { useMultiSelect } from "@/hooks/useMultiSelect";
-
-// Componentes refatorados
-import { TarefasPageHeader } from "@/components/Tarefas/TarefasPageHeader";
-import { TarefasFilters } from "@/components/Tarefas/TarefasFilters";
-import { TarefasList } from "@/components/Tarefas/TarefasList";
-import { TarefasEmptyState } from "@/components/Tarefas/TarefasEmptyState";
-import { NovaTarefaDialog } from "@/components/Tarefas/NovaTarefaDialog";
-
-// Componentes existentes mantidos
-import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
-import { Checkbox } from "@/components/ui/checkbox";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Target, Plus } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  CheckSquare, Plus, Search, Trash2, Pencil, MoreHorizontal, User, Calendar,
+  ListChecks, AlertTriangle, CheckCircle2, Flame, Clock,
+} from "lucide-react";
+import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
+import { NovaTarefaDialog } from "@/components/Tarefas/NovaTarefaDialog";
+import { useMultiSelect } from "@/hooks/useMultiSelect";
+import { useTarefas, type Tarefa, type TarefaInput } from "@/hooks/useTarefas";
+import { useClientes } from "@/hooks/useClientes";
+import { useOpenItemFromSearch } from "@/hooks/useOpenItemFromSearch";
+import { cn } from "@/lib/utils";
+import { format, isToday, isTomorrow, isThisWeek, isPast, parseISO, differenceInCalendarDays } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
-// Dados de exemplo
-const initialTasks: Tarefa[] = [
-  {
-    id: 1,
-    title: "Protocolar petição inicial - Silva vs. Empresa XYZ",
-    dueDate: "Hoje, 16:00",
-    priority: "alta",
-    client: "Maria Silva",
-    case: "Trabalhista #2025-001",
-    points: 50,
-    completed: false,
-    description: "Protocolar petição inicial no processo trabalhista contra a Empresa XYZ"
-  },
-  {
-    id: 2,
-    title: "Responder publicação judicial",
-    dueDate: "Amanhã, 12:00",
-    priority: "alta",
-    client: "João Santos",
-    case: "Civil #2025-015",
-    points: 40,
-    completed: false,
-    description: "Responder à publicação judicial referente ao processo civil"
-  },
-  {
-    id: 3,
-    title: "Reunião com cliente",
-    dueDate: "23/01, 14:30",
-    priority: "media",
-    client: "Tech Solutions Ltda",
-    case: "Empresarial #2025-008",
-    points: 20,
-    completed: true,
-    description: "Reunião de alinhamento sobre contratos empresariais"
-  }
-];
+const prioMeta: Record<string, { label: string; cls: string; dot: string }> = {
+  alta:  { label: "Alta",  cls: "border-rose-500/30 text-rose-600 dark:text-rose-400 bg-rose-500/10", dot: "bg-rose-500" },
+  media: { label: "Média", cls: "border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/10", dot: "bg-amber-500" },
+  baixa: { label: "Baixa", cls: "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10", dot: "bg-emerald-500" },
+};
+
+function StatCard({ icon: Icon, label, value, color, bg }: { icon: React.ElementType; label: string; value: number; color: string; bg: string }) {
+  return (
+    <div className="flex items-center gap-3 p-4 rounded-2xl border border-black/5 dark:border-border bg-card/40">
+      <div className={cn("p-2.5 rounded-xl shrink-0", bg)}><Icon className={cn("h-5 w-5", color)} /></div>
+      <div className="min-w-0">
+        <p className="text-2xl font-black leading-none">{value}</p>
+        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mt-1">{label}</p>
+      </div>
+    </div>
+  );
+}
 
 const Tarefas = () => {
-  const { toast } = useToast();
-  const tarefaService = useTarefaService();
-  
-  // Estados
-  const [tarefas, setTarefas] = useState<Tarefa[]>(initialTasks);
-  const [completedTasks, setCompletedTasks] = useState<number[]>([3]);
-  const [searchValue, setSearchValue] = useState("");
-  const [priorityFilter, setPriorityFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [sortBy, setSortBy] = useState("priority");
+  const { tarefas, isLoading, create, update, toggle, remove } = useTarefas();
+  const { data: clientesData } = useClientes();
+  const clientes = useMemo(() => (clientesData || []).map((c: any) => ({ id: c.id, nome: c.nome })), [clientesData]);
+
+  const [search, setSearch] = useState("");
+  const [prioridadeFilter, setPrioridadeFilter] = useState("todas");
+  const [statusFilter, setStatusFilter] = useState("pendentes");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<Tarefa | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleteIndividualDialogOpen, setDeleteIndividualDialogOpen] = useState(false);
-  const [tarefaToDelete, setTarefaToDelete] = useState<number | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [novaTarefaDialogOpen, setNovaTarefaDialogOpen] = useState(false);
 
-  // Multi-seleção
-  const multiSelect = useMultiSelect(tarefas);
+  const filtered = useMemo(() => tarefas.filter(t => {
+    const q = search.toLowerCase();
+    const matchesSearch = !q || t.titulo?.toLowerCase().includes(q) || (t.cliente_nome || "").toLowerCase().includes(q) || (t.descricao || "").toLowerCase().includes(q);
+    const matchesPrio = prioridadeFilter === "todas" || t.prioridade === prioridadeFilter;
+    const matchesStatus = statusFilter === "todas" || (statusFilter === "pendentes" ? !t.concluida : t.concluida);
+    return matchesSearch && matchesPrio && matchesStatus;
+  }), [tarefas, search, prioridadeFilter, statusFilter]);
 
-  // Handlers
-  const handleToggleComplete = (taskId: number) => {
-    const result = tarefaService.toggleTaskCompletion(tarefas, taskId);
-    setTarefas(result.tarefas);
-    
-    if (result.completedTask) {
-      setCompletedTasks(prev => 
-        result.completedTask!.completed 
-          ? [...prev, taskId]
-          : prev.filter(id => id !== taskId)
-      );
-    }
-  };
+  const multiSelect = useMultiSelect(filtered);
 
-  const handleNewTarefa = () => {
-    setNovaTarefaDialogOpen(true);
-  };
-
-  const handleAddTarefa = (tarefaData: TarefaFormData) => {
-    const novaTarefa: Tarefa = {
-      ...tarefaData,
-      id: Date.now(), // ID temporário
-      completed: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+  const stats = useMemo(() => {
+    const pendentes = tarefas.filter(t => !t.concluida);
+    const atrasadas = pendentes.filter(t => t.data_vencimento && isPast(parseISO(t.data_vencimento)) && !isToday(parseISO(t.data_vencimento)));
+    const concluidas = tarefas.filter(t => t.concluida);
+    return {
+      pendentes: pendentes.length,
+      atrasadas: atrasadas.length,
+      hoje: pendentes.filter(t => t.data_vencimento && isToday(parseISO(t.data_vencimento))).length,
+      concluidas: concluidas.length,
     };
+  }, [tarefas]);
 
-    setTarefas(prev => [novaTarefa, ...prev]);
+  // Agrupamento por vencimento (somente pendentes; concluídas vão num grupo único)
+  const groups = useMemo(() => {
+    const g: Record<string, Tarefa[]> = { Atrasadas: [], Hoje: [], Amanhã: [], "Esta semana": [], Futuras: [], "Sem prazo": [], Concluídas: [] };
+    for (const t of filtered) {
+      if (t.concluida) { g.Concluídas.push(t); continue; }
+      if (!t.data_vencimento) { g["Sem prazo"].push(t); continue; }
+      const d = parseISO(t.data_vencimento);
+      if (isToday(d)) g.Hoje.push(t);
+      else if (isPast(d)) g.Atrasadas.push(t);
+      else if (isTomorrow(d)) g.Amanhã.push(t);
+      else if (isThisWeek(d, { weekStartsOn: 1 })) g["Esta semana"].push(t);
+      else g.Futuras.push(t);
+    }
+    return g;
+  }, [filtered]);
+
+  const groupColor: Record<string, string> = {
+    Atrasadas: "text-rose-500", Hoje: "text-orange-500", Amanhã: "text-amber-500",
+    "Esta semana": "text-blue-500", Futuras: "text-muted-foreground/50", "Sem prazo": "text-muted-foreground/50", Concluídas: "text-emerald-500",
   };
 
-  const handleDeleteSelected = () => {
-    setDeleteDialogOpen(true);
-  };
+  useOpenItemFromSearch("/tarefas", !isLoading && tarefas.length > 0);
 
+  const handleSubmit = async (input: TarefaInput, id?: string) => {
+    if (id) await update.mutateAsync({ id, input });
+    else await create.mutateAsync(input);
+  };
+  const openNew = () => { setEditTarget(null); setDialogOpen(true); };
+  const openEdit = (t: Tarefa) => { setEditTarget(t); setDialogOpen(true); };
   const handleConfirmDelete = async () => {
-    setIsDeleting(true);
-    try {
-      const selectedIds = multiSelect.getSelectedItems().map(item => item.id);
-      const result = tarefaService.deleteTarefas(tarefas, selectedIds);
-      
-      if (result.success) {
-        setTarefas(result.tarefas);
-        setCompletedTasks(prev => prev.filter(id => !selectedIds.includes(id)));
-        multiSelect.clearSelection();
-      }
-    } catch (error) {
-      toast({
-        title: "Erro ao excluir",
-        description: "Ocorreu um erro ao excluir as tarefas.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsDeleting(false);
-      setDeleteDialogOpen(false);
-    }
+    await remove.mutateAsync(multiSelect.getSelectedItems().map(i => i.id));
+    multiSelect.clearSelection();
+    setDeleteDialogOpen(false);
   };
 
-  const handleDeleteTarefa = (tarefaId: number) => {
-    setTarefaToDelete(tarefaId);
-    setDeleteIndividualDialogOpen(true);
+  const dueLabel = (dateStr: string) => {
+    const d = parseISO(dateStr);
+    const diff = differenceInCalendarDays(d, new Date());
+    if (diff === 0) return { label: "Hoje", cls: "text-orange-500 font-bold" };
+    if (diff === 1) return { label: "Amanhã", cls: "text-amber-500 font-bold" };
+    if (diff < 0) return { label: `${Math.abs(diff)}d atrasada`, cls: "text-rose-500 font-black" };
+    return { label: format(d, "dd/MM", { locale: ptBR }), cls: "text-muted-foreground font-semibold" };
   };
 
-  const handleConfirmDeleteIndividual = async () => {
-    if (!tarefaToDelete) return;
-    
-    setIsDeleting(true);
-    try {
-      const result = tarefaService.deleteTarefas(tarefas, [tarefaToDelete]);
-      
-      if (result.success) {
-        setTarefas(result.tarefas);
-        setCompletedTasks(prev => prev.filter(id => id !== tarefaToDelete));
-        toast({
-          title: "Tarefa excluída",
-          description: "A tarefa foi excluída com sucesso.",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Erro ao excluir",
-        description: "Ocorreu um erro ao excluir a tarefa.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsDeleting(false);
-      setDeleteIndividualDialogOpen(false);
-      setTarefaToDelete(null);
-    }
+  const renderCard = (t: Tarefa) => {
+    const meta = prioMeta[t.prioridade || "media"] || prioMeta.media;
+    const selected = multiSelect.isSelected(t.id);
+    const due = t.data_vencimento ? dueLabel(t.data_vencimento) : null;
+    return (
+      <div key={t.id} id={`item-${t.id}`}
+        className={cn(
+          "group flex items-center gap-3 p-3.5 rounded-2xl border bg-card/40 transition-all hover:shadow-md",
+          selected ? "border-primary/40 ring-2 ring-primary/10 bg-primary/[0.02]" : "border-black/5 dark:border-border hover:border-black/10 dark:hover:border-white/15",
+          t.concluida && "opacity-60"
+        )}>
+        {/* Checkbox concluir */}
+        <button
+          onClick={() => toggle.mutate({ id: t.id, concluida: !t.concluida })}
+          className={cn(
+            "shrink-0 h-6 w-6 rounded-lg border-2 flex items-center justify-center transition-all",
+            t.concluida ? "bg-emerald-500 border-emerald-500 text-white" : "border-muted-foreground/30 hover:border-emerald-500 hover:bg-emerald-500/10"
+          )}
+          title={t.concluida ? "Reabrir" : "Concluir"}
+        >
+          {t.concluida && <CheckCircle2 className="h-4 w-4" />}
+        </button>
+
+        {/* Selecionar */}
+        <Checkbox checked={selected} onCheckedChange={() => multiSelect.toggleItem(t.id)} className="rounded-md shrink-0" />
+
+        {/* Conteúdo */}
+        <div className="flex-1 min-w-0">
+          <p className={cn("font-bold truncate", t.concluida && "line-through text-muted-foreground")}>{t.titulo}</p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-[11px] text-muted-foreground font-medium">
+            {t.cliente_nome && <span className="flex items-center gap-1 truncate"><User className="h-3 w-3 shrink-0" />{t.cliente_nome}</span>}
+            {due && <span className={cn("flex items-center gap-1", due.cls)}><Clock className="h-3 w-3" />{due.label}</span>}
+          </div>
+        </div>
+
+        {/* Prioridade */}
+        {!t.concluida && (
+          <Badge variant="outline" className={cn("shrink-0 rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-widest", meta.cls)}>{meta.label}</Badge>
+        )}
+
+        {/* Ações */}
+        <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg" onClick={() => openEdit(t)}><Pencil className="h-3.5 w-3.5" /></Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg"><MoreHorizontal className="h-4 w-4" /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="rounded-xl w-40">
+              <DropdownMenuItem className="rounded-lg gap-2" onClick={() => toggle.mutate({ id: t.id, concluida: !t.concluida })}>
+                <CheckCircle2 className="h-4 w-4" /> {t.concluida ? "Reabrir" : "Concluir"}
+              </DropdownMenuItem>
+              <DropdownMenuItem className="rounded-lg gap-2 text-destructive focus:text-destructive" onClick={() => { multiSelect.clearSelection(); multiSelect.toggleItem(t.id); setDeleteDialogOpen(true); }}>
+                <Trash2 className="h-4 w-4" /> Excluir
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+    );
   };
-
-  const handleLoadSampleData = () => {
-    setTarefas(initialTasks);
-    setCompletedTasks([3]);
-    toast({
-      title: "Dados carregados",
-      description: "Dados de exemplo foram carregados com sucesso.",
-    });
-  };
-
-  // Handlers de filtros
-  const handleSearchChange = (value: string) => {
-    setSearchValue(value);
-  };
-
-  const handlePriorityFilterChange = (value: string) => {
-    setPriorityFilter(value);
-  };
-
-  const handleStatusFilterChange = (value: string) => {
-    setStatusFilter(value);
-  };
-
-  const handleSortChange = (value: string) => {
-    setSortBy(value);
-  };
-
-  const handleClearFilters = () => {
-    setSearchValue("");
-    setPriorityFilter("all");
-    setStatusFilter("all");
-    setSortBy("priority");
-  };
-
-  // Filtragem e ordenação
-  const filteredTarefas = tarefaService.filterTarefas(tarefas, {
-    search: searchValue,
-    priority: priorityFilter !== "all" ? priorityFilter : undefined,
-    status: statusFilter !== "all" ? statusFilter : undefined,
-  });
-
-  const sortedTarefas = tarefaService.sortTarefas(filteredTarefas, sortBy as any);
-
-  // Estatísticas
-  const stats = tarefaService.calculateStats(tarefas);
-
-  // Contagem de filtros ativos
-  const activeFiltersCount = [
-    searchValue !== "",
-    priorityFilter !== "all",
-    statusFilter !== "all"
-  ].filter(Boolean).length;
 
   return (
-    <div className="flex-1 p-4 md:p-8 space-y-8 md:space-y-12 overflow-x-hidden entry-animate">
-      {/* Page Header Moderno */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div className="space-y-2">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-primary/10">
-              <Calendar className="h-6 w-6 md:h-8 md:w-8 text-primary" />
-            </div>
-            <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/60 drop-shadow-sm">
-              Tarefas e Gamificação
-            </h1>
+    <div className="flex-1 p-4 md:p-6 space-y-5 overflow-x-hidden">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-purple-500/10 text-purple-500 border border-purple-500/20"><CheckSquare className="h-5 w-5" /></div>
+          <div>
+            <h1 className="text-2xl font-black tracking-tight">Tarefas</h1>
+            <p className="text-sm text-muted-foreground">Organize e acompanhe seus afazeres.</p>
           </div>
-          <p className="text-sm md:text-lg text-muted-foreground font-medium max-w-2xl">
-            Pratique a alta performance, conquiste pontos e mantenha seu fluxo de trabalho impecável.
-          </p>
         </div>
-        
-        <div className="flex items-center gap-3 glass-morphism p-2 rounded-2xl border border-black/5 dark:border-border bg-black/[0.02] dark:bg-muted/30">
-          <Button 
-            onClick={handleNewTarefa}
-            size="lg"
-            className="rounded-xl shadow-premium h-12 px-8 font-black uppercase text-xs tracking-widest bg-primary hover:bg-primary/90"
-          >
-            <Plus className="mr-2 h-5 w-5" />
-            Nova Tarefa
+        <div className="flex items-center gap-2">
+          {!multiSelect.isNoneSelected && (
+            <Button variant="destructive" onClick={() => setDeleteDialogOpen(true)} className="rounded-xl h-10 gap-2 font-bold">
+              <Trash2 className="h-4 w-4" /> Excluir ({multiSelect.selectedCount})
+            </Button>
+          )}
+          <Button onClick={openNew} className="rounded-xl h-10 gap-2 font-bold shadow-sm">
+            <Plus className="h-4 w-4" /> Nova Tarefa
           </Button>
         </div>
       </div>
 
-      {/* Grid de Estatísticas / Gamificação */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="glass-card p-6 rounded-3xl shadow-premium border border-black/5 dark:border-border bg-card hover-lift group relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-            <Target className="h-20 w-20" />
-          </div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mb-2">Total de Pontos</p>
-          <p className="text-4xl font-black text-foreground group-hover:text-primary transition-colors tracking-tighter">2.450</p>
-          <p className="text-[9px] font-black text-primary bg-primary/10 px-3 py-1 rounded-full mt-2 inline-block uppercase tracking-widest">Nível: Master</p>
-        </div>
-        
-        <div className="glass-card p-6 rounded-3xl shadow-premium border border-black/5 dark:border-border bg-card hover-lift group">
-          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mb-2">Concluídas Hoje</p>
-          <p className="text-4xl font-black text-foreground tracking-tighter">{stats.completed ?? 0}</p>
-          <p className="text-[9px] font-black text-emerald-500 bg-emerald-500/10 px-3 py-1 rounded-full mt-2 inline-block uppercase tracking-widest">+{(stats.completed ?? 0) * 50} pontos</p>
-        </div>
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+        <StatCard icon={ListChecks} label="Pendentes" value={stats.pendentes} color="text-purple-500" bg="bg-purple-500/10" />
+        <StatCard icon={AlertTriangle} label="Atrasadas" value={stats.atrasadas} color="text-rose-500" bg="bg-rose-500/10" />
+        <StatCard icon={Flame} label="Vencem hoje" value={stats.hoje} color="text-orange-500" bg="bg-orange-500/10" />
+        <StatCard icon={CheckCircle2} label="Concluídas" value={stats.concluidas} color="text-emerald-500" bg="bg-emerald-500/10" />
+      </div>
 
-        <div className="md:col-span-2 glass-card p-6 rounded-3xl overflow-hidden relative border border-primary/20 bg-primary/[0.02] dark:bg-primary/5">
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-primary/60 mb-1">Missão Semanal</p>
-              <h3 className="text-xl font-black tracking-tight">Finalizar 15 Prazos</h3>
-            </div>
-            <Badge className="bg-primary hover:bg-primary py-1.5 px-4 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-primary/20">500 XP</Badge>
-          </div>
-          <div className="space-y-3 pt-2">
-            <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-primary">
-              <span>Progresso da Missão</span>
-              <span>12 / 15</span>
-            </div>
-            <div className="w-full h-3 bg-black/5 dark:bg-muted/30 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-primary to-primary/60 w-[80%] rounded-full shadow-[0_0_15px_rgba(var(--primary),0.3)]" />
-            </div>
-          </div>
+      {/* Filtros */}
+      <div className="flex flex-col md:flex-row gap-3">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+          <Input placeholder="Buscar por título, cliente ou descrição..." value={search}
+            onChange={(e) => setSearch(e.target.value)} className="pl-10 h-11 rounded-xl bg-card/40 border-black/5 dark:border-border" />
+        </div>
+        <div className="flex gap-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full md:w-36 h-11 rounded-xl bg-card/40 border-black/5 dark:border-border font-bold"><SelectValue /></SelectTrigger>
+            <SelectContent className="rounded-xl">
+              <SelectItem value="pendentes">Pendentes</SelectItem>
+              <SelectItem value="concluidas">Concluídas</SelectItem>
+              <SelectItem value="todas">Todas</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={prioridadeFilter} onValueChange={setPrioridadeFilter}>
+            <SelectTrigger className="w-full md:w-36 h-11 rounded-xl bg-card/40 border-black/5 dark:border-border font-bold"><SelectValue placeholder="Prioridade" /></SelectTrigger>
+            <SelectContent className="rounded-xl">
+              <SelectItem value="todas">Toda prioridade</SelectItem>
+              <SelectItem value="alta">Alta</SelectItem>
+              <SelectItem value="media">Média</SelectItem>
+              <SelectItem value="baixa">Baixa</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
-      {/* Main Content Area */}
-      <div className="glass-card rounded-[2.5rem] shadow-premium border border-black/5 dark:border-border overflow-hidden bg-card/40">
-        <div className="p-8 border-b border-black/5 dark:border-border bg-black/[0.01] dark:bg-white/2 space-y-6">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-            <h3 className="text-2xl font-black tracking-tight">Lista de Afazeres</h3>
-            <TarefasFilters
-              searchValue={searchValue}
-              priorityFilter={priorityFilter}
-              statusFilter={statusFilter}
-              sortBy={sortBy}
-              onSearchChange={handleSearchChange}
-              onPriorityFilterChange={handlePriorityFilterChange}
-              onStatusFilterChange={handleStatusFilterChange}
-              onSortChange={handleSortChange}
-              onClearFilters={handleClearFilters}
-              activeFiltersCount={activeFiltersCount}
-            />
+      {/* Lista */}
+      {isLoading ? (
+        <div className="space-y-2.5">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-16 rounded-2xl bg-black/[0.03] dark:bg-muted/20 animate-pulse" />)}</div>
+      ) : filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center text-center py-20 gap-4">
+          <div className="p-5 rounded-full bg-purple-500/10 text-purple-500"><CheckSquare className="h-10 w-10 opacity-70" /></div>
+          <div>
+            <p className="font-black text-lg">Nenhuma tarefa {tarefas.length > 0 ? "encontrada" : "cadastrada"}</p>
+            <p className="text-sm text-muted-foreground mt-1">{tarefas.length > 0 ? "Ajuste a busca ou os filtros." : "Comece criando sua primeira tarefa."}</p>
           </div>
+          {tarefas.length === 0 && <Button onClick={openNew} className="rounded-xl gap-2 font-bold"><Plus className="h-4 w-4" /> Nova Tarefa</Button>}
         </div>
-
-        {tarefas.length === 0 ? (
-          <TarefasEmptyState
-            onNewTarefa={handleNewTarefa}
-            onLoadSampleData={handleLoadSampleData}
-          />
-        ) : (
-          <div className="p-4 md:p-8">
-            {sortedTarefas.length === 0 ? (
-              <TarefasEmptyState
-                onNewTarefa={handleNewTarefa}
-                onLoadSampleData={handleLoadSampleData}
-                isFiltered={true}
-                onClearFilters={handleClearFilters}
-              />
-            ) : (
-              <div className="space-y-6">
-                {/* Controles de seleção premium */}
-                <div className="flex items-center justify-between p-6 bg-black/[0.03] dark:bg-muted/30 rounded-3xl border border-black/5 dark:border-border shadow-inner">
-                  <div className="flex items-center gap-6">
-                    <Checkbox
-                      checked={multiSelect.isAllSelected}
-                      onCheckedChange={() => 
-                        multiSelect.isAllSelected ? multiSelect.clearSelection() : multiSelect.selectAll()
-                      }
-                      className="h-6 w-6 border-2 border-black/10 dark:border-border rounded-lg data-[state=checked]:bg-primary data-[state=checked]:border-primary transition-all shadow-sm"
-                    />
-                    <span className="text-xs font-black text-muted-foreground/60 uppercase tracking-widest">
-                      {multiSelect.selectedCount > 0 ? (
-                        <span className="text-primary font-black">{multiSelect.selectedCount} tarefas selecionadas</span>
-                      ) : (
-                        "Selecionar todas as tarefas"
-                      )}
-                    </span>
-                  </div>
-                  {multiSelect.selectedCount > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={multiSelect.clearSelection}
-                      className="font-black text-[10px] uppercase tracking-widest text-red-500 hover:bg-red-500/10 rounded-xl h-10 px-4"
-                    >
-                      Limpar seleção
-                    </Button>
-                  )}
-                </div>
-
-                <TarefasList
-                  tarefas={sortedTarefas}
-                  selectedIds={multiSelect.getSelectedItems().map(item => item.id)}
-                  completedIds={completedTasks}
-                  onToggleSelect={multiSelect.toggleItem}
-                  onToggleComplete={handleToggleComplete}
-                  onDelete={handleDeleteTarefa}
-                  getPriorityColor={tarefaService.getPriorityColor}
-                />
+      ) : (
+        <div className="space-y-5">
+          <div className="flex items-center gap-3 px-1">
+            <Checkbox checked={multiSelect.isAllSelected} onCheckedChange={() => multiSelect.isAllSelected ? multiSelect.clearSelection() : multiSelect.selectAll()} className="rounded-md" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
+              {multiSelect.selectedCount > 0 ? `${multiSelect.selectedCount} selecionada(s)` : "Selecionar todas"}
+            </span>
+          </div>
+          {Object.entries(groups).map(([label, items]) =>
+            items.length === 0 ? null : (
+              <div key={label} className="space-y-2">
+                <p className={cn("text-[10px] font-black uppercase tracking-widest px-1 flex items-center gap-2", groupColor[label])}>
+                  {label} <span className="text-muted-foreground/30">·</span> <span className="opacity-70">{items.length}</span>
+                </p>
+                <div className="space-y-2">{items.map(renderCard)}</div>
               </div>
-            )}
-          </div>
-        )}
-      </div>
+            )
+          )}
+        </div>
+      )}
 
-      {/* Modal de confirmação de exclusão em lote */}
+      <NovaTarefaDialog open={dialogOpen} onOpenChange={setDialogOpen} clientes={clientes} tarefa={editTarget} onSubmit={handleSubmit} />
+
       <DeleteConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         onConfirm={handleConfirmDelete}
         title="Excluir Tarefas"
-        description={`Tem certeza que deseja excluir ${multiSelect.selectedCount} tarefa(s)? Apenas tarefas concluídas podem ser excluídas.`}
-        isLoading={isDeleting}
-      />
-
-      {/* Modal de confirmação de exclusão individual */}
-      <DeleteConfirmDialog
-        open={deleteIndividualDialogOpen}
-        onOpenChange={setDeleteIndividualDialogOpen}
-        onConfirm={handleConfirmDeleteIndividual}
-        title="Excluir Tarefa"
-        description="Tem certeza que deseja excluir esta tarefa? Esta ação não pode ser desfeita."
-        isLoading={isDeleting}
-      />
-
-      {/* Modal de nova tarefa */}
-      <NovaTarefaDialog
-        open={novaTarefaDialogOpen}
-        onOpenChange={setNovaTarefaDialogOpen}
-        onAddTarefa={handleAddTarefa}
+        description={`Tem certeza que deseja excluir ${multiSelect.selectedCount} tarefa(s)? Esta ação pode ser desfeita na lixeira.`}
+        isLoading={remove.isPending}
       />
     </div>
   );
