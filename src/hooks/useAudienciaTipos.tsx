@@ -28,7 +28,7 @@ export function useAudienciaTipos() {
   const readLocal = useCallback((): string[] => {
     try {
       const raw = localStorage.getItem(lsKey);
-      if (raw) { const p = JSON.parse(raw); if (Array.isArray(p)) return p; }
+      if (raw) { const p = JSON.parse(raw); if (Array.isArray(p) && p.length > 0) return p; }
     } catch { /* ignore */ }
     return DEFAULT_TIPOS;
   }, [lsKey]);
