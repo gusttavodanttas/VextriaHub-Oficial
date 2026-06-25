@@ -175,10 +175,10 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
         vara: editData.vara,
         comarca: editData.comarca,
         valorCausa: editData.valor_causa,
-      } as any);
+      } as Record<string, any>);
       toast({ title: 'Processo atualizado', description: 'Alterações salvas com sucesso.' });
       setEditing(false);
-    } catch (e: any) {
+    } catch (e: unknown) {
       toast({ title: 'Erro ao salvar', description: e.message, variant: 'destructive' });
     } finally {
       setSaving(false);
@@ -208,7 +208,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
       if (updateError) throw updateError;
       queryClient.invalidateQueries({ queryKey: ['processos'] });
       toast({ title: 'Cliente vinculado', description: `${nomeCliente} vinculado como cliente deste processo.` });
-    } catch (e: any) {
+    } catch (e: unknown) {
       toast({ title: 'Erro', description: e.message, variant: 'destructive' });
     } finally {
       setSavingCliente(false);
@@ -223,7 +223,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
       .select('id, data:data_movimentacao, texto:descricao, tipo, metadata')
       .eq('processo_id', processo.id)
       .order('data_movimentacao', { ascending: false });
-    if (!error && data) setMovements(data as any);
+    if (!error && data) setMovements(data as Record<string, any>[]);
     setLoadingMovements(false);
   }, [processo?.id]);
 
@@ -258,7 +258,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
     setSyncing(true);
     try {
       const { data, error } = await supabase.functions.invoke('fetch-processo', {
-        body: { numeroProcesso: processo.numeroProcesso, oab: (profile as any)?.oab, uf: (profile as any)?.oab_uf },
+        body: { numeroProcesso: processo.numeroProcesso, oab: (profile as Record<string, any>)?.oab, uf: (profile as Record<string, any>)?.oab_uf },
       });
       if (error || !data || data.error) {
         toast({ title: 'Sem dados disponíveis', description: 'Não foi possível buscar andamentos no momento.', variant: 'destructive' });
@@ -274,7 +274,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
         } else {
           toast({ title: 'Já atualizado', description: 'Todos os andamentos já estavam registrados.' });
         }
-        const updatePayload: any = { sincronizado_em: new Date().toISOString() };
+        const updatePayload: Record<string, any> = { sincronizado_em: new Date().toISOString() };
         if (data.titulo && data.titulo !== 'Processo' && (!processo.titulo || processo.titulo.includes('(Auto)'))) updatePayload.titulo = data.titulo;
         if (data.autor && data.autor !== 'Não identificado' && !processo.parteAutora) updatePayload.parte_autora = data.autor;
         if (data.reu && data.reu !== 'Não identificado' && !processo.requerido) updatePayload.requerido = data.reu;
@@ -417,7 +417,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
     setAddLoading(false);
   };
 
-  const toggleTarefa = async (t: any) => {
+  const toggleTarefa = async (t: Record<string, any>) => {
     const newStatus = !t.concluida;
     const { error } = await supabase.from('tarefas').update({ concluida: newStatus, status: newStatus ? 'concluida' : 'pendente' }).eq('id', t.id);
     if (!error) fetchSubData('tarefas');
@@ -452,7 +452,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
   // ── Tratar publicação (criar prazo/tarefa a partir dela) ──
   const [tratandoPubId, setTratandoPubId] = useState<string | null>(null);
 
-  const handleTratarPub = async (e: React.FormEvent<HTMLFormElement>, pub: any) => {
+  const handleTratarPub = async (e: React.FormEvent<HTMLFormElement>, pub: Record<string, any>) => {
     e.preventDefault();
     if (!processo?.id || !user) return;
     setAddLoading(true);
@@ -460,7 +460,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
     const tipo = fd.get('tipo_tratamento') as string;
     const titulo = (fd.get('titulo') as string || '').trim();
     if (!titulo) { toast({ title: 'Título obrigatório', variant: 'destructive' }); setAddLoading(false); return; }
-    let insertError: any = null;
+    let insertError: unknown = null;
     if (tipo === 'prazo') {
       const { error } = await supabase.from('prazos').insert({
         user_id: user.id, office_id: user.office_id, processo_id: processo.id,
@@ -568,7 +568,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
     </form>
   );
 
-  const EmptySub = ({ icon: Icon, label }: { icon: any; label: string }) => (
+  const EmptySub = ({ icon: Icon, label }: { icon: React.ComponentType; label: string }) => (
     <div className="py-16 flex flex-col items-center justify-center text-center space-y-3 opacity-30">
       <Icon className="h-10 w-10" />
       <p className="font-black uppercase tracking-widest text-xs">Nenhum(a) {label}</p>

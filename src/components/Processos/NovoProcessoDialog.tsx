@@ -36,7 +36,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface NovoProcessoDialogProps {
   // Opcional: se não passado, usamos useProcessosV2.create direto
-  onAddProcesso?: (processo: any) => Promise<any> | any;
+  onAddProcesso?: (processo: Record<string, any>) => Promise<any> | any;
   trigger?: React.ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -59,7 +59,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
   const { addMovimentacao, create } = useProcessosV2();
 
   // Wrapper: usa o callback do pai se existir; senão chama create() direto.
-  const addProcesso = async (proc: any) => {
+  const addProcesso = async (proc: Record<string, any>) => {
     if (onAddProcesso) {
       return await onAddProcesso(proc);
     }
@@ -90,8 +90,8 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
     tribunal: initialData?.tribunal || '',
     vara: initialData?.vara || '',
     comarca: initialData?.comarca || '',
-    requerido: initialData?.requerido || (initialData as any)?.reu || '',
-    parteAutora: (initialData as any)?.parteAutora || (initialData as any)?.autor || '',
+    requerido: initialData?.requerido || (initialData as Record<string, any>)?.reu || '',
+    parteAutora: (initialData as Record<string, any>)?.parteAutora || (initialData as Record<string, any>)?.autor || '',
     segredoJustica: false,
     justicaGratuita: false
   });
@@ -100,12 +100,12 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
   // Aceita tanto chaves canônicas (parteAutora/requerido) quanto raw da edge function (autor/reu).
   React.useEffect(() => {
     if (!initialData) return;
-    const i: any = initialData;
+    const i = initialData as Record<string, any>;
     setFormData((prev) => ({
       ...prev,
       titulo: i.titulo || prev.titulo || '',
       cliente: i.cliente || prev.cliente || '',
-      clienteId: i.clienteId || (prev as any).clienteId,
+      clienteId: i.clienteId || (prev as Record<string, any>).clienteId,
       status: i.status || prev.status || 'Em andamento',
       proximoPrazo: i.proximoPrazo || prev.proximoPrazo || '',
       descricao: i.descricao || prev.descricao || '',
@@ -118,7 +118,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
       vara: i.vara || prev.vara || '',
       comarca: i.comarca || prev.comarca || '',
       requerido: i.requerido || i.reu || prev.requerido || '',
-      parteAutora: i.parteAutora || i.autor || (prev as any).parteAutora || '',
+      parteAutora: i.parteAutora || i.autor || (prev as Record<string, any>).parteAutora || '',
       segredoJustica: !!i.segredoJustica,
       justicaGratuita: !!i.justicaGratuita,
       // Extras que o useProcessosV2.create entende — não aparecem no form mas vão pro create
@@ -130,7 +130,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
       nivelSigilo: i.nivelSigilo,
       ultimoAndamento: i.ultimoAndamento,
       andamentos: Array.isArray(i.andamentos) ? i.andamentos : [],
-    } as any));
+    } as Record<string, any>));
     setStep('form');
   }, [initialData, user?.id]);
 
@@ -153,7 +153,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
       parteAutora: '',
       segredoJustica: false,
       justicaGratuita: false,
-    } as any);
+    } as Record<string, any>);
     setStep('choice');
     setCnjInput('');
   };
@@ -164,7 +164,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
     
     setIsLoading(true);
     try {
-      const fd = formData as any;
+      const fd = formData as Record<string, any>;
 
       // Rede de segurança contra duplicata ao salvar (ex: CNJ digitado manualmente)
       const cnjLimpo = (fd.numeroProcesso || '').replace(/\D/g, '');
@@ -255,8 +255,8 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
       const { data, error } = await supabase.functions.invoke('fetch-processo', {
         body: {
           numeroProcesso: cnjInput,
-          oab: (profile as any)?.oab,
-          uf: (profile as any)?.oab_uf,
+          oab: (profile as Record<string, any>)?.oab,
+          uf: (profile as Record<string, any>)?.oab_uf,
         },
       });
 
@@ -285,7 +285,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
           ultimoAndamento: data.ultimoAndamento,
           andamentos: Array.isArray(data.andamentos) ? data.andamentos : [],
           descricao: `Auto-preenchido via CNJ. Última movimentação: ${data.ultimoAndamento?.descricao?.slice(0, 200) || 'N/A'}`,
-        } as any));
+        } as Record<string, any>));
         const semPartes = (!data.autor || data.autor === 'Não identificado')
           && (!data.reu || data.reu === 'Não identificado');
         setPartesNaoLocalizadas(semPartes);
@@ -311,7 +311,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
     }
   };
 
-  const handleImportedSync = async (processes: any[]) => {
+  const handleImportedSync = async (processes: Record<string, any>[]) => {
     try {
       for (const proc of processes) {
         // Passa o objeto completo: useProcessosV2.create já lida com
@@ -334,7 +334,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
     }
   };
 
-  const handleChange = (field: keyof NovoProcessoForm, value: any) => {
+  const handleChange = (field: keyof NovoProcessoForm, value: any) => { // value can be string|boolean|etc
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -561,7 +561,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="parteAutora">Polo Ativo (Autor / Requerente)</Label>
-                            <Input id="parteAutora" value={(formData as any).parteAutora || ''} onChange={(e) => handleChange('parteAutora' as any, e.target.value)} placeholder="Não localizado — preencha manualmente" className="h-11 rounded-xl" />
+                            <Input id="parteAutora" value={(formData as Record<string, any>).parteAutora || ''} onChange={(e) => handleChange('parteAutora' as any, e.target.value)} placeholder="Não localizado — preencha manualmente" className="h-11 rounded-xl" />
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="requerido">Polo Passivo (Réu / Requerido)</Label>
