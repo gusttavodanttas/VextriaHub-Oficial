@@ -28,7 +28,8 @@ interface Prazo {
   id: string;
   titulo: string;
   descricao?: string | null;
-  data_vencimento: string;
+  data_vencimento?: string | null;
+  data_fim_prazo?: string | null;
   prioridade: 'alta' | 'media' | 'baixa';
   status: string;
   processo_id?: string | null;
@@ -36,11 +37,18 @@ interface Prazo {
   office_id?: string | null;
 }
 
+// Suporta prazos manuais (data_vencimento) e de publicações (data_fim_prazo)
+function getDataPrazo(prazo: Prazo): string | null {
+  return prazo.data_vencimento || prazo.data_fim_prazo || null;
+}
+
 type Urgency = 'vencido' | 'hoje' | 'critico' | 'normal' | 'concluido';
 
 function getUrgency(prazo: Prazo): Urgency {
   if (prazo.status === 'concluido') return 'concluido';
-  const days = differenceInCalendarDays(new Date(prazo.data_vencimento), startOfDay(new Date()));
+  const data = getDataPrazo(prazo);
+  if (!data) return 'normal';
+  const days = differenceInCalendarDays(new Date(data), startOfDay(new Date()));
   if (days < 0) return 'vencido';
   if (days === 0) return 'hoje';
   if (days <= 3) return 'critico';
@@ -63,9 +71,11 @@ const PRIORITY_CONFIG: Record<string, { label: string; color: string }> = {
   baixa: { label: 'Baixa', color: 'bg-slate-500/10 text-slate-500 border-slate-500/20' },
 };
 
-function getDaysLabel(data_vencimento: string, status: string): string {
-  if (status === 'concluido') return 'Concluído';
-  const days = differenceInCalendarDays(new Date(data_vencimento), startOfDay(new Date()));
+function getDaysLabel(prazo: Prazo): string {
+  if (prazo.status === 'concluido') return 'Concluído';
+  const data = getDataPrazo(prazo);
+  if (!data) return '—';
+  const days = differenceInCalendarDays(new Date(data), startOfDay(new Date()));
   if (days < 0) return `Vencido há ${Math.abs(days)}d`;
   if (days === 0) return 'Vence hoje';
   if (days === 1) return 'Amanhã';
@@ -99,7 +109,7 @@ export default function Prazos() {
       const query = supabase
         .from('prazos')
         .select('*')
-        .order('data_vencimento', { ascending: true });
+        .order('data_fim_prazo', { ascending: true, nullsFirst: false });
       if (user.office_id) {
         query.eq('office_id', user.office_id);
       } else {
@@ -266,7 +276,6 @@ export default function Prazos() {
             <div className="space-y-2">
               {items.map(prazo => {
                 const priCfg = PRIORITY_CONFIG[prazo.prioridade] || PRIORITY_CONFIG.media;
-                const daysLabel = getDaysLabel(prazo.data_vencimento, prazo.status);
                 const isConcluido = prazo.status === 'concluido';
 
                 return (
@@ -294,12 +303,14 @@ export default function Prazos() {
                       {prazo.descricao && (
                         <p className="text-xs text-muted-foreground truncate max-w-md">{prazo.descricao}</p>
                       )}
-                      <div className="flex items-center gap-3 mt-1.5 text-[11px] text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {format(new Date(prazo.data_vencimento), "dd 'de' MMMM", { locale: ptBR })}
-                        </span>
-                      </div>
+                      {getDataPrazo(prazo) && (
+                        <div className="flex items-center gap-3 mt-1.5 text-[11px] text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {format(new Date(getDataPrazo(prazo)!), "dd 'de' MMMM", { locale: ptBR })}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Right: days pill + actions */}
@@ -308,7 +319,7 @@ export default function Prazos() {
                         'text-[11px] font-black px-3 py-1 rounded-full border whitespace-nowrap',
                         cfg.badge
                       )}>
-                        {daysLabel}
+                        {getDaysLabel(prazo)}
                       </span>
 
                       {/* Quick action: mark done */}
