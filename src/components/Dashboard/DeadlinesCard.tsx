@@ -12,7 +12,7 @@ import { ptBR } from "date-fns/locale";
 interface Prazo {
   id: string;
   titulo: string;
-  data_fim_prazo: string | null;
+  data_vencimento: string | null;
   prioridade: string;
 }
 
@@ -35,12 +35,12 @@ export function DeadlinesCard({ onOpenSheet }: { onOpenSheet?: () => void }) {
       const next7 = new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
       const { data } = await supabase
         .from("prazos")
-        .select("id, titulo, data_fim_prazo, prioridade")
+        .select("id, titulo, data_vencimento, prioridade")
         .eq("office_id", user.office_id)
-        .eq("status", "pendente")
-        .gte("data_fim_prazo", today)
-        .lte("data_fim_prazo", next7)
-        .order("data_fim_prazo", { ascending: true })
+        .eq("deletado", false)
+        .gte("data_vencimento", today)
+        .lte("data_vencimento", next7)
+        .order("data_vencimento", { ascending: true })
         .limit(5);
       setPrazos((data || []) as Prazo[]);
       setLoading(false);
@@ -49,7 +49,7 @@ export function DeadlinesCard({ onOpenSheet }: { onOpenSheet?: () => void }) {
   }, [user?.office_id]);
 
   const urgentes = prazos.filter(p => {
-    const diff = differenceInDays(parseISO(p.data_fim_prazo!), new Date());
+    const diff = differenceInDays(parseISO(p.data_vencimento!), new Date());
     return diff <= 2;
   });
   const hasUrgent = urgentes.length > 0;
@@ -115,7 +115,7 @@ export function DeadlinesCard({ onOpenSheet }: { onOpenSheet?: () => void }) {
           <>
             {prazos.map(p => {
               const m = prioMeta[p.prioridade] ?? prioMeta.media;
-              const day = getDaysLabel(p.data_fim_prazo!);
+              const day = getDaysLabel(p.data_vencimento!);
               return (
                 <button
                   key={p.id}
@@ -132,7 +132,7 @@ export function DeadlinesCard({ onOpenSheet }: { onOpenSheet?: () => void }) {
                   <div className="text-right shrink-0">
                     <p className={cn("text-[11px]", day.cls)}>{day.label}</p>
                     <p className="text-[9px] text-muted-foreground/50">
-                      {format(parseISO(p.data_fim_prazo!), "dd/MM", { locale: ptBR })}
+                      {format(parseISO(p.data_vencimento!), "dd/MM", { locale: ptBR })}
                     </p>
                   </div>
                 </button>

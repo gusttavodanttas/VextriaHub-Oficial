@@ -100,45 +100,31 @@ export function GlobalSearchBar() {
       "text-emerald-600 bg-emerald-500/10";
 
     try {
-      // Usa operador regex ~* (case-insensitive) do Postgres — sem % na URL, sem 400
       const [
-        { data: procTit }, { data: procCli },
+        { data: procTit },
         { data: cli },
         { data: praz },
         { data: aud },
         { data: tar },
       ] = await Promise.all([
-        supabase.from("processos").select("id, titulo, numero_processo, cliente, area")
-          .eq("office_id", oid).eq("deletado", false).filter("titulo", "~*", escaped).limit(3),
-        supabase.from("processos").select("id, titulo, numero_processo, cliente, area")
-          .eq("office_id", oid).eq("deletado", false).filter("cliente", "~*", escaped).limit(3),
+        supabase.from("processos").select("id, titulo, numero_processo")
+          .eq("office_id", oid).eq("deletado", false).filter("titulo", "~*", escaped).limit(5),
         supabase.from("clientes").select("id, nome, email, tipo_cliente")
           .eq("office_id", oid).eq("deletado", false).filter("nome", "~*", escaped).limit(5),
-        supabase.from("prazos").select("id, titulo, prioridade, data_fim_prazo")
-          .eq("office_id", oid).eq("status", "pendente").filter("titulo", "~*", escaped).limit(4),
-        supabase.from("audiencias").select("id, tipo_audiencia, local, data_audiencia")
-          .eq("office_id", oid).eq("deletado", false).filter("tipo_audiencia", "~*", escaped).limit(4),
+        supabase.from("prazos").select("id, titulo, prioridade, data_vencimento")
+          .eq("office_id", oid).eq("deletado", false).filter("titulo", "~*", escaped).limit(4),
+        supabase.from("audiencias").select("id, titulo, local, data_audiencia")
+          .eq("office_id", oid).eq("deletado", false).filter("titulo", "~*", escaped).limit(4),
         supabase.from("tarefas").select("id, titulo, prioridade, data_vencimento")
           .eq("office_id", oid).eq("deletado", false).eq("concluida", false).filter("titulo", "~*", escaped).limit(4),
       ]);
 
-      /* Merge processos sem duplicar */
-      const seenProc = new Set<string>();
-      const processos: Result[] = [];
-      for (const p of [...(procTit || []), ...(procCli || [])]) {
-        if (seenProc.has(p.id)) continue;
-        seenProc.add(p.id);
-        processos.push({
-          id: p.id, group: "processos", label: p.titulo,
-          sub: p.cliente, meta: p.numero_processo || undefined,
-          url: "/processos", badge: p.area || undefined,
-          badgeColor: "text-blue-500 bg-blue-500/10",
-        });
-        if (processos.length >= 4) break;
-      }
-
       setResults([
-        ...processos,
+        ...(procTit || []).map(p => ({
+          id: p.id, group: "processos" as Group, label: p.titulo,
+          meta: p.numero_processo || undefined,
+          url: "/processos", badgeColor: "text-blue-500 bg-blue-500/10",
+        })),
         ...(cli || []).map(c => ({
           id: c.id, group: "clientes" as Group, label: c.nome,
           sub: c.email || undefined, url: `/clientes?id=${c.id}`,
@@ -146,13 +132,13 @@ export function GlobalSearchBar() {
         })),
         ...(praz || []).map(p => ({
           id: p.id, group: "prazos" as Group, label: p.titulo,
-          sub: p.data_fim_prazo
-            ? `Vence ${format(parseISO(p.data_fim_prazo), "dd 'de' MMM", { locale: ptBR })}`
+          sub: p.data_vencimento
+            ? `Vence ${format(parseISO(p.data_vencimento), "dd 'de' MMM", { locale: ptBR })}`
             : undefined,
           url: "/prazos", badge: p.prioridade || undefined, badgeColor: pc(p.prioridade),
         })),
         ...(aud || []).map(a => ({
-          id: a.id, group: "audiencias" as Group, label: a.tipo_audiencia || "Audiência",
+          id: a.id, group: "audiencias" as Group, label: a.titulo || "Audiência",
           sub: a.local || undefined,
           meta: a.data_audiencia
             ? format(parseISO(a.data_audiencia), "dd/MM · HH:mm", { locale: ptBR })

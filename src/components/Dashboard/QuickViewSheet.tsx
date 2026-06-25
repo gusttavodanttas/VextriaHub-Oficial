@@ -55,11 +55,11 @@ function PrazosView({ officeId }: { officeId: string }) {
       const today = new Date().toISOString().split("T")[0];
       const { data } = await supabase
         .from("prazos")
-        .select("id, titulo, data_fim_prazo, prioridade, status")
+        .select("id, titulo, data_vencimento, prioridade, status")
         .eq("office_id", officeId)
-        .eq("status", "pendente")
-        .gte("data_fim_prazo", today)
-        .order("data_fim_prazo", { ascending: true })
+        .eq("deletado", false)
+        .gte("data_vencimento", today)
+        .order("data_vencimento", { ascending: true })
         .limit(20);
       setItems(data || []);
       setLoading(false);
@@ -86,7 +86,7 @@ function PrazosView({ officeId }: { officeId: string }) {
   return (
     <div className="space-y-2">
       {items.map((p) => {
-        const day = getDaysLabel(p.data_fim_prazo);
+        const day = getDaysLabel(p.data_vencimento);
         const pc = prioColor[p.prioridade] || prioColor.media;
         return (
           <div key={p.id}
@@ -102,7 +102,7 @@ function PrazosView({ officeId }: { officeId: string }) {
             <div className="text-right shrink-0 space-y-0.5">
               <p className={cn("text-xs", day.cls)}>{day.label}</p>
               <p className="text-[10px] text-muted-foreground/50">
-                {format(parseISO(p.data_fim_prazo), "dd/MM", { locale: ptBR })}
+                {format(parseISO(p.data_vencimento), "dd/MM", { locale: ptBR })}
               </p>
             </div>
           </div>
@@ -126,7 +126,7 @@ function AudienciasView({ officeId }: { officeId: string }) {
     const fetch = async () => {
       const { data } = await supabase
         .from("audiencias")
-        .select("id, tipo_audiencia, data_audiencia, local, processo_id")
+        .select("id, titulo, data_audiencia, local, processo_id")
         .eq("office_id", officeId)
         .eq("deletado", false)
         .gte("data_audiencia", new Date().toISOString())
@@ -158,7 +158,7 @@ function AudienciasView({ officeId }: { officeId: string }) {
               </p>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold truncate">{a.tipo_audiencia || "Audiência"}</p>
+              <p className="text-sm font-bold truncate">{a.titulo || "Audiência"}</p>
               {a.local && (
                 <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
                   <MapPin className="h-3 w-3 shrink-0" /> {a.local}

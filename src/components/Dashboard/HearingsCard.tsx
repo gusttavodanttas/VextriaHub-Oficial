@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 
 interface Audiencia {
   id: string;
-  tipo_audiencia?: string | null;
+  titulo: string | null;
   data_audiencia: string;
   local?: string | null;
 }
@@ -29,7 +29,7 @@ export function HearingsCard({ onOpenSheet }: { onOpenSheet?: () => void }) {
       const next7 = new Date(Date.now() + 7 * 86400000).toISOString();
       const { data } = await supabase
         .from("audiencias")
-        .select("id, tipo_audiencia, data_audiencia, local")
+        .select("id, titulo, data_audiencia, local")
         .eq("office_id", user.office_id)
         .eq("deletado", false)
         .gte("data_audiencia", now)
@@ -108,7 +108,7 @@ export function HearingsCard({ onOpenSheet }: { onOpenSheet?: () => void }) {
                   </p>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold truncate">{a.tipo_audiencia || "Audiência"}</p>
+                  <p className="text-xs font-bold truncate">{a.titulo || "Audiência"}</p>
                   {a.local && (
                     <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
                       <MapPin className="h-2.5 w-2.5 shrink-0" /> {a.local}

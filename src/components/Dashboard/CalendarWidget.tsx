@@ -27,18 +27,18 @@ export function CalendarWidget() {
       const end = new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString().split("T")[0];
 
       const [{ data: prazos }, { data: audiencias }] = await Promise.all([
-        supabase.from("prazos").select("titulo, data_fim_prazo")
-          .eq("office_id", user.office_id).eq("status", "pendente")
-          .gte("data_fim_prazo", start).lte("data_fim_prazo", end),
-        supabase.from("audiencias").select("tipo_audiencia, data_audiencia")
+        supabase.from("prazos").select("titulo, data_vencimento")
+          .eq("office_id", user.office_id).eq("deletado", false)
+          .gte("data_vencimento", start).lte("data_vencimento", end),
+        supabase.from("audiencias").select("titulo, data_audiencia")
           .eq("office_id", user.office_id).eq("deletado", false)
           .gte("data_audiencia", start).lte("data_audiencia", end),
       ]);
 
       const map: Record<string, DayEvent[]> = {};
       for (const p of prazos || []) {
-        if (!p.data_fim_prazo) continue;
-        const k = p.data_fim_prazo;
+        if (!p.data_vencimento) continue;
+        const k = p.data_vencimento;
         if (!map[k]) map[k] = [];
         map[k].push({ type: "prazo", titulo: p.titulo });
       }
@@ -46,7 +46,7 @@ export function CalendarWidget() {
         if (!a.data_audiencia) continue;
         const k = a.data_audiencia.split("T")[0];
         if (!map[k]) map[k] = [];
-        map[k].push({ type: "audiencia", titulo: a.tipo_audiencia || "Audiência", hora: a.data_audiencia.split("T")[1]?.slice(0, 5) });
+        map[k].push({ type: "audiencia", titulo: a.titulo || "Audiência", hora: a.data_audiencia.split("T")[1]?.slice(0, 5) });
       }
       setEventMap(map);
       setLoading(false);

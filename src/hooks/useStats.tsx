@@ -87,8 +87,8 @@ export function useStats() {
           .from('prazos')
           .select('id', { count: 'exact' })
           .eq('office_id', user.office_id)
-          .gte('data_fim_prazo', new Date().toISOString().split('T')[0])
-          .lte('data_fim_prazo', new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]),
+          .gte('data_vencimento', new Date().toISOString().split('T')[0])
+          .lte('data_vencimento', new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]),
 
         // Financeiro do mês atual do escritório
         supabase
