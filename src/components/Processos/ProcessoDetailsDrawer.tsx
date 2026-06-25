@@ -176,7 +176,6 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
         comarca: editData.comarca,
         valorCausa: editData.valor_causa,
       } as any);
-      toast({ title: 'Processo atualizado', description: 'Alterações salvas com sucesso.' });
       setEditing(false);
     } catch (e: any) {
       toast({ title: 'Erro ao salvar', description: e.message, variant: 'destructive' });
@@ -235,7 +234,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
       const { data } = await supabase.from('publicacoes').select('*').or(`processo_id.eq.${processo.id},numero_processo.eq.${numero}`).order('data_publicacao', { ascending: false });
       setPublicacoes(data || []);
     } else if (tab === 'prazos') {
-      const { data } = await supabase.from('prazos').select('*').eq('processo_id', processo.id).order('data_vencimento', { ascending: true });
+      const { data } = await supabase.from('prazos').select('*').eq('processo_id', processo.id).order('data_fim_prazo', { ascending: true, nullsFirst: false });
       setPrazos(data || []);
     } else if (tab === 'audiencias') {
       const { data } = await supabase.from('audiencias').select('*').eq('processo_id', processo.id).order('data_audiencia', { ascending: false });
@@ -924,7 +923,8 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                   </AddForm>
                 )}
                 {prazos.length > 0 ? prazos.map(p => {
-                  const vencido = p.status !== 'concluido' && new Date(p.data_vencimento) < new Date();
+                  const dataFatal = p.data_fim_prazo || p.data_vencimento || null;
+                  const vencido = p.status !== 'concluido' && dataFatal && new Date(dataFatal) < new Date();
                   return (
                     <div key={p.id} className={cn("p-4 rounded-2xl border flex items-center gap-4", vencido ? 'border-rose-500/20 bg-rose-500/5' : 'border-border bg-muted/10')}>
                       {vencido ? <AlertTriangle className="h-5 w-5 text-rose-500 shrink-0" /> : p.status === 'concluido' ? <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" /> : <CalendarClock className="h-5 w-5 text-amber-500 shrink-0" />}
@@ -933,7 +933,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                         {p.descricao && <p className="text-xs text-muted-foreground mt-0.5">{p.descricao}</p>}
                       </div>
                       <div className="text-right shrink-0 space-y-1">
-                        <p className={cn("text-xs font-bold", vencido ? 'text-rose-600' : 'text-muted-foreground')}>{fmtDate(p.data_vencimento)}</p>
+                        <p className={cn("text-xs font-bold", vencido ? 'text-rose-600' : 'text-muted-foreground')}>{fmtDate(dataFatal)}</p>
                         {p.prioridade && <Badge variant="outline" className={cn("text-[9px] font-bold uppercase", getPrioridadeStyle(p.prioridade))}>{p.prioridade}</Badge>}
                       </div>
                     </div>
