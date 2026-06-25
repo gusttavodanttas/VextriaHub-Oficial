@@ -41,7 +41,7 @@ export const usePrazos = () => {
         .order('data_fim_prazo', { ascending: true, nullsFirst: false });
       if (error) throw error;
 
-      const mapped = (data || []).map((p: any) => ({
+      const mapped = (data || []).map((p: Record<string, any>) => ({
         ...p,
         publicacao_titulo: p.publicacoes?.titulo,
         publicacao_status: p.publicacoes?.status,

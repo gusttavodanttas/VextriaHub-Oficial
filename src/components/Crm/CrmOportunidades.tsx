@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 
 interface Props {
   onBack: () => void;
-  onOpportunityClick: (opportunity: any) => void;
+  onOpportunityClick: (opportunity: Record<string, any>) => void;
 }
 
 export function CrmOportunidades({ onBack, onOpportunityClick }: Props) {
@@ -29,7 +29,7 @@ export function CrmOportunidades({ onBack, onOpportunityClick }: Props) {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {[].map((opportunity: any) => (
+            {[].map((opportunity: Record<string, any>) => (
               <div 
                 key={opportunity.id} 
                 className="flex flex-col lg:flex-row lg:items-center justify-between p-4 border rounded-lg hover:bg-gray-50 gap-4 cursor-pointer transition-colors"

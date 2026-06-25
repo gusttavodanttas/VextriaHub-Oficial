@@ -13,7 +13,7 @@ export const useLazyComponent = (
 ) => {
   const LazyComponent = lazy(importFunc);
   
-  const Component = (props: any) => {
+  const Component = (props: Record<string, any>) => {
     const fallback = options.fallback || (
       <div className="space-y-4 p-4">
         <Skeleton className="h-8 w-3/4" />

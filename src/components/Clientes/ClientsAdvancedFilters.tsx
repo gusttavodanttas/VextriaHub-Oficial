@@ -12,7 +12,7 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
 interface ClientsAdvancedFiltersProps {
-  onFiltersChange: (filters: any) => void;
+  onFiltersChange: (filters: Record<string, any>) => void;
   onClearFilters: () => void;
 }
 
@@ -45,7 +45,7 @@ export const ClientsAdvancedFilters = ({ onFiltersChange, onClearFilters }: Clie
     "ex-cliente"
   ];
 
-  const handleFilterChange = (key: string, value: any) => {
+  const handleFilterChange = (key: string, value: Record<string, any>) => {
     const newFilters = { ...filters, [key]: value };
     setFilters(newFilters);
     onFiltersChange(newFilters);

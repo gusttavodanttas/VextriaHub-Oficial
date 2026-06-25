@@ -64,8 +64,8 @@ export const GlobalMetrics: React.FC = () => {
   const totalOffices = offices.length;
   const activeOffices = offices.filter(o => o.active).length;
   const totalUsers = offices.reduce((sum, o) => {
-    const officeUsers = (o as any).office_users || [];
-    return sum + officeUsers.filter((u: any) => u.active).length;
+    const officeUsers = (o as Record<string, any>).office_users || [];
+    return sum + officeUsers.filter((u: Record<string, any>) => u.active).length;
   }, 0);
   const activeSubscriptions = subscriptions.filter(s => s.status === 'active').length;
   const monthlyRevenue = subscriptions.filter(s => s.status === 'active').reduce((s, sub) => s + (sub.price || 0), 0);

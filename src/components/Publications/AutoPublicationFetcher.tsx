@@ -26,7 +26,7 @@ export const AutoPublicationFetcher = () => {
     const fetchOwner = async () => {
       const info = await getOfficeOwnerProfile();
       if (info && info.oab) {
-        setOwnerInfo(info as any);
+        setOwnerInfo(info as Record<string, any>);
       }
     };
     fetchOwner();
@@ -101,7 +101,7 @@ export const AutoPublicationFetcher = () => {
 
       const savedResults = [];
       for (const res of mockResults) {
-        const saved = await createPublication(res as any);
+        const saved = await createPublication(res as Record<string, any>);
         if (saved) savedResults.push(saved);
       }
 

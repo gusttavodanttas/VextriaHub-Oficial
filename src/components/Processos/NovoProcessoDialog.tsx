@@ -334,7 +334,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
     }
   };
 
-  const handleChange = (field: keyof NovoProcessoForm, value: any) => { // value can be string|boolean|etc
+  const handleChange = (field: keyof NovoProcessoForm, value: Record<string, any>) => { // value can be string|boolean|etc
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -561,7 +561,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="parteAutora">Polo Ativo (Autor / Requerente)</Label>
-                            <Input id="parteAutora" value={(formData as Record<string, any>).parteAutora || ''} onChange={(e) => handleChange('parteAutora' as any, e.target.value)} placeholder="Não localizado — preencha manualmente" className="h-11 rounded-xl" />
+                            <Input id="parteAutora" value={(formData as Record<string, any>).parteAutora || ''} onChange={(e) => handleChange('parteAutora' as keyof NovoProcessoForm, e.target.value)} placeholder="Não localizado — preencha manualmente" className="h-11 rounded-xl" />
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="requerido">Polo Passivo (Réu / Requerido)</Label>

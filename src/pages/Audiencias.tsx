@@ -28,7 +28,7 @@ const Audiencias = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const mockAudienciasData: any[] = [];
+  const mockAudienciasData: Array<Record<string, any>> = [];
 
   const [audiencias, setAudiencias] = useState(mockAudienciasData);
 
@@ -65,7 +65,7 @@ const Audiencias = () => {
 
   const multiSelect = useMultiSelect(filteredAudiencias);
 
-  const handleAddAudiencia = (novaAudiencia: any) => {
+  const handleAddAudiencia = (novaAudiencia: Record<string, any>) => {
     const audienciaComId = {
       ...novaAudiencia,
       id: Date.now()

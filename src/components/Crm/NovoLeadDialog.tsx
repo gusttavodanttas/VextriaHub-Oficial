@@ -249,7 +249,7 @@ export const NovoLeadDialog = ({ open, onOpenChange, onSave }: NovoLeadDialogPro
                 <Label className="text-muted-foreground ml-1">Tipo de Perfil</Label>
                 <RadioGroup
                   value={formData.tipo_pessoa}
-                  onValueChange={(value) => handleInputChange("tipo_pessoa", value as any)}
+                  onValueChange={(value) => handleInputChange("tipo_pessoa", value as string)}
                   className="flex gap-4"
                 >
                   <div className="flex items-center space-x-2 bg-muted/30 px-4 py-2 rounded-xl border border-border">
@@ -344,7 +344,7 @@ export const NovoLeadDialog = ({ open, onOpenChange, onSave }: NovoLeadDialogPro
 
               <div className="space-y-2">
                 <Label htmlFor="status" className="text-muted-foreground ml-1">Classificação (Temperatura)</Label>
-                <Select value={formData.status} onValueChange={(value) => handleInputChange("status", value as any)}>
+                <Select value={formData.status} onValueChange={(value) => handleInputChange("status", value as string)}>
                   <SelectTrigger className="h-12 bg-muted/30 border-border rounded-xl font-bold">
                     <SelectValue placeholder="Nível de interesse" />
                   </SelectTrigger>

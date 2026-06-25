@@ -51,7 +51,7 @@ const Metas = () => {
     }
   ]);
 
-  const handleCreateGoal = (novaMeta: any) => {
+  const handleCreateGoal = (novaMeta: Record<string, any>) => {
     setMetas([...metas, novaMeta]);
   };
 

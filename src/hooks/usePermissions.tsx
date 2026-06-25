@@ -36,7 +36,7 @@ export const usePermissions = (): FeaturePermissions => {
 /**
  * Aplica restrições do plano contratado sobre as permissões baseadas em role
  */
-function applyPlanRestrictions(permissions: FeaturePermissions, plan: any): FeaturePermissions {
+function applyPlanRestrictions(permissions: FeaturePermissions, plan: Record<string, any>): FeaturePermissions {
   return {
     ...permissions,
     // Restrições de Plano (Módulos Específicos)
@@ -161,7 +161,7 @@ function getBasePermissionsForRole(isSuperAdmin: boolean, isAdmin: boolean, isOf
 function createEmptyPermissions(): FeaturePermissions {
   const p = getBasePermissionsForRole(false, false, false);
   // Force all to false for unauthenticated
-  Object.keys(p).forEach(k => (p as any)[k] = false);
+  Object.keys(p).forEach(k => (p as Record<string, any>)[k] = false);
   return p;
 }
 

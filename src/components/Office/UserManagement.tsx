@@ -195,9 +195,9 @@ export const UserManagement: React.FC = () => {
                   {users.map((user) => (
                     <TableRow key={user.id}>
                       <TableCell className="font-medium">
-                        {(user as any).profile?.full_name || 'Nome não disponível'}
+                        {(user as Record<string, any>).profile?.full_name || 'Nome não disponível'}
                       </TableCell>
-                      <TableCell>{(user as any).profile?.email}</TableCell>
+                      <TableCell>{(user as Record<string, any>).profile?.email}</TableCell>
                       <TableCell>
                         <Badge variant={getRoleBadgeVariant(user.role)}>
                           {getRoleLabel(user.role)}

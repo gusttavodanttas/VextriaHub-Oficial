@@ -144,7 +144,7 @@ export const usePublicacoes = () => {
               .eq('id', existing.id);
           }
         } else {
-          const saved = await createPublication(newRecord as any);
+          const saved = await createPublication(newRecord as Record<string, any>);
           if (saved) {
             savedResults.push(saved);
             await calcularEPersistirPrazo(saved.id, newRecord);
@@ -355,7 +355,7 @@ export const usePublicacoes = () => {
             vara: item.vara || null,
             tipo_documento: item.tipo_documento || null,
             nome_orgao: item.nome_orgao || null,
-          } as any);
+          } as Record<string, any>);
           if (saved) {
             savedResults.push(saved);
             await calcularEPersistirPrazo(saved.id, { ...item, data_publicacao: dataPublicacao });

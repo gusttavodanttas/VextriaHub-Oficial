@@ -82,7 +82,7 @@ export default function Crm() {
     setActiveTab("leads");
   };
 
-  const handleOpportunityClick = (opportunity: any) => {
+  const handleOpportunityClick = (opportunity: Record<string, any>) => {
     setSelectedOpportunity(opportunity);
     setCurrentView("opportunity-detail");
   };

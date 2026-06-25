@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 
-const initialNotifications: any[] = [
+const initialNotifications: Array<Record<string, any>> = [
   {
     id: 1, type: "urgent",
     title: "Prazo crítico: Petição Inicial vence hoje",

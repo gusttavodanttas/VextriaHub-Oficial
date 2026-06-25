@@ -88,7 +88,7 @@ export const usePerformanceMonitoring = () => {
         const fidObserver = new PerformanceObserver((list) => {
           try {
             const entries = list.getEntries();
-            entries.forEach((entry: any) => {
+            entries.forEach((entry: PerformanceEntry) => {
               console.log('FID:', entry.processingStart - entry.startTime);
               // analyticsService.track('web_vital', { metric: 'FID', value: entry.processingStart - entry.startTime });
             });
@@ -106,7 +106,7 @@ export const usePerformanceMonitoring = () => {
         const clsObserver = new PerformanceObserver((list) => {
           try {
             const entries = list.getEntries();
-            entries.forEach((entry: any) => {
+            entries.forEach((entry: PerformanceEntry) => {
               if (!entry.hadRecentInput) {
                 clsValue += entry.value;
               }

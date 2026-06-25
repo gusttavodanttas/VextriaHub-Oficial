@@ -12,7 +12,7 @@ const Equipe = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [equipeFilter, setEquipeFilter] = useState("todas");
 
-  const mockEquipesData: any[] = [];
+  const mockEquipesData: Array<Record<string, any>> = [];
 
   const mockEquipes = mockEquipesData;
 

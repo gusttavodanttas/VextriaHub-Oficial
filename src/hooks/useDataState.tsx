@@ -20,7 +20,7 @@ export function useDataState<T>(mockData: T[]) {
     // Usa uma identificação mais robusta baseada na estrutura dos dados mockados
     let dataType = 'data';
     if (mockData.length > 0) {
-      const firstItem = mockData[0] as any;
+      const firstItem = mockData[0] as Record<string, any>;
       if (firstItem.titulo && firstItem.cliente && firstItem.status) {
         dataType = 'processos';
       } else if (firstItem.nome && firstItem.email) {

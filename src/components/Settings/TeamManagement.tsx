@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Users, Plus, Edit, Trash2, UserPlus } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
-const mockEquipes: any[] = [];
+const mockEquipes: Array<Record<string, any>> = [];
 
 export function TeamManagement() {
   const [equipes, setEquipes] = useState(mockEquipes);

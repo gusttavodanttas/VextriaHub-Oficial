@@ -86,7 +86,7 @@ export const ProcessoEditDialog: React.FC<ProcessoEditDialogProps> = ({
     }
   };
 
-  const handleChange = (field: keyof Processo, value: any) => {
+  const handleChange = (field: keyof Processo, value: Record<string, any>) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
@@ -217,7 +217,7 @@ export const ProcessoEditDialog: React.FC<ProcessoEditDialogProps> = ({
                   <Label>Status</Label>
                   <Select 
                     value={formData.status} 
-                    onValueChange={(value: any) => handleChange('status', value)}
+                    onValueChange={(value) => handleChange('status', value)}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione o status" />

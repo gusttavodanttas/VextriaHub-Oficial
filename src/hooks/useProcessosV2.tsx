@@ -101,7 +101,7 @@ export function useProcessosV2() {
       // Fase 2: broad access for form input that mixes camel/snake
       const r = newRecord as Record<string, any>;
       const ultimoAndamento = r.ultimoAndamento || null;
-      const andamentos: any[] = Array.isArray(r.andamentos) ? r.andamentos : [];
+      const andamentos: Array<Record<string, any>> = Array.isArray(r.andamentos) ? r.andamentos : [];
 
       const dataUltimaAtualizacao =
         ultimoAndamento?.data
