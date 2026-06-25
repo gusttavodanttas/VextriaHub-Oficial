@@ -51,40 +51,42 @@ interface NovoPrazoStandaloneDialogProps {
 }
 
 // ─────────────────────────────────────────────
-// Tipos de ato — armazenados em localStorage
+// Tipos de ato — armazenados no Supabase
 // ─────────────────────────────────────────────
 export interface TipoAto {
+  id?: string;
   value: string;
   label: string;
   diasUteis: number;
   corridos: boolean;
-  margem: number; // dias de antecipação para prazo interno
+  margem: number;
+  ordem: number;
 }
 
-const TIPOS_ATO_DEFAULT: TipoAto[] = [
-  { value: 'contestacao',       label: 'Contestação',                    diasUteis: 15, corridos: false, margem: 3 },
-  { value: 'apelacao',          label: 'Recurso de Apelação',            diasUteis: 15, corridos: false, margem: 3 },
-  { value: 'agravo',            label: 'Agravo de Instrumento',          diasUteis: 15, corridos: false, margem: 3 },
-  { value: 'embargos',          label: 'Embargos de Declaração',         diasUteis: 5,  corridos: false, margem: 1 },
-  { value: 'contrarrazoes',     label: 'Contrarrazões',                  diasUteis: 15, corridos: false, margem: 3 },
-  { value: 'manifestacao',      label: 'Manifestação / Petição',         diasUteis: 5,  corridos: false, margem: 1 },
-  { value: 'impugnacao',        label: 'Impugnação ao cumprimento',      diasUteis: 15, corridos: false, margem: 3 },
-  { value: 'resp_rext',         label: 'REsp / RE',                      diasUteis: 15, corridos: false, margem: 3 },
-  { value: 'juizado_5',         label: 'Juizado — 5 dias corridos',      diasUteis: 5,  corridos: true,  margem: 1 },
-  { value: 'juizado_10',        label: 'Juizado — 10 dias corridos',     diasUteis: 10, corridos: true,  margem: 2 },
-  { value: 'juizado_15',        label: 'Juizado — 15 dias corridos',     diasUteis: 15, corridos: true,  margem: 3 },
+const TIPOS_ATO_DEFAULT: Omit<TipoAto, 'id'>[] = [
+  { value: 'contestacao',   label: 'Contestação',               diasUteis: 15, corridos: false, margem: 3,  ordem: 0  },
+  { value: 'apelacao',      label: 'Recurso de Apelação',       diasUteis: 15, corridos: false, margem: 3,  ordem: 1  },
+  { value: 'agravo',        label: 'Agravo de Instrumento',     diasUteis: 15, corridos: false, margem: 3,  ordem: 2  },
+  { value: 'embargos',      label: 'Embargos de Declaração',    diasUteis: 5,  corridos: false, margem: 1,  ordem: 3  },
+  { value: 'contrarrazoes', label: 'Contrarrazões',             diasUteis: 15, corridos: false, margem: 3,  ordem: 4  },
+  { value: 'manifestacao',  label: 'Manifestação / Petição',    diasUteis: 5,  corridos: false, margem: 1,  ordem: 5  },
+  { value: 'impugnacao',    label: 'Impugnação ao cumprimento', diasUteis: 15, corridos: false, margem: 3,  ordem: 6  },
+  { value: 'resp_rext',     label: 'REsp / RE',                 diasUteis: 15, corridos: false, margem: 3,  ordem: 7  },
+  { value: 'juizado_5',     label: 'Juizado — 5 dias corridos', diasUteis: 5,  corridos: true,  margem: 1,  ordem: 8  },
+  { value: 'juizado_10',    label: 'Juizado — 10 dias corridos',diasUteis: 10, corridos: true,  margem: 2,  ordem: 9  },
+  { value: 'juizado_15',    label: 'Juizado — 15 dias corridos',diasUteis: 15, corridos: true,  margem: 3,  ordem: 10 },
 ];
-const LS_KEY = 'vextria_tipos_ato';
 
-function loadTipos(): TipoAto[] {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (raw) return JSON.parse(raw) as TipoAto[];
-  } catch {}
-  return TIPOS_ATO_DEFAULT;
-}
-function saveTipos(tipos: TipoAto[]) {
-  localStorage.setItem(LS_KEY, JSON.stringify(tipos));
+function dbToTipoAto(row: any): TipoAto {
+  return {
+    id: row.id,
+    value: row.value,
+    label: row.label,
+    diasUteis: row.dias_uteis,
+    corridos: row.corridos,
+    margem: row.margem,
+    ordem: row.ordem,
+  };
 }
 
 // ─────────────────────────────────────────────
@@ -196,94 +198,120 @@ function prazoToForm(p: PrazoFormData): FormState {
 }
 
 // ─────────────────────────────────────────────
-// Modal de gerenciar tipos de ato
+// Modal de gerenciar tipos de ato (Supabase)
 // ─────────────────────────────────────────────
 interface GerenciarTiposProps {
   open: boolean;
   onClose: () => void;
+  officeId: string;
 }
-function GerenciarTiposModal({ open, onClose }: GerenciarTiposProps) {
+function GerenciarTiposModal({ open, onClose, officeId }: GerenciarTiposProps) {
+  const { toast } = useToast();
   const [tipos, setTipos] = useState<TipoAto[]>([]);
-  const [editingIdx, setEditingIdx] = useState<number | null>(null);
-  const [draft, setDraft] = useState<Omit<TipoAto,'value'> & { value: string }>({
-    value: '', label: '', diasUteis: 15, corridos: false, margem: 3,
-  });
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<Omit<TipoAto,'id'>>({ value: '', label: '', diasUteis: 15, corridos: false, margem: 3, ordem: 0 });
   const [adding, setAdding] = useState(false);
 
-  useEffect(() => { if (open) { setTipos(loadTipos()); setEditingIdx(null); setAdding(false); } }, [open]);
+  const fetchTipos = async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from('tipos_ato_prazo')
+      .select('*')
+      .eq('office_id', officeId)
+      .order('ordem', { ascending: true });
+    setTipos((data || []).map(dbToTipoAto));
+    setLoading(false);
+  };
 
-  const save = (list: TipoAto[]) => { saveTipos(list); setTipos(list); };
+  useEffect(() => {
+    if (open && officeId) { fetchTipos(); setEditingId(null); setAdding(false); }
+  }, [open, officeId]);
 
-  const startEdit = (idx: number) => {
+  const startEdit = (t: TipoAto) => {
     setAdding(false);
-    setEditingIdx(idx);
-    setDraft({ ...tipos[idx] });
+    setEditingId(t.id!);
+    setDraft({ value: t.value, label: t.label, diasUteis: t.diasUteis, corridos: t.corridos, margem: t.margem, ordem: t.ordem });
   };
-  const applyEdit = () => {
-    if (editingIdx === null) return;
-    const updated = tipos.map((t, i) => i === editingIdx ? { ...draft } as TipoAto : t);
-    save(updated);
-    setEditingIdx(null);
+
+  const applyEdit = async () => {
+    if (!editingId) return;
+    setSaving(true);
+    const { error } = await supabase.from('tipos_ato_prazo').update({
+      label: draft.label, dias_uteis: draft.diasUteis, corridos: draft.corridos, margem: draft.margem,
+    }).eq('id', editingId);
+    if (error) { toast({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' }); }
+    else { await fetchTipos(); setEditingId(null); }
+    setSaving(false);
   };
-  const deleteItem = (idx: number) => {
-    save(tipos.filter((_, i) => i !== idx));
-    if (editingIdx === idx) setEditingIdx(null);
+
+  const deleteItem = async (t: TipoAto) => {
+    setSaving(true);
+    const { error } = await supabase.from('tipos_ato_prazo').delete().eq('id', t.id!);
+    if (error) { toast({ title: 'Erro ao excluir', description: error.message, variant: 'destructive' }); }
+    else { await fetchTipos(); if (editingId === t.id) setEditingId(null); }
+    setSaving(false);
   };
+
   const startAdd = () => {
-    setEditingIdx(null);
-    setDraft({ value: `custom_${Date.now()}`, label: '', diasUteis: 15, corridos: false, margem: 3 });
+    setEditingId(null);
+    setDraft({ value: `custom_${Date.now()}`, label: '', diasUteis: 15, corridos: false, margem: 3, ordem: tipos.length });
     setAdding(true);
   };
-  const applyAdd = () => {
+
+  const applyAdd = async () => {
     if (!draft.label.trim()) return;
-    save([...tipos, { ...draft } as TipoAto]);
-    setAdding(false);
+    setSaving(true);
+    const { error } = await supabase.from('tipos_ato_prazo').insert({
+      office_id: officeId, value: draft.value, label: draft.label,
+      dias_uteis: draft.diasUteis, corridos: draft.corridos, margem: draft.margem, ordem: draft.ordem,
+    });
+    if (error) { toast({ title: 'Erro ao criar', description: error.message, variant: 'destructive' }); }
+    else { await fetchTipos(); setAdding(false); }
+    setSaving(false);
   };
-  const resetDefault = () => { save(TIPOS_ATO_DEFAULT); setEditingIdx(null); setAdding(false); };
+
+  const resetDefault = async () => {
+    setSaving(true);
+    await supabase.from('tipos_ato_prazo').delete().eq('office_id', officeId);
+    const rows = TIPOS_ATO_DEFAULT.map(t => ({ ...t, office_id: officeId, dias_uteis: t.diasUteis }));
+    await supabase.from('tipos_ato_prazo').insert(rows.map(({ diasUteis: _, ...r }) => r));
+    await fetchTipos();
+    setEditingId(null); setAdding(false);
+    toast({ title: 'Tipos restaurados', description: 'Padrões CPC aplicados para o escritório.' });
+    setSaving(false);
+  };
 
   const DraftForm = ({ onSave, onCancel }: { onSave: () => void; onCancel: () => void }) => (
     <div className="p-3 rounded-xl border border-primary/20 bg-primary/5 space-y-3 mt-2">
-      <Input
-        placeholder="Nome do tipo de ato"
-        value={draft.label}
-        onChange={e => setDraft(d => ({ ...d, label: e.target.value }))}
-        className="h-8 rounded-lg text-xs"
-      />
+      <Input placeholder="Nome do tipo de ato" value={draft.label}
+        onChange={e => setDraft(d => ({ ...d, label: e.target.value }))} className="h-8 rounded-lg text-xs" />
       <div className="grid grid-cols-3 gap-2">
         <div>
           <p className="text-[9px] uppercase tracking-widest text-muted-foreground mb-1">Dias</p>
-          <Input
-            type="number" min={1} max={365}
-            value={draft.diasUteis}
-            onChange={e => setDraft(d => ({ ...d, diasUteis: Number(e.target.value) }))}
-            className="h-8 rounded-lg text-xs"
-          />
+          <Input type="number" min={1} max={365} value={draft.diasUteis}
+            onChange={e => setDraft(d => ({ ...d, diasUteis: Number(e.target.value) }))} className="h-8 rounded-lg text-xs" />
         </div>
         <div>
           <p className="text-[9px] uppercase tracking-widest text-muted-foreground mb-1">Tipo</p>
-          <select
-            value={draft.corridos ? 'corridos' : 'uteis'}
+          <select value={draft.corridos ? 'corridos' : 'uteis'}
             onChange={e => setDraft(d => ({ ...d, corridos: e.target.value === 'corridos' }))}
-            className="h-8 w-full rounded-lg text-xs border border-border bg-background px-2"
-          >
+            className="h-8 w-full rounded-lg text-xs border border-border bg-background px-2">
             <option value="uteis">Úteis</option>
             <option value="corridos">Corridos</option>
           </select>
         </div>
         <div>
           <p className="text-[9px] uppercase tracking-widest text-muted-foreground mb-1">Margem int.</p>
-          <Input
-            type="number" min={0} max={30}
-            value={draft.margem}
-            onChange={e => setDraft(d => ({ ...d, margem: Number(e.target.value) }))}
-            className="h-8 rounded-lg text-xs"
-          />
+          <Input type="number" min={0} max={30} value={draft.margem}
+            onChange={e => setDraft(d => ({ ...d, margem: Number(e.target.value) }))} className="h-8 rounded-lg text-xs" />
         </div>
       </div>
       <div className="flex gap-2 justify-end">
-        <Button type="button" variant="ghost" size="sm" onClick={onCancel} className="h-7 rounded-lg text-xs">Cancelar</Button>
-        <Button type="button" size="sm" onClick={onSave} className="h-7 rounded-lg text-xs gap-1">
-          <Check className="h-3 w-3" /> Salvar
+        <Button type="button" variant="ghost" size="sm" onClick={onCancel} className="h-7 rounded-lg text-xs" disabled={saving}>Cancelar</Button>
+        <Button type="button" size="sm" onClick={onSave} disabled={saving} className="h-7 rounded-lg text-xs gap-1">
+          <Check className="h-3 w-3" /> {saving ? 'Salvando…' : 'Salvar'}
         </Button>
       </div>
     </div>
@@ -300,58 +328,58 @@ function GerenciarTiposModal({ open, onClose }: GerenciarTiposProps) {
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2">
-          {tipos.map((t, idx) => (
-            <div key={t.value}>
-              <div className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all",
-                editingIdx === idx ? "border-primary/30 bg-primary/5" : "border-border bg-muted/10"
-              )}>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold truncate">{t.label}</p>
-                  <p className="text-[10px] text-muted-foreground">
-                    {t.diasUteis}d {t.corridos ? 'corridos' : 'úteis'} · margem {t.margem}d
-                  </p>
-                </div>
-                <button type="button" onClick={() => startEdit(idx)} className="p-1.5 rounded-lg hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors">
-                  <Pencil className="h-3 w-3" />
-                </button>
-                <button type="button" onClick={() => deleteItem(idx)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-600 transition-colors">
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              </div>
-              {editingIdx === idx && (
-                <DraftForm onSave={applyEdit} onCancel={() => setEditingIdx(null)} />
-              )}
+          {loading ? (
+            <div className="py-10 flex items-center justify-center">
+              <div className="h-6 w-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             </div>
-          ))}
+          ) : (
+            <>
+              {tipos.map(t => (
+                <div key={t.id ?? t.value}>
+                  <div className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all",
+                    editingId === t.id ? "border-primary/30 bg-primary/5" : "border-border bg-muted/10"
+                  )}>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold truncate">{t.label}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {t.diasUteis}d {t.corridos ? 'corridos' : 'úteis'} · margem {t.margem}d
+                      </p>
+                    </div>
+                    <button type="button" onClick={() => startEdit(t)} disabled={saving}
+                      className="p-1.5 rounded-lg hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors">
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                    <button type="button" onClick={() => deleteItem(t)} disabled={saving}
+                      className="p-1.5 rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-600 transition-colors">
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                  {editingId === t.id && (
+                    <DraftForm onSave={applyEdit} onCancel={() => setEditingId(null)} />
+                  )}
+                </div>
+              ))}
 
-          {adding && (
-            <DraftForm onSave={applyAdd} onCancel={() => setAdding(false)} />
-          )}
+              {adding && <DraftForm onSave={applyAdd} onCancel={() => setAdding(false)} />}
 
-          {!adding && (
-            <button
-              type="button"
-              onClick={startAdd}
-              className="w-full flex items-center justify-center gap-2 h-9 rounded-xl border border-dashed border-border text-[11px] font-black uppercase tracking-widest text-muted-foreground hover:border-primary/30 hover:text-primary transition-all"
-            >
-              <Plus className="h-3.5 w-3.5" /> Novo tipo de ato
-            </button>
+              {!adding && (
+                <button type="button" onClick={startAdd} disabled={saving}
+                  className="w-full flex items-center justify-center gap-2 h-9 rounded-xl border border-dashed border-border text-[11px] font-black uppercase tracking-widest text-muted-foreground hover:border-primary/30 hover:text-primary transition-all disabled:opacity-50">
+                  <Plus className="h-3.5 w-3.5" /> Novo tipo de ato
+                </button>
+              )}
+            </>
           )}
         </div>
 
         <div className="px-5 pb-5 pt-3 border-t border-border shrink-0 flex gap-2">
-          <button
-            type="button"
-            onClick={resetDefault}
-            className="text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors underline underline-offset-2"
-          >
-            Restaurar padrões
+          <button type="button" onClick={resetDefault} disabled={saving}
+            className="text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors underline underline-offset-2 disabled:opacity-40">
+            Restaurar padrões CPC
           </button>
           <div className="flex-1" />
-          <Button size="sm" onClick={onClose} className="rounded-xl h-8 text-xs font-black px-5">
-            Fechar
-          </Button>
+          <Button size="sm" onClick={onClose} className="rounded-xl h-8 text-xs font-black px-5">Fechar</Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -389,16 +417,36 @@ export const NovoPrazoStandaloneDialog = ({
   const [showOptions, setShowOptions] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
+  const fetchTipos = async () => {
+    if (!user?.office_id) return;
+    const { data } = await supabase
+      .from('tipos_ato_prazo')
+      .select('*')
+      .eq('office_id', user.office_id)
+      .order('ordem', { ascending: true });
+    if (data && data.length > 0) {
+      setTipos(data.map(dbToTipoAto));
+    } else {
+      // Primeiro acesso: seed com padrões
+      const rows = TIPOS_ATO_DEFAULT.map(t => ({
+        office_id: user.office_id, value: t.value, label: t.label,
+        dias_uteis: t.diasUteis, corridos: t.corridos, margem: t.margem, ordem: t.ordem,
+      }));
+      await supabase.from('tipos_ato_prazo').insert(rows);
+      setTipos(TIPOS_ATO_DEFAULT.map((t, i) => ({ ...t, id: String(i) })));
+    }
+  };
+
   useEffect(() => {
-    setTipos(loadTipos());
-  }, [gerenciarOpen]); // recarrega após fechar o modal de gerenciamento
+    if (!gerenciarOpen) fetchTipos(); // recarrega após fechar modal de gerenciamento
+  }, [gerenciarOpen, user?.office_id]);
 
   useEffect(() => {
     if (open) {
       setFormData(prazoParaEditar ? prazoToForm(prazoParaEditar) : emptyForm(tituloSugerido, numeroProcesso));
       setProcessoSearch(''); setSelectedProcesso(null); setProcessoOptions([]);
       setTipoAto(''); setCalculoAplicado(false);
-      setTipos(loadTipos());
+      fetchTipos();
     }
   }, [open, prazoParaEditar, tituloSugerido, numeroProcesso]);
 
@@ -502,7 +550,7 @@ export const NovoPrazoStandaloneDialog = ({
 
   return (
     <>
-      <GerenciarTiposModal open={gerenciarOpen} onClose={() => setGerenciarOpen(false)} />
+      <GerenciarTiposModal open={gerenciarOpen} onClose={() => setGerenciarOpen(false)} officeId={user?.office_id || ''} />
 
       <Dialog open={open} onOpenChange={v => { if (!v) onOpenChange(false); }}>
         <DialogContent className="max-w-md bg-background border border-border p-0 rounded-2xl shadow-2xl overflow-hidden max-h-[92vh] overflow-y-auto">
