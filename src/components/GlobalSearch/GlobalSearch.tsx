@@ -85,6 +85,7 @@ export function GlobalSearchBar() {
   /* Busca — usa ilike direto (sem .or()) para evitar problema de parsing do Supabase */
   const search = useCallback(async (q: string) => {
     const term = q.trim();
+    console.log("[Search] query:", term, "office_id:", user?.office_id);
     if (term.length < 2 || !user?.office_id) {
       setResults([]);
       setLoading(false);
@@ -136,6 +137,7 @@ export function GlobalSearchBar() {
         if (processos.length >= 4) break;
       }
 
+      console.log("[Search] resultados proc:", procTit?.length, procCli?.length, "cli:", cli?.length, "praz:", praz?.length);
       setResults([
         ...processos,
         ...(cli || []).map(c => ({
