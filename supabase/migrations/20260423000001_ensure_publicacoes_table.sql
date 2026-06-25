@@ -1,5 +1,6 @@
 -- ENSURE PUBLICACOES TABLE EXISTS
 -- This is a copy of 20260422124800_create_publicacoes.sql but with IF NOT EXISTS everywhere
+-- Fase 2 review (2026-06-25): This looks redundant with create_publicacoes. Consider if it can be removed or is for safety.
 
 CREATE TABLE IF NOT EXISTS public.publicacoes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

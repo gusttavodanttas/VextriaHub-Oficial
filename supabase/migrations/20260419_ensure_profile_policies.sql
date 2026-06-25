@@ -1,5 +1,6 @@
 -- VextriaHub: Garantir Políticas de RLS para a tabela Profiles
 -- Este script assegura que usuários autenticados possam ler e atualizar seus próprios dados de perfil.
+-- Fase 2 review (2026-06-25): Ensure para policies de profiles. Verificar se ainda é necessário ou se policies foram atualizadas em migrations posteriores.
 
 BEGIN;
 

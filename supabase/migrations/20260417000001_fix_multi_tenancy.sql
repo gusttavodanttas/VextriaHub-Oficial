@@ -1,5 +1,8 @@
 
 -- Migração: Adicionar office_id às tabelas core e corrigir RLS para multi-tenancy
+-- Fase 2 review (2026-06-25): Esta migração adiciona office_id e atualiza RLS em múltiplas tabelas.
+-- Verificar se todas as colunas office_id agora existem e se RLS atual (em migrações posteriores) ainda depende dos padrões aqui.
+-- Muitas tabelas agora devem ter office_id obrigatório; considerar se esta ainda é necessária ou pode ser marcada como histórica.
 
 -- 1. Adicionar coluna office_id às tabelas que faltam
 DO $$ 

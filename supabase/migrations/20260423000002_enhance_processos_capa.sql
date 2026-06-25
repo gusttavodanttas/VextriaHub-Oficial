@@ -1,5 +1,6 @@
 
 -- Add missing columns to processos table for a better Capa
+-- Fase 2 review (2026-06-25): Enhance for processos capa. Verify if all added columns are utilized in current code.
 ALTER TABLE public.processos 
 ADD COLUMN IF NOT EXISTS requerido TEXT,
 ADD COLUMN IF NOT EXISTS segredo_justica BOOLEAN DEFAULT false,

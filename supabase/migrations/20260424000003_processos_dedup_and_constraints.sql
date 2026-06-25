@@ -1,5 +1,6 @@
 -- Migration: De-duplication and Data Hardening for Processos
 -- Version: 20260424000003
+-- Fase 2 review (2026-06-25): Dedup migration for processos. Important for data quality; ensure it's not causing issues with current dedup logic.
 
 -- 1. Marcar duplicatas como deletadas
 -- Mantém apenas o registro mais antigo por processo dentro de cada escritório

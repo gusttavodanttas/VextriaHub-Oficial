@@ -1,4 +1,7 @@
 -- Fix RLS na tabela movimentacoes_processo
+-- Fase 2 review (2026-06-25): RLS fix + backfill para movimentacoes. Similar ao fix de processos.
+-- Verificar se office_id agora é sempre preenchido nas movimentacoes e se as policies atuais usam apenas office_id sem fallback para user_id via processos.
+-- Recomendação: Auditar se esta migração ainda é relevante ou se pode ser considerada histórica.
 -- Problema: a policy original verifica movimentacoes.office_id = processos.office_id,
 -- o que falha quando a movimentação foi salva sem office_id (NULL).
 -- A correção verifica o office_id do usuário logado via profiles.

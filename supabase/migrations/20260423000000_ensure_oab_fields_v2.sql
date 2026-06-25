@@ -1,4 +1,5 @@
 -- ENSURE OAB FIELDS EXIST IN PROFILES
+-- Fase 2 review (2026-06-25): Ensure migration for OAB fields. Check if still relevant or can be cleaned.
 DO $$ 
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'oab') THEN
