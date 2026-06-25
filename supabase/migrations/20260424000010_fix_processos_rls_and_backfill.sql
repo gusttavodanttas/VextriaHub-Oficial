@@ -4,6 +4,10 @@
 -- pertençam ao usuário via user_id. Este script:
 -- 1. Faz backfill de office_id nos processos que estão sem
 -- 2. Atualiza o RLS para aceitar processos via user_id como fallback
+--
+-- Fase 2 review (2026-06-25): Este parece ser uma migração de dados one-time + atualização de políticas.
+-- Verificar se políticas RLS atuais em migrações posteriores (ex: 20260423+) supersedem isso.
+-- Recomendação: Manter para histórico, mas auditar se backfill ainda é necessário.
 
 BEGIN;
 
