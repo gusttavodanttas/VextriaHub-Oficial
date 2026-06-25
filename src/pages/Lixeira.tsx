@@ -62,8 +62,16 @@ const TABELA_CONFIG: Record<string, { label: string; icon: any; color: string }>
 const fmtDate = (d: string) => new Date(d).toLocaleDateString('pt-BR');
 const fmtDateTime = (d: string) => new Date(d).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
+const TABELAS_PERMITIDAS = new Set(Object.keys(TABELA_CONFIG));
+
+function fromTabela(tabela: string) {
+  if (!TABELAS_PERMITIDAS.has(tabela)) throw new Error(`Tabela não permitida: ${tabela}`);
+  return supabase.from(tabela as 'processos');
+}
+
 export default function Lixeira() {
-  const { user } = useAuth();
+  const { user, isSuperAdmin, officeUser } = useAuth();
+  const officeId = officeUser?.office_id || user?.office_id;
   const { toast } = useToast();
   const [items, setItems] = useState<LixeiraItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,17 +83,24 @@ export default function Lixeira() {
   const [deleting, setDeleting] = useState(false);
 
   const fetchAll = async () => {
+    if (!officeId && !isSuperAdmin) return;
     setLoading(true);
     try {
-      // Carregar mapa de escritórios
-      const { data: offices } = await supabase.from('offices').select('id, name');
       const officeMap: Record<string, string> = {};
-      (offices || []).forEach(o => { officeMap[o.id] = o.name; });
+      if (isSuperAdmin) {
+        const { data: offices } = await supabase.from('offices').select('id, name');
+        (offices || []).forEach(o => { officeMap[o.id] = o.name; });
+      } else if (officeId) {
+        const { data: office } = await supabase.from('offices').select('id, name').eq('id', officeId).single();
+        if (office) officeMap[office.id] = office.name;
+      }
+
+      const applyTenantFilter = (query: ReturnType<typeof supabase.from>) =>
+        isSuperAdmin ? query : query.eq('office_id', officeId!);
 
       const results: LixeiraItem[] = [];
 
-      // Processos deletados (soft-delete)
-      const { data: procs } = await supabase.from('processos').select('*').eq('deletado', true).order('updated_at', { ascending: false });
+      const { data: procs } = await applyTenantFilter(supabase.from('processos').select('*').eq('deletado', true)).order('updated_at', { ascending: false });
       (procs || []).forEach(p => results.push({
         id: p.id, tabela: 'processos',
         titulo: p.titulo || formatCNJ(p.numero_processo),
@@ -93,8 +108,7 @@ export default function Lixeira() {
         excluido_em: p.updated_at, office_id: p.office_id, office_name: officeMap[p.office_id] || '—', user_id: p.user_id, dados: p,
       }));
 
-      // Publicações arquivadas
-      const { data: pubs } = await supabase.from('publicacoes').select('*').eq('status', 'arquivada').order('created_at', { ascending: false });
+      const { data: pubs } = await applyTenantFilter(supabase.from('publicacoes').select('*').eq('status', 'arquivada')).order('created_at', { ascending: false });
       (pubs || []).forEach(p => results.push({
         id: p.id, tabela: 'publicacoes',
         titulo: p.titulo,
@@ -102,8 +116,7 @@ export default function Lixeira() {
         excluido_em: p.created_at, office_id: p.office_id, office_name: officeMap[p.office_id] || '—', user_id: p.user_id, dados: p,
       }));
 
-      // Prazos deletados
-      const { data: prazos } = await supabase.from('prazos').select('*').eq('deletado', true).order('updated_at', { ascending: false });
+      const { data: prazos } = await applyTenantFilter(supabase.from('prazos').select('*').eq('deletado', true)).order('updated_at', { ascending: false });
       (prazos || []).forEach(p => results.push({
         id: p.id, tabela: 'prazos',
         titulo: p.titulo,
@@ -111,8 +124,7 @@ export default function Lixeira() {
         excluido_em: p.updated_at, office_id: p.office_id, office_name: officeMap[p.office_id] || '—', user_id: p.user_id, dados: p,
       }));
 
-      // Audiências deletadas
-      const { data: auds } = await supabase.from('audiencias').select('*').eq('deletado', true).order('updated_at', { ascending: false });
+      const { data: auds } = await applyTenantFilter(supabase.from('audiencias').select('*').eq('deletado', true)).order('updated_at', { ascending: false });
       (auds || []).forEach(a => results.push({
         id: a.id, tabela: 'audiencias',
         titulo: a.titulo,
@@ -120,8 +132,7 @@ export default function Lixeira() {
         excluido_em: a.updated_at, office_id: a.office_id, office_name: officeMap[a.office_id] || '—', user_id: a.user_id, dados: a,
       }));
 
-      // Atendimentos deletados
-      const { data: atds } = await supabase.from('atendimentos').select('*').eq('deletado', true).order('updated_at', { ascending: false });
+      const { data: atds } = await applyTenantFilter(supabase.from('atendimentos').select('*').eq('deletado', true)).order('updated_at', { ascending: false });
       (atds || []).forEach(a => results.push({
         id: a.id, tabela: 'atendimentos',
         titulo: a.tipo_atendimento,
@@ -129,8 +140,7 @@ export default function Lixeira() {
         excluido_em: a.updated_at, office_id: a.office_id, office_name: officeMap[a.office_id] || '—', user_id: a.user_id, dados: a,
       }));
 
-      // Tarefas deletadas
-      const { data: tarefas } = await supabase.from('tarefas').select('*').eq('deletado', true).order('updated_at', { ascending: false });
+      const { data: tarefas } = await applyTenantFilter(supabase.from('tarefas').select('*').eq('deletado', true)).order('updated_at', { ascending: false });
       (tarefas || []).forEach(t => results.push({
         id: t.id, tabela: 'tarefas',
         titulo: t.titulo,
@@ -138,8 +148,7 @@ export default function Lixeira() {
         excluido_em: t.updated_at, user_id: t.user_id, dados: t,
       }));
 
-      // Timesheets deletados
-      const { data: tss } = await supabase.from('timesheets').select('*').eq('deletado', true).order('updated_at', { ascending: false });
+      const { data: tss } = await applyTenantFilter(supabase.from('timesheets').select('*').eq('deletado', true)).order('updated_at', { ascending: false });
       (tss || []).forEach(t => results.push({
         id: t.id, tabela: 'timesheets',
         titulo: t.tarefa_descricao,
@@ -147,8 +156,7 @@ export default function Lixeira() {
         excluido_em: t.updated_at || t.created_at || '', office_id: t.office_id, office_name: officeMap[t.office_id || ''] || '—', user_id: t.user_id, dados: t,
       }));
 
-      // Processos descartados da busca OAB
-      const { data: desc } = await supabase.from('processos_descartados').select('*').order('created_at', { ascending: false });
+      const { data: desc } = await applyTenantFilter(supabase.from('processos_descartados').select('*')).order('created_at', { ascending: false });
       (desc || []).forEach(d => results.push({
         id: d.id, tabela: 'processos_descartados',
         titulo: d.titulo || formatCNJ(d.numero_processo),
@@ -165,24 +173,28 @@ export default function Lixeira() {
     }
   };
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => { fetchAll(); }, [officeId, isSuperAdmin]);
+
+  const tenantGuard = (query: ReturnType<typeof supabase.from>, item: LixeiraItem) =>
+    (!isSuperAdmin && item.office_id) ? query.eq('office_id', item.office_id) : query;
 
   const handleRestore = async (item: LixeiraItem) => {
     setRestoring(item.id);
     try {
       if (item.tabela === 'processos') {
-        await supabase.from('processos').update({ deletado: false, deletado_pendente: false }).eq('id', item.id);
+        await tenantGuard(supabase.from('processos').update({ deletado: false, deletado_pendente: false }).eq('id', item.id), item);
       } else if (item.tabela === 'publicacoes') {
-        await supabase.from('publicacoes').update({ status: 'lida' }).eq('id', item.id);
+        await tenantGuard(supabase.from('publicacoes').update({ status: 'lida' }).eq('id', item.id), item);
       } else if (item.tabela === 'processos_descartados') {
-        await supabase.from('processos_descartados').delete().eq('id', item.id);
+        await tenantGuard(supabase.from('processos_descartados').delete().eq('id', item.id), item);
       } else {
-        await supabase.from(item.tabela as any).update({ deletado: false, deletado_pendente: false }).eq('id', item.id);
+        if (!TABELAS_PERMITIDAS.has(item.tabela)) throw new Error('Tabela não permitida');
+        await tenantGuard(fromTabela(item.tabela).update({ deletado: false, deletado_pendente: false }).eq('id', item.id), item);
       }
       toast({ title: 'Restaurado', description: `${TABELA_CONFIG[item.tabela]?.label || item.tabela} restaurado com sucesso.` });
       setItems(prev => prev.filter(i => i.id !== item.id));
-    } catch (err: any) {
-      toast({ title: 'Erro ao restaurar', description: err.message, variant: 'destructive' });
+    } catch (err: unknown) {
+      toast({ title: 'Erro ao restaurar', description: err instanceof Error ? err.message : 'Erro desconhecido', variant: 'destructive' });
     } finally {
       setRestoring(null);
     }
@@ -192,15 +204,12 @@ export default function Lixeira() {
     if (!confirmDelete) return;
     setDeleting(true);
     try {
-      if (confirmDelete.tabela === 'processos_descartados') {
-        await supabase.from('processos_descartados').delete().eq('id', confirmDelete.id);
-      } else {
-        await supabase.from(confirmDelete.tabela as any).delete().eq('id', confirmDelete.id);
-      }
+      if (!TABELAS_PERMITIDAS.has(confirmDelete.tabela)) throw new Error('Tabela não permitida');
+      await tenantGuard(fromTabela(confirmDelete.tabela).delete().eq('id', confirmDelete.id), confirmDelete);
       toast({ title: 'Excluído permanentemente' });
       setItems(prev => prev.filter(i => i.id !== confirmDelete.id));
-    } catch (err: any) {
-      toast({ title: 'Erro', description: err.message, variant: 'destructive' });
+    } catch (err: unknown) {
+      toast({ title: 'Erro', description: err instanceof Error ? err.message : 'Erro desconhecido', variant: 'destructive' });
     } finally {
       setDeleting(false);
       setConfirmDelete(null);

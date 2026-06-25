@@ -8,9 +8,9 @@ import { useStripe } from '@/hooks/useStripe';
 import { usePaymentValidation, type PaymentValidationResult } from '@/hooks/usePaymentValidation';
 import { officeService } from '@/services/officeService';
 
-export const SUPER_ADMIN_EMAILS = [
-  'contato@vextriahub.com.br'
-].map(e => e.toLowerCase().trim());
+export const SUPER_ADMIN_EMAILS = (
+  import.meta.env.VITE_SUPER_ADMIN_EMAILS || 'contato@vextriahub.com.br'
+).split(',').map((e: string) => e.toLowerCase().trim());
 
 interface User {
   id: string;
