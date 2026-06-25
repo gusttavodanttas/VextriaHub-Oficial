@@ -27,7 +27,7 @@ export function CrmConversoes({ onBack }: Props) {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {[].map((cliente: any) => (
+            {[].map((cliente: Record<string, any>) => (
               <div key={cliente.id} className="flex flex-col lg:flex-row lg:items-center justify-between p-4 border rounded-lg hover:bg-gray-50 gap-4">
                 <div className="flex items-center space-x-4">
                   <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">

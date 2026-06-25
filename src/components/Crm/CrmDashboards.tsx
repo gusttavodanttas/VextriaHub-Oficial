@@ -104,7 +104,7 @@ export function CrmRelatorios({ onBack, data = [], loading = false }: BaseProps)
             {loading ? (
                <div className="p-12 flex justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary/20" /></div>
             ) : leads.length > 0 ? (
-              leads.slice(0, 5).map((lead: any) => (
+              leads.slice(0, 5).map((lead: Record<string, any>) => (
                 <div key={lead.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-5 hover:bg-primary/[0.02] transition-all gap-4 group">
                   <div className="flex items-center space-x-4">
                     <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center border-2", getStatusColor(lead.status))}>

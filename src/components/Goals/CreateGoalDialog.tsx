@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 interface CreateGoalDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (goal: any) => void;
+  onSave: (goal: Record<string, any>) => void;
 }
 
 export const CreateGoalDialog = ({ open, onOpenChange, onSave }: CreateGoalDialogProps) => {

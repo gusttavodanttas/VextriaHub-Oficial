@@ -125,12 +125,13 @@ const Perfil = () => {
         description: "Perfil atualizado com sucesso!",
       });
       setEditMode(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Erro no catch do update:", err);
+      const message = err instanceof Error ? err.message : String(err);
       toast({
         variant: "destructive",
         title: "Erro ao atualizar",
-        description: err?.message || "Houve uma falha oculta ao se comunicar com o banco de dados.",
+        description: message || "Houve uma falha oculta ao se comunicar com o banco de dados.",
       });
     } finally {
       setIsSaving(false);

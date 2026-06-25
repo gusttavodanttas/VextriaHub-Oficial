@@ -129,7 +129,7 @@ export const ProcessoTable: React.FC<ProcessoTableProps> = ({
                 <TableCell className="py-6">
                    <div className="flex flex-col">
                       <span className="text-xs font-bold text-foreground/60 dark:text-muted-foreground">
-                        {(processo as any).faseProcessual || processo.tipoProcesso || '—'}
+                        {(processo as Record<string, any>).faseProcessual || processo.tipoProcesso || '—'}
                       </span>
                       <span className="text-[10px] text-foreground/30 dark:text-muted-foreground/60 uppercase tracking-tighter">Fase Processual</span>
                    </div>

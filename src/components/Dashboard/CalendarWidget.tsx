@@ -13,7 +13,7 @@ const getDateWithOffset = (days: number) => {
   return date;
 };
 
-const mockEvents: any[] = [];
+const mockEvents: Array<Record<string, any>> = [];
 
 export function CalendarWidget() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(getCurrentDate());

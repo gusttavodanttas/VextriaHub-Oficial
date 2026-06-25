@@ -12,7 +12,7 @@ vi.mock('../../integrations/supabase/client', () => ({
       getSession: () => mockGetSession(),
     },
     functions: {
-      invoke: (funcName: string, options: any) => mockInvoke(funcName, options),
+      invoke: (funcName: string, options: Record<string, any>) => mockInvoke(funcName, options),
     },
   },
 }));

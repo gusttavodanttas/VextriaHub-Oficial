@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 interface NovoAtendimentoDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (atendimento: any) => void;
+  onSave: (atendimento: Record<string, any>) => void;
   clientes: Array<{ id: number; name: string }>;
 }
 

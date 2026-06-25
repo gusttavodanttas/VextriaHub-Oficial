@@ -101,7 +101,7 @@ export function CrmFunilVendas({ onBack, data = [], loading = false }: Props) {
                        {stageNames[stage]} ({stageLeads.length})
                     </h4>
                     <div className="space-y-2">
-                      {stageLeads.map((lead: any) => (
+                      {stageLeads.map((lead: Record<string, any>) => (
                         <div key={lead.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-background border border-black/5 dark:border-border rounded-xl gap-2 group hover:border-primary/30 transition-all">
                           <div className="flex items-center space-x-3">
                             <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center border", getStatusColor(lead.status))}>

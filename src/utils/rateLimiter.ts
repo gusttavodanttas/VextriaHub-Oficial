@@ -2,7 +2,7 @@
 interface RateLimitConfig {
   maxRequests: number;
   windowMs: number;
-  keyGenerator?: (req: any) => string;
+  keyGenerator?: (req: Record<string, any>) => string;
 }
 
 interface RateLimitEntry {

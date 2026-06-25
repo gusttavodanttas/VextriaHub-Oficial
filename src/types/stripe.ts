@@ -92,7 +92,7 @@ export interface StripeWebhookEvent {
   api_version: string;
   created: number;
   data: {
-    object: any;
+    object: Record<string, any>;
   };
   livemode: boolean;
   pending_webhooks: number;

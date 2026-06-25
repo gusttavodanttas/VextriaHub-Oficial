@@ -205,7 +205,7 @@ const Tarefas = () => {
     status: statusFilter !== "all" ? statusFilter : undefined,
   });
 
-  const sortedTarefas = tarefaService.sortTarefas(filteredTarefas, sortBy as any);
+  const sortedTarefas = tarefaService.sortTarefas(filteredTarefas, sortBy as string);
 
   // Estatísticas
   const stats = tarefaService.calculateStats(tarefas);

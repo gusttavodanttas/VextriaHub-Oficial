@@ -53,7 +53,7 @@ describe('useTimesheet Hook', () => {
 
   it('deve inicializar e carregar dados corretamente', async () => {
     const mockData = [{ id: '1', tarefa_descricao: 'Teste', status: 'finalizado' }];
-    vi.mocked(timesheetService.fetchTimesheets).mockResolvedValue(mockData as any);
+    vi.mocked(timesheetService.fetchTimesheets).mockResolvedValue(mockData as Record<string, any>[]);
     vi.mocked(timesheetService.getActiveTimer).mockResolvedValue(null);
 
     const { result } = renderHook(() => useTimesheet());
@@ -70,7 +70,7 @@ describe('useTimesheet Hook', () => {
   it('deve iniciar um novo timer com sucesso', async () => {
     vi.mocked(timesheetService.getActiveTimer).mockResolvedValue(null);
     const mockNewTimer = { id: '2', tarefa_descricao: 'Nova Tarefa', status: 'ativo' };
-    vi.mocked(timesheetService.create).mockResolvedValue(mockNewTimer as any);
+    vi.mocked(timesheetService.create).mockResolvedValue(mockNewTimer as Record<string, any>);
 
     const { result } = renderHook(() => useTimesheet());
 
@@ -87,7 +87,7 @@ describe('useTimesheet Hook', () => {
   });
 
   it('não deve iniciar timer se já houver um ativo', async () => {
-    vi.mocked(timesheetService.getActiveTimer).mockResolvedValue({ id: '1', status: 'ativo' } as any);
+    vi.mocked(timesheetService.getActiveTimer).mockResolvedValue({ id: '1', status: 'ativo' } as Record<string, any>);
 
     const { result } = renderHook(() => useTimesheet());
 
@@ -111,7 +111,7 @@ describe('useTimesheet Hook', () => {
       { id: '3', data_inicio: '2020-01-01', status: 'finalizado', duracao_minutos: 100 }, // Ontem/Outro dia
     ];
     
-    vi.mocked(timesheetService.fetchTimesheets).mockResolvedValue(mockData as any);
+    vi.mocked(timesheetService.fetchTimesheets).mockResolvedValue(mockData as Record<string, any>[]);
     
     const { result } = renderHook(() => useTimesheet());
     

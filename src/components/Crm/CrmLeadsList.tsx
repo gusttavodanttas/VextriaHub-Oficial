@@ -65,7 +65,7 @@ export function CrmLeadsList({ onBack, tipo, data = [], refresh }: Props) {
         <CardContent className="p-0">
           <div className="divide-y divide-black/5 dark:divide-white/5">
             {data.length > 0 ? (
-              data.map((lead: any) => (
+              data.map((lead: Record<string, any>) => (
                 <div key={lead.id} className="flex flex-col lg:flex-row lg:items-center justify-between p-6 hover:bg-primary/[0.02] transition-all gap-6 group">
                   <div className="flex items-center space-x-4">
                     <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center border-2 transition-all group-hover:scale-105", getStatusColor(lead.status))}>

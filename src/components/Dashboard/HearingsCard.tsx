@@ -18,7 +18,7 @@ const getWeekRange = () => {
 export function HearingsCard() {
   const navigate = useNavigate();
   const { stats } = useStats();
-  const audiencias: any[] = []; // Conectar ao hook real futuramente
+  const audiencias: Array<Record<string, any>> = []; // Conectar ao hook real futuramente
   const weekRange = getWeekRange();
 
   return (

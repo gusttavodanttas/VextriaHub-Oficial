@@ -28,7 +28,7 @@ interface PublicationFiltersProps {
     cnj: string;
     dateRange: { from: Date | undefined; to: Date | undefined };
   };
-  setFilters: (filters: any) => void;
+  setFilters: (filters: Record<string, any>) => void;
   activeFiltersCount: number;
   onClear: () => void;
 }

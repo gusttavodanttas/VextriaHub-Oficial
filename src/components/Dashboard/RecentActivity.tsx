@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useUserRole } from "@/hooks/useUserRole";
 import { cn } from "@/lib/utils";
 
-const sampleActivities: any[] = [];
+const sampleActivities: Array<Record<string, any>> = [];
 
 export function RecentActivity() {
   const activities = sampleActivities;

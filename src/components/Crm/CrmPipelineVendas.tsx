@@ -40,7 +40,7 @@ export function CrmPipelineVendas({ onBack, data = [], loading = false }: Props)
               {loading ? (
                  <div className="p-12 flex justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary/20" /></div>
               ) : leads.length > 0 ? (
-                leads.map((opp: any) => (
+                leads.map((opp: Record<string, any>) => (
                   <div key={opp.id} className="flex items-center justify-between p-5 hover:bg-primary/[0.02] transition-all group">
                     <div className="flex items-center gap-4">
                        <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center border border-primary/10">

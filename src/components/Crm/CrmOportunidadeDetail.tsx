@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils";
 
 interface Props {
   onBack: () => void;
-  opportunity: any;
+  opportunity: Record<string, any>;
 }
 
 export function CrmOportunidadeDetail({ onBack, opportunity }: Props) {

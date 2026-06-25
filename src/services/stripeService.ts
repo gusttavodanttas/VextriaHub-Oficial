@@ -189,7 +189,7 @@ class StripeService {
     return response.json();
   }
 
-  async validateWebhook(payload: any, signature: string): Promise<StripeWebhookValidation> {
+  async validateWebhook(payload: Record<string, any>, signature: string): Promise<StripeWebhookValidation> {
     try {
       // Em produção, isso será feito nas edge functions do Supabase
       return {

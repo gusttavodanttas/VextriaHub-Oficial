@@ -35,7 +35,7 @@ function Obrigado() {
   const loadCheckoutData = async () => {
     try {
       const { data, error } = await supabase
-        .from('stripe_checkouts' as any)
+        .from('stripe_checkouts' as string)
         .select('*')
         .eq('id', checkoutId)
         .single();

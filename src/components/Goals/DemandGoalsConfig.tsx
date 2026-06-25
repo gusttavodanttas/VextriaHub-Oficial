@@ -52,7 +52,7 @@ export function DemandGoalsConfig() {
     setMetasDemanda(metasDemanda.filter(meta => meta.id !== id));
   };
 
-  const atualizarMeta = (id: number, campo: keyof MetaDemanda, valor: any) => {
+  const atualizarMeta = (id: number, campo: keyof MetaDemanda, valor: Record<string, any>) => {
     setMetasDemanda(metasDemanda.map(meta => 
       meta.id === id ? { ...meta, [campo]: valor } : meta
     ));

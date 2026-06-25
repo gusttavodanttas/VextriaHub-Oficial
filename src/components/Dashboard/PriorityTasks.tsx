@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { Sparkles } from "lucide-react";
 
-const sampleTasks: any[] = [];
+const sampleTasks: Array<Record<string, any>> = [];
 
 const getPriorityColor = (priority: string) => {
   switch (priority) {

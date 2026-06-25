@@ -22,7 +22,7 @@ export const officeService = {
         return { officeUser: null, office: null };
       }
 
-      const office = (officeUserData as any).office as Office;
+      const office = (officeUserData as Record<string, any>).office as Office;
 
       return { 
         officeUser: officeUserData as OfficeUser, 

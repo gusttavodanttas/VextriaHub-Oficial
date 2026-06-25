@@ -160,7 +160,7 @@ export const NovoCompromissoDialog: React.FC<NovoCompromissoDialogProps> = ({
     }
   };
 
-  const handleChange = (field: keyof FormData, value: any) => {
+  const handleChange = (field: keyof FormData, value: Record<string, any>) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 

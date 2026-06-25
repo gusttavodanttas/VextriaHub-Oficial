@@ -38,7 +38,7 @@ export function DeadlinesCard() {
   const navigate = useNavigate();
   const { stats } = useStats();
   const { toast } = useToast();
-  const prazos: any[] = []; // Conectar ao hook real futuramente
+  const prazos: Array<Record<string, any>> = []; // Conectar ao hook real futuramente
   const weekRange = getWeekRange();
   const hasUrgent = stats.prazosVencendo > 0;
 

@@ -31,7 +31,7 @@ interface DashboardWidget {
   requiredRole?: 'user' | 'admin' | 'super_admin';
 }
 
-const createWidgets = (userRole: any): DashboardWidget[] => [
+const createWidgets = (userRole: Record<string, any>): DashboardWidget[] => [
   // Widgets para todos os usuários
   {
     id: 'quick-stats',
