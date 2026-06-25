@@ -1,39 +1,28 @@
-import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Invitation, NovaInvitation } from '@/types/database';
 import { useAuth } from '@/contexts/AuthContext';
 
 export const useInvitations = () => {
-  const [invitations, setInvitations] = useState<Invitation[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { office, user } = useAuth();
+  const queryClient = useQueryClient();
 
-  const fetchInvitations = async () => {
-    if (!office?.id) {
-      setInvitations([]);
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setError(null);
+  const { data: invitations = [], isLoading: loading, error: queryError } = useQuery({
+    queryKey: ['invitations', office?.id],
+    queryFn: async () => {
+      if (!office?.id) return [];
       const { data, error: fetchError } = await supabase
         .from('invitations')
         .select('*')
         .eq('office_id', office.id)
         .order('created_at', { ascending: false });
-
       if (fetchError) throw fetchError;
+      return data || [];
+    },
+    enabled: !!office?.id,
+  });
 
-      setInvitations(data || []);
-    } catch (err) {
-      console.error('Error fetching invitations:', err);
-      setError('Erro ao carregar convites');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const error = queryError ? 'Erro ao carregar convites' : null;
 
   const createInvitation = async (invitationData: NovaInvitation) => {
     if (!office?.id || !user?.id) return null;

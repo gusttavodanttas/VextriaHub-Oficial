@@ -1,0 +1,1 @@
+// Fase 1: Legacy page converted from .js to .tsx. Consider full refactor or removal if unused.

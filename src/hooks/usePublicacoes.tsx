@@ -1,7 +1,6 @@
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface Publication {
   id: string;
@@ -33,21 +32,23 @@ export interface PrazoInfo {
 }
 
 export const usePublicacoes = () => {
-  const { user, profile } = useAuth();
-  const { toast } = useToast();
-  const [publications, setPublications] = useState<Publication[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
-  const fetchPublicacoes = async () => {
-    if (!user?.office_id) return;
-
-    try {
-      setLoading(true);
-      const officeId = user?.office_id;
-      const userId = user?.id;
-
-      let query = supabase
+  const { data: publications = [], isLoading: loading, error: queryError } = useQuery({
+    queryKey: ['publicacoes', user?.office_id],
+    queryFn: async () => {
+      if (!user?.office_id) return [];
+      const { data, error } = await supabase
         .from('publicacoes')
+        .select('*')
+        .eq('office_id', user.office_id)
+        .order('data_publicacao', { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.office_id,
+  });
         .select('*')
         .order('data_publicacao', { ascending: false });
 

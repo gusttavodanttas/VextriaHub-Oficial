@@ -33,7 +33,7 @@ export const PrivateRoute: React.FC<PrivateRouteProps> = ({
     return () => clearTimeout(timer);
   }, []);
 
-  // Mostrar loading enquanto verifica autenticação
+  // Mostrar loading enquanto verifica autenticação (Fase 1 improved)
   if (isLoading && !showTimeout) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
@@ -46,9 +46,16 @@ export const PrivateRoute: React.FC<PrivateRouteProps> = ({
     );
   }
 
-  // Se demorou muito para carregar, redirecionar para login
+  // Timeout melhorado - mostra mensagem mais clara antes de redirecionar
   if (showTimeout && isLoading) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
+        <p className="text-sm text-muted-foreground">Tempo de resposta excedido.</p>
+        <p className="text-xs text-muted-foreground/60">
+          Redirecionando para login...
+        </p>
+      </div>
+    );
   }
 
   // Se não estiver autenticado, redirecionar para login

@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 // Debug logs
-console.log('%c [VEXTRIA] CLIENTES DEPLOY - 2026-04-25-04-20 ', 'background: #0ea5e9; color: #fff; font-weight: bold; font-size: 16px;');
+// Fase 1: legacy debug log removed
 
 // Componentes refatorados
 import { ClientsPageHeader } from "@/components/Clientes/ClientsPageHeader";

@@ -8,11 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, Plus, Search, Mail, Phone, Calendar, Award } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useAuth } from "@/contexts/AuthContext";
-import { getInitialData } from "@/utils/initialData";
-
 const Equipe = () => {
-  const { isFirstLogin } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [equipeFilter, setEquipeFilter] = useState("todas");
 

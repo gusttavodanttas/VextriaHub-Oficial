@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface Prazo {
   id: string;
@@ -23,16 +23,11 @@ export interface Prazo {
 
 export const usePrazos = () => {
   const { user } = useAuth();
-  const [prazos, setPrazos] = useState<Prazo[]>([]);
-  const [prazosUrgentes, setPrazosUrgentes] = useState<Prazo[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  const fetchPrazos = async () => {
-    if (!user?.office_id) return;
-
-    try {
-      setLoading(true);
-
+  const { data: prazos = [], isLoading: loading, error: queryError } = useQuery({
+    queryKey: ['prazos', user?.office_id],
+    queryFn: async () => {
+      if (!user?.office_id) return [];
       const { data, error } = await supabase
         .from('prazos')
         .select(`
@@ -44,10 +39,9 @@ export const usePrazos = () => {
         `)
         .eq('office_id', user.office_id)
         .order('data_fim_prazo', { ascending: true, nullsFirst: false });
-
       if (error) throw error;
 
-      const mapped: Prazo[] = (data || []).map((p: any) => ({
+      const mapped = (data || []).map((p: any) => ({
         ...p,
         publicacao_titulo: p.publicacoes?.titulo,
         publicacao_status: p.publicacoes?.status,

@@ -2,9 +2,9 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 
 /**
- * Hook para gerenciar estado de dados baseado no isFirstLogin
- * Garante que usuários novos sempre vejam dados vazios até escolherem ver exemplos
- * Preserva dados reais uma vez que são criados
+ * @deprecated Fase 1 - Migrar para TanStack Query + Supabase direto.
+ * Hook legado para gerenciar estado de dados baseado no isFirstLogin.
+ * Use useClientes, useProcessosV2, etc. em vez disso.
  */
 export function useDataState<T>(mockData: T[]) {
   const { isFirstLogin, resetFirstLogin, user } = useAuth();
@@ -46,7 +46,7 @@ export function useDataState<T>(mockData: T[]) {
         }
       }
     } catch (error) {
-      console.warn('Erro ao carregar dados do localStorage:', error);
+      // legacy localStorage warn (Fase 1)
     }
     return null;
   }, [storageKey]);
@@ -119,7 +119,7 @@ export function useDataState<T>(mockData: T[]) {
         try {
           localStorage.removeItem(storageKey);
         } catch (error) {
-          console.warn('Erro ao remover dados do localStorage:', error);
+          // legacy localStorage warn (Fase 1)
         }
       }
       hasRealData.current = false;
@@ -135,7 +135,7 @@ export function useDataState<T>(mockData: T[]) {
       try {
         localStorage.removeItem(storageKey);
       } catch (error) {
-        console.warn('Erro ao remover dados do localStorage:', error);
+        // legacy localStorage warn (Fase 1)
       }
     }
   }, [mockData, storageKey]);
@@ -148,7 +148,7 @@ export function useDataState<T>(mockData: T[]) {
       try {
         localStorage.removeItem(storageKey);
       } catch (error) {
-        console.warn('Erro ao remover dados do localStorage:', error);
+        // legacy localStorage warn (Fase 1)
       }
     }
   }, [storageKey]);

@@ -1,24 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Office, NovoOffice } from '@/types/database';
 import { useAuth } from '@/contexts/AuthContext';
 
 export const useOfficeManagement = () => {
-  const [offices, setOffices] = useState<Office[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { isSuperAdmin, user } = useAuth();
+  const queryClient = useQueryClient();
 
-  const fetchOffices = async () => {
-    try {
-      setError(null);
+  const { data: offices = [], isLoading: loading, error: queryError } = useQuery({
+    queryKey: ['offices', isSuperAdmin, user?.id],
+    queryFn: async () => {
       let query = supabase.from('offices').select(`
         *,
         office_users(id, role, user_id, active),
         subscriptions(id, plan, status, start_date, end_date)
       `);
 
-      // Se não for super admin, buscar apenas o próprio escritório e apenas se estiver ativo
       if (!isSuperAdmin) {
         query = query
           .eq('office_users.user_id', user?.id)
@@ -26,114 +23,72 @@ export const useOfficeManagement = () => {
           .eq('active', true);
       }
 
-      const { data, error: fetchError } = await query
-        .order('created_at', { ascending: false });
+      const { data, error: fetchError } = await query.order('created_at', { ascending: false });
 
-      if (fetchError) {
-        console.error('📊 [Office Query Error]:', fetchError);
-        throw fetchError;
-      }
+      if (fetchError) throw fetchError;
+      return data || [];
+    },
+    enabled: true,
+  });
 
-      console.log('📊 [Office Data Loaded]:', data?.length || 0, 'registros');
-      setOffices(data || []);
-    } catch (err) {
-      console.error('Error fetching offices:', err);
-      setError('Erro ao carregar escritórios');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const error = queryError ? 'Erro ao carregar escritórios' : null;
 
-  const createOffice = async (officeData: NovoOffice) => {
-    if (!isSuperAdmin) {
-      setError('Apenas super administradores podem criar escritórios');
-      return null;
-    }
-
-    try {
-      setError(null);
+  const createOfficeMutation = useMutation({
+    mutationFn: async (officeData: NovoOffice) => {
+      if (!isSuperAdmin) throw new Error('Apenas super administradores podem criar escritórios');
       const { data, error: createError } = await supabase
         .from('offices')
-        .insert({
-          ...officeData,
-          created_by: user?.id
-        })
+        .insert({ ...officeData, created_by: user?.id })
         .select()
         .single();
-
       if (createError) throw createError;
-
-      setOffices(prev => [data, ...prev]);
       return data;
-    } catch (err) {
-      console.error('Error creating office:', err);
-      setError('Erro ao criar escritório');
-      return null;
-    }
-  };
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(['offices', isSuperAdmin, user?.id], (old: any[] = []) => [data, ...old]);
+    },
+  });
 
-  const updateOffice = async (officeId: string, updates: Partial<Office>) => {
-    try {
-      setError(null);
+  const updateOfficeMutation = useMutation({
+    mutationFn: async ({ officeId, updates }: { officeId: string; updates: Partial<Office> }) => {
       const { data, error: updateError } = await supabase
         .from('offices')
         .update(updates)
         .eq('id', officeId)
         .select()
         .single();
-
       if (updateError) throw updateError;
-
-      setOffices(prev => prev.map(o => o.id === officeId ? data : o));
       return data;
-    } catch (err) {
-      console.error('Error updating office:', err);
-      setError('Erro ao atualizar escritório');
-      return null;
-    }
-  };
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(['offices', isSuperAdmin, user?.id], (old: any[] = []) => 
+        old.map(o => o.id === data.id ? data : o)
+      );
+    },
+  });
 
-  const deactivateOffice = async (officeId: string) => {
-    if (!isSuperAdmin) {
-      setError('Apenas super administradores podem desativar escritórios');
-      return false;
-    }
-
-    try {
-      setError(null);
+  const deactivateOfficeMutation = useMutation({
+    mutationFn: async (officeId: string) => {
+      if (!isSuperAdmin) throw new Error('Apenas super administradores podem desativar escritórios');
       const { error: updateError } = await supabase
         .from('offices')
         .update({ active: false })
         .eq('id', officeId);
-
       if (updateError) throw updateError;
-
-      setOffices(prev => prev.filter(o => o.id !== officeId));
       return true;
-    } catch (err) {
-      console.error('Error deactivating office:', err);
-      setError('Erro ao desativar escritório');
-      return false;
-    }
-  };
+    },
+    onSuccess: (_, officeId) => {
+      queryClient.setQueryData(['offices', isSuperAdmin, user?.id], (old: any[] = []) => 
+        old.filter(o => o.id !== officeId)
+      );
+    },
+  });
 
   const getOfficeStats = async (officeId: string) => {
     try {
-      setError(null);
-      
-      // Buscar estatísticas do escritório
       const [usersResult, subscriptionResult] = await Promise.all([
-        supabase
-          .from('office_users')
-          .select('id, role')
-          .eq('office_id', officeId)
-          .eq('active', true),
-        supabase
-          .from('subscriptions')
-          .select('plan, status')
-          .eq('office_id', officeId)
-          .eq('status', 'active')
-          .single()
+        supabase.from('office_users').select('id, role').eq('office_id', officeId).eq('active', true),
+        supabase.from('subscriptions').select('plan, status').eq('office_id', officeId).eq('status', 'active').single()
       ]);
 
       const users = usersResult.data || [];
@@ -152,18 +107,14 @@ export const useOfficeManagement = () => {
     }
   };
 
-  useEffect(() => {
-    fetchOffices();
-  }, [isSuperAdmin, user?.id]);
-
   return {
     offices,
     loading,
     error,
-    refresh: fetchOffices,
-    createOffice,
-    updateOffice,
-    deactivateOffice,
+    refresh: () => queryClient.invalidateQueries({ queryKey: ['offices', isSuperAdmin, user?.id] }),
+    createOffice: createOfficeMutation.mutateAsync,
+    updateOffice: (officeId: string, updates: Partial<Office>) => updateOfficeMutation.mutateAsync({ officeId, updates }),
+    deactivateOffice: deactivateOfficeMutation.mutateAsync,
     getOfficeStats,
     isEmpty: offices.length === 0,
     canCreateOffices: isSuperAdmin

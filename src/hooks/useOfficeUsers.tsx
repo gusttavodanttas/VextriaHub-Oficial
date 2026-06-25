@@ -1,9 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { OfficeUser, NovoOfficeUser } from '@/types/database';
 import { useAuth } from '@/contexts/AuthContext';
 
-// Busca profiles por user_id separadamente (não há FK direta entre office_users e profiles)
 const enrichWithProfiles = async (officeUsers: any[]): Promise<any[]> => {
   if (!officeUsers.length) return officeUsers;
   const userIds = officeUsers.map(u => u.user_id).filter(Boolean);
@@ -18,19 +17,13 @@ const enrichWithProfiles = async (officeUsers: any[]): Promise<any[]> => {
 };
 
 export const useOfficeUsers = () => {
-  const [users, setUsers] = useState<OfficeUser[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const { office, user } = useAuth();
+  const { office } = useAuth();
+  const queryClient = useQueryClient();
 
-  const fetchUsers = async () => {
-    if (!office?.id) {
-      setUsers([]);
-      setLoading(false);
-      return;
-    }
-    try {
-      setError(null);
+  const { data: users = [], isLoading: loading, error: queryError } = useQuery({
+    queryKey: ['office_users', office?.id],
+    queryFn: async () => {
+      if (!office?.id) return [];
       const { data, error: fetchError } = await supabase
         .from('office_users')
         .select('*')
@@ -38,20 +31,16 @@ export const useOfficeUsers = () => {
         .eq('active', true)
         .order('joined_at', { ascending: false });
       if (fetchError) throw fetchError;
-      const enriched = await enrichWithProfiles(data || []);
-      setUsers(enriched);
-    } catch (err) {
-      console.error('Error fetching office users:', err);
-      setError('Erro ao carregar usuários do escritório');
-    } finally {
-      setLoading(false);
-    }
-  };
+      return await enrichWithProfiles(data || []);
+    },
+    enabled: !!office?.id,
+  });
 
-  const addUser = async (userData: NovoOfficeUser) => {
-    if (!office?.id) return null;
-    try {
-      setError(null);
+  const error = queryError ? 'Erro ao carregar usuários do escritório' : null;
+
+  const addUserMutation = useMutation({
+    mutationFn: async (userData: NovoOfficeUser) => {
+      if (!office?.id) return null;
       const { data, error: addError } = await supabase
         .from('office_users')
         .insert({ ...userData, office_id: office.id })
@@ -59,18 +48,18 @@ export const useOfficeUsers = () => {
         .single();
       if (addError) throw addError;
       const [enriched] = await enrichWithProfiles([data]);
-      setUsers(prev => [enriched, ...prev]);
       return enriched;
-    } catch (err) {
-      console.error('Error adding user:', err);
-      setError('Erro ao adicionar usuário');
-      return null;
-    }
-  };
+    },
+    onSuccess: (enriched) => {
+      if (enriched) {
+        queryClient.setQueryData(['office_users', office?.id], (old: any[] = []) => [enriched, ...old]);
+      }
+    },
+    onError: () => { /* error handled in component */ }
+  });
 
-  const updateUser = async (userId: string, updates: Partial<OfficeUser>) => {
-    try {
-      setError(null);
+  const updateUserMutation = useMutation({
+    mutationFn: async ({ userId, updates }: { userId: string; updates: Partial<OfficeUser> }) => {
       const { data, error: updateError } = await supabase
         .from('office_users')
         .update(updates)
@@ -79,44 +68,43 @@ export const useOfficeUsers = () => {
         .single();
       if (updateError) throw updateError;
       const [enriched] = await enrichWithProfiles([data]);
-      setUsers(prev => prev.map(u => u.id === userId ? enriched : u));
       return enriched;
-    } catch (err) {
-      console.error('Error updating user:', err);
-      setError('Erro ao atualizar usuário');
-      return null;
-    }
-  };
+    },
+    onSuccess: (enriched) => {
+      if (enriched) {
+        queryClient.setQueryData(['office_users', office?.id], (old: any[] = []) => 
+          old.map(u => u.id === enriched.id ? enriched : u)
+        );
+      }
+    },
+    onError: () => { /* error handled in component */ }
+  });
 
-  const removeUser = async (userId: string) => {
-    try {
-      setError(null);
+  const removeUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
       const { error: removeError } = await supabase
         .from('office_users')
         .update({ active: false })
         .eq('id', userId);
       if (removeError) throw removeError;
-      setUsers(prev => prev.filter(u => u.id !== userId));
       return true;
-    } catch (err) {
-      console.error('Error removing user:', err);
-      setError('Erro ao remover usuário');
-      return false;
-    }
-  };
-
-  useEffect(() => {
-    fetchUsers();
-  }, [office?.id]);
+    },
+    onSuccess: (_, userId) => {
+      queryClient.setQueryData(['office_users', office?.id], (old: any[] = []) => 
+        old.filter(u => u.id !== userId)
+      );
+    },
+    onError: () => { /* error handled in component */ }
+  });
 
   return {
     users,
     loading,
     error,
-    refresh: fetchUsers,
-    addUser,
-    updateUser,
-    removeUser,
+    refresh: () => queryClient.invalidateQueries({ queryKey: ['office_users', office?.id] }),
+    addUser: addUserMutation.mutateAsync,
+    updateUser: (userId: string, updates: Partial<OfficeUser>) => updateUserMutation.mutateAsync({ userId, updates }),
+    removeUser: removeUserMutation.mutateAsync,
     isEmpty: users.length === 0
   };
 };

@@ -72,7 +72,7 @@ export function useProcessosV2() {
           .order('created_at', { ascending: false });
 
         if (fetchError) {
-          console.error('useProcessos query error:', fetchError.message);
+          // query error handled by throwing
           throw fetchError;
         }
 

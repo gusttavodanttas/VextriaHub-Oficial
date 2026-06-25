@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { useDataState } from "@/hooks/useDataState";
 import { useMultiSelect } from "@/hooks/useMultiSelect";
 
 // Componentes existentes
@@ -23,7 +22,10 @@ const initialAtendimentosData: any[] = [];
 const Atendimentos = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { data: atendimentos, isNewUser, loadSampleData } = useDataState(initialAtendimentosData);
+  // Fase 1: Removed legacy useDataState. Using local state for now (mock data).
+  const [atendimentos, setAtendimentos] = useState<any[]>([]);
+  const isNewUser = false; // placeholder
+  const loadSampleData = () => setAtendimentos([]); // placeholder
   
   // Estados
   const [atendimentosList, setAtendimentosList] = useState<any[]>(atendimentos);

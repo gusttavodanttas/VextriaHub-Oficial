@@ -13,7 +13,7 @@ import {
   AlertCircle
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { getInitialData } from "@/utils/initialData";
+// Fase 1: legacy getInitialData removido abaixo (usava mocks)
 import { cn } from "@/lib/utils";
 import { PermissionGuard } from "@/components/Auth/PermissionGuard";
 
@@ -32,8 +32,9 @@ const Financeiro = () => {
     { id: 3, fornecedor: "Software Jurídico", valor: 1200, vencimento: "2025-01-22", status: "pendente" },
   ];
 
-  const contasReceber = getInitialData(mockContasReceber, isFirstLogin);
-  const contasPagar = getInitialData(mockContasPagar, isFirstLogin);
+  // Fase 1: direct mocks for now (legacy removed)
+  const contasReceber = mockContasReceber;
+  const contasPagar = mockContasPagar;
 
   const getStatusColor = (status: string) => {
     switch (status) {

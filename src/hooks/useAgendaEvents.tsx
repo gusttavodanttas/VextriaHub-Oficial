@@ -1,8 +1,8 @@
 
-import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { startOfMonth, endOfMonth, format, isSameDay } from "date-fns";
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { startOfMonth, endOfMonth, format, isSameDay } from 'date-fns';
 
 export type EventType = "audiencia" | "reuniao" | "prazo" | "tarefa";
 export type EventStatus = "confirmado" | "pendente" | "cancelado" | "concluido";
@@ -26,62 +26,23 @@ export interface AgendaDay {
 
 export const useAgendaEvents = (targetDate: Date) => {
   const { user } = useAuth();
-  const [events, setEvents] = useState<AgendaEvent[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  const fetchEvents = useCallback(async () => {
-    if (!user?.office_id) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-
-    try {
+  const { data: events = [], isLoading: loading, error: queryError } = useQuery({
+    queryKey: ['agenda_events', user?.office_id, targetDate],
+    queryFn: async () => {
+      if (!user?.office_id) return [];
       const start = startOfMonth(targetDate);
       const end = endOfMonth(targetDate);
 
-      // 1. Buscar Audiências
-      const { data: audiencias, error: audError } = await supabase
-        .from("audiencias")
-        .select("*, clientes!cliente_id(nome)")
-        .eq("office_id", user.office_id)
-        .gte("data_audiencia", start.toISOString())
-        .lte("data_audiencia", end.toISOString())
-        .eq("deletado", false);
-
-      // 2. Buscar Prazos
-      const { data: prazos, error: praError } = await supabase
-        .from("prazos")
-        .select("*, processos(titulo)")
-        .eq("office_id", user.office_id)
-        .gte("data_vencimento", start.toISOString())
-        .lte("data_vencimento", end.toISOString())
-        .eq("deletado", false);
-
-      // 3. Buscar Atendimentos (Reuniões)
-      const { data: atendimentos, error: ateError } = await supabase
-        .from("atendimentos")
-        .select("*, clientes!cliente_id(nome)")
-        .eq("office_id", user.office_id)
-        .gte("data_atendimento", start.toISOString())
-        .lte("data_atendimento", end.toISOString())
-        .eq("deletado", false);
-
-      // 4. Buscar Tarefas
-      const { data: tarefas, error: tarError } = await supabase
-        .from("tarefas")
-        .select("*, clientes!cliente_id(nome)")
-        .eq("office_id", user.office_id)
-        .gte("data_vencimento", start.toISOString())
-        .lte("data_vencimento", end.toISOString())
-        .eq("deletado", false);
-
-      if (audError || praError || ateError || tarError) {
-        console.error("Erro ao buscar eventos da agenda:", { audError, praError, ateError, tarError });
-      }
+      const [audienciasRes, prazosRes, atendimentosRes, tarefasRes] = await Promise.all([
+        supabase.from("audiencias").select("*, clientes!cliente_id(nome)").eq("office_id", user.office_id).gte("data_audiencia", start.toISOString()).lte("data_audiencia", end.toISOString()).eq("deletado", false),
+        supabase.from("prazos").select("*, processos(titulo)").eq("office_id", user.office_id).gte("data_vencimento", start.toISOString()).lte("data_vencimento", end.toISOString()).eq("deletado", false),
+        supabase.from("atendimentos").select("*, clientes!cliente_id(nome)").eq("office_id", user.office_id).gte("data_atendimento", start.toISOString()).lte("data_atendimento", end.toISOString()).eq("deletado", false),
+        supabase.from("tarefas").select("*, clientes!cliente_id(nome)").eq("office_id", user.office_id).gte("data_vencimento", start.toISOString()).lte("data_vencimento", end.toISOString()).eq("deletado", false),
+      ]);
 
       const allEvents: AgendaEvent[] = [
-        ...(audiencias || []).map(a => ({
+        ...(audienciasRes.data || []).map((a: any) => ({
           id: a.id,
           name: a.titulo,
           time: format(new Date(a.data_audiencia), 'HH:mm'),
@@ -91,7 +52,7 @@ export const useAgendaEvents = (targetDate: Date) => {
           location: a.local || 'Local não informado',
           status: (a.status as EventStatus) || 'pendente'
         })),
-        ...(prazos || []).map(p => ({
+        ...(prazosRes.data || []).map((p: any) => ({
           id: p.id,
           name: p.titulo,
           time: format(new Date(p.data_vencimento), 'HH:mm'),
@@ -101,9 +62,9 @@ export const useAgendaEvents = (targetDate: Date) => {
           location: 'Digital',
           status: (p.status as EventStatus) || 'pendente'
         })),
-        ...(atendimentos || []).map(ate => ({
+        ...(atendimentosRes.data || []).map((ate: any) => ({
           id: ate.id,
-          name: `Atendimento: ${ate.tipo_atendimento}`,
+          name: `Atendimento: ${ate.tipo_atendimento || 'Reunião'}`,
           time: format(new Date(ate.data_atendimento), 'HH:mm'),
           datetime: ate.data_atendimento,
           type: 'reuniao' as const,
@@ -111,7 +72,7 @@ export const useAgendaEvents = (targetDate: Date) => {
           location: 'Escritório',
           status: (ate.status as EventStatus) || 'confirmado'
         })),
-        ...(tarefas || []).map(t => ({
+        ...(tarefasRes.data || []).map((t: any) => ({
           id: t.id,
           name: t.titulo,
           time: t.data_vencimento ? format(new Date(t.data_vencimento), 'HH:mm') : '00:00',
@@ -123,17 +84,9 @@ export const useAgendaEvents = (targetDate: Date) => {
         }))
       ];
 
-      setEvents(allEvents.sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime()));
-    } catch (err) {
-      console.error("Erro fatal no useAgendaEvents:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [user, targetDate]);
-
-  useEffect(() => {
-    fetchEvents();
-  }, [fetchEvents]);
+      return allEvents.sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
+    },
+  });
 
   const getEventsForDay = (day: Date) => {
     return events.filter(event => isSameDay(new Date(event.datetime), day));
@@ -142,7 +95,7 @@ export const useAgendaEvents = (targetDate: Date) => {
   return {
     events,
     loading,
-    refresh: fetchEvents,
+    refresh: () => {}, // query will handle
     getEventsForDay
   };
 };

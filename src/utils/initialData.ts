@@ -1,5 +1,9 @@
 import { useAuth } from "@/contexts/AuthContext";
 
+/**
+ * @deprecated Fase 1 - Migrar para TanStack Query + Supabase direto.
+ */
+
 // Hook para determinar se deve usar dados mockados ou vazios
 export const useInitialData = () => {
   const { isFirstLogin } = useAuth();

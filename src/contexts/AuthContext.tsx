@@ -68,11 +68,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isFirstLogin, setIsFirstLogin] = useState(false);
   const [paymentValidation, setPaymentValidation] = useState<PaymentValidationResult | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [subscriptionInfo, setSubscriptionInfo] = useState<{ subscribed: boolean; subscription_tier?: string; subscription_end?: string } | null>(null);
   const navigate = useNavigate();
   const mountedRef = useRef(true);
-  const initializingRef = useRef(false);
-  const loginInProgressRef = useRef(false);
   const { checkSubscription } = useStripe();
 
   // Fetch user profile from database with timeout
@@ -92,13 +89,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ]) as any;
 
       if (error) {
-        console.error('Error fetching profile:', error.message);
+        // Profile fetch failed - returning null to allow fallback
         return null;
       }
 
       return data;
     } catch (error) {
-      console.error('Error in fetchProfile:', error);
+      // Profile fetch exception - returning null
       return null;
     }
   }, []);
@@ -154,7 +151,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             .single();
           if (existing) return existing;
         }
-        console.error('Error creating profile:', error);
+        // Profile creation failed after duplicate check
         return null;
       }
 
@@ -185,15 +182,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
           
         if (linkError) {
-          console.error('Error linking user to new office:', linkError);
+          // Failed to link user to office - non-fatal for now
         }
       } else {
-        console.error('Error creating default office:', officeError);
+        // Office creation failed - profile may still be usable
       }
 
       return data;
     } catch (error) {
-      console.error('Error in createProfile:', error);
+      // Unexpected error during profile/office creation
       return null;
     }
   }, []);
@@ -203,12 +200,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return await officeService.getOfficeData(userId);
   }, []);
 
-  // Process user data after authentication
+  // Process user data after authentication (simplified)
   const processUserData = useCallback(async (sessionUser: SupabaseUser) => {
     if (!mountedRef.current) return;
     
     try {
-      // Set fallback user immediately to unlock UI
+      // Create initial user from session
       const initialUser: User = {
         id: sessionUser.id,
         name: sessionUser.user_metadata?.full_name || sessionUser.user_metadata?.name || sessionUser.email?.split('@')[0] || 'Usuário',
@@ -217,63 +214,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
       
       setUser(initialUser);
-      setIsLoading(false);
       
-      // Fetch real data in background
-      const backgroundTask = async () => {
-        try {
-          let profileData = await fetchProfile(sessionUser.id);
-          
-          if (!mountedRef.current) return;
-          
-          if (!profileData && sessionUser.email) {
-            profileData = await createProfile(
-              sessionUser.id, 
-              sessionUser.email, 
-              initialUser.name
-            );
-          }
-          
-          if (!mountedRef.current) return;
-          
-          let officeUser = null;
-          let office = null;
-          
-          if (profileData) {
-            const officeData = await fetchOfficeData(sessionUser.id);
-            officeUser = officeData.officeUser;
-            office = officeData.office;
-          }
-          
-          if (!mountedRef.current) return;
-          
-          const finalUser: User = {
-            id: sessionUser.id,
-            name: profileData?.full_name || initialUser.name,
-            email: sessionUser.email || profileData?.email || initialUser.email,
-            role: profileData?.role || initialUser.role,
-            office_id: profileData?.office_id || officeUser?.office_id || null,
-            office_role: officeUser?.role || null
-          };
-          
-          setProfile(profileData);
-          setOfficeUser(officeUser);
-          setOffice(office);
-          setUser(finalUser);
-          
-          if (profileData) {
-            const profileAge = Date.now() - new Date(profileData.created_at).getTime();
-            setIsFirstLogin(profileAge < 60000 && profileData.role !== 'super_admin');
-          }
-        } catch (bgError) {
-          console.error('Background sync error:', bgError);
-        }
+      // Fetch full data
+      let profileData = await fetchProfile(sessionUser.id);
+      
+      if (!mountedRef.current) return;
+      
+      if (!profileData && sessionUser.email) {
+        profileData = await createProfile(
+          sessionUser.id, 
+          sessionUser.email, 
+          initialUser.name
+        );
+      }
+      
+      if (!mountedRef.current) return;
+      
+      let officeUser = null;
+      let office = null;
+      
+      if (profileData) {
+        const officeData = await fetchOfficeData(sessionUser.id);
+        officeUser = officeData.officeUser;
+        office = officeData.office;
+      }
+      
+      if (!mountedRef.current) return;
+      
+      const finalUser: User = {
+        id: sessionUser.id,
+        name: profileData?.full_name || initialUser.name,
+        email: sessionUser.email || profileData?.email || initialUser.email,
+        role: profileData?.role || initialUser.role,
+        office_id: profileData?.office_id || officeUser?.office_id || null,
+        office_role: officeUser?.role || null
       };
       
-      backgroundTask();
+      setProfile(profileData);
+      setOfficeUser(officeUser);
+      setOffice(office);
+      setUser(finalUser);
+      
+      if (profileData) {
+        const profileAge = Date.now() - new Date(profileData.created_at).getTime();
+        setIsFirstLogin(profileAge < 60000 && profileData.role !== 'super_admin');
+      }
+      
+      setIsLoading(false);
       
     } catch (error) {
-      console.error('Critical error in processUserData:', error);
+      // processUserData failed - user may be in partial state
       setIsLoading(false);
     }
   }, [fetchProfile, createProfile, fetchOfficeData]);
@@ -292,24 +282,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setOffice(null);
       setOfficeUser(null);
       setIsFirstLogin(false);
-    }
-    
-    if (mountedRef.current) {
       setIsLoading(false);
     }
-  }, [processUserData, session]);
+  }, [processUserData]);
 
   // Initialize auth state
   useEffect(() => {
-    if (initializingRef.current) return;
-    
-    initializingRef.current = true;
     mountedRef.current = true;
-    
+
     const initializeAuth = async () => {
       try {
-        // Initializing auth
-        
         const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) throw sessionError;
@@ -326,7 +308,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setIsLoading(false);
         }
       } catch (error) {
-        console.error('Auth initialization error:', error);
+        // Initialization failed - user will see loading state error handling
         if (mountedRef.current) {
           setIsLoading(false);
         }
@@ -354,8 +336,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string) => {
     try {
-      loginInProgressRef.current = true;
-      
       const { data, error } = await Promise.race([
         supabase.auth.signInWithPassword({
           email,
@@ -365,7 +345,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ]) as any;
 
       if (error) {
-        console.error('Login error:', error.message);
+        // Login failed - returning error to UI
         return { error };
       }
 
@@ -375,12 +355,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       return { error: null };
     } catch (err) {
-      console.error('Unexpected login error:', err);
+      // Unexpected error during login attempt
       return { error: err };
-    } finally {
-      setTimeout(() => {
-        loginInProgressRef.current = false;
-      }, 1000);
     }
   };
 
@@ -399,15 +375,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     if (error) {
-      console.error('Registration error:', error);
+      // Registration failed
     }
 
     return { error };
   };
 
   const resendConfirmation = async (email: string) => {
-    console.log('Resending confirmation email for:', email);
-    
     const currentUrl = window.location.origin;
     
     const { error } = await supabase.auth.resend({
@@ -419,9 +393,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     if (error) {
-      console.error('Resend confirmation error:', error);
-    } else {
-      console.log('Confirmation email resent to:', email);
+      // Resend failed
     }
 
     return { error };
@@ -429,19 +401,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginAsSuperAdmin = async (email: string, password: string) => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password
       });
 
       if (error) {
-        console.error('Super admin login error:', error);
+        // Super admin login failed
         return { error };
       }
 
       return { error: null };
     } catch (error) {
-      console.error('Super admin login exception:', error);
+      // Super admin login exception
       return { error };
     }
   };
@@ -460,11 +432,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       if (error) {
-        console.error('Error updating user role:', error);
+        if (error) {
+        // Error updating user role
         return { error };
       }
       
-      // Recarregar dados do usuário
       if (user?.id === userId) {
         const updatedProfile = await fetchProfile(userId);
         if (updatedProfile) {
@@ -475,7 +447,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       return { data, error: null };
     } catch (error) {
-      console.error('Error in updateUserRole:', error);
+      // Error in updateUserRole
       return { error };
     }
   }, [user?.id, fetchProfile]);
@@ -509,7 +481,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         new Promise((_, reject) => setTimeout(() => reject(new Error('Logout timeout')), 2000))
       ]);
     } catch (err) {
-      console.error('Exception during supabase.auth.signOut:', err);
+      // Exception during supabase signOut (non-fatal)
     } finally {
       setUser(null);
       setProfile(null);

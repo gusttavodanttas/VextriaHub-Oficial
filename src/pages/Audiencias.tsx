@@ -13,7 +13,7 @@ import { useMultiSelect } from "@/hooks/useMultiSelect";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
-import { getInitialData } from "@/utils/initialData";
+// TODO Fase 1: remover getInitialData legado
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";

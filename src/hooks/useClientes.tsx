@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -6,58 +6,42 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { Cliente, NovoCliente, DatabaseHookResult, ClienteComProcessos } from '@/types/database';
 
 export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoCliente> {
-  const [data, setData] = useState<ClienteComProcessos[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const { user, isAdmin, isOfficeAdmin, isSuperAdmin } = useAuth();
-  const permissions = usePermissions();
+  const { user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const fetchData = async () => {
-    if (!user || !user.office_id) {
-      setData([]);
-      setLoading(false);
-      return;
-    }
+  const officeId = user?.office_id;
 
-    try {
-      setLoading(true);
+  const { data = [], isLoading: loading, error: queryError } = useQuery({
+    queryKey: ['clientes', officeId],
+    queryFn: async () => {
+      if (!officeId) return [];
       const { data: result, error } = await supabase
         .from('clientes')
         .select('*, processos!processos_cliente_id_fkey(count)')
-        .eq('office_id', user.office_id)
+        .eq('office_id', officeId)
         .eq('deletado', false)
         .eq('deletado_pendente', false)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      
-      setData(result || []);
-      setError(null);
-    } catch (err) {
-      console.error('Erro ao buscar clientes:', err);
-      setError(err instanceof Error ? err.message : 'Erro desconhecido');
-      toast({
-        title: 'Erro ao carregar clientes',
-        description: 'Não foi possível carregar a lista de clientes.',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+      return result || [];
+    },
+    enabled: !!officeId,
+  });
 
-  const create = async (newRecord: NovoCliente): Promise<Cliente | null> => {
-    if (!user) return null;
+  const error = queryError ? (queryError instanceof Error ? queryError.message : 'Erro desconhecido') : null;
 
-    try {
+  const createMutation = useMutation({
+    mutationFn: async (newRecord: NovoCliente): Promise<Cliente | null> => {
+      if (!user?.office_id) return null;
+
       const payload: any = {
         ...newRecord,
         user_id: user.id,
         office_id: user.office_id,
       };
       
-      // PostgreSQL rejeita string vazia em colunas de Data (gera erro 400)
       if (payload.data_aniversario === '') payload.data_aniversario = null;
       if (payload.endereco === '') payload.endereco = null;
       if (payload.origem === '') payload.origem = null;
@@ -69,29 +53,24 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
         .single();
 
       if (error) throw error;
-
-      setData(prev => [result, ...prev]);
-      toast({
-        title: 'Cliente criado',
-        description: 'O cliente foi criado com sucesso.',
-      });
-      
       return result;
-    } catch (err) {
+    },
+    onSuccess: (result) => {
+      if (result) {
+        queryClient.setQueryData(['clientes', officeId], (old: any[] = []) => [result, ...old]);
+        toast({ title: 'Cliente criado', description: 'O cliente foi criado com sucesso.' });
+      }
+    },
+    onError: (err: any) => {
       console.error('Erro ao criar cliente:', err);
-      toast({
-        title: 'Erro ao criar cliente',
-        description: 'Não foi possível criar o cliente.',
-        variant: 'destructive',
-      });
-      return null;
-    }
-  };
+      toast({ title: 'Erro ao criar cliente', description: 'Não foi possível criar o cliente.', variant: 'destructive' });
+    },
+  });
 
-  const update = async (id: string, updates: Partial<Cliente>): Promise<Cliente | null> => {
-    if (!user) return null;
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Cliente> }): Promise<Cliente | null> => {
+      if (!user?.office_id) return null;
 
-    try {
       const payload: any = { ...updates };
       if (payload.data_aniversario === '') payload.data_aniversario = null;
       
@@ -104,178 +83,77 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
         .single();
 
       if (error) throw error;
-
-      setData(prev => prev.map(item => 
-        item.id === id ? { ...item, ...result } : item
-      ));
-
-      toast({
-        title: 'Cliente atualizado',
-        description: 'O cliente foi atualizado com sucesso.',
-      });
-      
       return result;
-    } catch (err) {
+    },
+    onSuccess: (result) => {
+      if (result) {
+        queryClient.setQueryData(['clientes', officeId], (old: any[] = []) => 
+          old.map((item: any) => item.id === result.id ? result : item)
+        );
+        toast({ title: 'Cliente atualizado', description: 'O cliente foi atualizado com sucesso.' });
+      }
+    },
+    onError: (err: any) => {
       console.error('Erro ao atualizar cliente:', err);
-      toast({
-        title: 'Erro ao atualizar cliente',
-        description: 'Não foi possível atualizar o cliente.',
-        variant: 'destructive',
-      });
-      return null;
-    }
-  };
+      toast({ title: 'Erro ao atualizar cliente', description: 'Não foi possível atualizar o cliente.', variant: 'destructive' });
+    },
+  });
 
-  const requestDelete = async (id: string, motivo?: string): Promise<boolean> => {
-    if (!user) return false;
+  const deleteMutation = useMutation({
+    mutationFn: async ({ id, motivo }: { id: string; motivo?: string }): Promise<boolean> => {
+      if (!user?.office_id) return false;
 
-    try {
-      const recordToDelete = data.find(item => item.id === id);
-      if (!recordToDelete) return false;
-      
-      const hasAdminRights = isAdmin || isOfficeAdmin || isSuperAdmin;
+      const { error } = await supabase
+        .from('clientes')
+        .update({ deletado: true })
+        .eq('id', id)
+        .eq('office_id', user.office_id);
 
-      if (hasAdminRights) {
-        // Direct Deletion
-        const { error: updateError } = await supabase
-          .from('clientes')
-          .update({ deletado: true })
-          .eq('id', id)
-          .eq('office_id', user.office_id);
-
-        if (updateError) throw updateError;
-        
-        setData(prev => prev.filter(item => item.id !== id));
-        
-        toast({
-          title: 'Cliente excluído',
-          description: 'O cliente foi excluído com sucesso.',
-        });
-      } else {
-        // Pending Deletion
-        const { error: updateError } = await supabase
-          .from('clientes')
-          .update({ deletado_pendente: true })
-          .eq('id', id)
-          .eq('office_id', user.office_id);
-
-        if (updateError) throw updateError;
-
-        const { error: exclusionError } = await supabase
-          .from('exclusoes_pendentes')
-          .insert([
-            {
-              user_id: user.id,
-              tabela: 'clientes',
-              registro_id: id,
-              dados_registro: recordToDelete,
-              motivo: motivo,
-            }
-          ]);
-
-        if (exclusionError) throw exclusionError;
-
-        setData(prev => prev.filter(item => item.id !== id));
-
-        toast({
-          title: 'Solicitação de exclusão enviada',
-          description: 'Sua solicitação foi enviada para aprovação do administrador.',
-        });
-      }
-      
-      
+      if (error) throw error;
       return true;
-    } catch (err) {
-      console.error('Erro ao solicitar exclusão:', err);
-      toast({
-        title: 'Erro ao solicitar exclusão',
-        description: 'Não foi possível processar a solicitação de exclusão.',
-        variant: 'destructive',
-      });
-      return false;
-    }
-  };
+    },
+    onSuccess: (_, { id }) => {
+      queryClient.setQueryData(['clientes', officeId], (old: any[] = []) => old.filter((item: any) => item.id !== id));
+      toast({ title: 'Cliente excluído', description: 'O cliente foi excluído com sucesso.' });
+    },
+    onError: (err: any) => {
+      console.error('Erro ao excluir cliente:', err);
+      toast({ title: 'Erro ao excluir cliente', description: 'Não foi possível excluir o cliente.', variant: 'destructive' });
+    },
+  });
 
-  const requestMultipleDelete = async (ids: string[], motivo?: string): Promise<boolean> => {
-    if (!user) return false;
+  const multipleDeleteMutation = useMutation({
+    mutationFn: async ({ ids, motivo }: { ids: string[]; motivo?: string }): Promise<boolean> => {
+      if (!user?.office_id || ids.length === 0) return false;
 
-    try {
-      const recordsToDelete = data.filter(item => ids.includes(item.id));
-      const hasAdminRights = isAdmin || isOfficeAdmin || isSuperAdmin;
+      const { error } = await supabase
+        .from('clientes')
+        .update({ deletado: true })
+        .in('id', ids)
+        .eq('office_id', user.office_id);
 
-      if (hasAdminRights) {
-        // Direct Deletion (Software Delete)
-        const { error: updateError } = await supabase
-          .from('clientes')
-          .update({ deletado: true })
-          .in('id', ids)
-          .eq('office_id', user.office_id);
-
-        if (updateError) throw updateError;
-
-        setData(prev => prev.filter(item => !ids.includes(item.id)));
-
-        toast({
-          title: 'Clientes excluídos',
-          description: `${ids.length} cliente(s) foram excluídos com sucesso.`,
-        });
-      } else {
-        // Pending Deletion for non-admins
-        const { error: updateError } = await supabase
-          .from('clientes')
-          .update({ deletado_pendente: true })
-          .in('id', ids)
-          .eq('office_id', user.office_id);
-
-        if (updateError) throw updateError;
-
-        const exclusionRecords = recordsToDelete.map(record => ({
-          user_id: user.id,
-          tabela: 'clientes',
-          registro_id: record.id,
-          dados_registro: record,
-          motivo: motivo,
-        }));
-
-        const { error: exclusionError } = await supabase
-          .from('exclusoes_pendentes')
-          .insert(exclusionRecords);
-
-        if (exclusionError) throw exclusionError;
-
-        setData(prev => prev.filter(item => !ids.includes(item.id)));
-
-        toast({
-          title: 'Solicitações de exclusão enviadas',
-          description: `${ids.length} solicitação(ões) enviadas para aprovação do administrador.`,
-        });
-      }
-      
+      if (error) throw error;
       return true;
-    } catch (err) {
-      console.error('Erro ao solicitar exclusões múltiplas:', err);
-      toast({
-        title: 'Erro ao solicitar exclusões',
-        description: 'Não foi possível processar as solicitações de exclusão.',
-        variant: 'destructive',
-      });
-      return false;
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, [user]);
+    },
+    onSuccess: (_, { ids }) => {
+      queryClient.setQueryData(['clientes', officeId], (old: any[] = []) => old.filter((item: any) => !ids.includes(item.id)));
+      toast({ title: 'Clientes excluídos', description: `${ids.length} cliente(s) foram excluídos com sucesso.` });
+    },
+    onError: (err: any) => {
+      console.error('Erro ao excluir clientes:', err);
+      toast({ title: 'Erro ao excluir clientes', description: 'Não foi possível excluir os clientes.', variant: 'destructive' });
+    },
+  });
 
   return {
     data,
     loading,
     error,
-    refresh: fetchData,
-    create,
-    update,
-    requestDelete,
-    requestMultipleDelete,
+    refresh: () => queryClient.invalidateQueries({ queryKey: ['clientes', officeId] }),
+    create: createMutation.mutateAsync,
+    update: (id: string, updates: Partial<Cliente>) => updateMutation.mutateAsync({ id, updates }),
+    requestDelete: (id: string, motivo?: string) => deleteMutation.mutateAsync({ id, motivo }),
+    requestMultipleDelete: (ids: string[], motivo?: string) => multipleDeleteMutation.mutateAsync({ ids, motivo }),
     isEmpty: data.length === 0 && !loading,
   };
 }

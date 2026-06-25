@@ -1,13 +1,13 @@
 
 // Mock data zerado - todos os novos usuários começam sem dados
-export const mockClientes: any[] = [];
+export const mockClientes: any[] = []; // TODO Fase 2: tipar corretamente
 
-export const mockPartesContrarias: any[] = [];
+export const mockPartesContrarias: any[] = []; // TODO Fase 2: tipar corretamente
 
-export const mockTribunais: any[] = [];
+export const mockTribunais: any[] = []; // TODO Fase 2: tipar corretamente
 
-export const mockSistemasTribunal: any[] = [];
+export const mockSistemasTribunal: any[] = []; // TODO Fase 2: tipar corretamente
 
-export const mockVaras: any[] = [];
+export const mockVaras: any[] = []; // TODO Fase 2: tipar corretamente
 
-export const mockComarcas: any[] = [];
+export const mockComarcas: any[] = []; // TODO Fase 2: tipar corretamente
