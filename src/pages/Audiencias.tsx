@@ -321,7 +321,8 @@ const Audiencias = () => {
         </TabsContent>
       </Tabs>
 
-      <NovaAudienciaDialog open={dialogOpen} onOpenChange={setDialogOpen} clientes={clientes} tipos={tiposCadastrados} audiencia={editTarget} onSubmit={handleSubmit} />
+      <NovaAudienciaDialog open={dialogOpen} onOpenChange={setDialogOpen} clientes={clientes} tipos={tiposCadastrados} audiencia={editTarget} onSubmit={handleSubmit}
+        onManageTipos={() => { setDialogOpen(false); setTiposDialogOpen(true); }} />
 
       <GerenciarTiposDialog open={tiposDialogOpen} onOpenChange={setTiposDialogOpen} />
 

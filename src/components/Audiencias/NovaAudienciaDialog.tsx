@@ -18,6 +18,7 @@ interface NovaAudienciaDialogProps {
   tipos: string[];
   audiencia?: Audiencia | null;
   onSubmit: (input: AudienciaInput, id?: string) => Promise<void>;
+  onManageTipos?: () => void;
 }
 
 const statusOptions = [
@@ -30,7 +31,7 @@ const statusOptions = [
 
 const empty = { titulo: "", cliente_id: "", data: "", hora: "", tipo: "", local: "", observacao: "", status: "agendada" };
 
-export const NovaAudienciaDialog = ({ open, onOpenChange, clientes, tipos, audiencia, onSubmit }: NovaAudienciaDialogProps) => {
+export const NovaAudienciaDialog = ({ open, onOpenChange, clientes, tipos, audiencia, onSubmit, onManageTipos }: NovaAudienciaDialogProps) => {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState(empty);
@@ -126,7 +127,15 @@ export const NovaAudienciaDialog = ({ open, onOpenChange, clientes, tipos, audie
                 onChange={(e) => setFormData({ ...formData, hora: e.target.value })} className="rounded-xl" required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="tipo">Tipo *</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="tipo">Tipo *</Label>
+                {onManageTipos && (
+                  <button type="button" onClick={onManageTipos}
+                    className="text-[11px] font-bold text-primary hover:underline">
+                    Gerenciar tipos
+                  </button>
+                )}
+              </div>
               <Select value={formData.tipo} onValueChange={(v) => setFormData({ ...formData, tipo: v })}>
                 <SelectTrigger className="rounded-xl"><SelectValue placeholder="Selecionar" /></SelectTrigger>
                 <SelectContent className="rounded-xl">
