@@ -218,7 +218,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
       if (data && !data.error) {
         setFormData((prev) => ({
           ...prev,
-          titulo: data.titulo || prev.titulo || `Processo ${cnjInput}`,
+          titulo: (data.titulo && !data.titulo.includes('Não identificado') ? data.titulo : '') || (data.classe || '') || prev.titulo || `Processo ${cnjInput}`,
           numeroProcesso: data.numeroProcesso || cnjInput,
           tribunal: data.tribunal || '',
           vara: data.vara || '',
@@ -226,8 +226,8 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
           valorCausa: data.valorCausa || 0,
           tipoProcesso: data.classe || prev.tipoProcesso || '',
           faseProcessual: data.faseProcessual || 'Fase Inicial',
-          requerido: data.reu || '',
-          parteAutora: data.autor || '',
+          requerido: data.reu && data.reu !== 'Não identificado' ? data.reu : '',
+          parteAutora: data.autor && data.autor !== 'Não identificado' ? data.autor : '',
           // Extras que useProcessosV2.create entende
           classe: data.classe,
           assunto: data.assunto,
@@ -499,11 +499,11 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="parteAutora">Polo Ativo (Autor / Requerente)</Label>
-                            <Input id="parteAutora" value={(formData as any).parteAutora || ''} onChange={(e) => handleChange('parteAutora' as any, e.target.value)} className="h-11 rounded-xl" />
+                            <Input id="parteAutora" value={(formData as any).parteAutora || ''} onChange={(e) => handleChange('parteAutora' as any, e.target.value)} placeholder="Não localizado — preencha manualmente" className="h-11 rounded-xl" />
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="requerido">Polo Passivo (Réu / Requerido)</Label>
-                            <Input id="requerido" value={formData.requerido || ''} onChange={(e) => handleChange('requerido', e.target.value)} className="h-11 rounded-xl" />
+                            <Input id="requerido" value={formData.requerido || ''} onChange={(e) => handleChange('requerido', e.target.value)} placeholder="Não localizado — preencha manualmente" className="h-11 rounded-xl" />
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="valorCausa">Valor da Causa</Label>
