@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { CalendarClock, Newspaper, Shield, AlertOctagon, Search, X } from "lucide-react";
+import { CalendarClock, Newspaper, Shield, AlertOctagon, Search, X, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ProcessoOption {
@@ -38,6 +38,64 @@ interface NovoPrazoStandaloneDialogProps {
   numeroProcesso?: string;
   tituloSugerido?: string;
   prazoParaEditar?: PrazoFormData;
+}
+
+// ── Tipos de ato com prazos legais (CPC/Lei 9.099) ──
+const TIPOS_ATO = [
+  { value: '',                label: 'Selecionar tipo de ato...',        diasUteis: 0,  corridos: false, margem: 2 },
+  { value: 'contestacao',     label: 'Contestação',                      diasUteis: 15, corridos: false, margem: 3 },
+  { value: 'apelacao',        label: 'Recurso de Apelação',              diasUteis: 15, corridos: false, margem: 3 },
+  { value: 'agravo',          label: 'Agravo de Instrumento',            diasUteis: 15, corridos: false, margem: 3 },
+  { value: 'embargos',        label: 'Embargos de Declaração',           diasUteis: 5,  corridos: false, margem: 1 },
+  { value: 'contrarrazoes',   label: 'Contrarrazões',                    diasUteis: 15, corridos: false, margem: 3 },
+  { value: 'manifestacao',    label: 'Manifestação / Petição simples',   diasUteis: 5,  corridos: false, margem: 1 },
+  { value: 'impugnacao',      label: 'Impugnação ao cumprimento',        diasUteis: 15, corridos: false, margem: 3 },
+  { value: 'recurso_ordinario', label: 'Recurso Ordinário',              diasUteis: 15, corridos: false, margem: 3 },
+  { value: 'resp_rext',       label: 'REsp / RE',                        diasUteis: 15, corridos: false, margem: 3 },
+  { value: 'juizado_5',       label: 'Juizado — 5 dias corridos',        diasUteis: 5,  corridos: true,  margem: 1 },
+  { value: 'juizado_10',      label: 'Juizado — 10 dias corridos',       diasUteis: 10, corridos: true,  margem: 2 },
+  { value: 'juizado_15',      label: 'Juizado — 15 dias corridos',       diasUteis: 15, corridos: true,  margem: 3 },
+  { value: 'personalizado',   label: 'Personalizado',                    diasUteis: 0,  corridos: false, margem: 0 },
+] as const;
+
+// Feriados nacionais fixos (MM-DD)
+const FERIADOS_FIXOS = new Set([
+  '01-01','04-21','05-01','09-07','10-12','11-02','11-15','11-20','12-25',
+]);
+
+function isFeriado(date: Date): boolean {
+  const mmdd = `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  return FERIADOS_FIXOS.has(mmdd);
+}
+
+function isUtil(date: Date): boolean {
+  const dow = date.getDay();
+  return dow !== 0 && dow !== 6 && !isFeriado(date);
+}
+
+function addDiasUteis(from: Date, dias: number): Date {
+  const d = new Date(from);
+  let count = 0;
+  while (count < dias) {
+    d.setDate(d.getDate() + 1);
+    if (isUtil(d)) count++;
+  }
+  return d;
+}
+
+function addDiasCorridos(from: Date, dias: number): Date {
+  const d = new Date(from);
+  d.setDate(d.getDate() + dias);
+  return d;
+}
+
+function toInputDate(d: Date): string {
+  return d.toISOString().split('T')[0];
+}
+
+// Intimação = publicação + 1 dia útil (regra CPC art. 231)
+function dataIntimacao(publicacao: Date): Date {
+  return addDiasUteis(publicacao, 1);
 }
 
 const DATE_FIELDS = [
@@ -122,6 +180,8 @@ export const NovoPrazoStandaloneDialog = ({
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<FormState>(emptyForm(tituloSugerido, numeroProcesso));
+  const [tipoAto, setTipoAto] = useState('');
+  const [calculoAplicado, setCalculoAplicado] = useState(false);
 
   const isEditing = !!prazoParaEditar?.id;
 
@@ -138,6 +198,8 @@ export const NovoPrazoStandaloneDialog = ({
       setProcessoSearch('');
       setSelectedProcesso(null);
       setProcessoOptions([]);
+      setTipoAto('');
+      setCalculoAplicado(false);
     }
   }, [open, prazoParaEditar, tituloSugerido, numeroProcesso]);
 
@@ -171,8 +233,53 @@ export const NovoPrazoStandaloneDialog = ({
     return () => clearTimeout(timer);
   }, [processoSearch, user?.office_id]);
 
-  const set = (field: string, value: string) =>
-    setFormData(prev => ({ ...prev, [field]: value }));
+  // Calcula datas ao selecionar tipo de ato (requer data de publicação)
+  const calcularDatas = (tipo: string, pubDate: string) => {
+    const ato = TIPOS_ATO.find(t => t.value === tipo);
+    if (!ato || !pubDate || ato.value === '' || ato.value === 'personalizado') return;
+
+    const pub = new Date(`${pubDate}T12:00:00`);
+    const intimacao = dataIntimacao(pub);
+
+    const fatal = ato.corridos
+      ? addDiasCorridos(intimacao, ato.diasUteis)
+      : addDiasUteis(intimacao, ato.diasUteis);
+
+    const interno = ato.corridos
+      ? addDiasCorridos(intimacao, Math.max(1, ato.diasUteis - ato.margem))
+      : addDiasUteis(intimacao, Math.max(1, ato.diasUteis - ato.margem));
+
+    setFormData(prev => ({
+      ...prev,
+      dataPrazoFatal: toInputDate(fatal),
+      dataPrazoInterno: toInputDate(interno),
+    }));
+    setCalculoAplicado(true);
+  };
+
+  const handleTipoAtoChange = (valor: string) => {
+    setTipoAto(valor);
+    setCalculoAplicado(false);
+    if (formData.dataPublicacao && valor && valor !== 'personalizado') {
+      calcularDatas(valor, formData.dataPublicacao);
+    }
+  };
+
+  const handlePublicacaoChange = (date: string) => {
+    setFormData(prev => ({ ...prev, dataPublicacao: date }));
+    setCalculoAplicado(false);
+    if (tipoAto && tipoAto !== 'personalizado' && date) {
+      calcularDatas(tipoAto, date);
+    }
+  };
+
+  const set = (field: string, value: string) => {
+    if (field === 'dataPublicacao') {
+      handlePublicacaoChange(value);
+    } else {
+      setFormData(prev => ({ ...prev, [field]: value }));
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -194,23 +301,18 @@ export const NovoPrazoStandaloneDialog = ({
     setIsLoading(true);
     try {
       if (isEditing) {
-        // UPDATE
         const updates: Record<string, unknown> = {
           titulo: formData.titulo,
           descricao: formData.descricao || null,
           data_fim_prazo: formData.dataPrazoFatal,
           prioridade: formData.prioridade,
+          data_publicacao: formData.dataPublicacao || null,
+          data_prazo_interno: formData.dataPrazoInterno || null,
         };
-        if (formData.dataPublicacao) updates.data_publicacao = formData.dataPublicacao;
-        else updates.data_publicacao = null;
-        if (formData.dataPrazoInterno) updates.data_prazo_interno = formData.dataPrazoInterno;
-        else updates.data_prazo_interno = null;
-
         const { error } = await supabase.from('prazos').update(updates).eq('id', prazoParaEditar!.id!);
         if (error) throw error;
         toast({ title: "Prazo atualizado", description: "As alterações foram salvas." });
       } else {
-        // INSERT
         let processoId: string | null = selectedProcesso?.id || null;
         if (!processoId && numeroProcesso && user.office_id) {
           const { data } = await supabase
@@ -251,10 +353,12 @@ export const NovoPrazoStandaloneDialog = ({
     }
   };
 
+  const atoSelecionado = TIPOS_ATO.find(t => t.value === tipoAto);
+
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onOpenChange(false); }}>
-      <DialogContent className="max-w-md bg-background border border-border p-0 rounded-2xl shadow-2xl overflow-hidden">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b border-border">
+      <DialogContent className="max-w-md bg-background border border-border p-0 rounded-2xl shadow-2xl overflow-hidden max-h-[92vh] overflow-y-auto">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-border sticky top-0 bg-background z-10">
           <DialogTitle className="flex items-center gap-2.5 text-base font-black text-foreground">
             <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-500">
               <CalendarClock className="h-4 w-4" />
@@ -269,6 +373,7 @@ export const NovoPrazoStandaloneDialog = ({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5">
+
           {/* Título */}
           <div className="space-y-1.5">
             <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
@@ -337,18 +442,84 @@ export const NovoPrazoStandaloneDialog = ({
             </div>
           )}
 
-          {/* 3 datas */}
+          {/* ── CALCULADORA ── */}
+          {!isEditing && (
+            <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Zap className="h-3.5 w-3.5 text-violet-500" />
+                <p className="text-[10px] font-black uppercase tracking-widest text-violet-600">
+                  Calculadora automática
+                </p>
+              </div>
+
+              {/* Data da publicação — aqui controla o cálculo */}
+              <div className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-lg border border-sky-500/20 bg-sky-500/5 px-3 py-2">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-foreground/80 leading-none mb-0.5 flex items-center gap-1">
+                    <Newspaper className="h-3 w-3 text-sky-500" /> Data da Publicação
+                  </p>
+                  <p className="text-[10px] text-muted-foreground/60 leading-none">Intimação = publicação + 1 dia útil</p>
+                </div>
+                <input
+                  type="date"
+                  value={formData.dataPublicacao}
+                  onChange={e => set('dataPublicacao', e.target.value)}
+                  className="w-36 h-8 px-2 rounded-lg text-xs bg-background border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+                />
+              </div>
+
+              {/* Tipo de ato */}
+              <div className="space-y-1.5">
+                <Select value={tipoAto} onValueChange={handleTipoAtoChange} disabled={!formData.dataPublicacao}>
+                  <SelectTrigger className={cn(
+                    "rounded-xl h-10 text-sm",
+                    !formData.dataPublicacao && "opacity-50 cursor-not-allowed"
+                  )}>
+                    <SelectValue placeholder="Selecionar tipo de ato..." />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    {TIPOS_ATO.filter(t => t.value !== '').map(t => (
+                      <SelectItem key={t.value} value={t.value}>
+                        {t.label}
+                        {t.value !== 'personalizado' && (
+                          <span className="text-muted-foreground ml-1 text-[10px]">
+                            ({t.diasUteis}d {t.corridos ? 'corridos' : 'úteis'})
+                          </span>
+                        )}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {!formData.dataPublicacao && (
+                  <p className="text-[10px] text-muted-foreground/60">Preencha a data da publicação para habilitar o cálculo.</p>
+                )}
+              </div>
+
+              {/* Badge de confirmação */}
+              {calculoAplicado && atoSelecionado && atoSelecionado.value !== 'personalizado' && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                  <Zap className="h-3 w-3 text-emerald-500 shrink-0" />
+                  <p className="text-[10px] text-emerald-600 font-bold">
+                    Prazos calculados — {atoSelecionado.diasUteis} dias {atoSelecionado.corridos ? 'corridos' : 'úteis'} a partir da intimação. Você pode ajustar manualmente abaixo.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Prazo Interno + Fatal (editáveis manualmente) */}
           <div className="space-y-2">
             <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-              Datas
+              {isEditing ? 'Datas' : 'Ajuste fino das datas'}
             </Label>
             <div className="space-y-2">
-              {DATE_FIELDS.map(({ key, label, hint, icon: Icon, color, ring, bg, required }) => (
+              {DATE_FIELDS.filter(f => isEditing ? true : f.key !== 'dataPublicacao').map(({ key, label, hint, icon: Icon, color, ring, bg, required }) => (
                 <div
                   key={key}
                   className={cn(
                     'grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-xl border px-3 py-2.5 transition-all ring-1 ring-transparent',
-                    bg, ring
+                    bg, ring,
+                    calculoAplicado && (key === 'dataPrazoFatal' || key === 'dataPrazoInterno') && 'ring-emerald-500/20'
                   )}
                 >
                   <div className={cn('shrink-0', color)}>
