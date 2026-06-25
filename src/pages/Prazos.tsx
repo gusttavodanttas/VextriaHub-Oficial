@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { NovoPrazoStandaloneDialog, PrazoFormData } from "@/components/Processos/NovoPrazoStandaloneDialog";
+import { useOpenItemFromSearch } from "@/hooks/useOpenItemFromSearch";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -143,6 +144,12 @@ export default function Prazos() {
     },
     enabled: !!user?.id,
     refetchInterval: 60_000,
+  });
+
+  // Busca global: rola até o prazo e abre o detalhe/edição
+  useOpenItemFromSearch('/prazos', !isLoading && prazos.length > 0, (openId) => {
+    const prazo = prazos.find(p => String(p.id) === openId);
+    if (prazo) setEditTarget(prazo);
   });
 
   const concludeMutation = useMutation({
@@ -360,6 +367,7 @@ export default function Prazos() {
                 return (
                   <div
                     key={prazo.id}
+                    id={`item-${prazo.id}`}
                     className={cn(
                       'group relative flex items-center gap-4 bg-background border border-border/60 rounded-2xl px-5 py-4 border-l-4 transition-all hover:border-border hover:shadow-sm',
                       cfg.border,

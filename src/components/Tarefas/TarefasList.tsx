@@ -24,8 +24,8 @@ export const TarefasList: React.FC<TarefasListProps> = ({
   return (
     <div className="space-y-4">
       {tarefas.map((tarefa) => (
+        <div key={tarefa.id} id={`item-${tarefa.id}`}>
         <TarefaCard
-          key={tarefa.id}
           tarefa={tarefa}
           isSelected={selectedIds.includes(tarefa.id)}
           isCompleted={completedIds.includes(tarefa.id)}
@@ -34,6 +34,7 @@ export const TarefasList: React.FC<TarefasListProps> = ({
           onDelete={onDelete}
           getPriorityColor={getPriorityColor}
         />
+        </div>
       ))}
     </div>
   );

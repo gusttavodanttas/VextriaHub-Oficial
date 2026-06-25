@@ -136,7 +136,7 @@ export function GlobalSearchBar() {
             ? `Vence ${format(parseISO(p.data_fim_prazo), "dd 'de' MMM", { locale: ptBR })}`
             : undefined,
           meta: p.numero_processo || undefined,
-          url: "/prazos",
+          url: `/prazos?openId=${p.id}`,
         })),
         ...(aud || []).map(a => ({
           id: a.id, group: "audiencias" as Group, label: a.titulo || "Audiência",
@@ -144,7 +144,7 @@ export function GlobalSearchBar() {
           meta: a.data_audiencia
             ? format(parseISO(a.data_audiencia), "dd/MM · HH:mm", { locale: ptBR })
             : undefined,
-          url: "/agenda",
+          url: `/agenda?openId=${a.id}${a.data_audiencia ? `&date=${encodeURIComponent(a.data_audiencia)}` : ""}`,
         })),
         ...(tar || []).map(t => ({
           id: t.id, group: "tarefas" as Group, label: t.titulo,

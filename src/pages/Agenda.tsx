@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FullScreenCalendar } from "@/components/ui/fullscreen-calendar";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useSearchParams, useLocation, useNavigate } from "react-router-dom";
 import { format, isToday, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -56,8 +57,35 @@ export default function Agenda() {
   const [selectedEvent, setSelectedEvent] = useState<AgendaEvent | null>(null);
   const [currentViewMonth, setCurrentViewMonth] = useState(new Date());
 
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+
   // Hook de Dados Reais
   const { events, loading, getEventsForDay } = useAgendaEvents(currentViewMonth);
+
+  // Busca global: vai para o mês do evento (?date) e destaca o item (?openId)
+  useEffect(() => {
+    const dateStr = searchParams.get("date");
+    if (dateStr) setCurrentViewMonth(new Date(dateStr));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search]);
+
+  useEffect(() => {
+    const openId = searchParams.get("openId");
+    if (!openId || loading) return;
+    const t = setTimeout(() => {
+      const el = document.getElementById(`item-${openId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("search-highlight");
+        setTimeout(() => el.classList.remove("search-highlight"), 2400);
+      }
+      navigate("/agenda", { replace: true });
+    }, 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, events, location.search]);
   
   const todayEvents = getEventsForDay(new Date());
   const multiSelect = useMultiSelect<AgendaEvent>(todayEvents);
@@ -250,7 +278,7 @@ export default function Agenda() {
                       </div>
                     )}
                                          {todayEvents.map((event) => (
-                      <div key={event.id} className={cn(
+                      <div key={event.id} id={`item-${event.id}`} className={cn(
                         "flex items-start space-x-4 p-5 rounded-[1.5rem] border transition-all duration-300 group",
                         multiSelect.isSelected(event.id) 
                           ? "bg-primary/[0.03] border-primary/20 ring-2 ring-primary/10" 
@@ -316,7 +344,7 @@ export default function Agenda() {
                   </CardHeader>
                   <CardContent className="p-8 pt-0 space-y-3">
                     {events.slice(0, 10).map((compromisso) => (
-                      <div key={compromisso.id} className="flex items-center justify-between p-4 rounded-2xl border border-black/5 dark:border-border bg-black/[0.01] dark:bg-white/[0.01] hover:bg-primary/[0.03] transition-all group cursor-pointer" onClick={() => handleEventClick(compromisso)}>
+                      <div key={compromisso.id} id={`item-${compromisso.id}`} className="flex items-center justify-between p-4 rounded-2xl border border-black/5 dark:border-border bg-black/[0.01] dark:bg-white/[0.01] hover:bg-primary/[0.03] transition-all group cursor-pointer" onClick={() => handleEventClick(compromisso)}>
                         <div className="flex items-center gap-4">
                           <div className={cn("p-2.5 rounded-xl transition-colors group-hover:bg-primary/10", getTypeColor(compromisso.type).split(' ')[0].replace('100', '10'))}>
                             {getTypeIcon(compromisso.type)}
