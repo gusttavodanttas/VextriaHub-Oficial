@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { AlertCircle, Clock, Plus, ArrowRight, Flag, CalendarDays } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,7 +22,7 @@ const prioMeta: Record<string, { color: string; bg: string; label: string }> = {
   baixa: { color: "text-emerald-500",bg: "bg-emerald-500/5", label: "Baixa" },
 };
 
-export function DeadlinesCard() {
+export function DeadlinesCard({ onOpenSheet }: { onOpenSheet?: () => void }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [prazos, setPrazos] = useState<Prazo[]>([]);
@@ -84,7 +83,7 @@ export function DeadlinesCard() {
           </div>
           <Button variant="ghost" size="sm"
             className="text-xs font-bold text-primary hover:bg-primary/10 rounded-xl h-7 px-2.5 gap-1"
-            onClick={() => navigate("/prazos")}
+            onClick={onOpenSheet ?? (() => navigate("/prazos"))}
           >
             Ver todos <ArrowRight className="h-3 w-3" />
           </Button>
@@ -109,7 +108,7 @@ export function DeadlinesCard() {
               className="rounded-xl h-9 px-5 text-[11px] font-black uppercase tracking-widest border-black/5 dark:border-border gap-1.5"
               onClick={() => navigate("/prazos")}
             >
-              <Plus className="h-3.5 w-3.5" /> Novo Prazo
+              <Plus className="h-3.5 w-3.5" /> + Prazo
             </Button>
           </div>
         ) : (
@@ -120,7 +119,7 @@ export function DeadlinesCard() {
               return (
                 <button
                   key={p.id}
-                  onClick={() => navigate("/prazos")}
+                  onClick={onOpenSheet ?? (() => navigate("/prazos"))}
                   className="flex items-center gap-3 p-3 rounded-xl bg-black/[0.02] dark:bg-background border border-black/5 dark:border-border hover:border-rose-500/20 hover:bg-rose-500/[0.02] transition-all text-left group/item"
                 >
                   <div className={cn("p-1.5 rounded-lg shrink-0", m.bg)}>

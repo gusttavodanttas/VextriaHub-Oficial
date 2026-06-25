@@ -16,7 +16,7 @@ interface Audiencia {
   local?: string | null;
 }
 
-export function HearingsCard() {
+export function HearingsCard({ onOpenSheet }: { onOpenSheet?: () => void }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [audiencias, setAudiencias] = useState<Audiencia[]>([]);
@@ -62,7 +62,7 @@ export function HearingsCard() {
           </div>
           <Button variant="ghost" size="sm"
             className="text-xs font-bold text-primary hover:bg-primary/10 rounded-xl h-7 px-2.5 gap-1"
-            onClick={() => navigate("/agenda")}
+            onClick={onOpenSheet ?? (() => navigate("/agenda"))}
           >
             Ver agenda <ArrowRight className="h-3 w-3" />
           </Button>
@@ -96,7 +96,7 @@ export function HearingsCard() {
             return (
               <button
                 key={a.id}
-                onClick={() => navigate("/agenda")}
+                onClick={onOpenSheet ?? (() => navigate("/agenda"))}
                 className="flex items-center gap-3 p-3 rounded-xl bg-black/[0.02] dark:bg-background border border-black/5 dark:border-border hover:border-orange-500/20 hover:bg-orange-500/[0.02] transition-all text-left"
               >
                 <div className="text-center bg-orange-500/10 rounded-xl px-2.5 py-1.5 shrink-0 min-w-[40px]">

@@ -3,9 +3,10 @@ import { DeadlinesCard } from "@/components/Dashboard/DeadlinesCard";
 import { HearingsCard } from "@/components/Dashboard/HearingsCard";
 import { CalendarWidget } from "@/components/Dashboard/CalendarWidget";
 import { DashboardHero } from "@/components/Dashboard/DashboardHero";
+import { QuickViewSheet, SheetView } from "@/components/Dashboard/QuickViewSheet";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, FileText, Users, CheckSquare, TrendingUp, ArrowRight, Plus, CalendarCheck, UserCheck } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useStats } from "@/hooks/useStats";
@@ -66,6 +67,7 @@ const Index = () => {
   const { isSuperAdmin, validatePayment } = useAuth();
   const navigate = useNavigate();
   const { stats, loading: statsLoading } = useStats();
+  const [sheetView, setSheetView] = useState<SheetView>(null);
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
@@ -117,19 +119,19 @@ const Index = () => {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-2.5">
           <KpiCard icon={AlertCircle} label="Prazos urgentes" value={stats.prazosVencendo}
             sub="próx. 3 dias" color="text-rose-500" bg="bg-rose-500/10"
-            onClick={() => navigate("/prazos")} urgent={stats.prazosVencendo > 0} loading={statsLoading} />
+            onClick={() => setSheetView("prazos")} urgent={stats.prazosVencendo > 0} loading={statsLoading} />
           <KpiCard icon={CalendarCheck} label="Audiências" value={stats.audienciasProximas}
             sub="próx. 7 dias" color="text-orange-500" bg="bg-orange-500/10"
-            onClick={() => navigate("/agenda")} loading={statsLoading} />
+            onClick={() => setSheetView("audiencias")} loading={statsLoading} />
           <KpiCard icon={FileText} label="Processos ativos" value={stats.processosAtivos}
             sub="em andamento" color="text-blue-500" bg="bg-blue-500/10"
-            onClick={() => navigate("/processos")} loading={statsLoading} />
+            onClick={() => setSheetView("processos")} loading={statsLoading} />
           <KpiCard icon={CheckSquare} label="Tarefas abertas" value={stats.tarefasPendentes}
             sub="pendentes" color="text-purple-500" bg="bg-purple-500/10"
-            onClick={() => navigate("/tarefas")} urgent={stats.tarefasPendentes > 5} loading={statsLoading} />
+            onClick={() => setSheetView("tarefas")} urgent={stats.tarefasPendentes > 5} loading={statsLoading} />
           <KpiCard icon={UserCheck} label="Clientes ativos" value={stats.clientes}
             sub="cadastrados" color="text-emerald-500" bg="bg-emerald-500/10"
-            onClick={() => navigate("/clientes")} loading={statsLoading} />
+            onClick={() => setSheetView("clientes")} loading={statsLoading} />
         </div>
       </section>
 
@@ -139,10 +141,10 @@ const Index = () => {
         {/* Coluna operacional */}
         <div className="lg:col-span-8 space-y-4 order-2 lg:order-1">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <DeadlinesCard />
-            <HearingsCard />
+            <DeadlinesCard onOpenSheet={() => setSheetView("prazos")} />
+            <HearingsCard onOpenSheet={() => setSheetView("audiencias")} />
           </div>
-          <PriorityTasks />
+          <PriorityTasks onOpenSheet={() => setSheetView("tarefas")} />
         </div>
 
         {/* Coluna lateral — calendário + financeiro */}
@@ -191,6 +193,7 @@ const Index = () => {
           </div>
         </div>
       </div>
+      <QuickViewSheet view={sheetView} onClose={() => setSheetView(null)} />
     </div>
   );
 };

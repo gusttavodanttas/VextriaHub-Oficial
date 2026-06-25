@@ -15,7 +15,7 @@ interface Tarefa {
   concluida: boolean;
 }
 
-export function PriorityTasks() {
+export function PriorityTasks({ onOpenSheet }: { onOpenSheet?: () => void }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
@@ -64,7 +64,7 @@ export function PriorityTasks() {
           </div>
           <Button variant="ghost" size="sm"
             className="text-xs font-bold text-primary hover:bg-primary/10 rounded-xl h-7 px-2.5 gap-1"
-            onClick={() => navigate("/tarefas")}
+            onClick={onOpenSheet ?? (() => navigate("/tarefas"))}
           >
             Ver todas <ArrowRight className="h-3 w-3" />
           </Button>
