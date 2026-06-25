@@ -159,6 +159,23 @@ function fixAccents(s: string | null | undefined): string {
   return r;
 }
 
+// DataJud só fornece o código IBGE do município (ex: "5300108"), não o nome.
+// Resolve via API pública do IBGE -> "Brasília/DF". Em caso de falha, mantém o código.
+async function resolveMunicipio(codigo: string): Promise<string> {
+  if (!codigo || !/^\d+$/.test(codigo)) return codigo || "";
+  try {
+    const r = await fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/municipios/${codigo}`);
+    if (r.ok) {
+      const m = await r.json();
+      const nome = m?.nome;
+      const uf = m?.microrregiao?.mesorregiao?.UF?.sigla
+        || m?.regiao_imediata?.regiao_intermediaria?.UF?.sigla;
+      if (nome) return uf ? `${nome}/${uf}` : nome;
+    }
+  } catch (_) { /* mantém o código */ }
+  return codigo;
+}
+
 function summarize(descricao: string, max = 3000): string {
   if (!descricao) return "";
   const clean = descricao.replace(/\s+/g, " ").trim();
@@ -558,6 +575,11 @@ serve(async (req) => {
       }
 
       // PJE Comunica são publicações, não andamentos — não mergear na timeline
+
+      // Resolve código IBGE da comarca para nome legível (ex: "5300108" -> "Brasília/DF")
+      if (merged.comarca && /^\d+$/.test(merged.comarca)) {
+        merged.comarca = await resolveMunicipio(merged.comarca);
+      }
 
       console.log(`[CNJ] retornando: ${merged.numeroProcesso} | ${merged.andamentos?.length || 0} mov | titulo="${merged.titulo}"`);
 
