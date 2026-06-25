@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, FileText, Scale, User, Gavel, ShieldCheck, Info, RotateCw, Search, Loader2 } from 'lucide-react';
+import { Plus, FileText, Scale, User, Gavel, ShieldCheck, Info, RotateCw, Search, Loader2, AlertTriangle } from 'lucide-react';
 import { usePlanLimits } from '@/hooks/usePlanFeatures';
 import { useToast } from '@/hooks/use-toast';
 import { PermissionGuard } from '@/components/Auth/PermissionGuard';
@@ -73,6 +73,8 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
   const [step, setStep] = useState<'choice' | 'oab' | 'cnj' | 'form'>('choice');
   const [isLoading, setIsLoading] = useState(false);
   const [cnjInput, setCnjInput] = useState('');
+  // Sinaliza que a busca rodou mas não localizou as partes (sigilo/sem cadastro)
+  const [partesNaoLocalizadas, setPartesNaoLocalizadas] = useState(false);
   
   const [formData, setFormData] = useState<NovoProcessoForm & { parteAutora?: string }>({
     titulo: initialData?.titulo || '',
@@ -204,6 +206,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
 
   const handleCnjSearch = async () => {
     if (!cnjInput) return;
+    setPartesNaoLocalizadas(false);
     setIsLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('fetch-processo', {
@@ -228,6 +231,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
           faseProcessual: data.faseProcessual || 'Fase Inicial',
           requerido: data.reu && data.reu !== 'Não identificado' ? data.reu : '',
           parteAutora: data.autor && data.autor !== 'Não identificado' ? data.autor : '',
+          // (flag de partes não localizadas é setada logo após este setFormData)
           // Extras que useProcessosV2.create entende
           classe: data.classe,
           assunto: data.assunto,
@@ -239,6 +243,9 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
           andamentos: Array.isArray(data.andamentos) ? data.andamentos : [],
           descricao: `Auto-preenchido via CNJ. Última movimentação: ${data.ultimoAndamento?.descricao?.slice(0, 200) || 'N/A'}`,
         } as any));
+        const semPartes = (!data.autor || data.autor === 'Não identificado')
+          && (!data.reu || data.reu === 'Não identificado');
+        setPartesNaoLocalizadas(semPartes);
         setStep('form');
         toast({
           title: 'Processo encontrado!',
@@ -382,7 +389,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
                       {/* Manual */}
                       <button
                         type="button"
-                        onClick={() => setStep('form')}
+                        onClick={() => { setPartesNaoLocalizadas(false); setStep('form'); }}
                         className="group relative flex flex-col items-center gap-5 p-7 rounded-2xl border border-border bg-card hover:border-amber-400 hover:shadow-lg hover:shadow-amber-500/10 hover:-translate-y-0.5 transition-all duration-200 text-center cursor-pointer"
                       >
                         <div className="w-14 h-14 rounded-xl bg-amber-50 dark:bg-amber-500/15 flex items-center justify-center text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-all duration-200">
@@ -428,6 +435,17 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
 
                   {step === 'form' && (
                     <form onSubmit={handleSubmit} className="space-y-8 animate-in fade-in slide-in-from-right-8 duration-700 pb-10">
+                      {partesNaoLocalizadas && (
+                        <div className="flex items-start gap-3 p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30">
+                          <AlertTriangle className="h-5 w-5 text-yellow-500 shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-bold text-yellow-600 dark:text-yellow-400">Partes não localizadas</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              O autor e o réu não foram encontrados na base pública (possível segredo de justiça ou cadastro incompleto no tribunal). Preencha o Polo Ativo e o Polo Passivo manualmente antes de salvar.
+                            </p>
+                          </div>
+                        </div>
+                      )}
                       {/* Seção 1: Identificação Básica */}
                       <div className="space-y-4">
                         <div className="flex items-center gap-3">
