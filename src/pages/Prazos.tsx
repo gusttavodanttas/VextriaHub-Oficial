@@ -3,17 +3,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { NovoPrazoStandaloneDialog } from "@/components/Processos/NovoPrazoStandaloneDialog";
+import { NovoPrazoStandaloneDialog, PrazoFormData } from "@/components/Processos/NovoPrazoStandaloneDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { format, differenceInCalendarDays, isToday, isPast, startOfDay } from 'date-fns';
+import { format, differenceInCalendarDays, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { useNavigate } from 'react-router-dom';
 import {
   Plus, Search, AlertTriangle, Clock, CalendarClock, CheckCircle2,
   ChevronRight, Flame, Calendar, Inbox, MoreHorizontal, Pencil, Trash2,
-  CheckCheck, Timer, Newspaper, Shield, AlertOctagon,
+  CheckCheck, Timer, Newspaper, Shield, AlertOctagon, Eye, EyeOff,
 } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -46,6 +47,8 @@ function getDataPrazo(prazo: Prazo): string | null {
 
 type Urgency = 'vencido' | 'hoje' | 'critico' | 'normal' | 'concluido';
 
+const PRIORIDADE_RANK: Record<string, number> = { alta: 0, media: 1, baixa: 2 };
+
 function getUrgency(prazo: Prazo): Urgency {
   if (prazo.status === 'concluido') return 'concluido';
   const data = getDataPrazo(prazo);
@@ -60,11 +63,11 @@ function getUrgency(prazo: Prazo): Urgency {
 const URGENCY_CONFIG: Record<Urgency, {
   label: string; color: string; border: string; badge: string; icon: React.ElementType; dot: string;
 }> = {
-  vencido:  { label: 'Vencido',      color: 'text-red-600',    border: 'border-l-red-500',    badge: 'bg-red-500/10 text-red-600 border-red-500/20',    icon: AlertTriangle,  dot: 'bg-red-500' },
-  hoje:     { label: 'Hoje',         color: 'text-amber-600',  border: 'border-l-amber-500',  badge: 'bg-amber-500/10 text-amber-600 border-amber-500/20', icon: Flame,         dot: 'bg-amber-500' },
-  critico:  { label: 'Crítico',      color: 'text-orange-600', border: 'border-l-orange-400', badge: 'bg-orange-500/10 text-orange-600 border-orange-500/20', icon: Timer,       dot: 'bg-orange-400' },
-  normal:   { label: 'No prazo',     color: 'text-sky-600',    border: 'border-l-sky-400',    badge: 'bg-sky-500/10 text-sky-600 border-sky-500/20',    icon: CalendarClock,  dot: 'bg-sky-400' },
-  concluido:{ label: 'Concluído',    color: 'text-emerald-600',border: 'border-l-emerald-400',badge: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20', icon: CheckCircle2, dot: 'bg-emerald-400' },
+  vencido:  { label: 'Vencido',    color: 'text-red-600',     border: 'border-l-red-500',     badge: 'bg-red-500/10 text-red-600 border-red-500/20',       icon: AlertTriangle, dot: 'bg-red-500' },
+  hoje:     { label: 'Hoje',       color: 'text-amber-600',   border: 'border-l-amber-500',   badge: 'bg-amber-500/10 text-amber-600 border-amber-500/20',  icon: Flame,         dot: 'bg-amber-500' },
+  critico:  { label: 'Crítico',    color: 'text-orange-600',  border: 'border-l-orange-400',  badge: 'bg-orange-500/10 text-orange-600 border-orange-500/20', icon: Timer,       dot: 'bg-orange-400' },
+  normal:   { label: 'No prazo',   color: 'text-sky-600',     border: 'border-l-sky-400',     badge: 'bg-sky-500/10 text-sky-600 border-sky-500/20',        icon: CalendarClock, dot: 'bg-sky-400' },
+  concluido:{ label: 'Concluído',  color: 'text-emerald-600', border: 'border-l-emerald-400', badge: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20', icon: CheckCircle2, dot: 'bg-emerald-400' },
 };
 
 const PRIORITY_CONFIG: Record<string, { label: string; color: string }> = {
@@ -84,22 +87,38 @@ function getDaysLabel(prazo: Prazo): string {
   return `${days} dias`;
 }
 
+function sortPrazos(items: Prazo[]): Prazo[] {
+  return [...items].sort((a, b) => {
+    const prioA = PRIORIDADE_RANK[a.prioridade] ?? 1;
+    const prioB = PRIORIDADE_RANK[b.prioridade] ?? 1;
+    if (prioA !== prioB) return prioA - prioB;
+    const dateA = getDataPrazo(a);
+    const dateB = getDataPrazo(b);
+    if (!dateA && !dateB) return 0;
+    if (!dateA) return 1;
+    if (!dateB) return -1;
+    return dateA.localeCompare(dateB);
+  });
+}
+
 const SECTION_ORDER: Urgency[] = ['vencido', 'hoje', 'critico', 'normal', 'concluido'];
 const SECTION_LABELS: Record<Urgency, string> = {
-  vencido:  'Vencidos',
-  hoje:     'Vencem hoje',
-  critico:  'Próximos 3 dias',
-  normal:   'Futuros',
-  concluido:'Concluídos',
+  vencido:   'Vencidos',
+  hoje:      'Vencem hoje',
+  critico:   'Próximos 3 dias',
+  normal:    'Futuros',
+  concluido: 'Concluídos',
 };
 
 export default function Prazos() {
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const [search, setSearch] = useState('');
   const [filterPriority, setFilterPriority] = useState<'all' | 'alta' | 'media' | 'baixa'>('all');
+  const [showConcluidos, setShowConcluidos] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Prazo | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Prazo | null>(null);
@@ -122,6 +141,7 @@ export default function Prazos() {
       return (data || []) as Prazo[];
     },
     enabled: !!user?.id,
+    refetchInterval: 60_000,
   });
 
   const concludeMutation = useMutation({
@@ -131,7 +151,7 @@ export default function Prazos() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['prazos'] });
-      toast({ title: 'Prazo concluído', description: 'Marcado como concluído com sucesso.' });
+      toast({ title: 'Prazo concluído', description: 'Marcado como concluído.' });
     },
   });
 
@@ -150,12 +170,15 @@ export default function Prazos() {
   const filtered = useMemo(() => prazos.filter(p => {
     const matchSearch = !search || p.titulo.toLowerCase().includes(search.toLowerCase()) || (p.descricao || '').toLowerCase().includes(search.toLowerCase());
     const matchPriority = filterPriority === 'all' || p.prioridade === filterPriority;
-    return matchSearch && matchPriority;
-  }), [prazos, search, filterPriority]);
+    const matchConcluido = showConcluidos || p.status !== 'concluido';
+    return matchSearch && matchPriority && matchConcluido;
+  }), [prazos, search, filterPriority, showConcluidos]);
 
   const grouped = useMemo(() => {
     const map: Record<Urgency, Prazo[]> = { vencido: [], hoje: [], critico: [], normal: [], concluido: [] };
     filtered.forEach(p => map[getUrgency(p)].push(p));
+    // Sort each section: prioridade then data
+    (Object.keys(map) as Urgency[]).forEach(k => { map[k] = sortPrazos(map[k]); });
     return map;
   }, [filtered]);
 
@@ -165,6 +188,19 @@ export default function Prazos() {
     criticos: grouped.critico.length,
     total: prazos.filter(p => p.status !== 'concluido').length,
   }), [grouped, prazos]);
+
+  const prazoToFormData = (p: Prazo): PrazoFormData => ({
+    id: p.id,
+    titulo: p.titulo,
+    descricao: p.descricao,
+    data_publicacao: p.data_publicacao,
+    data_prazo_interno: p.data_prazo_interno,
+    data_fim_prazo: p.data_fim_prazo || p.data_vencimento,
+    prioridade: p.prioridade,
+    processo_id: p.processo_id,
+    office_id: p.office_id,
+    user_id: p.user_id,
+  });
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -191,10 +227,10 @@ export default function Prazos() {
       {/* KPI Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Vencidos',       value: kpis.vencidos,  icon: AlertTriangle,  color: 'text-red-600',    bg: 'bg-red-500/8 border-red-500/15' },
-          { label: 'Vencem hoje',    value: kpis.hoje,      icon: Flame,          color: 'text-amber-600',  bg: 'bg-amber-500/8 border-amber-500/15' },
-          { label: 'Próximos 3 dias',value: kpis.criticos,  icon: Timer,          color: 'text-orange-600', bg: 'bg-orange-500/8 border-orange-500/15' },
-          { label: 'Total pendente', value: kpis.total,     icon: Calendar,       color: 'text-sky-600',    bg: 'bg-sky-500/8 border-sky-500/15' },
+          { label: 'Vencidos',        value: kpis.vencidos,  icon: AlertTriangle, color: 'text-red-600',    bg: 'bg-red-500/8 border-red-500/15' },
+          { label: 'Vencem hoje',     value: kpis.hoje,      icon: Flame,         color: 'text-amber-600',  bg: 'bg-amber-500/8 border-amber-500/15' },
+          { label: 'Próximos 3 dias', value: kpis.criticos,  icon: Timer,         color: 'text-orange-600', bg: 'bg-orange-500/8 border-orange-500/15' },
+          { label: 'Total pendente',  value: kpis.total,     icon: Calendar,      color: 'text-sky-600',    bg: 'bg-sky-500/8 border-sky-500/15' },
         ].map(({ label, value, icon: Icon, color, bg }) => (
           <div key={label} className={cn('rounded-2xl border p-4 flex items-center gap-3', bg)}>
             <div className={cn('p-2 rounded-xl bg-background/60', color)}>
@@ -208,9 +244,9 @@ export default function Prazos() {
         ))}
       </div>
 
-      {/* Search + Filter */}
-      <div className="flex gap-3">
-        <div className="relative flex-1">
+      {/* Search + Filters */}
+      <div className="flex flex-wrap gap-3">
+        <div className="relative flex-1 min-w-48">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
           <Input
             placeholder="Buscar prazos..."
@@ -219,7 +255,7 @@ export default function Prazos() {
             className="pl-10 h-10 rounded-xl bg-background border-border text-sm"
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {(['all', 'alta', 'media', 'baixa'] as const).map(p => (
             <button
               key={p}
@@ -234,6 +270,19 @@ export default function Prazos() {
               {p === 'all' ? 'Todos' : PRIORITY_CONFIG[p].label}
             </button>
           ))}
+          {/* Toggle concluídos */}
+          <button
+            onClick={() => setShowConcluidos(v => !v)}
+            className={cn(
+              'h-10 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border flex items-center gap-1.5',
+              showConcluidos
+                ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30'
+                : 'bg-background text-muted-foreground border-border hover:border-foreground/30'
+            )}
+          >
+            {showConcluidos ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+            Concluídos
+          </button>
         </div>
       </div>
 
@@ -244,7 +293,7 @@ export default function Prazos() {
         </div>
       )}
 
-      {/* Empty global */}
+      {/* Empty */}
       {!isLoading && filtered.length === 0 && (
         <div className="py-20 flex flex-col items-center justify-center text-center space-y-3 opacity-30">
           <Inbox className="h-14 w-14" />
@@ -262,7 +311,6 @@ export default function Prazos() {
 
         return (
           <div key={urgency} className="space-y-2">
-            {/* Section header */}
             <div className="flex items-center gap-2 mb-1">
               <Icon className={cn('h-3.5 w-3.5', cfg.color)} />
               <span className={cn('text-[10px] font-black uppercase tracking-widest', cfg.color)}>
@@ -274,7 +322,6 @@ export default function Prazos() {
               <div className="flex-1 h-px bg-border/50 ml-1" />
             </div>
 
-            {/* Cards */}
             <div className="space-y-2">
               {items.map(prazo => {
                 const priCfg = PRIORITY_CONFIG[prazo.prioridade] || PRIORITY_CONFIG.media;
@@ -289,10 +336,8 @@ export default function Prazos() {
                       isConcluido && 'opacity-60'
                     )}
                   >
-                    {/* Left: urgency dot */}
                     <div className={cn('w-2 h-2 rounded-full shrink-0', cfg.dot)} />
 
-                    {/* Middle: content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span className={cn('font-black text-sm', isConcluido && 'line-through text-muted-foreground')}>
@@ -305,7 +350,7 @@ export default function Prazos() {
                       {prazo.descricao && (
                         <p className="text-xs text-muted-foreground truncate max-w-md mb-1.5">{prazo.descricao}</p>
                       )}
-                      {/* Linha das 3 datas */}
+                      {/* 3 datas */}
                       <div className="flex flex-wrap items-center gap-3 text-[11px]">
                         {prazo.data_publicacao && (
                           <span className="flex items-center gap-1 text-sky-600">
@@ -328,11 +373,21 @@ export default function Prazos() {
                             {format(new Date(getDataPrazo(prazo)!), 'dd/MM/yy', { locale: ptBR })}
                           </span>
                         )}
+                        {/* Link para processo */}
+                        {prazo.processo_id && (
+                          <button
+                            onClick={() => navigate(`/processos/${prazo.processo_id}`)}
+                            className="flex items-center gap-1 text-primary hover:text-primary/80 transition-colors ml-1"
+                          >
+                            <Clock className="h-3 w-3" />
+                            <span className="underline underline-offset-2 text-[11px]">Ver processo</span>
+                          </button>
+                        )}
                       </div>
                     </div>
 
                     {/* Right: days pill + actions */}
-                    <div className="flex items-center gap-3 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0">
                       <span className={cn(
                         'text-[11px] font-black px-3 py-1 rounded-full border whitespace-nowrap',
                         cfg.badge
@@ -340,7 +395,6 @@ export default function Prazos() {
                         {getDaysLabel(prazo)}
                       </span>
 
-                      {/* Quick action: mark done */}
                       {!isConcluido && (
                         <Button
                           variant="ghost"
@@ -354,7 +408,6 @@ export default function Prazos() {
                         </Button>
                       )}
 
-                      {/* More actions */}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
@@ -380,6 +433,14 @@ export default function Prazos() {
                           >
                             <Pencil className="h-4 w-4" /> Editar
                           </DropdownMenuItem>
+                          {prazo.processo_id && (
+                            <DropdownMenuItem
+                              onClick={() => navigate(`/processos/${prazo.processo_id}`)}
+                              className="rounded-lg cursor-pointer gap-2"
+                            >
+                              <ChevronRight className="h-4 w-4" /> Ver processo
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             onClick={() => setDeleteTarget(prazo)}
@@ -389,8 +450,6 @@ export default function Prazos() {
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
-
-                      <ChevronRight className="h-4 w-4 text-muted-foreground/30 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
                   </div>
                 );
@@ -400,26 +459,22 @@ export default function Prazos() {
         );
       })}
 
-      {/* New Prazo Dialog */}
+      {/* New */}
       <NovoPrazoStandaloneDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ['prazos'] });
-          toast({ title: 'Prazo adicionado', description: 'O prazo foi salvo e está sendo monitorado.' });
-        }}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ['prazos'] })}
       />
 
-      {/* Edit Dialog */}
+      {/* Edit — passa dados completos para UPDATE real */}
       {editTarget && (
         <NovoPrazoStandaloneDialog
           open={!!editTarget}
           onOpenChange={v => { if (!v) setEditTarget(null); }}
-          tituloSugerido={editTarget.titulo}
+          prazoParaEditar={prazoToFormData(editTarget)}
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ['prazos'] });
             setEditTarget(null);
-            toast({ title: 'Prazo atualizado' });
           }}
         />
       )}
