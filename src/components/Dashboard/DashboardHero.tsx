@@ -1,5 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { Gift, CheckCircle2 } from "lucide-react";
+import { Gift } from "lucide-react";
 
 const getGreeting = () => {
   const h = new Date().getHours();
@@ -16,14 +16,15 @@ const getTodayStr = () =>
   });
 
 export function DashboardHero() {
-  const { profile, isLoading } = useAuth();
+  const { profile, isLoading, office } = useAuth();
   const firstName = profile?.full_name ? profile.full_name.split(" ")[0] : null;
   const greeting = getGreeting();
   const today = getTodayStr();
 
+  const isCourtesy = (office as any)?.access_type === 'courtesy';
+
   return (
     <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-card/90 via-card/60 to-background border border-black/5 dark:border-border px-6 py-5 shadow-sm">
-      {/* Background orbs */}
       <div className="absolute top-0 right-0 -mt-12 -mr-12 w-48 h-48 bg-primary/8 rounded-full blur-[60px] pointer-events-none" />
       <div className="absolute bottom-0 left-0 -mb-8 -ml-8 w-36 h-36 bg-secondary/8 rounded-full blur-[50px] pointer-events-none" />
 
@@ -45,13 +46,15 @@ export function DashboardHero() {
           <p className="text-xs text-muted-foreground font-medium capitalize">{today}</p>
         </div>
 
-        {/* Direita: plano + status */}
+        {/* Lado direito */}
         <div className="flex items-center gap-3 sm:flex-col sm:items-end">
-          {/* Badge plano de cortesia */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-600 dark:text-violet-400">
-            <Gift className="h-3.5 w-3.5 shrink-0" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Plano Cortesia</span>
-          </div>
+          {/* Badge plano de cortesia — só exibe se access_type === 'courtesy' */}
+          {isCourtesy && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-600 dark:text-violet-400">
+              <Gift className="h-3.5 w-3.5 shrink-0" />
+              <span className="text-[10px] font-black uppercase tracking-widest">Plano Cortesia</span>
+            </div>
+          )}
 
           {/* Status escritório */}
           <div className="hidden sm:flex items-center gap-1.5 text-emerald-500">
