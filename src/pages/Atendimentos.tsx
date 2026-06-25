@@ -17,13 +17,13 @@ import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
 // Novo componente
 import { NovoAtendimentoDialog } from "@/components/Atendimentos/NovoAtendimentoDialog";
 
-const initialAtendimentosData: any[] = [];
+const initialAtendimentosData: Array<Record<string, any>> = [];
 
 const Atendimentos = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   // Fase 1: Removed legacy useDataState. Using local state for now (mock data).
-  const [atendimentos, setAtendimentos] = useState<any[]>([]);
+  const [atendimentos, setAtendimentos] = useState<Array<Record<string, any>>>([]);
   const isNewUser = false; // placeholder
   const loadSampleData = () => setAtendimentos([]); // placeholder
   
@@ -67,7 +67,7 @@ const Atendimentos = () => {
     }
   };
 
-  const handleSaveAtendimento = (updatedAtendimento: any) => {
+  const handleSaveAtendimento = (updatedAtendimento: Record<string, any>) => {
     const newAtendimentos = atendimentosList.map(a => 
       a.id === updatedAtendimento.id ? updatedAtendimento : a
     );
@@ -75,7 +75,7 @@ const Atendimentos = () => {
     setFilteredAtendimentos(newAtendimentos);
   };
 
-  const handleNovoAtendimento = (novoAtendimento: any) => {
+  const handleNovoAtendimento = (novoAtendimento: Record<string, any>) => {
     const newAtendimentos = [...atendimentosList, novoAtendimento];
     setAtendimentosList(newAtendimentos);
     setFilteredAtendimentos(newAtendimentos);
@@ -112,7 +112,7 @@ const Atendimentos = () => {
     }
   };
 
-  const handleFiltersChange = (filters: any) => {
+  const handleFiltersChange = (filters: Record<string, any>) => {
     let filtered = [...atendimentosList];
 
     if (filters.status) {

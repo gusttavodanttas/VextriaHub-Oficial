@@ -252,7 +252,7 @@ const Admin = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {exclusoesPendentes.map((exclusao) => {
                       const TabelaIcon = getTabelaIcon(exclusao.tabela);
-                      const dadosRegistro = exclusao.dados_registro as any;
+                      const dadosRegistro = exclusao.dados_registro as Record<string, any>;
                       
                       return (
                         <Card 
@@ -335,7 +335,7 @@ const Admin = () => {
                                 <div className="min-w-0">
                                   <p className="text-[9px] font-black uppercase tracking-widest text-primary/60">Solicitado por</p>
                                   <p className="text-xs font-black truncate">
-                                    {(exclusao as any).user?.full_name || (exclusao as any).user?.email || 'Usuário desconhecido'}
+                                    {(exclusao as Record<string, any>).user?.full_name || (exclusao as Record<string, any>).user?.email || 'Usuário desconhecido'}
                                   </p>
                                 </div>
                               </div>
@@ -433,7 +433,7 @@ const Admin = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {exclusoesPendentes.map((exclusao) => {
                     const TabelaIcon = getTabelaIcon(exclusao.tabela);
-                    const dadosRegistro = exclusao.dados_registro as any;
+                    const dadosRegistro = exclusao.dados_registro as Record<string, any>;
                     
                     return (
                       <Card 
@@ -514,7 +514,7 @@ const Admin = () => {
                               <div className="min-w-0">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-primary/60">Solicitado por</p>
                                 <p className="text-sm font-black truncate">
-                                  {(exclusao as any).user?.full_name || (exclusao as any).user?.email || 'Usuário desconhecido'}
+                                  {(exclusao as Record<string, any>).user?.full_name || (exclusao as Record<string, any>).user?.email || 'Usuário desconhecido'}
                                 </p>
                               </div>
                             </div>

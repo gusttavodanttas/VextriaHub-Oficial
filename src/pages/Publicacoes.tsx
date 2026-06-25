@@ -92,7 +92,7 @@ export default function Publicacoes() {
     }
   };
 
-  const handleRegister = async (pub: any) => {
+  const handleRegister = async (pub: Record<string, any>) => {
     setSelectedPub(pub);
     setRegistering(true);
     setDetailDialogOpen(false);
@@ -153,7 +153,7 @@ export default function Publicacoes() {
         console.warn('[handleRegister] fetch-processo retornou erro/vazio:', error?.message || data?.error);
         setInitialProcessData(fallbackData);
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('[handleRegister] erro ao buscar processo:', e);
       setInitialProcessData(fallbackData);
     } finally {
@@ -162,7 +162,7 @@ export default function Publicacoes() {
     }
   };
 
-  const handleSchedule = (pub: any) => {
+  const handleSchedule = (pub: Record<string, any>) => {
     setSelectedPub(pub);
     setScheduleDialogOpen(true);
   };
@@ -300,7 +300,7 @@ export default function Publicacoes() {
 
     let erros = 0;
     for (const id of selectedIds) {
-      const ok = await updateStatus(id, newStatus as any);
+      const ok = await updateStatus(id, newStatus as string);
       if (!ok) erros++;
     }
 

@@ -104,7 +104,7 @@ export const OfficeManagement: React.FC = () => {
     setEditingOffice(null);
   };
 
-  const handleEdit = (office: any) => {
+  const handleEdit = (office: Record<string, any>) => {
     setEditingOffice(office);
     setFormData({
       name: office.name,
@@ -157,7 +157,7 @@ export const OfficeManagement: React.FC = () => {
     return names[plan] || plan;
   };
 
-  const getPlanBadgeVariant = (plan: string): any => "outline";
+  const getPlanBadgeVariant = (plan: string): string => "outline";
   
   const getPlanBadgeColor = (plan: string) => {
     const colors: Record<string, string> = {
@@ -452,8 +452,8 @@ export const OfficeManagement: React.FC = () => {
                       </TableCell>
                       <TableCell className="text-muted-foreground whitespace-nowrap text-sm">
                         {(() => {
-                          const subs = (office as any).subscriptions || [];
-                          const activeSub = subs.find((s: any) => s.status === 'active' || s.status === 'trial');
+                          const subs = (office as Record<string, any>).subscriptions || [];
+                          const activeSub = subs.find((s: Record<string, any>) => s.status === 'active' || s.status === 'trial');
                           if (office.is_lifetime) return <span className="text-amber-500 font-medium whitespace-nowrap">Acesso Vitalício</span>;
                           if (activeSub?.end_date) return format(new Date(activeSub.end_date), 'dd/MM/yyyy', { locale: ptBR });
                           if (office.plan === 'trial') {
@@ -467,7 +467,7 @@ export const OfficeManagement: React.FC = () => {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Users className="h-4 w-4 text-muted-foreground" />
-                          {((office as any).users?.length || 0)}/{office.max_users}
+                          {((office as Record<string, any>).users?.length || 0)}/{office.max_users}
                         </div>
                       </TableCell>
                       <TableCell>
