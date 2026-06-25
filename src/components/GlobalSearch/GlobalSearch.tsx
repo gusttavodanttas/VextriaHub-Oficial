@@ -85,7 +85,6 @@ export function GlobalSearchBar() {
   /* Busca — usa ilike direto (sem .or()) para evitar problema de parsing do Supabase */
   const search = useCallback(async (q: string) => {
     const term = q.trim();
-    console.log("[Search] query:", term, "office_id:", user?.office_id);
     if (term.length < 2 || !user?.office_id) {
       setResults([]);
       setLoading(false);
@@ -93,14 +92,15 @@ export function GlobalSearchBar() {
     }
 
     const oid = user.office_id;
-    const wild = `%${term}%`;
+    // Escapa caracteres especiais de regex para evitar erros
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const pc = (p?: string | null) =>
       p === "alta" ? "text-rose-500 bg-rose-500/10" :
       p === "media" ? "text-amber-500 bg-amber-500/10" :
       "text-emerald-600 bg-emerald-500/10";
 
     try {
-      /* Busca em cada tabela pelo campo principal — ilike simples, sem .or() */
+      // Usa operador regex ~* (case-insensitive) do Postgres — sem % na URL, sem 400
       const [
         { data: procTit }, { data: procCli },
         { data: cli },
@@ -109,17 +109,17 @@ export function GlobalSearchBar() {
         { data: tar },
       ] = await Promise.all([
         supabase.from("processos").select("id, titulo, numero_processo, cliente, area")
-          .eq("office_id", oid).eq("deletado", false).ilike("titulo", wild).limit(3),
+          .eq("office_id", oid).eq("deletado", false).filter("titulo", "~*", escaped).limit(3),
         supabase.from("processos").select("id, titulo, numero_processo, cliente, area")
-          .eq("office_id", oid).eq("deletado", false).ilike("cliente", wild).limit(3),
+          .eq("office_id", oid).eq("deletado", false).filter("cliente", "~*", escaped).limit(3),
         supabase.from("clientes").select("id, nome, email, tipo_cliente")
-          .eq("office_id", oid).eq("deletado", false).ilike("nome", wild).limit(5),
+          .eq("office_id", oid).eq("deletado", false).filter("nome", "~*", escaped).limit(5),
         supabase.from("prazos").select("id, titulo, prioridade, data_fim_prazo")
-          .eq("office_id", oid).eq("status", "pendente").ilike("titulo", wild).limit(4),
+          .eq("office_id", oid).eq("status", "pendente").filter("titulo", "~*", escaped).limit(4),
         supabase.from("audiencias").select("id, tipo_audiencia, local, data_audiencia")
-          .eq("office_id", oid).eq("deletado", false).ilike("tipo_audiencia", wild).limit(4),
+          .eq("office_id", oid).eq("deletado", false).filter("tipo_audiencia", "~*", escaped).limit(4),
         supabase.from("tarefas").select("id, titulo, prioridade, data_vencimento")
-          .eq("office_id", oid).eq("deletado", false).eq("concluida", false).ilike("titulo", wild).limit(4),
+          .eq("office_id", oid).eq("deletado", false).eq("concluida", false).filter("titulo", "~*", escaped).limit(4),
       ]);
 
       /* Merge processos sem duplicar */
@@ -137,7 +137,6 @@ export function GlobalSearchBar() {
         if (processos.length >= 4) break;
       }
 
-      console.log("[Search] resultados proc:", procTit?.length, procCli?.length, "cli:", cli?.length, "praz:", praz?.length);
       setResults([
         ...processos,
         ...(cli || []).map(c => ({
