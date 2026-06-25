@@ -82,11 +82,11 @@ const etiquetasDisponiveis = [
 ];
 
 // Dados iniciais vazios para novos usuários
-const andamentosIniciais: any[] = [];
+const andamentosIniciais: Array<Record<string, any>> = [];
 
-const prazosIniciais: any[] = [];
+const prazosIniciais: Array<Record<string, any>> = [];
 
-const audienciasIniciais: any[] = [];
+const audienciasIniciais: Array<Record<string, any>> = [];
 
 // Dados padrão limpos
 const defaultProcessoInfo = {
@@ -145,7 +145,7 @@ export function ProcessoDetalhes({ processo, open, onOpenChange }: ProcessoDetal
   }));
 
   // Handlers para adicionar novos itens
-  const handleAddAndamento = (novoAndamento: any) => {
+  const handleAddAndamento = (novoAndamento: Record<string, any>) => {
     const andamentoComId = {
       ...novoAndamento,
       id: Math.max(...andamentos.map(a => a.id)) + 1
@@ -153,7 +153,7 @@ export function ProcessoDetalhes({ processo, open, onOpenChange }: ProcessoDetal
     setAndamentos(prev => [andamentoComId, ...prev]);
   };
 
-  const handleAddPrazo = (novoPrazo: any) => {
+  const handleAddPrazo = (novoPrazo: Record<string, any>) => {
     const prazoComId = {
       ...novoPrazo,
       id: Math.max(...prazos.map(p => p.id)) + 1,
@@ -162,7 +162,7 @@ export function ProcessoDetalhes({ processo, open, onOpenChange }: ProcessoDetal
     setPrazos(prev => [prazoComId, ...prev]);
   };
 
-  const handleAddAudiencia = (novaAudiencia: any) => {
+  const handleAddAudiencia = (novaAudiencia: Record<string, any>) => {
     const audienciaComId = {
       ...novaAudiencia,
       id: Math.max(...audiencias.map(a => a.id)) + 1,

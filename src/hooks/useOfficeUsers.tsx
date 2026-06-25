@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { OfficeUser, NovoOfficeUser } from '@/types/database';
 import { useAuth } from '@/contexts/AuthContext';
 
-const enrichWithProfiles = async (officeUsers: any[]): Promise<any[]> => {
+const enrichWithProfiles = async (officeUsers: Record<string, any>[]): Promise<Record<string, any>[]> => {
   if (!officeUsers.length) return officeUsers;
   const userIds = officeUsers.map(u => u.user_id).filter(Boolean);
   if (!userIds.length) return officeUsers;
@@ -52,7 +52,7 @@ export const useOfficeUsers = () => {
     },
     onSuccess: (enriched) => {
       if (enriched) {
-        queryClient.setQueryData(['office_users', office?.id], (old: any[] = []) => [enriched, ...old]);
+        queryClient.setQueryData(['office_users', office?.id], (old: Record<string, any>[] = []) => [enriched, ...old]);
       }
     },
     onError: () => { /* error handled in component */ }
@@ -72,7 +72,7 @@ export const useOfficeUsers = () => {
     },
     onSuccess: (enriched) => {
       if (enriched) {
-        queryClient.setQueryData(['office_users', office?.id], (old: any[] = []) => 
+        queryClient.setQueryData(['office_users', office?.id], (old: Record<string, any>[] = []) => 
           old.map(u => u.id === enriched.id ? enriched : u)
         );
       }
@@ -90,7 +90,7 @@ export const useOfficeUsers = () => {
       return true;
     },
     onSuccess: (_, userId) => {
-      queryClient.setQueryData(['office_users', office?.id], (old: any[] = []) => 
+      queryClient.setQueryData(['office_users', office?.id], (old: Record<string, any>[] = []) => 
         old.filter(u => u.id !== userId)
       );
     },

@@ -119,7 +119,7 @@ export const SubscriptionManagement: React.FC = () => {
     setEditingSubscription(null);
   };
 
-  const handleEdit = (subscription: any) => { // TODO Fase 2: tipar Subscription com join para office
+  const handleEdit = (subscription: Record<string, any>) => { // TODO Fase 2: tipar Subscription com join para office
     setEditingSubscription(subscription);
     setFormData({
       office_id: subscription.office_id,
@@ -171,7 +171,7 @@ export const SubscriptionManagement: React.FC = () => {
 
   // Filtros
   const filteredSubscriptions = subscriptions.filter(subscription => {
-    const officeName = (subscription as any)?.office?.name || ''; // TODO Fase 2: typed join
+    const officeName = (subscription as Record<string, any>)?.office?.name || ''; // TODO Fase 2: typed join
     const matchesSearch = officeName.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || subscription.status === statusFilter;
     const matchesPlan = planFilter === 'all' || subscription.plan === planFilter;
@@ -513,7 +513,7 @@ export const SubscriptionManagement: React.FC = () => {
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
                           <Building2 className="h-4 w-4 text-primary" />
-                          {(subscription as any).office?.name || 'Escritório não encontrado'}
+                          {(subscription as Record<string, any>).office?.name || 'Escritório não encontrado'}
                         </div>
                       </TableCell>
                        <TableCell>
@@ -521,7 +521,7 @@ export const SubscriptionManagement: React.FC = () => {
                           <Badge variant="outline">
                             {getPlanDisplayName(subscription.plan)}
                           </Badge>
-                          {(subscription as any).office?.is_lifetime && (
+                          {(subscription as Record<string, any>).office?.is_lifetime && (
                             <Badge className="bg-amber-500 hover:bg-amber-600 border-none text-[10px] h-5">
                               <Star className="h-3 w-3 mr-1 fill-current" />
                               Vitalício
@@ -562,7 +562,7 @@ export const SubscriptionManagement: React.FC = () => {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleCancel(subscription.id, (subscription as any).office?.name)}
+                              onClick={() => handleCancel(subscription.id, (subscription as Record<string, any>).office?.name)}
                               className="text-destructive hover:text-destructive"
                             >
                               <X className="h-4 w-4" />
@@ -572,7 +572,7 @@ export const SubscriptionManagement: React.FC = () => {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleReactivate(subscription.id, (subscription as any).office?.name)}
+                              onClick={() => handleReactivate(subscription.id, (subscription as Record<string, any>).office?.name)}
                               className="text-green-600 hover:text-green-600"
                             >
                               <Play className="h-4 w-4" />
