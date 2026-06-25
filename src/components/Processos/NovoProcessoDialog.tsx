@@ -297,8 +297,9 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
       } else {
         throw new Error(data?.error || 'Processo não localizado.');
       }
-    } catch (error: any) {
-      console.error('Erro ao buscar CNJ:', error);
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error('Erro ao buscar CNJ:', err);
       toast({
         title: "Não encontrado",
         description: "Não conseguimos localizar este processo no DataJud. Você pode cadastrar manualmente.",

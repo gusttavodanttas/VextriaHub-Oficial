@@ -35,7 +35,7 @@ class StripeService {
     };
   }
 
-  private objectToFormData(obj: any): string {
+  private objectToFormData(obj: Record<string, any>): string {
     return Object.keys(obj)
       .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(obj[key])}`)
       .join('&');
@@ -45,7 +45,7 @@ class StripeService {
     email: string;
     name: string;
     phone?: string;
-    address?: any;
+    address?: Record<string, any>; // TODO Fase 2: better type
     metadata?: Record<string, string>;
   }): Promise<StripeCustomer> {
     const formData = this.objectToFormData(customerData);

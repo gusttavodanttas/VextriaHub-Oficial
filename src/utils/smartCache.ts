@@ -9,7 +9,7 @@ interface CacheEntry<T> {
 interface CacheOptions {
   ttl?: number; // Time to live in milliseconds
   maxSize?: number; // Maximum number of entries
-  onEvict?: (key: string, value: any) => void;
+  onEvict?: (key: string, value: unknown) => void; // Fase 2: TS coverage
 }
 
 class SmartCache<T = any> {

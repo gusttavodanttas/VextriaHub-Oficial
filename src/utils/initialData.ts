@@ -22,7 +22,7 @@ export const getInitialData = <T>(mockData: T[], isFirstLogin: boolean): T[] => 
 };
 
 // Dados mockados de exemplo
-export const initialClientsData: any[] = [
+export const initialClientsData: any[] = [ // TODO Fase 2: tipar como Client[] or similar
   {
     id: 1,
     nome: "João Silva",
@@ -47,7 +47,7 @@ export const initialClientsData: any[] = [
   }
 ];
 
-export const initialProcessosData: any[] = [
+export const initialProcessosData: any[] = [ // TODO Fase 2: tipar como Processo[] or similar
   {
     id: "0001234-56.2025.8.26.0100",
     titulo: "Ação de Cobrança - João Silva",
@@ -94,4 +94,4 @@ export const initialProcessosData: any[] = [
   }
 ];
 
-export const initialAtendimentosData: any[] = [];
+export const initialAtendimentosData: any[] = []; // TODO Fase 2: tipar corretamente

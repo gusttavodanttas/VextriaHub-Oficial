@@ -153,10 +153,11 @@ export const usePublicacoes = () => {
       }
 
       return savedResults;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
       toast({
         title: "Erro na sincronização",
-        description: error.message || "Não foi possível conectar aos tribunais no momento.",
+        description: err.message || "Não foi possível conectar aos tribunais no momento.",
         variant: "destructive"
       });
       return [];
@@ -363,10 +364,11 @@ export const usePublicacoes = () => {
       }
 
       return savedResults;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
       toast({
         title: "Erro ao buscar processo",
-        description: error.message || "Não foi possível consultar o CNJ.",
+        description: err.message || "Não foi possível consultar o CNJ.",
         variant: "destructive"
       });
       return [];

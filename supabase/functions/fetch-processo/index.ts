@@ -183,21 +183,23 @@ function summarize(descricao: string, max = 3000): string {
   return clean.slice(0, max).replace(/\s\S*$/, "") + "…";
 }
 
-function enrichMovText(a: any): string {
-  const base = a?.descricao ?? a?.titulo ?? a?.nome ?? a?.texto ?? "";
-  const compls: any[] = Array.isArray(a?.complementosTabelados) ? a.complementosTabelados : [];
+function enrichMovText(a: unknown): string {
+  const rec = a as Record<string, any>;
+  const base = rec?.descricao ?? rec?.titulo ?? rec?.nome ?? rec?.texto ?? "";
+  const compls: any[] = Array.isArray(rec?.complementosTabelados) ? rec.complementosTabelados : [];
   if (!compls.length) return base;
-  const detalhes = compls.map((c) => c?.nome).filter(Boolean).join(", ");
+  const detalhes = compls.map((c) => (c as any)?.nome).filter(Boolean).join(", ");
   return detalhes ? `${base} (${detalhes})` : base;
 }
 
-function buildAndamentos(rawMovs: any[]): Array<{ data: string | null; resumo: string; descricao: string; fase: string }> {
+function buildAndamentos(rawMovs: unknown[]): Array<{ data: string | null; resumo: string; descricao: string; fase: string }> {
   if (!Array.isArray(rawMovs)) return [];
   return rawMovs
     .slice(0, 100)
-    .map((a: any) => {
+    .map((a: unknown) => {
+      const rec = a as Record<string, any>;
       const texto = enrichMovText(a);
-      const dataRaw = a?.dataHora ?? a?.data ?? a?.dt ?? null;
+      const dataRaw = rec?.dataHora ?? rec?.data ?? rec?.dt ?? null;
       return {
         data: dataRaw,
         resumo: summarize(texto, 600),
@@ -213,12 +215,13 @@ function buildAndamentos(rawMovs: any[]): Array<{ data: string | null; resumo: s
     });
 }
 
-function extractMovs(source: any): any[] {
-  const m = source?.movimentos ?? source?.movimentacoes ?? [];
+function extractMovs(source: unknown): any[] {
+  const rec = source as Record<string, any>;
+  const m = rec?.movimentos ?? rec?.movimentacoes ?? [];
   return Array.isArray(m) ? m : [];
 }
 
-function parseDataAjuizamento(raw: any): string | null {
+function parseDataAjuizamento(raw: unknown): string | null {
   if (!raw) return null;
   const s = String(raw);
   if (/^\d{14}$/.test(s)) {

@@ -98,9 +98,10 @@ export const NovoPrazoStandaloneDialog = ({
       onOpenChange(false);
       resetForm();
       onSuccess?.();
-    } catch (error: any) {
-      console.error('Erro ao adicionar prazo:', error);
-      toast({ title: "Erro ao salvar", description: error.message || "Tente novamente.", variant: "destructive" });
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error('Erro ao adicionar prazo:', err);
+      toast({ title: "Erro ao salvar", description: err.message || "Tente novamente.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }

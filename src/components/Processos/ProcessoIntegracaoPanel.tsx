@@ -111,15 +111,16 @@ const ProcessoIntegracaoBody: React.FC<ProcessoIntegracaoBodyProps> = ({
       } else {
         throw new Error("Dados não retornados pela API.");
       }
-    } catch (error: any) {
-      console.error('Erro ao buscar CNJ:', error);
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error('Erro ao buscar CNJ:', err);
       toast({
         title: "Não encontrado",
-        description: error.message || "Não conseguimos localizar este processo. Verifique o número ou cadastre manualmente.",
+        description: err.message || "Não conseguimos localizar este processo. Verifique o número ou cadastre manualmente.",
         variant: "destructive"
       });
       // Mesmo com erro, permite ir pro manual se quiser
-      if (error.message?.includes('não localizado')) {
+      if ((err as Error).message?.includes('não localizado')) {
           setMode('manual');
       }
     } finally {

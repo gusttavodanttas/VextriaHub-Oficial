@@ -202,10 +202,11 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
 
       setResults(filteredResults);
       setSearched(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
       toast({
         title: "Erro na sincronização",
-        description: error.message || "Não foi possível conectar ao serviço de busca.",
+        description: err.message || "Não foi possível conectar ao serviço de busca.",
         variant: "destructive",
       });
     } finally {

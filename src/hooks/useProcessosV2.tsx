@@ -11,7 +11,7 @@ export function useProcessosV2() {
   const queryClient = useQueryClient();
 
   // Helper: Map database row -> frontend Processo
-  const mapDatabaseToProcesso = (dbRecord: any): Processo => {
+  const mapDatabaseToProcesso = (dbRecord: any): Processo => { // TODO Fase 2: replace 'any' with proper DB type
     let inferredYear = '';
     if (!dbRecord.data_inicio && dbRecord.numero_processo?.length === 20) {
       inferredYear = dbRecord.numero_processo.substring(9, 13);

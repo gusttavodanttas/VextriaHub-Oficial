@@ -22,10 +22,23 @@ export const OfficeManagement: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [planFilter, setPlanFilter] = useState<string>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingOffice, setEditingOffice] = useState<any>(null);
+  const [editingOffice, setEditingOffice] = useState<any>(null); // TODO Fase 2: tipar com tipo Office completo
   const [submitting, setSubmitting] = useState(false);
 
-  const [formData, setFormData] = useState<any>({
+  interface OfficeFormData {
+    name: string;
+    email: string;
+    phone: string;
+    address: string;
+    plan: string;
+    max_users: number;
+    active: boolean;
+    logo_url: string | null;
+    is_lifetime: boolean;
+    manual_discount_percent: number;
+  }
+
+  const [formData, setFormData] = useState<OfficeFormData>({
     name: '',
     email: '',
     phone: '',
@@ -104,7 +117,7 @@ export const OfficeManagement: React.FC = () => {
       logo_url: office.logo_url,
       is_lifetime: office.is_lifetime || false,
       manual_discount_percent: office.manual_discount_percent || 0,
-    } as any);
+    });
     setDialogOpen(true);
   };
 
@@ -246,7 +259,7 @@ export const OfficeManagement: React.FC = () => {
                   <Label htmlFor="plan">Plano</Label>
                   <Select 
                     value={formData.plan} 
-                    onValueChange={(value: any) => setFormData({ ...formData, plan: value })}
+                    onValueChange={(value) => setFormData({ ...formData, plan: value })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -283,8 +296,8 @@ export const OfficeManagement: React.FC = () => {
                   </div>
                   <Checkbox 
                     id="is_lifetime"
-                    checked={(formData as any).is_lifetime}
-                    onCheckedChange={(checked) => setFormData({ ...formData, [ 'is_lifetime' as any]: !!checked })}
+                    checked={formData.is_lifetime}
+                    onCheckedChange={(checked) => setFormData({ ...formData, is_lifetime: !!checked })}
                   />
                 </div>
 
@@ -296,8 +309,8 @@ export const OfficeManagement: React.FC = () => {
                       type="number"
                       min="0"
                       max="100"
-                      value={(formData as any).manual_discount_percent || 0}
-                      onChange={(e) => setFormData({ ...formData, [ 'manual_discount_percent' as any]: parseFloat(e.target.value) || 0 })}
+                      value={formData.manual_discount_percent || 0}
+                      onChange={(e) => setFormData({ ...formData, manual_discount_percent: parseFloat(e.target.value) || 0 })}
                       placeholder="Ex: 50"
                     />
                     <span className="text-muted-foreground">%</span>
@@ -439,7 +452,8 @@ export const OfficeManagement: React.FC = () => {
                       </TableCell>
                       <TableCell className="text-muted-foreground whitespace-nowrap text-sm">
                         {(() => {
-                          const activeSub = (office as any).subscriptions?.find((s: any) => s.status === 'active' || s.status === 'trial');
+                          const subs = (office as any).subscriptions || [];
+                          const activeSub = subs.find((s: any) => s.status === 'active' || s.status === 'trial');
                           if (office.is_lifetime) return <span className="text-amber-500 font-medium whitespace-nowrap">Acesso Vitalício</span>;
                           if (activeSub?.end_date) return format(new Date(activeSub.end_date), 'dd/MM/yyyy', { locale: ptBR });
                           if (office.plan === 'trial') {
@@ -453,7 +467,7 @@ export const OfficeManagement: React.FC = () => {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Users className="h-4 w-4 text-muted-foreground" />
-                          {(office as any).users?.length || 0}/{office.max_users}
+                          {((office as any).users?.length || 0)}/{office.max_users}
                         </div>
                       </TableCell>
                       <TableCell>
