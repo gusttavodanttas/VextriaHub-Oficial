@@ -165,6 +165,28 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
     setIsLoading(true);
     try {
       const fd = formData as any;
+
+      // Rede de segurança contra duplicata ao salvar (ex: CNJ digitado manualmente)
+      const cnjLimpo = (fd.numeroProcesso || '').replace(/\D/g, '');
+      if (user?.office_id && cnjLimpo) {
+        const { data: jaExiste } = await supabase
+          .from('processos')
+          .select('id')
+          .eq('office_id', user.office_id)
+          .eq('numero_processo', cnjLimpo)
+          .eq('deletado', false)
+          .maybeSingle();
+        if (jaExiste) {
+          toast({
+            title: 'Processo já cadastrado',
+            description: 'Já existe um processo com este número no seu escritório.',
+            variant: 'destructive',
+          });
+          setIsLoading(false);
+          return;
+        }
+      }
+
       // Prioriza dataAjuizamento (DataJud) > dataInicio passada > hoje
       const dataInicio =
         (fd.dataAjuizamento ? String(fd.dataAjuizamento).split('T')[0] : null) ||
@@ -209,6 +231,27 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
     setPartesNaoLocalizadas(false);
     setIsLoading(true);
     try {
+      // Bloqueia duplicata: se o CNJ já estiver cadastrado no escritório, não busca de novo.
+      const cnjLimpo = cnjInput.replace(/\D/g, '');
+      if (user?.office_id && cnjLimpo) {
+        const { data: jaExiste } = await supabase
+          .from('processos')
+          .select('id')
+          .eq('office_id', user.office_id)
+          .eq('numero_processo', cnjLimpo)
+          .eq('deletado', false)
+          .maybeSingle();
+        if (jaExiste) {
+          toast({
+            title: 'Processo já cadastrado',
+            description: 'Este número de processo já existe no seu escritório. Não é necessário cadastrar de novo.',
+            variant: 'destructive',
+          });
+          setIsLoading(false);
+          return;
+        }
+      }
+
       const { data, error } = await supabase.functions.invoke('fetch-processo', {
         body: {
           numeroProcesso: cnjInput,
