@@ -1,243 +1,156 @@
-﻿
-import { AlertCircle, FileText, Clock, Plus, ArrowRight, Flag } from "lucide-react";
+import { useState, useEffect } from "react";
+import { AlertCircle, Clock, Plus, ArrowRight, Flag, CalendarDays } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import { useStats } from "@/hooks/useStats";
-import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
+import { format, parseISO, differenceInDays } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
-const getWeekRange = () => {
-  const now = new Date();
-  const end = new Date(now);
-  end.setDate(end.getDate() + 6);
-  const fmt = (d: Date) =>
-    d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-  return `${fmt(now)} – ${fmt(end)}`;
+interface Prazo {
+  id: string;
+  titulo: string;
+  data_fim_prazo: string | null;
+  prioridade: string;
+}
+
+const prioMeta: Record<string, { color: string; bg: string; label: string }> = {
+  alta:  { color: "text-rose-500",   bg: "bg-rose-500/10",   label: "Alta" },
+  media: { color: "text-amber-500",  bg: "bg-amber-500/10",  label: "Média" },
+  baixa: { color: "text-emerald-500",bg: "bg-emerald-500/5", label: "Baixa" },
 };
 
 export function DeadlinesCard() {
   const navigate = useNavigate();
-  const { stats } = useStats();
-  const { toast } = useToast();
-  const prazos: any[] = []; // Conectar ao hook real futuramente
-  const weekRange = getWeekRange();
-  const hasUrgent = stats.prazosVencendo > 0;
+  const { user } = useAuth();
+  const [prazos, setPrazos] = useState<Prazo[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const [quickPrazoOpen, setQuickPrazoOpen] = useState(false);
-  const [prazoTitle, setPrazoTitle] = useState("");
-  const [prazoDate, setPrazoDate] = useState("");
-  const [prazoPriority, setPrazoPriority] = useState("alta");
+  useEffect(() => {
+    if (!user?.office_id) return;
+    const fetch = async () => {
+      const today = new Date().toISOString().split("T")[0];
+      const next7 = new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
+      const { data } = await supabase
+        .from("prazos")
+        .select("id, titulo, data_fim_prazo, prioridade")
+        .eq("office_id", user.office_id)
+        .eq("status", "pendente")
+        .gte("data_fim_prazo", today)
+        .lte("data_fim_prazo", next7)
+        .order("data_fim_prazo", { ascending: true })
+        .limit(5);
+      setPrazos((data || []) as Prazo[]);
+      setLoading(false);
+    };
+    fetch();
+  }, [user?.office_id]);
 
-  const handleSaveQuickPrazo = () => {
-    if (!prazoTitle.trim() || !prazoDate) return;
-    toast({
-      title: "Prazo criado",
-      description: `"${prazoTitle}" foi adicionado aos seus prazos.`,
-    });
-    setPrazoTitle("");
-    setPrazoDate("");
-    setPrazoPriority("alta");
-    setQuickPrazoOpen(false);
+  const urgentes = prazos.filter(p => {
+    const diff = differenceInDays(parseISO(p.data_fim_prazo!), new Date());
+    return diff <= 2;
+  });
+  const hasUrgent = urgentes.length > 0;
+
+  const getDaysLabel = (dateStr: string) => {
+    const diff = differenceInDays(parseISO(dateStr), new Date());
+    if (diff === 0) return { label: "Hoje", cls: "text-red-500 font-black" };
+    if (diff === 1) return { label: "Amanhã", cls: "text-orange-500 font-black" };
+    return { label: `em ${diff}d`, cls: "text-muted-foreground font-bold" };
   };
 
   return (
-    <Card className={`h-full flex flex-col border-black/5 dark:border-border bg-card/40 rounded-[2rem] overflow-hidden group hover:shadow-xl transition-all duration-500 ${hasUrgent ? "border-rose-500/20" : ""}`}>
-      {/* Urgent pulse indicator */}
-      {hasUrgent && (
-        <div className="absolute top-0 inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-rose-500 to-transparent" />
-      )}
+    <Card className={cn(
+      "h-full flex flex-col border-black/5 dark:border-border bg-card/40 rounded-[2rem] overflow-hidden group hover:shadow-xl transition-all duration-300",
+      hasUrgent && "border-rose-500/20"
+    )}>
+      {hasUrgent && <div className="h-0.5 bg-gradient-to-r from-transparent via-rose-500 to-transparent shrink-0" />}
 
-      <CardHeader className="pb-3 pt-5 px-6">
+      <CardHeader className="pb-3 pt-5 px-5">
         <CardTitle className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-3">
-            <div className={`p-2.5 rounded-2xl group-hover:scale-110 transition-transform duration-300 ${hasUrgent ? "bg-rose-500/15 text-rose-500" : "bg-rose-500/10 text-rose-500"}`}>
-              <AlertCircle className="h-5 w-5" />
+            <div className={cn("p-2 rounded-xl transition-transform duration-300 group-hover:scale-110", hasUrgent ? "bg-rose-500/15 text-rose-500" : "bg-rose-500/10 text-rose-500")}>
+              <AlertCircle className="h-4 w-4" />
             </div>
             <div>
-              <span className="text-lg font-black tracking-tight block">Prazos</span>
-              <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
-                <Clock className="h-3 w-3" /> {weekRange}
+              <span className="text-base font-black tracking-tight block">Prazos Urgentes</span>
+              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                <Clock className="h-2.5 w-2.5" /> Próximos 7 dias
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {hasUrgent && (
-              <Badge className="text-[10px] font-bold px-2 py-0.5 rounded-xl bg-rose-500/10 text-rose-500 border-rose-500/30">
-                {stats.prazosVencendo} urgente{stats.prazosVencendo > 1 ? "s" : ""}
-              </Badge>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs font-bold text-primary hover:bg-primary/10 rounded-xl h-8 px-3 gap-1"
-              onClick={() => navigate("/prazos")}
-            >
-              Ver <ArrowRight className="h-3 w-3" />
-            </Button>
-          </div>
+          <Button variant="ghost" size="sm"
+            className="text-xs font-bold text-primary hover:bg-primary/10 rounded-xl h-7 px-2.5 gap-1"
+            onClick={() => navigate("/prazos")}
+          >
+            Ver todos <ArrowRight className="h-3 w-3" />
+          </Button>
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="flex-1 flex flex-col justify-center items-center p-6 text-center space-y-4">
-        {prazos.length === 0 ? (
-          <div className="entry-animate fade-in zoom-in duration-700 delay-100 w-full">
-            <div className="relative mb-5 mx-auto w-fit">
-              <div className="absolute inset-0 bg-rose-500/20 blur-3xl rounded-full" />
-              <div className="relative p-5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-500">
-                <FileText className="h-10 w-10 opacity-80" />
-              </div>
+      <CardContent className="flex-1 flex flex-col p-4 pt-0 gap-2">
+        {loading ? (
+          Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-14 rounded-xl bg-black/[0.03] dark:bg-muted/20 animate-pulse" />
+          ))
+        ) : prazos.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-center py-6 gap-3">
+            <div className="p-4 rounded-full bg-emerald-500/10 text-emerald-500">
+              <CalendarDays className="h-8 w-8 opacity-70" />
             </div>
-
-            {/* Stats estilo eLaw */}
-            <div className="bg-black/[0.03] dark:bg-background rounded-2xl p-4 border border-black/5 dark:border-border mb-4">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs text-muted-foreground font-medium">Prazos Urgentes</span>
-                <span className={`text-2xl font-black ${hasUrgent ? "text-rose-500" : "text-muted-foreground"}`}>
-                  {stats.prazosVencendo}
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { label: "Alta", color: "text-rose-500", bg: "bg-rose-500/10" },
-                  { label: "Média", color: "text-amber-500", bg: "bg-amber-500/10" },
-                  { label: "Baixa", color: "text-emerald-500", bg: "bg-emerald-500/10" },
-                ].map((p) => (
-                  <div key={p.label} className={`${p.bg} rounded-xl p-2 text-center`}>
-                    <Flag className={`h-3 w-3 mx-auto mb-1 ${p.color}`} />
-                    <span className="text-[10px] font-bold text-muted-foreground">{p.label}</span>
-                    <div className={`text-sm font-black ${p.color}`}>0</div>
-                  </div>
-                ))}
-              </div>
+            <div>
+              <p className="text-sm font-bold text-muted-foreground">Sem prazos urgentes</p>
+              <p className="text-xs text-muted-foreground/60 mt-0.5">Nenhum prazo nos próximos 7 dias</p>
             </div>
-
-            {hasUrgent ? (
-              <>
-                <h4 className="text-sm font-bold text-rose-500">
-                  {stats.prazosVencendo} prazo{stats.prazosVencendo > 1 ? "s" : ""} vencendo!
-                </h4>
-                <p className="text-xs text-muted-foreground max-w-[200px] mx-auto mt-1 mb-4">
-                  Acesse a lista de prazos para gerenciá-los.
-                </p>
-              </>
-            ) : (
-              <>
-                <h4 className="text-sm font-bold text-muted-foreground">Nenhum prazo urgente</h4>
-                <p className="text-xs text-muted-foreground max-w-[200px] mx-auto mt-1 mb-4 leading-relaxed">
-                  Prazos de processos e tarefas aparecerão aqui.
-                </p>
-              </>
-            )}
-
-            <Button
-              variant={hasUrgent ? "default" : "outline"}
-              size="sm"
-              className={cn(
-                "rounded-xl font-black uppercase text-[10px] tracking-widest h-11 px-8 gap-2 shadow-lg",
-                hasUrgent ? "bg-rose-500 hover:bg-rose-600 text-foreground shadow-rose-500/20" : "border-black/5 dark:border-border hover:bg-black/5 dark:hover:bg-muted/30"
-              )}
-              onClick={() => hasUrgent ? navigate("/prazos") : setQuickPrazoOpen(true)}
+            <Button variant="outline" size="sm"
+              className="rounded-xl h-9 px-5 text-[11px] font-black uppercase tracking-widest border-black/5 dark:border-border gap-1.5"
+              onClick={() => navigate("/prazos")}
             >
-              <Plus className="h-4 w-4" /> {hasUrgent ? "Ver Prazos Urgentes" : "Novo Prazo"}
+              <Plus className="h-3.5 w-3.5" /> Novo Prazo
             </Button>
           </div>
         ) : (
-          <div className="w-full space-y-2">
-            {prazos.map((p, i) => (
-              <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-black/[0.02] dark:bg-background border border-black/5 dark:border-border cursor-pointer hover:border-rose-500/20 transition-colors">
-                <Flag className="h-4 w-4 text-rose-500 shrink-0" />
-                <div className="flex-1 text-left">
-                  <p className="text-sm font-bold truncate">{p.titulo}</p>
-                  <p className="text-xs text-muted-foreground">{p.processo}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs font-bold text-rose-500">{p.data}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <>
+            {prazos.map(p => {
+              const m = prioMeta[p.prioridade] ?? prioMeta.media;
+              const day = getDaysLabel(p.data_fim_prazo!);
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => navigate("/prazos")}
+                  className="flex items-center gap-3 p-3 rounded-xl bg-black/[0.02] dark:bg-background border border-black/5 dark:border-border hover:border-rose-500/20 hover:bg-rose-500/[0.02] transition-all text-left group/item"
+                >
+                  <div className={cn("p-1.5 rounded-lg shrink-0", m.bg)}>
+                    <Flag className={cn("h-3 w-3", m.color)} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold truncate">{p.titulo}</p>
+                    <p className={cn("text-[10px] mt-0.5", m.color)}>{m.label}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className={cn("text-[11px]", day.cls)}>{day.label}</p>
+                    <p className="text-[9px] text-muted-foreground/50">
+                      {format(parseISO(p.data_fim_prazo!), "dd/MM", { locale: ptBR })}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+            {hasUrgent && (
+              <Button
+                className="mt-1 rounded-xl h-9 font-black text-[11px] uppercase tracking-widest bg-rose-500 hover:bg-rose-600 text-white gap-1.5 w-full"
+                onClick={() => navigate("/prazos")}
+              >
+                <AlertCircle className="h-3.5 w-3.5" />
+                {urgentes.length} prazo{urgentes.length > 1 ? "s" : ""} vencendo agora
+              </Button>
+            )}
+          </>
         )}
       </CardContent>
-
-      {/* Quick Prazo Dialog */}
-      <Dialog open={quickPrazoOpen} onOpenChange={setQuickPrazoOpen}>
-        <DialogContent className="rounded-[2rem] border-black/5 dark:border-border bg-card/90 sm:max-w-md p-8 shadow-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-black">Novo Prazo Rápido</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="prazo-title" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                Título do Prazo
-              </Label>
-              <Input
-                id="prazo-title"
-                placeholder="Ex: Protocolar contestação"
-                value={prazoTitle}
-                onChange={(e) => setPrazoTitle(e.target.value)}
-                className="rounded-xl border-border bg-muted/30"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="prazo-date" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                Data de Vencimento
-              </Label>
-              <Input
-                id="prazo-date"
-                type="date"
-                value={prazoDate}
-                onChange={(e) => setPrazoDate(e.target.value)}
-                className="rounded-xl border-border bg-muted/30"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                Prioridade
-              </Label>
-              <Select value={prazoPriority} onValueChange={setPrazoPriority}>
-                <SelectTrigger className="rounded-xl border-black/5 dark:border-border bg-black/[0.03] dark:bg-muted/30 h-12 font-bold">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl border-black/5 dark:border-border shadow-2xl">
-                  <SelectItem value="alta">🔴 Alta</SelectItem>
-                  <SelectItem value="media">🟡 Média</SelectItem>
-                  <SelectItem value="baixa">🟢 Baixa</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="ghost" className="rounded-xl" onClick={() => setQuickPrazoOpen(false)}>Cancelar</Button>
-            <Button
-              className="rounded-xl font-bold"
-              onClick={handleSaveQuickPrazo}
-              disabled={!prazoTitle.trim() || !prazoDate}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Criar Prazo
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Card>
   );
 }

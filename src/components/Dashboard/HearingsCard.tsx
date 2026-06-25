@@ -1,118 +1,128 @@
-﻿
+import { useState, useEffect } from "react";
 import { Users, Calendar, MapPin, Clock, Plus, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import { useStats } from "@/hooks/useStats";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { format, parseISO } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 
-const getWeekRange = () => {
-  const now = new Date();
-  const end = new Date(now);
-  end.setDate(end.getDate() + 6);
-  const fmt = (d: Date) =>
-    d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-  return `${fmt(now)} – ${fmt(end)}`;
-};
+interface Audiencia {
+  id: string;
+  tipo_audiencia?: string | null;
+  data_audiencia: string;
+  local?: string | null;
+}
 
 export function HearingsCard() {
   const navigate = useNavigate();
-  const { stats } = useStats();
-  const audiencias: any[] = []; // Conectar ao hook real futuramente
-  const weekRange = getWeekRange();
+  const { user } = useAuth();
+  const [audiencias, setAudiencias] = useState<Audiencia[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user?.office_id) return;
+    const fetch = async () => {
+      const now = new Date().toISOString();
+      const next7 = new Date(Date.now() + 7 * 86400000).toISOString();
+      const { data } = await supabase
+        .from("audiencias")
+        .select("id, tipo_audiencia, data_audiencia, local")
+        .eq("office_id", user.office_id)
+        .eq("deletado", false)
+        .gte("data_audiencia", now)
+        .lte("data_audiencia", next7)
+        .order("data_audiencia", { ascending: true })
+        .limit(5);
+      setAudiencias((data || []) as Audiencia[]);
+      setLoading(false);
+    };
+    fetch();
+  }, [user?.office_id]);
+
+  const total = audiencias.length;
 
   return (
-    <Card className="h-full flex flex-col border-black/5 dark:border-border bg-card/40 rounded-[2rem] overflow-hidden group hover:shadow-xl transition-all duration-500">
-      <CardHeader className="pb-3 pt-5 px-6">
+    <Card className="h-full flex flex-col border-black/5 dark:border-border bg-card/40 rounded-[2rem] overflow-hidden group hover:shadow-xl transition-all duration-300">
+      <CardHeader className="pb-3 pt-5 px-5">
         <CardTitle className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-2xl bg-orange-500/10 text-orange-500 group-hover:scale-110 transition-transform duration-300">
-              <Users className="h-5 w-5" />
+            <div className="p-2 rounded-xl bg-orange-500/10 text-orange-500 group-hover:scale-110 transition-transform duration-300">
+              <Users className="h-4 w-4" />
             </div>
             <div>
-              <span className="text-lg font-black tracking-tight block">Audiências</span>
-              <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
-                <Calendar className="h-3 w-3" /> {weekRange}
+              <span className="text-base font-black tracking-tight block">Audiências</span>
+              <span className={cn("text-[10px] flex items-center gap-1", total > 0 ? "text-orange-500 font-bold" : "text-muted-foreground")}>
+                <Calendar className="h-2.5 w-2.5" />
+                {total > 0 ? `${total} nos próximos 7 dias` : "Próximos 7 dias"}
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge
-              variant="outline"
-              className={`text-[10px] font-bold px-2 py-0.5 rounded-xl border-orange-500/30 ${
-                stats.audienciasProximas === 0
-                  ? "text-muted-foreground"
-                  : "text-orange-500 bg-orange-500/10"
-              }`}
-            >
-              {stats.audienciasProximas} esta semana
-            </Badge>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs font-bold text-primary hover:bg-primary/10 rounded-xl h-8 px-3 gap-1"
-              onClick={() => navigate("/agenda")}
-            >
-              Ver <ArrowRight className="h-3 w-3" />
-            </Button>
-          </div>
+          <Button variant="ghost" size="sm"
+            className="text-xs font-bold text-primary hover:bg-primary/10 rounded-xl h-7 px-2.5 gap-1"
+            onClick={() => navigate("/agenda")}
+          >
+            Ver agenda <ArrowRight className="h-3 w-3" />
+          </Button>
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="flex-1 flex flex-col justify-center items-center p-6 text-center space-y-4">
-        {audiencias.length === 0 ? (
-          <div className="entry-animate fade-in zoom-in duration-700 w-full">
-            <div className="relative mb-5 mx-auto w-fit">
-              <div className="absolute inset-0 bg-orange-500/20 blur-3xl rounded-full" />
-              <div className="relative p-5 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-500">
-                <Calendar className="h-10 w-10 opacity-80" />
-              </div>
+      <CardContent className="flex-1 flex flex-col p-4 pt-0 gap-2">
+        {loading ? (
+          Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-14 rounded-xl bg-black/[0.03] dark:bg-muted/20 animate-pulse" />
+          ))
+        ) : audiencias.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-center py-6 gap-3">
+            <div className="p-4 rounded-full bg-orange-500/10 text-orange-500">
+              <Calendar className="h-8 w-8 opacity-70" />
             </div>
-
-            {/* Stat similar ao eLaw */}
-            <div className="bg-black/[0.03] dark:bg-background rounded-2xl p-4 border border-black/5 dark:border-border mb-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-muted-foreground font-medium">Próximas Audiências</span>
-                <span className="text-2xl font-black text-orange-500">{stats.audienciasProximas}</span>
-              </div>
-              <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                <Clock className="h-3 w-3" /> Entre {weekRange}
-              </div>
+            <div>
+              <p className="text-sm font-bold text-muted-foreground">Sem audiências na semana</p>
+              <p className="text-xs text-muted-foreground/60 mt-0.5">Nenhuma audiência agendada</p>
             </div>
-
-            <h4 className="text-sm font-bold text-muted-foreground">Nenhuma audiência agendada</h4>
-            <p className="text-xs text-muted-foreground max-w-[200px] mx-auto leading-relaxed mt-1 mb-4">
-              Audiências dos seus processos aparecerão aqui automaticamente.
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-xl border-black/5 dark:border-border hover:bg-black/5 dark:hover:bg-muted/30 font-black uppercase text-[10px] tracking-widest h-10 px-6 gap-2"
+            <Button variant="outline" size="sm"
+              className="rounded-xl h-9 px-5 text-[11px] font-black uppercase tracking-widest border-black/5 dark:border-border gap-1.5"
               onClick={() => navigate("/agenda")}
             >
-              <Plus className="h-3.5 w-3.5" /> Agendar Audiência
+              <Plus className="h-3.5 w-3.5" /> Agendar
             </Button>
           </div>
         ) : (
-          <div className="w-full space-y-2">
-            {audiencias.map((a, i) => (
-              <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-black/[0.02] dark:bg-background border border-black/5 dark:border-border hover:border-orange-500/20 transition-colors cursor-pointer">
-                <div className="p-2 rounded-lg bg-orange-500/10 text-orange-500">
-                  <Users className="h-4 w-4" />
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="text-sm font-bold truncate">{a.titulo}</p>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <MapPin className="h-3 w-3" /> {a.local}
+          audiencias.map(a => {
+            const dt = parseISO(a.data_audiencia);
+            return (
+              <button
+                key={a.id}
+                onClick={() => navigate("/agenda")}
+                className="flex items-center gap-3 p-3 rounded-xl bg-black/[0.02] dark:bg-background border border-black/5 dark:border-border hover:border-orange-500/20 hover:bg-orange-500/[0.02] transition-all text-left"
+              >
+                <div className="text-center bg-orange-500/10 rounded-xl px-2.5 py-1.5 shrink-0 min-w-[40px]">
+                  <p className="text-[10px] font-black text-orange-500 uppercase leading-none">
+                    {format(dt, "MMM", { locale: ptBR })}
+                  </p>
+                  <p className="text-base font-black text-orange-600 leading-tight">
+                    {format(dt, "dd")}
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs font-bold">{a.hora}</p>
-                  <p className="text-[10px] text-muted-foreground">{a.data}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold truncate">{a.tipo_audiencia || "Audiência"}</p>
+                  {a.local && (
+                    <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
+                      <MapPin className="h-2.5 w-2.5 shrink-0" /> {a.local}
+                    </p>
+                  )}
                 </div>
-              </div>
-            ))}
-          </div>
+                <div className="text-right shrink-0">
+                  <p className="text-[11px] font-bold text-muted-foreground">
+                    {format(dt, "HH:mm")}
+                  </p>
+                </div>
+              </button>
+            );
+          })
         )}
       </CardContent>
     </Card>
