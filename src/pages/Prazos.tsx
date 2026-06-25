@@ -14,7 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Plus, Search, AlertTriangle, Clock, CalendarClock, CheckCircle2,
   ChevronRight, Flame, Calendar, Inbox, MoreHorizontal, Pencil, Trash2,
-  CheckCheck, Timer, Newspaper, Shield, AlertOctagon, Eye, EyeOff,
+  CheckCheck, Timer, Newspaper, Shield, AlertOctagon, Eye, EyeOff, RotateCcw,
 } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -118,6 +118,7 @@ export default function Prazos() {
 
   const [search, setSearch] = useState('');
   const [filterPriority, setFilterPriority] = useState<'all' | 'alta' | 'media' | 'baixa'>('all');
+  const [filterUrgency, setFilterUrgency] = useState<Urgency | 'all'>('all');
   const [showConcluidos, setShowConcluidos] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Prazo | null>(null);
@@ -155,6 +156,17 @@ export default function Prazos() {
     },
   });
 
+  const reopenMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('prazos').update({ status: 'pendente' }).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['prazos'] });
+      toast({ title: 'Prazo reaberto', description: 'Voltou para pendente.' });
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('prazos').delete().eq('id', id);
@@ -171,8 +183,9 @@ export default function Prazos() {
     const matchSearch = !search || p.titulo.toLowerCase().includes(search.toLowerCase()) || (p.descricao || '').toLowerCase().includes(search.toLowerCase());
     const matchPriority = filterPriority === 'all' || p.prioridade === filterPriority;
     const matchConcluido = showConcluidos || p.status !== 'concluido';
-    return matchSearch && matchPriority && matchConcluido;
-  }), [prazos, search, filterPriority, showConcluidos]);
+    const matchUrgency = filterUrgency === 'all' || getUrgency(p) === filterUrgency;
+    return matchSearch && matchPriority && matchConcluido && matchUrgency;
+  }), [prazos, search, filterPriority, filterUrgency, showConcluidos]);
 
   const grouped = useMemo(() => {
     const map: Record<Urgency, Prazo[]> = { vencido: [], hoje: [], critico: [], normal: [], concluido: [] };
@@ -224,24 +237,41 @@ export default function Prazos() {
         </Button>
       </div>
 
-      {/* KPI Strip */}
+      {/* KPI Strip — clicáveis como filtro rápido */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Vencidos',        value: kpis.vencidos,  icon: AlertTriangle, color: 'text-red-600',    bg: 'bg-red-500/8 border-red-500/15' },
-          { label: 'Vencem hoje',     value: kpis.hoje,      icon: Flame,         color: 'text-amber-600',  bg: 'bg-amber-500/8 border-amber-500/15' },
-          { label: 'Próximos 3 dias', value: kpis.criticos,  icon: Timer,         color: 'text-orange-600', bg: 'bg-orange-500/8 border-orange-500/15' },
-          { label: 'Total pendente',  value: kpis.total,     icon: Calendar,      color: 'text-sky-600',    bg: 'bg-sky-500/8 border-sky-500/15' },
-        ].map(({ label, value, icon: Icon, color, bg }) => (
-          <div key={label} className={cn('rounded-2xl border p-4 flex items-center gap-3', bg)}>
-            <div className={cn('p-2 rounded-xl bg-background/60', color)}>
-              <Icon className="h-4 w-4" />
-            </div>
-            <div>
-              <p className={cn('text-2xl font-black', color)}>{value}</p>
-              <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest">{label}</p>
-            </div>
-          </div>
-        ))}
+          { label: 'Vencidos',        value: kpis.vencidos,  icon: AlertTriangle, color: 'text-red-600',    bg: 'bg-red-500/8 border-red-500/15',       activeBg: 'ring-2 ring-red-500/40',    urgency: 'vencido'  as Urgency },
+          { label: 'Vencem hoje',     value: kpis.hoje,      icon: Flame,         color: 'text-amber-600',  bg: 'bg-amber-500/8 border-amber-500/15',   activeBg: 'ring-2 ring-amber-500/40',  urgency: 'hoje'     as Urgency },
+          { label: 'Próximos 3 dias', value: kpis.criticos,  icon: Timer,         color: 'text-orange-600', bg: 'bg-orange-500/8 border-orange-500/15', activeBg: 'ring-2 ring-orange-500/40', urgency: 'critico'  as Urgency },
+          { label: 'Total pendente',  value: kpis.total,     icon: Calendar,      color: 'text-sky-600',    bg: 'bg-sky-500/8 border-sky-500/15',       activeBg: 'ring-2 ring-sky-500/40',    urgency: null },
+        ].map(({ label, value, icon: Icon, color, bg, activeBg, urgency }) => {
+          const isActive = urgency ? filterUrgency === urgency : false;
+          return (
+            <button
+              key={label}
+              onClick={() => {
+                if (!urgency) return;
+                setFilterUrgency(prev => prev === urgency ? 'all' : urgency);
+              }}
+              className={cn(
+                'rounded-2xl border p-4 flex items-center gap-3 text-left transition-all',
+                bg,
+                urgency ? 'cursor-pointer hover:scale-[1.02] active:scale-[0.98]' : 'cursor-default',
+                isActive && activeBg,
+              )}
+            >
+              <div className={cn('p-2 rounded-xl bg-background/60', color)}>
+                <Icon className="h-4 w-4" />
+              </div>
+              <div>
+                <p className={cn('text-2xl font-black', color)}>{value}</p>
+                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest">
+                  {label}{isActive && ' ✕'}
+                </p>
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       {/* Search + Filters */}
@@ -395,7 +425,7 @@ export default function Prazos() {
                         {getDaysLabel(prazo)}
                       </span>
 
-                      {!isConcluido && (
+                      {!isConcluido ? (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -405,6 +435,17 @@ export default function Prazos() {
                           title="Marcar como concluído"
                         >
                           <CheckCheck className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => reopenMutation.mutate(prazo.id)}
+                          disabled={reopenMutation.isPending}
+                          className="h-8 w-8 p-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity text-sky-600 hover:bg-sky-500/10 hover:text-sky-700"
+                          title="Reabrir prazo"
+                        >
+                          <RotateCcw className="h-4 w-4" />
                         </Button>
                       )}
 
@@ -419,12 +460,19 @@ export default function Prazos() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="rounded-xl w-44">
-                          {!isConcluido && (
+                          {!isConcluido ? (
                             <DropdownMenuItem
                               onClick={() => concludeMutation.mutate(prazo.id)}
                               className="rounded-lg cursor-pointer gap-2 text-emerald-600 focus:text-emerald-600"
                             >
                               <CheckCircle2 className="h-4 w-4" /> Concluir
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem
+                              onClick={() => reopenMutation.mutate(prazo.id)}
+                              className="rounded-lg cursor-pointer gap-2 text-sky-600 focus:text-sky-600"
+                            >
+                              <RotateCcw className="h-4 w-4" /> Reabrir
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuItem
