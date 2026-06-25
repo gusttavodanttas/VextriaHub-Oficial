@@ -55,10 +55,7 @@ const SystemSubscriptions: React.FC = () => {
     revenue: admins.reduce((acc, a) => acc + (a.payment_status === 'em_dia' ? a.price : 0), 0)
   };
 
-  console.log('🔧 SystemSubscriptions Access Check:', {
-    userEmail: user?.email,
-    canControlSubscriptions: adminAccess.canControlSubscriptions
-  });
+  // Access check resolved
 
   // Se não tiver acesso a controle de assinaturas, mostrar acesso negado
   if (!adminAccess.canControlSubscriptions) {

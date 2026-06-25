@@ -39,39 +39,25 @@ const Login = () => {
       // Verificar se estamos em processo de checkout para evitar redirecionamento
       const checkoutInProgress = localStorage.getItem('checkout_in_progress');
       if (checkoutInProgress === 'true') {
-        console.log('🚫 Checkout in progress, skipping auto redirect');
         return;
       }
       
-      // Verificar se temos parâmetro de registro recente
       const isNewRegistration = location.search.includes('new-registration=true');
       if (isNewRegistration) {
-        console.log('🚫 New registration, skipping auto redirect');
         return;
       }
       
       const from = location.state?.from?.pathname;
-      const isAdminAccess = location.state?.adminAccess;
-      console.log('🔐 Login redirect info:', {
-        from,
-        isAdminAccess,
-        userRole: user?.role,
-        userEmail: user?.email
-      });
 
-      // Se tem uma página específica solicitada, usar ela
       if (from && from !== "/" && from !== "/login") {
-        console.log('🔄 Redirecting to requested page:', from);
         navigate(from, {
           replace: true
         });
         return;
       }
 
-      // Caso contrário, usar redirecionamento automático baseado no role
       const userEmail = user?.email || session?.user?.email;
       const redirectPath = getRedirectPath(user?.role, userEmail);
-      console.log('🔄 Auto-redirecting based on role to:', redirectPath);
       navigate(redirectPath, {
         replace: true
       });
@@ -81,27 +67,15 @@ const Login = () => {
   // Monitorar autenticação após login
   useEffect(() => {
     if (loginInProgress && isAuthenticated && session) {
-      console.log('Login completed, authentication confirmed, redirecting...');
-      const isAdminAccess = location.state?.adminAccess;
-      const from = location.state?.from?.pathname;
-      console.log('🔐 Post-login redirect info:', {
-        from,
-        isAdminAccess,
-        userRole: user?.role,
-        isSuperAdmin
-      });
       toast({
         title: "Login realizado com sucesso!",
         description: "Bem-vindo ao VextriaHub"
       });
 
-      // Aguardar um pouco para garantir que a sessão está estabelecida
       const timer = setTimeout(() => {
         const from = location.state?.from?.pathname;
 
-        // Se tem uma página específica solicitada, usar ela
         if (from && from !== "/" && from !== "/login") {
-          console.log('🔄 Redirecting to requested page after login:', from);
           navigate(from, {
             replace: true
           });
@@ -109,10 +83,8 @@ const Login = () => {
           return;
         }
 
-        // Caso contrário, usar redirecionamento automático baseado no role
         const userEmail = user?.email || session?.user?.email;
         const redirectPath = getRedirectPath(user?.role, userEmail);
-        console.log('🔄 Auto-redirecting after login based on role to:', redirectPath);
         navigate(redirectPath, {
           replace: true
         });
@@ -141,12 +113,11 @@ const Login = () => {
       setIsSubmitting(true);
       setLoginInProgress(true);
       setIsLoading(true);
-      console.log('🔐 Starting login process for:', email);
       const {
         error
       } = await login(email, password);
       if (error) {
-        console.error('❌ Login failed:', error);
+        console.error('Login failed:', error);
         toast({
           title: "Erro no login",
           description: error.message || "Credenciais inválidas. Tente novamente.",
@@ -155,15 +126,12 @@ const Login = () => {
         setLoginInProgress(false);
         return;
       }
-      console.log('✅ Login initiated successfully');
       toast({
         title: "Login realizado!",
         description: "Redirecionando..."
       });
-
-      // O redirecionamento será feito pelos useEffect que monitoram a autenticação
     } catch (error) {
-      console.error('❌ Unexpected error during login:', error);
+      console.error('Unexpected error during login:', error);
       toast({
         title: "Erro inesperado",
         description: "Ocorreu um erro. Tente novamente.",
@@ -172,7 +140,6 @@ const Login = () => {
       setLoginInProgress(false);
     } finally {
       setIsLoading(false);
-      // Aguardar um pouco antes de permitir nova tentativa
       setTimeout(() => {
         setIsSubmitting(false);
       }, 2000);

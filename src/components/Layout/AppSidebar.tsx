@@ -105,19 +105,7 @@ export function AppSidebar() {
   } = usePermissions();
   const { isSuperAdmin, isAdmin, user } = useAuth();
 
-  // Debug das permissões
-  console.log('📋 Sidebar Permissions Debug:', {
-    user: user?.email,
-    isAdmin,
-    isSuperAdmin,
-    canViewGraficos,
-    canViewFinanceiro,
-    canViewMetas,
-    canViewEtiquetas,
-    canViewEquipe,
-    canViewAdmin,
-    canManageOffice
-  });
+  // Permissions resolved from hooks
 
   // Filtrar itens administrativos baseado em permissões específicas
   const filteredAdminItems = adminOnlyItems.filter(item => {

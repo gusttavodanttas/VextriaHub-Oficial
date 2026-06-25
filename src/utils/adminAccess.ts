@@ -109,11 +109,7 @@ export function useSystemAdminAccess(email: string | null | undefined) {
  * Utilitário para debug - listar todos os emails e funcionalidades
  */
 export function debugSystemAdminAccess() {
-  console.log('🔧 System Admin Configuration:', {
-    emails: SYSTEM_ADMIN_EMAILS,
-    features: FEATURE_ACCESS
-  });
-  
+  // Debug helper
   return {
     emails: SYSTEM_ADMIN_EMAILS,
     features: FEATURE_ACCESS

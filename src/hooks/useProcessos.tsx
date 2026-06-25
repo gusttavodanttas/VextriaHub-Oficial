@@ -52,7 +52,7 @@ export function useProcessos() {
       const officeId = user.office_id;
       const userId = user.id;
       
-      console.log('📋 useProcessos: iniciando query (2026-04-24-11-40)', { officeId, userId });
+      // Starting legacy processos query
 
       try {
         let query = supabase

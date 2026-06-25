@@ -90,31 +90,18 @@ const ProcessoIntegracaoBody: React.FC<ProcessoIntegracaoBodyProps> = ({
     if (!cnjInput) return;
     setCnjLoading(true);
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-
-      const response = await fetch(`https://mzhnlhfxfoigkqgxseeu.supabase.co/functions/v1/fetch-processo`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'apikey': 'sb_publishable_RQVoreC1A29Ix5EtrxsB7A_nkvwR7xQ'
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke('fetch-processo', {
+        body: {
           numeroProcesso: cnjInput,
           oab: (profile as any)?.oab,
           uf: (profile as any)?.oab_uf,
-        })
+        }
       });
 
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || `Erro ${response.status}: Processo não localizado.`);
+      if (error) {
+        throw new Error(error.message || 'Erro ao buscar processo na integração.');
       }
-
-      const data = await response.json();
       if (data) {
-        console.log('📋 Dados capturados CNJ:', data);
         setCapturedData(data);
         toast({
           title: "Processo encontrado!",

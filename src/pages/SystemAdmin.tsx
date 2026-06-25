@@ -22,11 +22,7 @@ const SystemAdmin: React.FC = () => {
   const navigate = useNavigate();
   const adminAccess = useSystemAdminAccess(user?.email);
 
-  console.log('🔧 SystemAdmin Access Check:', {
-    userEmail: user?.email,
-    isSystemAdmin: adminAccess.isSystemAdmin,
-    features: adminAccess.features
-  });
+  // Access check resolved
 
   // Se não tiver acesso administrativo do sistema, mostrar acesso negado
   if (!adminAccess.isSystemAdmin) {

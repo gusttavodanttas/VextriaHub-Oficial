@@ -326,7 +326,7 @@ const AppWithRouter = () => {
           </PrivateRoute>
         } />
         <Route path="/subscriptions" element={
-          <PrivateRoute requireRole="super_admin">
+          <PrivateRoute requirePermission="canManageSubscriptions">
             <AppLayout>
               <Subscriptions />
             </AppLayout>

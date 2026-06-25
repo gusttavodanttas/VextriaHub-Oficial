@@ -87,24 +87,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .eq('user_id', userId)
           .single(),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Profile fetch timeout')), 45000) // Aumentado para 45s
+          setTimeout(() => reject(new Error('Profile fetch timeout')), 45000)
         )
       ]) as any;
 
       if (error) {
-        console.error('❌ Error fetching profile:', error);
-        console.error('❌ Error details:', {
-          message: error.message,
-          code: error.code,
-          userId: userId
-        });
+        console.error('Error fetching profile:', error.message);
         return null;
       }
 
-      console.log('✅ Profile fetched successfully for:', userId);
       return data;
     } catch (error) {
-      console.error('❌ Error in fetchProfile:', error);
+      console.error('Error in fetchProfile:', error);
       return null;
     }
   }, []);
@@ -135,11 +129,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!mountedRef.current) return null;
     
     try {
-      // Profile creation logic (simplified logs for production)
-      
       // Verifica se o email deve ter role de super_admin baseado na lista global
       const role = SUPER_ADMIN_EMAILS.includes(email.toLowerCase().trim()) ? 'super_admin' : 'user';
-      console.log('🔧 Assigning role:', role, 'for email:', email);
       
       const { data, error } = await supabase
         .from('profiles')
@@ -155,25 +146,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       if (error) {
-        // Se já existir (409 Conflict), tentamos buscar novamente em vez de falhar
         if (error.code === '23505' || error.status === 409) {
-          console.warn('⚠️ Profile already exists (409). Fetching existing one...');
           const { data: existing } = await supabase
             .from('profiles')
             .select('*')
             .eq('user_id', userId)
             .single();
-          if (existing) {
-            console.log('✅ Recovered existing profile:', existing);
-            return existing;
-          }
+          if (existing) return existing;
         }
-        console.error('❌ Error creating profile:', error);
+        console.error('Error creating profile:', error);
         return null;
       }
 
       // Criar o Office (Tenant do sistema) para esse novo usuário
-      console.log('🏢 Creating default office for user...');
       let newOfficeId = null;
       
       const { data: newOffice, error: officeError } = await supabase
@@ -188,9 +173,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
       if (newOffice && !officeError) {
         newOfficeId = newOffice.id;
-        console.log('✅ Default office created:', newOfficeId);
         
-        // Atrelar como Admin
         const { error: linkError } = await supabase
           .from('office_users')
           .insert({
@@ -202,18 +185,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
           
         if (linkError) {
-          console.error('❌ Error linking user to new office:', linkError);
-        } else {
-          console.log('✅ User linked to office as admin');
+          console.error('Error linking user to new office:', linkError);
         }
       } else {
-         console.error('❌ Error creating default office:', officeError);
+        console.error('Error creating default office:', officeError);
       }
 
-      console.log('✅ Profile flow completed successfully:', data);
       return data;
     } catch (error) {
-      console.error('❌ Error in createProfile:', error);
+      console.error('Error in createProfile:', error);
       return null;
     }
   }, []);
@@ -228,8 +208,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!mountedRef.current) return;
     
     try {
-      // 1. SET FALLBACK USER IMMEDIATELY to unlock UI
-      // Use session metadata for the fastest possible UI response
+      // Set fallback user immediately to unlock UI
       const initialUser: User = {
         id: sessionUser.id,
         name: sessionUser.user_metadata?.full_name || sessionUser.user_metadata?.name || sessionUser.email?.split('@')[0] || 'Usuário',
@@ -238,21 +217,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
       
       setUser(initialUser);
-      setIsLoading(false); // UI IS NOW UNLOCKED
+      setIsLoading(false);
       
-      // 2. FETCH REAL DATA IN BACKGROUND
-      console.log('⚡ UI unlocked with fallback user. Fetching full profile in background...');
-      
+      // Fetch real data in background
       const backgroundTask = async () => {
         try {
-          // Fetch profile
           let profileData = await fetchProfile(sessionUser.id);
           
           if (!mountedRef.current) return;
           
-          // If profile doesn't exist, try to create it (softly)
           if (!profileData && sessionUser.email) {
-            console.log('👤 Profile not found, attempting to create...');
             profileData = await createProfile(
               sessionUser.id, 
               sessionUser.email, 
@@ -262,7 +236,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           if (!mountedRef.current) return;
           
-          // Fetch office data
           let officeUser = null;
           let office = null;
           
@@ -274,7 +247,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           if (!mountedRef.current) return;
           
-          // 3. Update with final data
           const finalUser: User = {
             id: sessionUser.id,
             name: profileData?.full_name || initialUser.name,
@@ -284,7 +256,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             office_role: officeUser?.role || null
           };
           
-          console.log('✅ Background sync completed');
           setProfile(profileData);
           setOfficeUser(officeUser);
           setOffice(office);
@@ -295,15 +266,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setIsFirstLogin(profileAge < 60000 && profileData.role !== 'super_admin');
           }
         } catch (bgError) {
-          console.error('❌ Background sync error:', bgError);
+          console.error('Background sync error:', bgError);
         }
       };
       
-      // Execute in background
       backgroundTask();
       
     } catch (error) {
-      console.error('❌ Critical error in processUserData:', error);
+      console.error('Critical error in processUserData:', error);
       setIsLoading(false);
     }
   }, [fetchProfile, createProfile, fetchOfficeData]);
@@ -312,16 +282,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const handleAuthStateChange = useCallback(async (event: string, newSession: Session | null) => {
     if (!mountedRef.current) return;
     
-    // Auth state changed logic
-    console.log('🔐 Previous session:', !!session);
-    console.log('🔐 New session:', !!newSession);
-    
     setSession(newSession);
     
     if (newSession?.user) {
       await processUserData(newSession.user);
     } else {
-      // No session
       setUser(null);
       setProfile(null);
       setOffice(null);
@@ -354,10 +319,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(currentSession);
         
         if (currentSession?.user) {
-          console.log('Session found:', currentSession.user.email);
           await processUserData(currentSession.user);
-        } else {
-          console.log('No session found during init');
         }
         
         if (mountedRef.current) {
@@ -391,11 +353,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []); // Empty dependency array - only run once
 
   const login = async (email: string, password: string) => {
-    console.log('🔐 Login process started for:', email);
-    
     try {
       loginInProgressRef.current = true;
-      // Login attempt
       
       const { data, error } = await Promise.race([
         supabase.auth.signInWithPassword({
@@ -405,77 +364,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         new Promise((_, reject) => setTimeout(() => reject(new Error('Login attempt timeout')), 20000))
       ]) as any;
 
-      console.log('🔐 Raw login response:', {
-        data: data ? {
-          user: data.user ? {
-            id: data.user.id,
-            email: data.user.email,
-            role: data.user.role,
-            user_metadata: data.user.user_metadata,
-            app_metadata: data.user.app_metadata
-          } : null,
-          session: data.session ? {
-            access_token: data.session.access_token ? 'exists' : 'missing',
-            user: data.session.user ? {
-              id: data.session.user.id,
-              email: data.session.user.email,
-              role: data.session.user.role,
-              user_metadata: data.session.user.user_metadata,
-              app_metadata: data.session.user.app_metadata
-            } : null
-          } : null
-        } : null,
-        error: error ? {
-          message: error.message,
-          status: error.status
-        } : null
-      });
-
       if (error) {
-        console.error('❌ Login error:', error);
-        console.error('❌ Error details:', {
-          message: error.message,
-          status: error.status,
-          name: error.name
-        });
-        
-        // Se for erro 400, pode ser problema de credenciais ou formato
-        if (error.status === 400) {
-          console.error('❌ 400 Bad Request - possível problema de credenciais ou formato');
-        }
-        
+        console.error('Login error:', error.message);
         return { error };
       }
 
-      console.log('✅ Login successful for:', email);
-      console.log('✅ User data from login:', data.user);
-      console.log('✅ Session data from login:', data.session);
-      
-      // Aguardar um pouco para garantir que o auth state change seja processado
       if (data.session) {
-        console.log('🔐 Session established, processing user data...');
-        
-        // Processar dados do usuário imediatamente
         await processUserData(data.user);
-        
-        // Aguardar confirmação de que o estado foi atualizado
-        let attempts = 0;
-        const maxAttempts = 20;
-        
-        while (attempts < maxAttempts && !session && !user) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-          attempts++;
-        }
-        
-        // Login process completed
       }
 
       return { error: null };
     } catch (err) {
-      console.error('❌ Unexpected login error:', err);
+      console.error('Unexpected login error:', err);
       return { error: err };
     } finally {
-      // Reset the flag after a small delay to prevent immediate re-attempts
       setTimeout(() => {
         loginInProgressRef.current = false;
       }, 1000);
@@ -483,12 +385,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const register = async (email: string, password: string, fullName: string) => {
-    console.log('Attempting registration for:', email);
-    
-    // Get current URL for redirect
     const currentUrl = window.location.origin;
     
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -501,9 +400,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (error) {
       console.error('Registration error:', error);
-    } else {
-      console.log('Registration successful for:', email);
-      console.log('Confirmation email should be sent to:', email);
     }
 
     return { error };
@@ -533,22 +429,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginAsSuperAdmin = async (email: string, password: string) => {
     try {
-      console.log('🔐 Attempting super admin login for:', email);
-      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
       });
 
       if (error) {
-        console.error('❌ Super admin login error:', error);
+        console.error('Super admin login error:', error);
         return { error };
       }
 
-      console.log('✅ Super admin login successful');
       return { error: null };
     } catch (error) {
-      console.error('❌ Super admin login exception:', error);
+      console.error('Super admin login exception:', error);
       return { error };
     }
   };
@@ -556,8 +449,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Função para forçar atualização do role do usuário
   const updateUserRole = useCallback(async (userId: string, newRole: 'user' | 'admin' | 'super_admin') => {
     try {
-      console.log('🔧 Updating user role:', userId, 'to:', newRole);
-      
       const { data, error } = await supabase
         .from('profiles')
         .update({ 
@@ -569,11 +460,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       if (error) {
-        console.error('❌ Error updating user role:', error);
+        console.error('Error updating user role:', error);
         return { error };
       }
-
-      console.log('✅ User role updated successfully:', data);
       
       // Recarregar dados do usuário
       if (user?.id === userId) {
@@ -586,62 +475,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       return { data, error: null };
     } catch (error) {
-      console.error('❌ Error in updateUserRole:', error);
+      console.error('Error in updateUserRole:', error);
       return { error };
     }
   }, [user?.id, fetchProfile]);
 
   // Função de debug para verificar status do usuário
   const debugUserStatus = useCallback(() => {
-    const isUserSuperAdmin = user?.role === 'super_admin' || profile?.role === 'super_admin';
-    console.log('🔍 Debug User Status:', {
-      user,
-      profile,
-      session,
-      isAuthenticated: !!session,
-      isSuperAdmin: isUserSuperAdmin,
-      userRole: user?.role,
-      profileRole: profile?.role
-    });
+    // Debug function kept for development use if needed
   }, [user, profile, session]);
 
   // Função para determinar redirecionamento baseado no role do usuário
   const getRedirectPath = useCallback((userRole: string | undefined, userEmail: string | undefined) => {
-    console.log('🔄 Determining redirect path:', { userRole, userEmail });
-    
-    // Verificar se é admin do sistema (baseado em email)
     const isSystemAdmin = userEmail && SUPER_ADMIN_EMAILS.includes(userEmail.toLowerCase().trim());
     
     if (isSystemAdmin) {
-      console.log('🔄 Redirecting to global admin panel');
       return '/admin';
     }
     
-    // Redirecionamento baseado no role normal
     switch (userRole) {
       case 'admin':
-        console.log('🔄 Redirecting to admin panel');
         return '/admin';
       case 'user':
       default:
-        console.log('🔄 Redirecting to dashboard');
         return '/dashboard';
     }
   }, []);
 
   const logout = async () => {
-    console.log('Logging out user');
     try {
-      // Tentar o signOut oficial do Supabase com timeout de 2s para não travar o usuário
       await Promise.race([
         supabase.auth.signOut(),
         new Promise((_, reject) => setTimeout(() => reject(new Error('Logout timeout')), 2000))
       ]);
-      console.log('✅ Supabase signOut call finished');
     } catch (err) {
-      console.error('❌ Exception during supabase.auth.signOut:', err);
+      console.error('Exception during supabase.auth.signOut:', err);
     } finally {
-      // FORÇAR LIMPEZA - Não importa o que aconteça acima
       setUser(null);
       setProfile(null);
       setSession(null);
@@ -649,9 +518,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setOfficeUser(null);
       setIsFirstLogin(false);
       
-      console.log('✅ Local state cleared, redirecting to login');
-      
-      // Limpar tokens residuais do localStorage (Double security)
       for (const key in localStorage) {
         if (key.includes('supabase.auth.token') || key.includes('sb-')) {
           localStorage.removeItem(key);
@@ -665,7 +531,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Nova função para atualizar o perfil em tempo real sem F5
   const refreshProfile = useCallback(async () => {
     if (session?.user) {
-      console.log('🔄 Manually refreshing profile data...');
       await processUserData(session.user);
     }
   }, [session, processUserData]);

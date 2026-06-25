@@ -60,7 +60,7 @@ export const PrivateRoute: React.FC<PrivateRouteProps> = ({
   // Super Admins são ignorados por esta trava
   const { paymentValidation, isSuperAdmin } = useAuth();
   if (paymentValidation?.needsPayment && !isSuperAdmin && location.pathname !== '/pagamento') {
-    console.log('⚠️ Acesso bloqueado: Período de teste expirado. Redirecionando para pagamento.');
+    // Payment required redirect
     return <Navigate to="/pagamento" state={{ from: location }} replace />;
   }
 

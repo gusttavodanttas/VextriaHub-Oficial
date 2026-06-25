@@ -57,7 +57,7 @@ export function useProcessosV2() {
       const officeId = user.office_id;
       const userId = user.id;
 
-      console.log('📋 useProcessos: iniciando query', { officeId, userId });
+      // Starting processos query
 
       try {
         // Sem filtro manual de office_id ou user_id: confiamos na RLS para
@@ -72,23 +72,13 @@ export function useProcessosV2() {
           .order('created_at', { ascending: false });
 
         if (fetchError) {
-          console.error('❌ useProcessos: erro na query', {
-            message: fetchError.message,
-            code: fetchError.code,
-            details: fetchError.details,
-            hint: fetchError.hint,
-          });
+          console.error('useProcessos query error:', fetchError.message);
           throw fetchError;
         }
 
-        console.log(`📋 useProcessos: ${result?.length ?? 0} processos retornados pela RLS`);
         return (result || []).map(mapDatabaseToProcesso);
       } catch (e: any) {
-        console.error('❌ useProcessos: exceção capturada', {
-          error: e,
-          message: e?.message,
-          stack: e?.stack,
-        });
+        console.error('useProcessos exception:', e?.message);
         throw e;
       }
     },
@@ -225,7 +215,6 @@ export function useProcessosV2() {
     fonte: string = 'datajud',
   ): Promise<number> => {
     if (!andamentos?.length) {
-      console.log('[persistAndamentos] sem andamentos — skip');
       return 0;
     }
 
@@ -240,7 +229,7 @@ export function useProcessosV2() {
       resolvedOfficeId = proc?.office_id ?? undefined;
     }
     if (!resolvedOfficeId) {
-      console.error('[persistAndamentos] officeId não encontrado nem no processo. Abortando insert.');
+      console.error('persistAndamentos: no officeId');
       return 0;
     }
     const effectiveOfficeId = resolvedOfficeId;
@@ -263,7 +252,7 @@ export function useProcessosV2() {
 
     if (!candidates.length) return 0;
 
-    console.log(`[persistAndamentos] tentando inserir ${candidates.length} movs em movimentacoes_processo (processo=${processoId}, office=${effectiveOfficeId})`);
+    // attempting insert
 
     // Busca movimentações existentes para deduplicar em memória
     const { data: existingMovs, error: fetchError } = await supabase
@@ -272,7 +261,7 @@ export function useProcessosV2() {
       .eq('processo_id', processoId);
 
     if (fetchError) {
-      console.error('[persistAndamentos] erro ao buscar existentes:', fetchError);
+      console.error('persistAndamentos fetch existing error');
       return 0;
     }
 
@@ -300,7 +289,6 @@ export function useProcessosV2() {
     );
 
     if (!newCandidates.length) {
-      console.log('[persistAndamentos] todos andamentos já existem — skip');
       return 0;
     }
 
@@ -310,24 +298,16 @@ export function useProcessosV2() {
       .select('id');
 
     if (error) {
-      console.error('[persistAndamentos] ❌ erro no insert:', {
-        message: error.message,
-        code: (error as any).code,
-        details: (error as any).details,
-        hint: (error as any).hint,
-        status,
-        statusText,
-      });
+      console.error('persistAndamentos insert error:', error.message);
       toast({
         title: 'Falha ao salvar movimentações',
-        description: `${error.message} ${(error as any).hint ? '— ' + (error as any).hint : ''}`,
+        description: error.message,
         variant: 'destructive',
       });
       return 0;
     }
 
     const inseridos = data?.length || 0;
-    console.log(`[persistAndamentos] ✅ ${inseridos}/${candidates.length} novos andamentos persistidos (resto eram duplicatas)`);
     return inseridos;
   };
 

@@ -138,7 +138,7 @@ const Register = () => {
       const { error } = await register(formData.email, formData.password, formData.name);
 
       if (error) {
-        console.error('❌ Register error:', error);
+        console.error('Register error:', error);
         toast({
           title: "Erro no cadastro",
           description: error.message || "Ocorreu um erro durante o cadastro",
@@ -158,7 +158,7 @@ const Register = () => {
       });
 
       if (loginError) {
-        console.error('❌ Automatic login failed:', loginError);
+        console.error('Automatic login failed after register:', loginError);
         toast({
           title: "Cadastro realizado!",
           description: "Faça login para continuar.",
@@ -189,9 +189,8 @@ const Register = () => {
       // Checkout session created
 
       if (!checkoutData?.url) {
-        console.error('❌ Stripe checkout error: No URL returned');
+        console.error('Stripe checkout error: No URL returned');
         
-        // Limpar flag de checkout em progresso quando há erro
         localStorage.removeItem('checkout_in_progress');
         
         toast({
@@ -200,7 +199,6 @@ const Register = () => {
           variant: "destructive",
         });
         
-        // Em caso de erro no checkout, redirecionar para dashboard com trial
         setTimeout(() => {
           navigate("/dashboard");
         }, 2000);
@@ -221,9 +219,8 @@ const Register = () => {
       window.location.href = checkoutData.url;
 
     } catch (error) {
-      console.error('❌ Unexpected error:', error);
+      console.error('Unexpected error during register flow:', error);
       
-      // Limpar flag de checkout em progresso quando há erro inesperado
       localStorage.removeItem('checkout_in_progress');
       
       toast({

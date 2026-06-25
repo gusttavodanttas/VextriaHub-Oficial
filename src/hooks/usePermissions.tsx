@@ -12,39 +12,20 @@ export const usePermissions = (): FeaturePermissions => {
   const planFeatures = usePlanFeatures();
 
   return useMemo(() => {
-    // Debug logs para identificar o problema
-    console.log('🔐 usePermissions Debug:', {
-      user: user ? { id: user.id, email: user.email, role: user.role } : null,
-      isSuperAdmin,
-      isAdmin,
-      isOfficeAdmin,
-      isLoading,
-      hasSession: !!session,
-      sessionEmail: session?.user?.email,
-      sessionUserMetadata: session?.user?.user_metadata
-    });
-
-    // Se ainda está carregando, retorna permissões vazias temporariamente
     if (isLoading) {
-      console.log('🔐 Still loading, returning empty permissions');
       return createEmptyPermissions();
     }
 
-    // Fallback para super admins baseado no email enquanto user não carrega
     const sessionEmail = session?.user?.email?.toLowerCase().trim();
 
     if (!user && sessionEmail && SUPER_ADMIN_EMAILS.includes(sessionEmail)) {
-      console.log('🔐 Fallback: Super admin detected by email', sessionEmail);
       return createSuperAdminPermissions();
     }
 
-    // Se não há usuário após carregamento, nenhuma permissão
     if (!user) {
-      console.log('🔐 No user after loading, returning empty permissions');
       return createEmptyPermissions();
     }
 
-    // Calcular permissões baseadas em role
     let basePermissions: FeaturePermissions;
     if (isSuperAdmin) {
       basePermissions = createSuperAdminPermissions();
@@ -56,7 +37,6 @@ export const usePermissions = (): FeaturePermissions => {
       basePermissions = createUserPermissions();
     }
 
-    // Aplicar restrições de plano sobre as permissões de role
     const finalPermissions = applyPlanRestrictions(basePermissions, planFeatures);
 
     return finalPermissions;
@@ -473,13 +453,13 @@ function createUserPermissions(): FeaturePermissions {
     canViewProcesses: true,
     canCreateProcesses: true,
     canEditProcesses: true,
-    canDeleteProcesses: true, // Usuário comum pode arquivar (soft-delete)
+    canDeleteProcesses: false, // Restrito - apenas admins/escritório
     
     // Attendance/Service Management
     canViewAtendimentos: true,
     canCreateAtendimentos: true,
     canEditAtendimentos: true,
-    canDeleteAtendimentos: false, // Usuário comum não pode excluir
+    canDeleteAtendimentos: false // Usuário comum não pode excluir
     
     // CRM Features
     canViewCRM: true,
@@ -493,7 +473,7 @@ function createUserPermissions(): FeaturePermissions {
     
     // Team Management
     canViewEquipe: true,
-    canManageEquipe: true, // Acesso completo
+    canManageEquipe: false, // Restrito para usuário comum
     
     // Tasks & Deadlines
     canViewTarefas: true,
@@ -503,25 +483,25 @@ function createUserPermissions(): FeaturePermissions {
     
     // Publications & Legal Research
     canViewPublicacoes: true,
-    canManagePublicacoes: true, // Acesso completo
+    canManagePublicacoes: false, // Restrito
     canViewConsultivo: true,
-    canManageConsultivo: true,
+    canManageConsultivo: false,
     
     // Analytics & Reports
     canViewGraficos: true,
-    canViewAdvancedAnalytics: true, // Acesso completo
+    canViewAdvancedAnalytics: false, // Restrito para usuário comum
     
     // Financial
     canViewFinanceiro: true,
-    canManageFinanceiro: true, // Acesso completo
+    canManageFinanceiro: false, // Restrito
     
     // Goals & Targets
     canViewMetas: true,
-    canManageMetas: true, // Acesso completo
+    canManageMetas: false, // Restrito
     
     // Tags & Organization
     canViewEtiquetas: true,
-    canManageEtiquetas: true, // Acesso completo
+    canManageEtiquetas: false // Restrito
     
     // Notifications
     canViewNotificacoes: true,

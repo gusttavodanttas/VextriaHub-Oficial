@@ -43,14 +43,14 @@ export const fetchProcessoInfo = async (numeroProcesso: string, tribunal?: strin
     if (error) throw error;
     return data;
   } catch (error: any) {
-    console.error('❌ Erro ao buscar processo via Edge Function:', error);
+    console.error('Error fetching processo via Edge Function:', error);
     throw error;
   }
 };
 
 // Função genérica para requisições legadas (mantida por compatibilidade, mas agora desincentivada para processos)
 export const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
-  console.warn("⚠️ Chamada direta para API legada detectada. Use fetchProcessoInfo para buscas seguras.");
+  console.warn("Direct legacy API call detected. Prefer fetchProcessoInfo.");
   const url = `${API_CONFIG.PROCESSO_API_BASE_URL}${endpoint}`;
 
   const response = await fetch(url, {
