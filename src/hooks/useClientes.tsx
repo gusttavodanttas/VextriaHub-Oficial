@@ -40,7 +40,7 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
         ...newRecord,
         user_id: user.id,
         office_id: user.office_id,
-      } as any;  // TODO Fase 2: improve typing for insert
+      } as Record<string, any>;  // TODO Fase 2: improve typing for insert
       
       if (payload.data_aniversario === '') payload.data_aniversario = null;
       if (payload.endereco === '') payload.endereco = null;
@@ -61,7 +61,7 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
         toast({ title: 'Cliente criado', description: 'O cliente foi criado com sucesso.' });
       }
     },
-    onError: (err: any) => {
+    onError: (err: unknown) => {
       console.error('Erro ao criar cliente:', err);
       toast({ title: 'Erro ao criar cliente', description: 'Não foi possível criar o cliente.', variant: 'destructive' });
     },
@@ -71,7 +71,7 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Cliente> }): Promise<Cliente | null> => {
       if (!user?.office_id) return null;
 
-      const payload = { ...updates } as any;  // TODO Fase 2: improve typing
+      const payload = { ...updates } as Record<string, any>;  // TODO Fase 2: improve typing
       if (payload.data_aniversario === '') payload.data_aniversario = null;
       
       const { data: result, error } = await supabase
@@ -93,7 +93,7 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
         toast({ title: 'Cliente atualizado', description: 'O cliente foi atualizado com sucesso.' });
       }
     },
-    onError: (err: any) => {
+    onError: (err: unknown) => {
       console.error('Erro ao atualizar cliente:', err);
       toast({ title: 'Erro ao atualizar cliente', description: 'Não foi possível atualizar o cliente.', variant: 'destructive' });
     },
@@ -116,7 +116,7 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
       queryClient.setQueryData(['clientes', officeId], (old: ClienteComProcessos[] = []) => old.filter((item: ClienteComProcessos) => item.id !== id));
       toast({ title: 'Cliente excluído', description: 'O cliente foi excluído com sucesso.' });
     },
-    onError: (err: any) => {
+    onError: (err: unknown) => {
       console.error('Erro ao excluir cliente:', err);
       toast({ title: 'Erro ao excluir cliente', description: 'Não foi possível excluir o cliente.', variant: 'destructive' });
     },
@@ -139,7 +139,7 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
       queryClient.setQueryData(['clientes', officeId], (old: ClienteComProcessos[] = []) => old.filter((item: ClienteComProcessos) => !ids.includes(item.id)));
       toast({ title: 'Clientes excluídos', description: `${ids.length} cliente(s) foram excluídos com sucesso.` });
     },
-    onError: (err: any) => {
+    onError: (err: unknown) => {
       console.error('Erro ao excluir clientes:', err);
       toast({ title: 'Erro ao excluir clientes', description: 'Não foi possível excluir os clientes.', variant: 'destructive' });
     },

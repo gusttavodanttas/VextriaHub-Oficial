@@ -178,7 +178,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
         return;
       }
 
-      const mappedResults: JudicialProcessResult[] = rawItems.map((item: any) => ({
+      const mappedResults: JudicialProcessResult[] = rawItems.map((item: Record<string, any>) => ({
         ...item,
         id: String(item.id || item.numeroProcesso),
         autor: item.autor === 'Não identificado' ? '' : (item.autor || ''),
@@ -259,7 +259,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
         // A função pode retornar andamentos em diferentes campos dependendo da versão
         const raw = data?.andamentos ?? data?.movimentos ?? data?.movimentacoes ?? [];
         if (Array.isArray(raw) && raw.length > 0) {
-          const andamentos: Andamento[] = raw.map((a: any) => ({
+          const andamentos: Andamento[] = raw.map((a: Record<string, any>) => ({
             data: a.data || a.dataMovimento || a.data_movimentacao || null,
             resumo: a.resumo || a.descricao || a.texto || '',
             descricao: a.descricao || a.resumo || a.texto || '',
@@ -288,7 +288,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
           titulo: proc.titulo,
           tribunal: proc.tribunal,
           motivo: 'descartado_busca_oab',
-          dados_originais: proc as any,
+          dados_originais: proc as Record<string, any>,
         });
       } catch (err) {
         console.error('[sync] erro ao salvar descarte:', err);
@@ -370,7 +370,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
 
       await onImport(finalProcesses);
       toast({ title: "Importação concluída", description: `${selectedIds.size} processos foram salvos.` });
-    } catch (e: any) {
+    } catch (e: unknown) {
       toast({ title: 'Erro ao importar', description: e.message, variant: 'destructive' });
     } finally {
       setImporting(false);
@@ -802,7 +802,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
                         await onImport([{ ...previewProc, clienteId: finalClienteId }]);
                         toast({ title: 'Processo importado', description: `${previewProc.numeroProcesso} salvo com sucesso.` });
                         setPreviewProc(null);
-                      } catch (e: any) {
+                      } catch (e: unknown) {
                         toast({ title: 'Erro ao importar', description: e.message, variant: 'destructive' });
                       } finally {
                         setImporting(false);
@@ -859,7 +859,7 @@ export const JudicialSyncDialog: React.FC<JudicialSyncDialogProps> = ({
       await onImport(procs);
     } else {
       for (const proc of procs) {
-        await create(proc as any);
+        await create(proc as Record<string, any>);
       }
     }
     onSyncComplete?.();

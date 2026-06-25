@@ -45,10 +45,10 @@ interface LixeiraItem {
   office_id?: string;
   office_name?: string;
   user_id?: string;
-  dados: any;
+  dados: Record<string, any>;
 }
 
-const TABELA_CONFIG: Record<string, { label: string; icon: any; color: string }> = {
+const TABELA_CONFIG: Record<string, { label: string; icon: React.ComponentType; color: string }> = {
   processos: { label: 'Processo', icon: FileText, color: 'text-blue-600 bg-blue-500/10 border-blue-500/20' },
   publicacoes: { label: 'Publicação', icon: Megaphone, color: 'text-violet-600 bg-violet-500/10 border-violet-500/20' },
   prazos: { label: 'Prazo', icon: CalendarClock, color: 'text-amber-600 bg-amber-500/10 border-amber-500/20' },
@@ -177,12 +177,13 @@ export default function Lixeira() {
       } else if (item.tabela === 'processos_descartados') {
         await supabase.from('processos_descartados').delete().eq('id', item.id);
       } else {
-        await supabase.from(item.tabela as any).update({ deletado: false, deletado_pendente: false }).eq('id', item.id);
+        await supabase.from(item.tabela as string).update({ deletado: false, deletado_pendente: false }).eq('id', item.id);
       }
       toast({ title: 'Restaurado', description: `${TABELA_CONFIG[item.tabela]?.label || item.tabela} restaurado com sucesso.` });
       setItems(prev => prev.filter(i => i.id !== item.id));
-    } catch (err: any) {
-      toast({ title: 'Erro ao restaurar', description: err.message, variant: 'destructive' });
+    } catch (err: unknown) {
+      const e = err instanceof Error ? err : new Error(String(err));
+      toast({ title: 'Erro ao restaurar', description: e.message, variant: 'destructive' });
     } finally {
       setRestoring(null);
     }
@@ -195,12 +196,13 @@ export default function Lixeira() {
       if (confirmDelete.tabela === 'processos_descartados') {
         await supabase.from('processos_descartados').delete().eq('id', confirmDelete.id);
       } else {
-        await supabase.from(confirmDelete.tabela as any).delete().eq('id', confirmDelete.id);
+        await supabase.from(confirmDelete.tabela as string).delete().eq('id', confirmDelete.id);
       }
       toast({ title: 'Excluído permanentemente' });
       setItems(prev => prev.filter(i => i.id !== confirmDelete.id));
-    } catch (err: any) {
-      toast({ title: 'Erro', description: err.message, variant: 'destructive' });
+    } catch (err: unknown) {
+      const e = err instanceof Error ? err : new Error(String(err));
+      toast({ title: 'Erro', description: e.message, variant: 'destructive' });
     } finally {
       setDeleting(false);
       setConfirmDelete(null);

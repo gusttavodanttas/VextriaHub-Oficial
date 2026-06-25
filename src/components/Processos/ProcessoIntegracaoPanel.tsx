@@ -18,7 +18,7 @@ interface ProcessoIntegracaoPanelProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   // Modo legado (callback) — opcional
-  onAddProcesso?: (processo: any) => Promise<void>;
+  onAddProcesso?: (processo: Record<string, any>) => Promise<void>;
   onSuccess?: () => void;
 }
 
@@ -32,7 +32,7 @@ export const ProcessoIntegracaoPanel: React.FC<ProcessoIntegracaoPanelProps> = (
   const { create } = useProcessosV2();
 
   // Lida tanto com array (vindo do JudicialSyncContent) quanto objeto (vindo do form manual)
-  const handleAdd = async (input: any) => {
+  const handleAdd = async (input: Record<string, any> | Record<string, any>[]) => {
     if (onAddProcesso) {
       await onAddProcesso(input);
       return;
@@ -71,7 +71,7 @@ export const ProcessoIntegracaoPanel: React.FC<ProcessoIntegracaoPanelProps> = (
 };
 
 interface ProcessoIntegracaoBodyProps {
-  onAddProcesso: (processo: any) => Promise<void>;
+  onAddProcesso: (processo: Record<string, any>) => Promise<void>;
   onSuccess: () => void;
 }
 
@@ -93,8 +93,8 @@ const ProcessoIntegracaoBody: React.FC<ProcessoIntegracaoBodyProps> = ({
       const { data, error } = await supabase.functions.invoke('fetch-processo', {
         body: {
           numeroProcesso: cnjInput,
-          oab: (profile as any)?.oab,
-          uf: (profile as any)?.oab_uf,
+          oab: (profile as Record<string, any>)?.oab,
+          uf: (profile as Record<string, any>)?.oab_uf,
         }
       });
 
@@ -335,14 +335,14 @@ const ProcessoIntegracaoBody: React.FC<ProcessoIntegracaoBodyProps> = ({
 };
 
 interface ManualProcessoFormProps {
-  initialData?: any;
-  onSave: (data: any) => Promise<void>;
+  initialData?: Record<string, any>;
+  onSave: (data: Record<string, any>) => Promise<void>;
   onCancel: () => void;
 }
 
 const ManualProcessoForm: React.FC<ManualProcessoFormProps> = ({ initialData, onSave, onCancel }) => {
   const [loading, setLoading] = useState(false);
-  const i: any = initialData || {};
+  const i: Record<string, any> = initialData || {};
   const [formData, setFormData] = useState<any>({
     titulo: i.titulo || '',
     numeroProcesso: i.numeroProcesso || '',
@@ -370,8 +370,8 @@ const ManualProcessoForm: React.FC<ManualProcessoFormProps> = ({ initialData, on
   // Re-popula quando initialData muda (ex: depois de buscar CNJ)
   useEffect(() => {
     if (!initialData) return;
-    const x: any = initialData;
-    setFormData((prev: any) => ({
+    const x: Record<string, any> = initialData;
+    setFormData((prev: Record<string, any>) => ({
       ...prev,
       titulo: x.titulo || prev.titulo,
       numeroProcesso: x.numeroProcesso || prev.numeroProcesso,
