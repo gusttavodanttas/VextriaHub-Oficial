@@ -459,8 +459,8 @@ function createUserPermissions(): FeaturePermissions {
     canViewAtendimentos: true,
     canCreateAtendimentos: true,
     canEditAtendimentos: true,
-    canDeleteAtendimentos: false // Usuário comum não pode excluir
-    
+    canDeleteAtendimentos: false, // Usuário comum não pode excluir
+
     // CRM Features
     canViewCRM: true,
     canManageCRM: false, // Apenas visualização
@@ -501,8 +501,8 @@ function createUserPermissions(): FeaturePermissions {
     
     // Tags & Organization
     canViewEtiquetas: true,
-    canManageEtiquetas: false // Restrito
-    
+    canManageEtiquetas: false, // Restrito
+
     // Notifications
     canViewNotificacoes: true,
     canManageNotificacoes: false, // Apenas visualização
