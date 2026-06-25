@@ -12,8 +12,17 @@ import { ptBR } from "date-fns/locale";
 interface Prazo {
   id: string;
   titulo: string;
-  data_vencimento: string | null;
+  data_fim_prazo: string | null;
   prioridade: string;
+}
+
+// Prazos vêm de publicações: não têm prioridade própria — derivamos pelos dias restantes
+function prioridadePorDias(dateStr: string | null): string {
+  if (!dateStr) return "baixa";
+  const diff = differenceInDays(parseISO(dateStr), new Date());
+  if (diff <= 2) return "alta";
+  if (diff <= 4) return "media";
+  return "baixa";
 }
 
 const prioMeta: Record<string, { color: string; bg: string; label: string }> = {
@@ -35,21 +44,26 @@ export function DeadlinesCard({ onOpenSheet }: { onOpenSheet?: () => void }) {
       const next7 = new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
       const { data } = await supabase
         .from("prazos")
-        .select("id, titulo, data_vencimento, prioridade")
+        .select("id, tipo_prazo, numero_processo, data_fim_prazo, publicacoes(titulo)")
         .eq("office_id", user.office_id)
-        .eq("deletado", false)
-        .gte("data_vencimento", today)
-        .lte("data_vencimento", next7)
-        .order("data_vencimento", { ascending: true })
+        .gte("data_fim_prazo", today)
+        .lte("data_fim_prazo", next7)
+        .order("data_fim_prazo", { ascending: true })
         .limit(5);
-      setPrazos((data || []) as Prazo[]);
+      const mapped: Prazo[] = (data || []).map((p: any) => ({
+        id: p.id,
+        titulo: p.publicacoes?.titulo || p.tipo_prazo || p.numero_processo || "Prazo",
+        data_fim_prazo: p.data_fim_prazo,
+        prioridade: prioridadePorDias(p.data_fim_prazo),
+      }));
+      setPrazos(mapped);
       setLoading(false);
     };
     fetch();
   }, [user?.office_id]);
 
   const urgentes = prazos.filter(p => {
-    const diff = differenceInDays(parseISO(p.data_vencimento!), new Date());
+    const diff = differenceInDays(parseISO(p.data_fim_prazo!), new Date());
     return diff <= 2;
   });
   const hasUrgent = urgentes.length > 0;
@@ -115,7 +129,7 @@ export function DeadlinesCard({ onOpenSheet }: { onOpenSheet?: () => void }) {
           <>
             {prazos.map(p => {
               const m = prioMeta[p.prioridade] ?? prioMeta.media;
-              const day = getDaysLabel(p.data_vencimento!);
+              const day = getDaysLabel(p.data_fim_prazo!);
               return (
                 <button
                   key={p.id}
@@ -132,7 +146,7 @@ export function DeadlinesCard({ onOpenSheet }: { onOpenSheet?: () => void }) {
                   <div className="text-right shrink-0">
                     <p className={cn("text-[11px]", day.cls)}>{day.label}</p>
                     <p className="text-[9px] text-muted-foreground/50">
-                      {format(parseISO(p.data_vencimento!), "dd/MM", { locale: ptBR })}
+                      {format(parseISO(p.data_fim_prazo!), "dd/MM", { locale: ptBR })}
                     </p>
                   </div>
                 </button>

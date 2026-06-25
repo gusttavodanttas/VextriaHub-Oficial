@@ -27,20 +27,20 @@ export function CalendarWidget() {
       const end = new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString().split("T")[0];
 
       const [{ data: prazos }, { data: audiencias }] = await Promise.all([
-        supabase.from("prazos").select("titulo, data_vencimento")
-          .eq("office_id", user.office_id).eq("deletado", false)
-          .gte("data_vencimento", start).lte("data_vencimento", end),
+        supabase.from("prazos").select("tipo_prazo, numero_processo, data_fim_prazo, publicacoes(titulo)")
+          .eq("office_id", user.office_id)
+          .gte("data_fim_prazo", start).lte("data_fim_prazo", end),
         supabase.from("audiencias").select("titulo, data_audiencia")
           .eq("office_id", user.office_id).eq("deletado", false)
           .gte("data_audiencia", start).lte("data_audiencia", end),
       ]);
 
       const map: Record<string, DayEvent[]> = {};
-      for (const p of prazos || []) {
-        if (!p.data_vencimento) continue;
-        const k = p.data_vencimento;
+      for (const p of (prazos as any[]) || []) {
+        if (!p.data_fim_prazo) continue;
+        const k = p.data_fim_prazo;
         if (!map[k]) map[k] = [];
-        map[k].push({ type: "prazo", titulo: p.titulo });
+        map[k].push({ type: "prazo", titulo: p.publicacoes?.titulo || p.tipo_prazo || p.numero_processo || "Prazo" });
       }
       for (const a of audiencias || []) {
         if (!a.data_audiencia) continue;

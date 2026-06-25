@@ -55,13 +55,20 @@ function PrazosView({ officeId }: { officeId: string }) {
       const today = new Date().toISOString().split("T")[0];
       const { data } = await supabase
         .from("prazos")
-        .select("id, titulo, data_vencimento, prioridade, status")
+        .select("id, tipo_prazo, numero_processo, data_fim_prazo, publicacoes(titulo)")
         .eq("office_id", officeId)
-        .eq("deletado", false)
-        .gte("data_vencimento", today)
-        .order("data_vencimento", { ascending: true })
+        .gte("data_fim_prazo", today)
+        .order("data_fim_prazo", { ascending: true })
         .limit(20);
-      setItems(data || []);
+      setItems((data || []).map((p: any) => {
+        const diff = Math.ceil((new Date(p.data_fim_prazo).getTime() - new Date().setHours(0,0,0,0)) / 86400000);
+        return {
+          id: p.id,
+          titulo: p.publicacoes?.titulo || p.tipo_prazo || p.numero_processo || "Prazo",
+          data_fim_prazo: p.data_fim_prazo,
+          prioridade: diff <= 2 ? "alta" : diff <= 4 ? "media" : "baixa",
+        };
+      }));
       setLoading(false);
     };
     fetch();
@@ -86,7 +93,7 @@ function PrazosView({ officeId }: { officeId: string }) {
   return (
     <div className="space-y-2">
       {items.map((p) => {
-        const day = getDaysLabel(p.data_vencimento);
+        const day = getDaysLabel(p.data_fim_prazo);
         const pc = prioColor[p.prioridade] || prioColor.media;
         return (
           <div key={p.id}
@@ -102,7 +109,7 @@ function PrazosView({ officeId }: { officeId: string }) {
             <div className="text-right shrink-0 space-y-0.5">
               <p className={cn("text-xs", day.cls)}>{day.label}</p>
               <p className="text-[10px] text-muted-foreground/50">
-                {format(parseISO(p.data_vencimento), "dd/MM", { locale: ptBR })}
+                {format(parseISO(p.data_fim_prazo), "dd/MM", { locale: ptBR })}
               </p>
             </div>
           </div>
