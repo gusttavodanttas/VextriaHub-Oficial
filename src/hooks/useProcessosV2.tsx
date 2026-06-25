@@ -3,7 +3,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Processo, NovoProcesso } from '@/types/database';
+import type { Database } from '@/integrations/supabase/types';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+type ProcessoRow = Database['public']['Tables']['processos']['Row'];
+type ProcessoWithCliente = ProcessoRow & { cliente?: { nome?: string | null } | null };
 
 export function useProcessosV2() {
   const { user } = useAuth();
@@ -11,7 +15,8 @@ export function useProcessosV2() {
   const queryClient = useQueryClient();
 
   // Helper: Map database row -> frontend Processo
-  const mapDatabaseToProcesso = (dbRecord: any): Processo => { // TODO Fase 2: replace 'any' with proper DB type
+  // TODO Fase 2: The returned shape mixes camelCase frontend fields; consider aligning Processo type or keep separate frontend type
+  const mapDatabaseToProcesso = (dbRecord: ProcessoWithCliente): Processo => {
     let inferredYear = '';
     if (!dbRecord.data_inicio && dbRecord.numero_processo?.length === 20) {
       inferredYear = dbRecord.numero_processo.substring(9, 13);
@@ -77,9 +82,10 @@ export function useProcessosV2() {
         }
 
         return (result || []).map(mapDatabaseToProcesso);
-      } catch (e: any) {
-        console.error('useProcessos exception:', e?.message);
-        throw e;
+      } catch (e: unknown) {
+        const err = e instanceof Error ? e : new Error(String(e));
+        console.error('useProcessos exception:', err.message);
+        throw err;
       }
     },
     enabled: !!user?.id,
@@ -92,7 +98,8 @@ export function useProcessosV2() {
     mutationFn: async (newRecord: NovoProcesso) => {
       if (!user) throw new Error('Not authenticated');
 
-      const r = newRecord as any;
+      // Fase 2: broad access for form input that mixes camel/snake
+      const r = newRecord as Record<string, any>;
       const ultimoAndamento = r.ultimoAndamento || null;
       const andamentos: any[] = Array.isArray(r.andamentos) ? r.andamentos : [];
 
@@ -178,11 +185,12 @@ export function useProcessosV2() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['processos'] });
     },
-    onError: (err: any) => {
-      console.error('Erro ao criar/sincronizar processo:', err);
+    onError: (err: unknown) => {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error('Erro ao criar/sincronizar processo:', error);
       toast({
         title: 'Erro na sincronização',
-        description: err.message || 'Não foi possível salvar os dados.',
+        description: error.message || 'Não foi possível salvar os dados.',
         variant: 'destructive',
       });
     }
@@ -312,7 +320,7 @@ export function useProcessosV2() {
   };
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, updates }: { id: string, updates: Partial<Processo> }) => {
+    mutationFn: async ({ id, updates }: { id: string, updates: Partial<Processo> & Record<string, any> }) => {
       if (!user) throw new Error('Not authenticated');
 
       const updatePayload: Record<string, any> = {
@@ -324,22 +332,24 @@ export function useProcessosV2() {
       if (updates.status !== undefined) updatePayload.status = updates.status === 'Em andamento' ? 'ativo' : updates.status;
       if (updates.numeroProcesso !== undefined) updatePayload.numero_processo = (updates.numeroProcesso || '').replace(/\D/g, '');
       if (updates.tipoProcesso !== undefined) updatePayload.tipo_processo = updates.tipoProcesso;
-      if ((updates as any).faseProcessual !== undefined) updatePayload.fase_processual = (updates as any).faseProcessual;
-      if ((updates as any).classeJudicial !== undefined) updatePayload.classe_judicial = (updates as any).classeJudicial;
-      if ((updates as any).assuntoPrincipal !== undefined) updatePayload.assunto_principal = (updates as any).assuntoPrincipal;
-      if ((updates as any).instancia !== undefined) updatePayload.instancia = (updates as any).instancia;
+      // Fase 2: support both camelCase (frontend) and snake in Partial
+      const u = updates as Record<string, any>;
+      if (u.faseProcessual !== undefined) updatePayload.fase_processual = u.faseProcessual;
+      if (u.classeJudicial !== undefined) updatePayload.classe_judicial = u.classeJudicial;
+      if (u.assuntoPrincipal !== undefined) updatePayload.assunto_principal = u.assuntoPrincipal;
+      if (u.instancia !== undefined) updatePayload.instancia = u.instancia;
       if (updates.tribunal !== undefined) updatePayload.tribunal = updates.tribunal;
       if (updates.vara !== undefined) updatePayload.vara = updates.vara;
       if (updates.comarca !== undefined) updatePayload.comarca = updates.comarca;
       if (updates.valorCausa !== undefined) updatePayload.valor_causa = updates.valorCausa;
       if (updates.proximoPrazo !== undefined) updatePayload.proximo_prazo = updates.proximoPrazo;
-      if ((updates as any).parteAutora !== undefined) updatePayload.parte_autora = (updates as any).parteAutora;
+      if (u.parteAutora !== undefined) updatePayload.parte_autora = u.parteAutora;
       if (updates.requerido !== undefined) updatePayload.requerido = updates.requerido;
       if (updates.segredoJustica !== undefined) updatePayload.segredo_justica = updates.segredoJustica;
       if (updates.justicaGratuita !== undefined) updatePayload.justica_gratuita = updates.justicaGratuita;
 
-      if (updates.descricao !== undefined || (updates as any).observacoes !== undefined) {
-        updatePayload.observacoes = updates.descricao || (updates as any).observacoes;
+      if (updates.descricao !== undefined || u.observacoes !== undefined) {
+        updatePayload.observacoes = updates.descricao || u.observacoes;
       }
 
       const { data: result, error } = await supabase
@@ -380,17 +390,18 @@ export function useProcessosV2() {
       queryClient.invalidateQueries({ queryKey: ['processos'] });
       toast({ title: 'Processo arquivado', description: 'O processo foi arquivado. O suporte pode restaurá-lo se necessário.' });
     },
-    onError: (err: any) => {
-      console.error('🗑️ [delete] mutation onError:', err);
+    onError: (err: unknown) => {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error('🗑️ [delete] mutation onError:', error);
       toast({
         title: 'Erro ao excluir processo',
-        description: err?.message || 'Falha desconhecida. Veja o console para detalhes.',
+        description: error.message || 'Falha desconhecida. Veja o console para detalhes.',
         variant: 'destructive',
       });
     },
   });
 
-  const addMovimentacao = async (processoId: string, movData: any) => {
+  const addMovimentacao = async (processoId: string, movData: Record<string, any>) => {
     if (!user) return null;
     try {
       const targetDate = movData.data || new Date().toISOString();
@@ -434,10 +445,10 @@ export function useProcessosV2() {
   return {
     data,
     loading,
-    error: error ? (error as any).message : null,
+    error: error ? (error instanceof Error ? error.message : String(error)) : null,
     refresh,
     create: createMutation.mutateAsync,
-    update: (id: string, updates: Partial<any>) => updateMutation.mutateAsync({ id, updates }),
+    update: (id: string, updates: Partial<Processo> & Record<string, any>) => updateMutation.mutateAsync({ id, updates }),
     requestDelete: deleteMutation.mutateAsync,
     addMovimentacao,
     persistAndamentos,

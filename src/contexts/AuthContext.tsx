@@ -35,13 +35,13 @@ interface AuthContextType {
   isOfficeAdmin: boolean;
   paymentValidation: PaymentValidationResult | null;
   showPaymentModal: boolean;
-  login: (email: string, password: string) => Promise<{ error: any }>;
-  register: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
+  login: (email: string, password: string) => Promise<{ error: unknown }>;
+  register: (email: string, password: string, fullName: string) => Promise<{ error: unknown }>;
   logout: () => Promise<void>;
   resetFirstLogin: () => void;
-  resendConfirmation: (email: string) => Promise<{ error: any }>;
-  loginAsSuperAdmin: (email: string, password: string) => Promise<{ error: any }>;
-  updateUserRole: (userId: string, newRole: 'user' | 'admin' | 'super_admin') => Promise<{ data?: any; error?: any }>;
+  resendConfirmation: (email: string) => Promise<{ error: unknown }>;
+  loginAsSuperAdmin: (email: string, password: string) => Promise<{ error: unknown }>;
+  updateUserRole: (userId: string, newRole: 'user' | 'admin' | 'super_admin') => Promise<{ data?: unknown; error?: unknown }>;
   debugUserStatus: () => void;
   getRedirectPath: (userRole: string | undefined, userEmail: string | undefined) => string;
   validatePayment: (userId?: string) => Promise<PaymentValidationResult>;
@@ -86,7 +86,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         new Promise((_, reject) => 
           setTimeout(() => reject(new Error('Profile fetch timeout')), 45000)
         )
-      ]) as any;
+      ]) as unknown;
 
       if (error) {
         // Profile fetch failed - returning null to allow fallback
@@ -342,7 +342,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           password,
         }),
         new Promise((_, reject) => setTimeout(() => reject(new Error('Login attempt timeout')), 20000))
-      ]) as any;
+      ]) as unknown;
 
       if (error) {
         // Login failed - returning error to UI

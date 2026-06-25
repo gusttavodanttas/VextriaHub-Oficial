@@ -119,7 +119,7 @@ export const SubscriptionManagement: React.FC = () => {
     setEditingSubscription(null);
   };
 
-  const handleEdit = (subscription: any) => {
+  const handleEdit = (subscription: any) => { // TODO Fase 2: tipar Subscription com join para office
     setEditingSubscription(subscription);
     setFormData({
       office_id: subscription.office_id,
@@ -171,7 +171,7 @@ export const SubscriptionManagement: React.FC = () => {
 
   // Filtros
   const filteredSubscriptions = subscriptions.filter(subscription => {
-    const officeName = (subscription as any).office?.name || '';
+    const officeName = (subscription as any)?.office?.name || ''; // TODO Fase 2: typed join
     const matchesSearch = officeName.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || subscription.status === statusFilter;
     const matchesPlan = planFilter === 'all' || subscription.plan === planFilter;
@@ -277,7 +277,7 @@ export const SubscriptionManagement: React.FC = () => {
                   <Label htmlFor="plan">Plano *</Label>
                   <Select 
                     value={formData.plan} 
-                    onValueChange={(value: any) => setFormData({ ...formData, plan: value })}
+                    onValueChange={(value) => setFormData({ ...formData, plan: value })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -295,7 +295,7 @@ export const SubscriptionManagement: React.FC = () => {
                   <Label htmlFor="status">Status *</Label>
                   <Select 
                     value={formData.status} 
-                    onValueChange={(value: any) => setFormData({ ...formData, status: value })}
+                    onValueChange={(value) => setFormData({ ...formData, status: value })}
                   >
                     <SelectTrigger>
                       <SelectValue />

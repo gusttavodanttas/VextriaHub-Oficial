@@ -3,6 +3,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { addDays } from 'date-fns';
+import type { Database } from '@/integrations/supabase/types';
+
+type OfficeRow = Database['public']['Tables']['offices']['Row'];
+type OfficeUserRow = Database['public']['Tables']['office_users']['Row'];
+type ProfileRow = Database['public']['Tables']['profiles']['Row'];
+type SubscriptionRow = Database['public']['Tables']['subscriptions']['Row'];
 
 export interface AdminOffice {
   id: string;
@@ -80,10 +86,10 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
       
       if (officesError) throw officesError;
 
-      const officeIds = (offices || []).map((o: any) => o.id);
+      const officeIds = (offices || []).map((o: OfficeRow) => o.id);
 
-      let userData: any[] = [];
-      let profileData: any[] = [];
+      let userData: OfficeUserRow[] = [];
+      let profileData: ProfileRow[] = [];
 
       if (officeIds.length > 0) {
         // Carregar administradores de cada escritório
@@ -93,9 +99,9 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
           .in('office_id', officeIds);
 
         if (userError) throw userError;
-        userData = ouData || [];
+        userData = (ouData || []) as OfficeUserRow[];
 
-        const userIds = [...new Set(userData.map((u: any) => u.user_id))];
+        const userIds = [...new Set(userData.map((u) => u.user_id))];
 
         if (userIds.length > 0) {
           // Carregar perfis dos usuários
@@ -107,16 +113,16 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
           if (profileError) {
             console.warn('Aviso: Falha ao carregar perfis.', profileError);
           }
-          profileData = pData || [];
+          profileData = (pData || []) as ProfileRow[];
         }
       }
 
-      const adminList: AdminOffice[] = (offices || []).map((office: any) => {
+      const adminList: AdminOffice[] = (offices || []).map((office: OfficeRow & { subscriptions?: SubscriptionRow[] }) => {
         const officeUser =
-          (userData || []).find((u: any) => u.office_id === office.id && u.role === 'admin') ||
-          (userData || []).find((u: any) => u.office_id === office.id);
+          (userData || []).find((u) => u.office_id === office.id && u.role === 'admin') ||
+          (userData || []).find((u) => u.office_id === office.id);
         
-        const profile = profileData.find((p: any) => p.user_id === officeUser?.user_id);
+        const profile = profileData.find((p) => p.user_id === officeUser?.user_id);
         const sub = office.subscriptions && office.subscriptions.length > 0 ? office.subscriptions[0] : null;
 
         const isCourtesy = office.access_type === 'courtesy';
@@ -191,8 +197,9 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
       });
 
       setAdmins(adminList);
-    } catch (err: any) {
-      console.error('Erro ao carregar dados:', err);
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error('Erro ao carregar dados:', error);
       setError('Erro ao carregar dados administrativos.');
     } finally {
       setLoading(false);
@@ -210,8 +217,9 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
       toast({ title: active ? 'Acesso Liberado' : 'Acesso Suspenso' });
       await fetchAdmins();
       return true;
-    } catch (err: any) {
-      toast({ title: 'Erro', description: err.message, variant: 'destructive' });
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
       return false;
     }
   }, [toast, fetchAdmins]);
@@ -230,7 +238,7 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
         ? planMap[updates.plan_name] || updates.plan_name
         : undefined;
 
-      const officeUpdates: any = {};
+      const officeUpdates: Record<string, any> = {};
       if (updates.office_name !== undefined) officeUpdates.name = updates.office_name;
       if (updates.office_email !== undefined) officeUpdates.email = updates.office_email;
       if (updates.phone !== undefined) officeUpdates.phone = updates.phone;
@@ -246,7 +254,7 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
         if (ofError) throw ofError;
       }
 
-      const subUpdates: any = {};
+      const subUpdates: Record<string, any> = {};
       if (dbPlan) subUpdates.plan = dbPlan;
       if (updates.is_lifetime !== undefined) {
         subUpdates.end_date = updates.is_lifetime
@@ -288,11 +296,12 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
       });
       await fetchAdmins();
       return true;
-    } catch (err: any) {
-      console.error('Erro ao atualizar escritório:', err);
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error('Erro ao atualizar escritório:', error);
       toast({
         title: 'Erro ao salvar',
-        description: err.message || 'Não foi possível atualizar os dados.',
+        description: error.message || 'Não foi possível atualizar os dados.',
         variant: 'destructive',
       });
       return false;
@@ -328,11 +337,12 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
       });
       await fetchAdmins();
       return true;
-    } catch (err: any) {
-      console.error('Erro ao gerenciar acesso:', err);
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error('Erro ao gerenciar acesso:', error);
       toast({
         title: 'Falha na operação',
-        description: err.message || 'Erro ao processar ação no Stripe.',
+        description: error.message || 'Erro ao processar ação no Stripe.',
         variant: 'destructive',
       });
       return false;
