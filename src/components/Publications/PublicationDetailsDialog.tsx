@@ -19,7 +19,14 @@ import {
   Link2,
   Link2Off,
   AlertTriangle,
+  ChevronDown,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { formatCNJ } from "@/utils/formatCNJ";
 import { useToast } from "@/hooks/use-toast";
 
@@ -46,7 +53,7 @@ interface PublicationDetailsDialogProps {
   onDelete?: (id: string) => void;
   onProcess?: (id: string) => void;
   onRegister?: (publication: Publication) => void;
-  onSchedule?: (publication: Publication) => void;
+  onSchedule?: (publication: Publication, tipo?: 'prazo' | 'tarefa' | 'audiencia') => void;
 }
 
 const deepCleanHTML = (html: string): string => {
@@ -260,16 +267,31 @@ export const PublicationDetailsDialog = ({
               </Button>
             )}
 
-            {/* Agendar prazo */}
+            {/* Agendar prazo / tarefa / audiência */}
             {onSchedule && (
-              <Button
-                onClick={() => { onSchedule(publication); handleClose(); }}
-                variant="outline"
-                className="rounded-2xl border-amber-500/30 text-amber-600 hover:bg-amber-500/10 px-6 font-black text-[11px] uppercase tracking-widest gap-2 h-12 flex-1 md:flex-none"
-              >
-                <CalendarClock className="h-4 w-4" />
-                Agendar Prazo
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="rounded-2xl border-amber-500/30 text-amber-600 hover:bg-amber-500/10 px-6 font-black text-[11px] uppercase tracking-widest gap-2 h-12 flex-1 md:flex-none"
+                  >
+                    <CalendarClock className="h-4 w-4" />
+                    Agendar
+                    <ChevronDown className="h-3 w-3 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="rounded-xl">
+                  <DropdownMenuItem onClick={() => { onSchedule(publication, 'prazo'); handleClose(); }} className="rounded-lg cursor-pointer gap-2">
+                    <CalendarClock className="h-4 w-4 text-amber-500" /> Prazo
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => { onSchedule(publication, 'tarefa'); handleClose(); }} className="rounded-lg cursor-pointer gap-2">
+                    <CalendarClock className="h-4 w-4 text-sky-500" /> Tarefa
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => { onSchedule(publication, 'audiencia'); handleClose(); }} className="rounded-lg cursor-pointer gap-2">
+                    <CalendarClock className="h-4 w-4 text-violet-500" /> Audiência
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
 
             {/* Marcar como tratada / nova */}

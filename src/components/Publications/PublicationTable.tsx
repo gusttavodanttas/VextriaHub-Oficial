@@ -77,7 +77,7 @@ interface PublicationTableProps {
   onDelete: (id: string) => void;
   onUpdateStatus: (id: string, status: string) => void;
   onRegister?: (pub: Publication) => void;
-  onSchedule?: (pub: Publication) => void;
+  onSchedule?: (pub: Publication, tipo?: 'prazo' | 'tarefa' | 'audiencia') => void;
   selectedIds: string[];
   onToggleSelection: (id: string) => void;
   onToggleAll: () => void;
@@ -358,10 +358,20 @@ export const PublicationTable = ({
                                 )}
 
                                 {onSchedule && (
-                                  <DropdownMenuItem onClick={() => onSchedule(pub)} className="rounded-xl cursor-pointer py-3 gap-3 focus:bg-primary/10">
-                                    <CalendarClock className="h-4 w-4 text-amber-500" />
-                                    <span className="font-bold text-xs uppercase tracking-wider">Agendar Prazo</span>
-                                  </DropdownMenuItem>
+                                  <>
+                                    <DropdownMenuItem onClick={() => onSchedule(pub, 'prazo')} className="rounded-xl cursor-pointer py-3 gap-3 focus:bg-primary/10">
+                                      <CalendarClock className="h-4 w-4 text-amber-500" />
+                                      <span className="font-bold text-xs uppercase tracking-wider">Agendar Prazo</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => onSchedule(pub, 'tarefa')} className="rounded-xl cursor-pointer py-3 gap-3 focus:bg-primary/10">
+                                      <CalendarClock className="h-4 w-4 text-sky-500" />
+                                      <span className="font-bold text-xs uppercase tracking-wider">Criar Tarefa</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => onSchedule(pub, 'audiencia')} className="rounded-xl cursor-pointer py-3 gap-3 focus:bg-primary/10">
+                                      <CalendarClock className="h-4 w-4 text-violet-500" />
+                                      <span className="font-bold text-xs uppercase tracking-wider">Marcar Audiência</span>
+                                    </DropdownMenuItem>
+                                  </>
                                 )}
 
                                 <DropdownMenuItem
@@ -453,15 +463,30 @@ export const PublicationTable = ({
                                   </Button>
                                 )}
                                 {onSchedule && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-9 rounded-xl text-[10px] font-black uppercase tracking-widest gap-1.5 border-amber-500/30 text-amber-600 hover:bg-amber-500/10"
-                                    onClick={() => onSchedule(pub)}
-                                  >
-                                    <CalendarClock className="h-3.5 w-3.5" />
-                                    Agendar Prazo
-                                  </Button>
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-9 rounded-xl text-[10px] font-black uppercase tracking-widest gap-1.5 border-amber-500/30 text-amber-600 hover:bg-amber-500/10"
+                                      >
+                                        <CalendarClock className="h-3.5 w-3.5" />
+                                        Agendar
+                                        <ChevronDown className="h-3 w-3 opacity-50" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="rounded-xl">
+                                      <DropdownMenuItem onClick={() => onSchedule(pub, 'prazo')} className="rounded-lg cursor-pointer gap-2">
+                                        <CalendarClock className="h-4 w-4 text-amber-500" /> Prazo
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => onSchedule(pub, 'tarefa')} className="rounded-lg cursor-pointer gap-2">
+                                        <CalendarClock className="h-4 w-4 text-sky-500" /> Tarefa
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => onSchedule(pub, 'audiencia')} className="rounded-lg cursor-pointer gap-2">
+                                        <CalendarClock className="h-4 w-4 text-violet-500" /> Audiência
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
                                 )}
                               </div>
                             </div>

@@ -27,6 +27,7 @@ import {
   PlusCircle,
   Link2,
   Link2Off,
+  Gavel,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -57,13 +58,13 @@ import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 
 import { NovoProcessoDialog } from "@/components/Processos/NovoProcessoDialog";
-import { NovoPrazoStandaloneDialog } from "@/components/Processos/NovoPrazoStandaloneDialog";
+import { AgendarPublicacaoDialog, AcaoTipo } from "@/components/Processos/AgendarPublicacaoDialog";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function Publicacoes() {
   const { toast } = useToast();
   const { user, profile } = useAuth();
-  const { publications, loading, deletePublication, updateStatus, syncByOab, refresh } = usePublicacoes();
+  const { publications, loading, deletePublication, updateStatus, syncByOab, refresh, linkPublicacaoToProcesso, findProcessoIdByCnj } = usePublicacoes();
   const [view, setView] = useState<'grid' | 'table'>('table');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -71,6 +72,7 @@ export default function Publicacoes() {
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [novoProcessoOpen, setNovoProcessoOpen] = useState(false);
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [scheduleTipo, setScheduleTipo] = useState<AcaoTipo>('prazo');
   const [initialProcessData, setInitialProcessData] = useState<any>(null);
   const [registering, setRegistering] = useState(false);
   
@@ -94,6 +96,23 @@ export default function Publicacoes() {
 
   const handleRegister = async (pub: any) => {
     setSelectedPub(pub);
+
+    // Anti-duplicata: se o processo já estiver cadastrado, apenas vincula a publicação.
+    const processoExistenteId = await findProcessoIdByCnj(pub.numero_processo);
+    if (processoExistenteId) {
+      setDetailDialogOpen(false);
+      const ok = await linkPublicacaoToProcesso(pub.id, processoExistenteId);
+      toast({
+        title: ok ? 'Publicação vinculada' : 'Atenção',
+        description: ok
+          ? 'Este processo já estava cadastrado. A publicação foi vinculada a ele (sem duplicar).'
+          : 'Não foi possível vincular automaticamente.',
+        variant: ok ? undefined : 'destructive',
+      });
+      refresh();
+      return;
+    }
+
     setRegistering(true);
     setDetailDialogOpen(false);
 
@@ -162,8 +181,9 @@ export default function Publicacoes() {
     }
   };
 
-  const handleSchedule = (pub: any) => {
+  const handleSchedule = (pub: any, tipo: AcaoTipo = 'prazo') => {
     setSelectedPub(pub);
+    setScheduleTipo(tipo);
     setScheduleDialogOpen(true);
   };
   
@@ -644,10 +664,25 @@ export default function Publicacoes() {
                               <PlusCircle className="h-3.5 w-3.5" /> Processo
                             </Button>
                           )}
-                          <Button size="sm" variant="ghost" className="h-8 rounded-xl text-[10px] font-bold gap-1 text-amber-600 hover:bg-amber-500/10"
-                            onClick={() => handleSchedule(publication)}>
-                            <CalendarDays className="h-3.5 w-3.5" /> Prazo
-                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button size="sm" variant="ghost" className="h-8 rounded-xl text-[10px] font-bold gap-1 text-amber-600 hover:bg-amber-500/10">
+                                <CalendarDays className="h-3.5 w-3.5" /> Agendar
+                                <ChevronDown className="h-3 w-3 opacity-50" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="rounded-xl">
+                              <DropdownMenuItem onClick={() => handleSchedule(publication, 'prazo')} className="rounded-lg cursor-pointer gap-2">
+                                <Clock className="h-4 w-4 text-amber-500" /> Prazo
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleSchedule(publication, 'tarefa')} className="rounded-lg cursor-pointer gap-2">
+                                <CheckSquare className="h-4 w-4 text-sky-500" /> Tarefa
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleSchedule(publication, 'audiencia')} className="rounded-lg cursor-pointer gap-2">
+                                <Gavel className="h-4 w-4 text-violet-500" /> Audiência
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                           <Button size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-xl text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
                             onClick={() => deletePublication(publication.id)}>
                             <Trash2 className="h-3.5 w-3.5" />
@@ -697,16 +732,17 @@ export default function Publicacoes() {
         }}
       />
 
-      <NovoPrazoStandaloneDialog
+      <AgendarPublicacaoDialog
         open={scheduleDialogOpen}
         onOpenChange={setScheduleDialogOpen}
+        defaultTipo={scheduleTipo}
         publicacaoId={selectedPub?.id}
         numeroProcesso={selectedPub?.numero_processo}
-        tituloSugerido={selectedPub ? `Prazo — ${selectedPub.titulo || selectedPub.numero_processo}` : ''}
+        tituloSugerido={selectedPub ? `${selectedPub.titulo || selectedPub.numero_processo}` : ''}
         onSuccess={async () => {
           if (selectedPub?.id) {
             await updateStatus(selectedPub.id, 'processada');
-            toast({ title: "Prazo Agendado", description: "Prazo salvo e publicação marcada como tratada." });
+            toast({ title: "Agendado", description: "Item salvo e publicação marcada como tratada." });
           }
           setScheduleDialogOpen(false);
           refresh();

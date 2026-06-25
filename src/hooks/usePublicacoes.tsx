@@ -89,6 +89,20 @@ export const usePublicacoes = () => {
       const items = results?.items || results;
       if (!items || !Array.isArray(items)) return [];
 
+      // Mapa de processos já cadastrados (numero_processo -> id) para vínculo automático
+      const numerosBusca = items
+        .map((it: any) => (it.numeroProcesso || '').replace(/\D/g, ''))
+        .filter(Boolean);
+      const processoMap = new Map<string, string>();
+      if (numerosBusca.length > 0) {
+        const { data: procs } = await supabase
+          .from('processos')
+          .select('id, numero_processo')
+          .eq('office_id', user.office_id)
+          .in('numero_processo', numerosBusca);
+        (procs || []).forEach((p: any) => processoMap.set(p.numero_processo, p.id));
+      }
+
       const savedResults = [];
       for (const item of items) {
         // DataJud retorna andamentos processuais — ignorar, não são publicações oficiais
@@ -110,6 +124,9 @@ export const usePublicacoes = () => {
           ? item.titulo
           : item.tipo_documento || item.tipo_comunicacao || `Publicação ${item.numeroProcesso}`;
 
+        // Vincula automaticamente se já houver processo cadastrado com esse número
+        const processoIdVinculado = processoMap.get((item.numeroProcesso || '').replace(/\D/g, '')) || null;
+
         const newRecord = {
           titulo,
           conteudo,
@@ -123,24 +140,31 @@ export const usePublicacoes = () => {
           vara: item.vara || null,
           tipo_documento: item.tipo_documento || null,
           nome_orgao: item.nome_orgao || item.vara || null,
+          processo_id: processoIdVinculado,
         };
 
         // Dedup: mesmo processo + mesma data de publicação
         const { data: existing } = await supabase
           .from('publicacoes')
-          .select('id, conteudo')
+          .select('id, conteudo, processo_id')
           .eq('office_id', user.office_id)
           .eq('numero_processo', newRecord.numero_processo)
           .eq('data_publicacao', newRecord.data_publicacao)
           .maybeSingle();
 
         if (existing) {
-          // Atualiza se o novo conteúdo for mais completo
+          // Atualiza se o novo conteúdo for mais completo e/ou vincula se ainda não vinculado
+          const patch: Record<string, any> = {};
           if (conteudo.length > (existing.conteudo?.length || 0)) {
-            await supabase
-              .from('publicacoes')
-              .update({ conteudo, tipo_documento: newRecord.tipo_documento, nome_orgao: newRecord.nome_orgao })
-              .eq('id', existing.id);
+            patch.conteudo = conteudo;
+            patch.tipo_documento = newRecord.tipo_documento;
+            patch.nome_orgao = newRecord.nome_orgao;
+          }
+          if (!existing.processo_id && processoIdVinculado) {
+            patch.processo_id = processoIdVinculado;
+          }
+          if (Object.keys(patch).length > 0) {
+            await supabase.from('publicacoes').update(patch).eq('id', existing.id);
           }
         } else {
           const saved = await createPublication(newRecord as any);
@@ -208,6 +232,37 @@ export const usePublicacoes = () => {
 
     runAutoSync();
   }, [user?.office_id]);
+
+  // Vincula uma publicação a um processo já existente (e marca como tratada)
+  const linkPublicacaoToProcesso = async (publicacaoId: string, processoId: string) => {
+    try {
+      const { error } = await supabase
+        .from('publicacoes')
+        .update({ processo_id: processoId, status: 'processada' })
+        .eq('id', publicacaoId);
+      if (error) throw error;
+      setPublications(prev =>
+        prev.map(p => p.id === publicacaoId ? { ...p, processo_id: processoId, status: 'processada' } : p)
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  // Procura um processo já cadastrado pelo número (CNJ). Retorna o id ou null.
+  const findProcessoIdByCnj = async (numeroProcesso: string): Promise<string | null> => {
+    if (!user?.office_id || !numeroProcesso) return null;
+    const cnj = numeroProcesso.replace(/\D/g, '');
+    const { data } = await supabase
+      .from('processos')
+      .select('id')
+      .eq('office_id', user.office_id)
+      .eq('numero_processo', cnj)
+      .eq('deletado', false)
+      .maybeSingle();
+    return data?.id || null;
+  };
 
   const updateStatus = async (id: string, status: Publication['status']) => {
     try {
@@ -381,6 +436,8 @@ export const usePublicacoes = () => {
     createPublication,
     getOfficeOwnerProfile,
     fetchByCnj,
-    syncByOab
+    syncByOab,
+    linkPublicacaoToProcesso,
+    findProcessoIdByCnj,
   };
 };
