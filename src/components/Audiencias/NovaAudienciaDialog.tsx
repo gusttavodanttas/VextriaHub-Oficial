@@ -1,218 +1,173 @@
-import React, { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import React, { useState, useEffect } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus } from "lucide-react";
+import { CalendarPlus, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import type { Audiencia, AudienciaInput } from "@/hooks/useAudiencias";
+
+interface ClienteOption { id: string; nome: string; }
 
 interface NovaAudienciaDialogProps {
-  onAddAudiencia: (audiencia: {
-    titulo: string;
-    cliente: string;
-    data: string;
-    hora: string;
-    tipo: string;
-    local: string;
-    observacao: string;
-    status: string;
-  }) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  clientes: ClienteOption[];
+  audiencia?: Audiencia | null;
+  onSubmit: (input: AudienciaInput, id?: string) => Promise<void>;
 }
 
-export const NovaAudienciaDialog = ({ onAddAudiencia }: NovaAudienciaDialogProps) => {
+const tiposAudiencia = [
+  "Conciliação", "Instrução", "Una", "Julgamento",
+  "Trabalhista", "Família", "Previdenciário", "Cível", "Criminal", "Tributário",
+];
+
+const statusOptions = [
+  { value: "agendada", label: "Agendada" },
+  { value: "confirmada", label: "Confirmada" },
+  { value: "pendente", label: "Pendente" },
+  { value: "realizada", label: "Realizada" },
+  { value: "cancelada", label: "Cancelada" },
+];
+
+const empty = { titulo: "", cliente_id: "", data: "", hora: "", tipo: "", local: "", observacao: "", status: "agendada" };
+
+export const NovaAudienciaDialog = ({ open, onOpenChange, clientes, audiencia, onSubmit }: NovaAudienciaDialogProps) => {
   const { toast } = useToast();
-  const [isOpen, setIsOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    titulo: "",
-    cliente: "",
-    data: "",
-    hora: "",
-    tipo: "",
-    local: "",
-    observacao: "",
-    status: "agendada"
-  });
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState(empty);
 
-  const tiposAudiencia = [
-    "Trabalhista",
-    "Família",
-    "Previdenciário",
-    "Cível",
-    "Criminal",
-    "Tributário",
-    "Administrativo"
-  ];
+  const isEdit = !!audiencia;
 
-  const statusOptions = [
-    "agendada",
-    "confirmada",
-    "pendente",
-    "realizada",
-    "cancelada"
-  ];
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.titulo || !formData.cliente || !formData.data || !formData.hora || !formData.tipo) {
-      toast({
-        title: "Erro",
-        description: "Preencha todos os campos obrigatórios.",
-        variant: "destructive"
+  useEffect(() => {
+    if (!open) return;
+    if (audiencia) {
+      const dt = audiencia.data_audiencia ? new Date(audiencia.data_audiencia) : null;
+      setFormData({
+        titulo: audiencia.titulo || "",
+        cliente_id: audiencia.cliente_id || "",
+        data: dt ? dt.toISOString().split("T")[0] : "",
+        hora: dt ? dt.toTimeString().slice(0, 5) : "",
+        tipo: audiencia.tipo || "",
+        local: audiencia.local || "",
+        observacao: audiencia.observacoes || "",
+        status: audiencia.status || "agendada",
       });
+    } else {
+      setFormData(empty);
+    }
+  }, [open, audiencia]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.titulo || !formData.data || !formData.hora || !formData.tipo) {
+      toast({ title: "Campos obrigatórios", description: "Preencha título, data, horário e tipo.", variant: "destructive" });
       return;
     }
-
-    const novaAudiencia = {
-      ...formData,
-      id: Date.now() // ID temporário
+    const data_audiencia = new Date(`${formData.data}T${formData.hora}:00`).toISOString();
+    const input: AudienciaInput = {
+      titulo: formData.titulo,
+      tipo: formData.tipo,
+      data_audiencia,
+      local: formData.local || null,
+      status: formData.status,
+      observacoes: formData.observacao || null,
+      cliente_id: formData.cliente_id || null,
     };
-
-    onAddAudiencia(novaAudiencia);
-    
-    toast({
-      title: "Audiência criada",
-      description: "A audiência foi criada com sucesso.",
-    });
-    
-    setIsOpen(false);
-    setFormData({
-      titulo: "",
-      cliente: "",
-      data: "",
-      hora: "",
-      tipo: "",
-      local: "",
-      observacao: "",
-      status: "agendada"
-    });
+    setSaving(true);
+    try {
+      await onSubmit(input, audiencia?.id);
+      onOpenChange(false);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Nova Audiência
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-2xl">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl rounded-3xl">
         <DialogHeader>
-          <DialogTitle>Nova Audiência</DialogTitle>
+          <DialogTitle className="flex items-center gap-2 text-xl font-black">
+            <div className="p-1.5 rounded-lg bg-orange-500/10 text-orange-500"><CalendarPlus className="h-5 w-5" /></div>
+            {isEdit ? "Editar Audiência" : "Nova Audiência"}
+          </DialogTitle>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="titulo">Título *</Label>
-              <Input
-                id="titulo"
-                value={formData.titulo}
+              <Input id="titulo" value={formData.titulo}
                 onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
-                placeholder="Ex: Audiência de Conciliação"
-                required
-              />
+                placeholder="Ex: Audiência de Conciliação" className="rounded-xl" required />
             </div>
-            
             <div className="space-y-2">
-              <Label htmlFor="cliente">Cliente *</Label>
-              <Input
-                id="cliente"
-                value={formData.cliente}
-                onChange={(e) => setFormData({ ...formData, cliente: e.target.value })}
-                placeholder="Nome do cliente"
-                required
-              />
+              <Label htmlFor="cliente">Cliente</Label>
+              <Select value={formData.cliente_id} onValueChange={(v) => setFormData({ ...formData, cliente_id: v })}>
+                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Selecionar cliente" /></SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  {clientes.length === 0 && <SelectItem value="none" disabled>Nenhum cliente cadastrado</SelectItem>}
+                  {clientes.map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="data">Data *</Label>
-              <Input
-                id="data"
-                type="date"
-                value={formData.data}
-                onChange={(e) => setFormData({ ...formData, data: e.target.value })}
-                required
-              />
+              <Input id="data" type="date" value={formData.data}
+                onChange={(e) => setFormData({ ...formData, data: e.target.value })} className="rounded-xl" required />
             </div>
-            
             <div className="space-y-2">
               <Label htmlFor="hora">Horário *</Label>
-              <Input
-                id="hora"
-                type="time"
-                value={formData.hora}
-                onChange={(e) => setFormData({ ...formData, hora: e.target.value })}
-                required
-              />
+              <Input id="hora" type="time" value={formData.hora}
+                onChange={(e) => setFormData({ ...formData, hora: e.target.value })} className="rounded-xl" required />
             </div>
-            
             <div className="space-y-2">
               <Label htmlFor="tipo">Tipo *</Label>
-              <Select value={formData.tipo} onValueChange={(value) => setFormData({ ...formData, tipo: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecionar tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  {tiposAudiencia.map((tipo) => (
-                    <SelectItem key={tipo} value={tipo}>
-                      {tipo}
-                    </SelectItem>
-                  ))}
+              <Select value={formData.tipo} onValueChange={(v) => setFormData({ ...formData, tipo: v })}>
+                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  {tiposAudiencia.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="local">Local</Label>
-              <Input
-                id="local"
-                value={formData.local}
+              <Input id="local" value={formData.local}
                 onChange={(e) => setFormData({ ...formData, local: e.target.value })}
-                placeholder="Ex: Sala 205 - Fórum Central"
-              />
+                placeholder="Ex: Sala 205 - Fórum Central" className="rounded-xl" />
             </div>
-            
             <div className="space-y-2">
               <Label htmlFor="status">Status</Label>
-              <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {statusOptions.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {status.charAt(0).toUpperCase() + status.slice(1)}
-                    </SelectItem>
-                  ))}
+              <Select value={formData.status} onValueChange={(v) => setFormData({ ...formData, status: v })}>
+                <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  {statusOptions.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="observacao">Observações</Label>
-            <Textarea
-              id="observacao"
-              placeholder="Observações sobre a audiência..."
-              value={formData.observacao}
-              onChange={(e) => setFormData({ ...formData, observacao: e.target.value })}
-              rows={3}
-            />
+            <Textarea id="observacao" placeholder="Observações sobre a audiência..." value={formData.observacao}
+              onChange={(e) => setFormData({ ...formData, observacao: e.target.value })} rows={3} className="rounded-xl" />
           </div>
-          
-          <div className="flex gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => setIsOpen(false)} className="flex-1">
+
+          <div className="flex gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="flex-1 rounded-xl" disabled={saving}>
               Cancelar
             </Button>
-            <Button type="submit" className="flex-1">
-              Criar Audiência
+            <Button type="submit" className="flex-1 rounded-xl font-bold" disabled={saving}>
+              {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {isEdit ? "Salvar alterações" : "Criar Audiência"}
             </Button>
           </div>
         </form>

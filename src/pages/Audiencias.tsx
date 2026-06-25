@@ -1,328 +1,323 @@
-﻿
-import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useMemo, useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Calendar as CalendarUI } from "@/components/ui/calendar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, Clock, MapPin, User, Users, FileText, Plus, Search, Filter, Trash2 } from "lucide-react";
+import {
+  Calendar, Clock, MapPin, User, Users, Plus, Search, Trash2, Pencil,
+  CheckCircle2, XCircle, MoreHorizontal, CalendarCheck, CalendarClock, Gavel, Loader2,
+} from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
 import { NovaAudienciaDialog } from "@/components/Audiencias/NovaAudienciaDialog";
-import { useMultiSelect } from "@/hooks/useMultiSelect";
-import { useToast } from "@/hooks/use-toast";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useAuth } from "@/contexts/AuthContext";
-import { getInitialData } from "@/utils/initialData";
+import { useMultiSelect } from "@/hooks/useMultiSelect";
+import { useAudiencias, type Audiencia, type AudienciaInput } from "@/hooks/useAudiencias";
+import { useClientes } from "@/hooks/useClientes";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
+import { format, isToday, isTomorrow, isThisWeek, isPast, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
+const statusMeta: Record<string, { label: string; cls: string; dot: string }> = {
+  agendada:   { label: "Agendada",   cls: "border-blue-500/30 text-blue-600 dark:text-blue-400 bg-blue-500/10", dot: "bg-blue-500" },
+  confirmada: { label: "Confirmada", cls: "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10", dot: "bg-emerald-500" },
+  pendente:   { label: "Pendente",   cls: "border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/10", dot: "bg-amber-500" },
+  realizada:  { label: "Realizada",  cls: "border-muted/40 text-muted-foreground bg-muted/20", dot: "bg-muted-foreground" },
+  cancelada:  { label: "Cancelada",  cls: "border-rose-500/30 text-rose-600 dark:text-rose-400 bg-rose-500/10 line-through", dot: "bg-rose-500" },
+};
+
+function StatCard({ icon: Icon, label, value, color, bg }: { icon: React.ElementType; label: string; value: number; color: string; bg: string }) {
+  return (
+    <div className="flex items-center gap-3 p-4 rounded-2xl border border-black/5 dark:border-border bg-card/40">
+      <div className={cn("p-2.5 rounded-xl shrink-0", bg)}><Icon className={cn("h-5 w-5", color)} /></div>
+      <div className="min-w-0">
+        <p className="text-2xl font-black leading-none">{value}</p>
+        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mt-1">{label}</p>
+      </div>
+    </div>
+  );
+}
 
 const Audiencias = () => {
-  const { isFirstLogin } = useAuth();
-  const { toast } = useToast();
+  const { audiencias, isLoading, create, update, updateStatus, remove } = useAudiencias();
+  const { data: clientesData } = useClientes();
+  const clientes = useMemo(() => (clientesData || []).map((c: any) => ({ id: c.id, nome: c.nome })), [clientesData]);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("todas");
   const [tipoFilter, setTipoFilter] = useState("todos");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<Audiencia | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [calSelected, setCalSelected] = useState<Date | undefined>(new Date());
 
-  const mockAudienciasData: any[] = [];
+  const tipos = useMemo(() => Array.from(new Set(audiencias.map(a => a.tipo).filter(Boolean))) as string[], [audiencias]);
 
-  const [audiencias, setAudiencias] = useState(mockAudienciasData);
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "agendada": return "border-blue-500/50 text-blue-500 bg-blue-500/10 font-bold";
-      case "confirmada": return "border-emerald-500/50 text-emerald-500 bg-emerald-500/10 font-bold";
-      case "pendente": return "border-yellow-500/50 text-yellow-500 bg-yellow-500/10 font-bold";
-      case "realizada": return "border-muted/30 text-muted-foreground bg-muted/10";
-      case "cancelada": return "border-red-500/50 text-red-500 bg-red-500/10 font-bold";
-      default: return "border-muted/30 text-muted-foreground bg-muted/10";
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "agendada": return "Agendada";
-      case "confirmada": return "Confirmada";
-      case "pendente": return "Pendente";
-      case "realizada": return "Realizada";
-      case "cancelada": return "Cancelada";
-      default: return status;
-    }
-  };
-
-  const filteredAudiencias = audiencias.filter(audiencia => {
-    const matchesSearch = audiencia.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         audiencia.cliente.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "todas" || audiencia.status === statusFilter;
-    const matchesTipo = tipoFilter === "todos" || audiencia.tipo === tipoFilter;
-    
+  const filtered = useMemo(() => audiencias.filter(a => {
+    const q = searchTerm.toLowerCase();
+    const matchesSearch = !q || a.titulo?.toLowerCase().includes(q) || (a.cliente_nome || "").toLowerCase().includes(q) || (a.local || "").toLowerCase().includes(q);
+    const matchesStatus = statusFilter === "todas" || a.status === statusFilter;
+    const matchesTipo = tipoFilter === "todos" || a.tipo === tipoFilter;
     return matchesSearch && matchesStatus && matchesTipo;
-  });
+  }), [audiencias, searchTerm, statusFilter, tipoFilter]);
 
-  const multiSelect = useMultiSelect(filteredAudiencias);
+  const multiSelect = useMultiSelect(filtered);
 
-  const handleAddAudiencia = (novaAudiencia: any) => {
-    const audienciaComId = {
-      ...novaAudiencia,
-      id: Date.now()
+  // Estatísticas
+  const stats = useMemo(() => {
+    const now = new Date();
+    const in7 = new Date(Date.now() + 7 * 86400000);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    return {
+      proximas: audiencias.filter(a => { const d = parseISO(a.data_audiencia); return d >= now && d <= in7 && a.status !== "cancelada"; }).length,
+      hoje: audiencias.filter(a => isToday(parseISO(a.data_audiencia)) && a.status !== "cancelada").length,
+      confirmadas: audiencias.filter(a => a.status === "confirmada").length,
+      realizadasMes: audiencias.filter(a => a.status === "realizada" && parseISO(a.data_audiencia) >= monthStart).length,
     };
-    setAudiencias(prev => [audienciaComId, ...prev]);
+  }, [audiencias]);
+
+  // Agrupamento por período (apenas não-passadas em "agenda", passadas no fim)
+  const groups = useMemo(() => {
+    const g: Record<string, Audiencia[]> = { Hoje: [], Amanhã: [], "Esta semana": [], Futuras: [], Anteriores: [] };
+    for (const a of filtered) {
+      const d = parseISO(a.data_audiencia);
+      if (isToday(d)) g.Hoje.push(a);
+      else if (isTomorrow(d)) g.Amanhã.push(a);
+      else if (isThisWeek(d, { weekStartsOn: 1 }) && !isPast(d)) g["Esta semana"].push(a);
+      else if (isPast(d)) g.Anteriores.push(a);
+      else g.Futuras.push(a);
+    }
+    return g;
+  }, [filtered]);
+
+  const markedDays = useMemo(() => audiencias.map(a => parseISO(a.data_audiencia)), [audiencias]);
+  const calKey = calSelected ? format(calSelected, "yyyy-MM-dd") : null;
+  const calDayEvents = useMemo(() =>
+    audiencias.filter(a => calKey && format(parseISO(a.data_audiencia), "yyyy-MM-dd") === calKey)
+      .sort((a, b) => a.data_audiencia.localeCompare(b.data_audiencia)),
+  [audiencias, calKey]);
+
+  const handleSubmit = async (input: AudienciaInput, id?: string) => {
+    if (id) await update.mutateAsync({ id, input });
+    else await create.mutateAsync(input);
   };
 
-  const handleDeleteSelected = () => {
-    const selectedItems = multiSelect.getSelectedItems();
-    if (selectedItems.length === 0) {
-      toast({
-        title: "Nenhuma audiência selecionada",
-        description: "Selecione pelo menos uma audiência para excluir.",
-        variant: "destructive"
-      });
-      return;
-    }
-    setDeleteDialogOpen(true);
-  };
+  const openNew = () => { setEditTarget(null); setDialogOpen(true); };
+  const openEdit = (a: Audiencia) => { setEditTarget(a); setDialogOpen(true); };
 
   const handleConfirmDelete = async () => {
-    setIsDeleting(true);
-    
-    // Simular delay de API
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const selectedIds = multiSelect.getSelectedItems().map(item => item.id);
-    setAudiencias(prev => prev.filter(audiencia => !selectedIds.includes(audiencia.id)));
-    
-    toast({
-      title: "Audiências excluídas",
-      description: `${multiSelect.selectedCount} audiência(s) foram excluídas com sucesso.`,
-    });
-    
+    const ids = multiSelect.getSelectedItems().map(i => i.id);
+    await remove.mutateAsync(ids);
     multiSelect.clearSelection();
     setDeleteDialogOpen(false);
-    setIsDeleting(false);
+  };
+
+  const renderCard = (a: Audiencia) => {
+    const d = parseISO(a.data_audiencia);
+    const meta = statusMeta[a.status || "agendada"] || statusMeta.agendada;
+    const selected = multiSelect.isSelected(a.id);
+    return (
+      <div key={a.id} id={`item-${a.id}`}
+        className={cn(
+          "group flex items-stretch gap-4 p-4 rounded-2xl border bg-card/40 transition-all hover:shadow-md",
+          selected ? "border-primary/40 ring-2 ring-primary/10 bg-primary/[0.02]" : "border-black/5 dark:border-border hover:border-black/10 dark:hover:border-white/15"
+        )}>
+        {/* Data */}
+        <div className="flex flex-col items-center justify-center shrink-0 w-16 rounded-xl bg-orange-500/10 text-orange-600 dark:text-orange-400">
+          <span className="text-[9px] font-black uppercase">{format(d, "MMM", { locale: ptBR })}</span>
+          <span className="text-2xl font-black leading-none">{format(d, "dd")}</span>
+          <span className="text-[10px] font-bold mt-0.5">{format(d, "HH:mm")}</span>
+        </div>
+
+        {/* Conteúdo */}
+        <div className="flex-1 min-w-0 space-y-2">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-2.5 min-w-0">
+              <Checkbox checked={selected} onCheckedChange={() => multiSelect.toggleItem(a.id)} className="rounded-md mt-1 shrink-0" />
+              <div className="min-w-0">
+                <h3 className="font-black tracking-tight truncate group-hover:text-primary transition-colors">{a.titulo}</h3>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-[11px] text-muted-foreground font-medium">
+                  {a.cliente_nome && <span className="flex items-center gap-1 truncate"><User className="h-3 w-3 shrink-0" />{a.cliente_nome}</span>}
+                  {a.local && <span className="flex items-center gap-1 truncate"><MapPin className="h-3 w-3 shrink-0" />{a.local}</span>}
+                  <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{format(d, "EEEE", { locale: ptBR })}</span>
+                </div>
+              </div>
+            </div>
+            <Badge variant="outline" className={cn("shrink-0 rounded-lg px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest", meta.cls)}>{meta.label}</Badge>
+          </div>
+
+          <div className="flex items-center justify-between gap-2 pt-1">
+            {a.tipo
+              ? <Badge variant="outline" className="rounded-lg border-primary/20 text-primary bg-primary/5 text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5">{a.tipo}</Badge>
+              : <span />}
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Button variant="ghost" size="sm" className="h-8 px-2 rounded-lg gap-1 text-xs font-bold" onClick={() => openEdit(a)}>
+                <Pencil className="h-3.5 w-3.5" /> Editar
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg"><MoreHorizontal className="h-4 w-4" /></Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="rounded-xl w-44">
+                  <DropdownMenuItem className="rounded-lg gap-2 text-emerald-600 focus:text-emerald-600" onClick={() => updateStatus.mutate({ id: a.id, status: "confirmada" })}>
+                    <CheckCircle2 className="h-4 w-4" /> Confirmar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="rounded-lg gap-2" onClick={() => updateStatus.mutate({ id: a.id, status: "realizada" })}>
+                    <Gavel className="h-4 w-4" /> Marcar realizada
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="rounded-lg gap-2 text-rose-600 focus:text-rose-600" onClick={() => updateStatus.mutate({ id: a.id, status: "cancelada" })}>
+                    <XCircle className="h-4 w-4" /> Cancelar
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="rounded-lg gap-2 text-destructive focus:text-destructive" onClick={() => { multiSelect.clearSelection(); multiSelect.toggleItem(a.id); setDeleteDialogOpen(true); }}>
+                    <Trash2 className="h-4 w-4" /> Excluir
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
-    <div className="flex-1 p-4 md:p-8 space-y-8 md:space-y-10 overflow-x-hidden entry-animate">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-        <div className="space-y-2">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-primary/10">
-              <Users className="h-6 w-6 md:h-8 md:w-8 text-primary" />
-            </div>
-            <h1 className="text-2xl md:text-4xl font-black tracking-tight text-foreground">
-              Audiências
-            </h1>
+    <div className="flex-1 p-4 md:p-6 space-y-5 overflow-x-hidden">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-orange-500/10 text-orange-500 border border-orange-500/20"><Users className="h-5 w-5" /></div>
+          <div>
+            <h1 className="text-2xl font-black tracking-tight">Audiências</h1>
+            <p className="text-sm text-muted-foreground">Gerencie seus compromissos judiciais.</p>
           </div>
-          <p className="text-sm md:text-lg text-muted-foreground font-medium">
-            Gerencie seus compromissos judiciais e sustentações orais.
-          </p>
         </div>
-        <div className="flex items-center gap-3 glass-morphism p-2 rounded-2xl border border-black/5 dark:border-border bg-black/[0.02] dark:bg-muted/30 shadow-premium">
+        <div className="flex items-center gap-2">
           {!multiSelect.isNoneSelected && (
-            <Button
-              variant="destructive"
-              onClick={handleDeleteSelected}
-              className="rounded-xl h-12 px-6 font-black uppercase text-xs tracking-widest shadow-lg shadow-red-500/20"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Excluir ({multiSelect.selectedCount})
+            <Button variant="destructive" onClick={() => setDeleteDialogOpen(true)} className="rounded-xl h-10 gap-2 font-bold">
+              <Trash2 className="h-4 w-4" /> Excluir ({multiSelect.selectedCount})
             </Button>
           )}
-          <NovaAudienciaDialog onAddAudiencia={handleAddAudiencia} />
+          <Button onClick={openNew} className="rounded-xl h-10 gap-2 font-bold shadow-sm">
+            <Plus className="h-4 w-4" /> Nova Audiência
+          </Button>
         </div>
       </div>
 
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+        <StatCard icon={CalendarClock} label="Próximas 7 dias" value={stats.proximas} color="text-orange-500" bg="bg-orange-500/10" />
+        <StatCard icon={Calendar} label="Hoje" value={stats.hoje} color="text-blue-500" bg="bg-blue-500/10" />
+        <StatCard icon={CheckCircle2} label="Confirmadas" value={stats.confirmadas} color="text-emerald-500" bg="bg-emerald-500/10" />
+        <StatCard icon={CalendarCheck} label="Realizadas no mês" value={stats.realizadasMes} color="text-purple-500" bg="bg-purple-500/10" />
+      </div>
+
       {/* Filtros */}
-      <Card className="border-black/5 dark:border-border bg-card/40 rounded-[2rem] overflow-hidden shadow-premium">
-        <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground opacity-50" />
-              <Input
-                placeholder="Buscar por título ou cliente..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-12 bg-black/[0.02] dark:bg-muted/20 border-black/5 dark:border-border rounded-xl font-medium"
-              />
-            </div>
-            <div className="flex gap-3">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full md:w-44 h-12 bg-black/[0.02] dark:bg-muted/20 border-black/5 dark:border-border rounded-xl font-bold">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl">
-                  <SelectItem value="todas">Todos Status</SelectItem>
-                  <SelectItem value="agendada">Agendada</SelectItem>
-                  <SelectItem value="confirmada">Confirmada</SelectItem>
-                  <SelectItem value="pendente">Pendente</SelectItem>
-                  <SelectItem value="realizada">Realizada</SelectItem>
-                  <SelectItem value="cancelada">Cancelada</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={tipoFilter} onValueChange={setTipoFilter}>
-                <SelectTrigger className="w-full md:w-44 h-12 bg-black/[0.02] dark:bg-muted/20 border-black/5 dark:border-border rounded-xl font-bold">
-                  <SelectValue placeholder="Tipo" />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl">
-                  <SelectItem value="todos">Todos Tipos</SelectItem>
-                  <SelectItem value="Trabalhista">Trabalhista</SelectItem>
-                  <SelectItem value="Família">Família</SelectItem>
-                  <SelectItem value="Previdenciário">Previdenciário</SelectItem>
-                  <SelectItem value="Cível">Cível</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Tabs defaultValue="lista" className="space-y-8">
-        <div className="glass-card p-2 rounded-3xl inline-flex h-auto border border-black/5 dark:border-border bg-black/[0.02] dark:bg-muted/30 shadow-inner">
-          <TabsList className="bg-transparent h-auto p-0 gap-1">
-            <TabsTrigger value="lista" className="rounded-2xl px-10 py-3 font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-foreground data-[state=active]:shadow-lg shadow-primary/20 transition-all">
-              Lista
-            </TabsTrigger>
-            <TabsTrigger value="calendario" className="rounded-2xl px-10 py-3 font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-foreground data-[state=active]:shadow-lg shadow-primary/20 transition-all">
-              Calendário
-            </TabsTrigger>
-          </TabsList>
+      <div className="flex flex-col md:flex-row gap-3">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+          <Input placeholder="Buscar por título, cliente ou local..." value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 h-11 rounded-xl bg-card/40 border-black/5 dark:border-border" />
         </div>
+        <div className="flex gap-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full md:w-40 h-11 rounded-xl bg-card/40 border-black/5 dark:border-border font-bold"><SelectValue /></SelectTrigger>
+            <SelectContent className="rounded-xl">
+              <SelectItem value="todas">Todos status</SelectItem>
+              {Object.entries(statusMeta).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={tipoFilter} onValueChange={setTipoFilter}>
+            <SelectTrigger className="w-full md:w-40 h-11 rounded-xl bg-card/40 border-black/5 dark:border-border font-bold"><SelectValue placeholder="Tipo" /></SelectTrigger>
+            <SelectContent className="rounded-xl">
+              <SelectItem value="todos">Todos tipos</SelectItem>
+              {tipos.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
-        <TabsContent value="lista" className="space-y-6">
-          {/* Selection Controls */}
-          {filteredAudiencias.length > 0 && (
-            <div className="flex items-center justify-between p-4 bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-border rounded-2xl">
-              <div className="flex items-center gap-4">
-                <Checkbox
-                  checked={multiSelect.isAllSelected}
-                  onCheckedChange={() => 
-                    multiSelect.isAllSelected ? multiSelect.clearSelection() : multiSelect.selectAll()
-                  }
-                  className="rounded-md h-5 w-5"
-                />
+      <Tabs defaultValue="lista" className="space-y-4">
+        <TabsList className="rounded-xl bg-card/40 border border-black/5 dark:border-border p-1 h-auto">
+          <TabsTrigger value="lista" className="rounded-lg px-6 py-2 text-xs font-black uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Lista</TabsTrigger>
+          <TabsTrigger value="calendario" className="rounded-lg px-6 py-2 text-xs font-black uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Calendário</TabsTrigger>
+        </TabsList>
+
+        {/* LISTA */}
+        <TabsContent value="lista" className="space-y-5">
+          {isLoading ? (
+            <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-24 rounded-2xl bg-black/[0.03] dark:bg-muted/20 animate-pulse" />)}</div>
+          ) : filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center text-center py-20 gap-4">
+              <div className="p-5 rounded-full bg-orange-500/10 text-orange-500"><Calendar className="h-10 w-10 opacity-70" /></div>
+              <div>
+                <p className="font-black text-lg">Nenhuma audiência {audiencias.length > 0 ? "encontrada" : "agendada"}</p>
+                <p className="text-sm text-muted-foreground mt-1">{audiencias.length > 0 ? "Ajuste os filtros de busca." : "Comece agendando sua primeira audiência."}</p>
+              </div>
+              {audiencias.length === 0 && <Button onClick={openNew} className="rounded-xl gap-2 font-bold"><Plus className="h-4 w-4" /> Nova Audiência</Button>}
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-3 px-1">
+                <Checkbox checked={multiSelect.isAllSelected} onCheckedChange={() => multiSelect.isAllSelected ? multiSelect.clearSelection() : multiSelect.selectAll()} className="rounded-md" />
                 <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
-                  {multiSelect.selectedCount > 0 ? (
-                    `${multiSelect.selectedCount} de ${filteredAudiencias.length} selecionada(s)`
-                  ) : (
-                    "Selecionar todas"
-                  )}
+                  {multiSelect.selectedCount > 0 ? `${multiSelect.selectedCount} selecionada(s)` : "Selecionar todas"}
                 </span>
               </div>
-              {multiSelect.selectedCount > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={multiSelect.clearSelection}
-                  className="h-8 rounded-lg font-black uppercase text-[10px] tracking-widest text-primary hover:bg-primary/10"
-                >
-                  Limpar seleção
-                </Button>
-              )}
-            </div>
-          )}
-
-          <div className="grid gap-6">
-            {filteredAudiencias.map((audiencia) => (
-              <Card key={audiencia.id} className={`group hover-lift rounded-[2rem] border border-black/5 dark:border-border bg-card/40 shadow-premium transition-all duration-300 ${
-                multiSelect.isSelected(audiencia.id) ? "ring-2 ring-primary bg-primary/[0.02]" : ""
-              }`}>
-                <CardContent className="p-8">
-                  <div className="flex flex-col lg:flex-row gap-8">
-                    <div className="flex items-start gap-6 flex-1">
-                      <Checkbox
-                        checked={multiSelect.isSelected(audiencia.id)}
-                        onCheckedChange={() => multiSelect.toggleItem(audiencia.id)}
-                        className="rounded-md h-6 w-6 mt-1"
-                      />
-                      <div className="flex-1 space-y-6">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                          <h3 className="font-black text-2xl tracking-tight group-hover:text-primary transition-colors">{audiencia.titulo}</h3>
-                          <Badge className={cn("px-6 py-2 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-sm", getStatusColor(audiencia.status))}>
-                            {getStatusText(audiencia.status)}
-                          </Badge>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                          <div className="flex items-center gap-3 bg-black/[0.03] dark:bg-muted/30 p-3 rounded-2xl border border-black/5 dark:border-border">
-                            <Calendar className="h-4 w-4 text-primary" />
-                            <span className="text-[11px] font-black uppercase tracking-widest opacity-70">
-                              {format(new Date(audiencia.data), 'dd/MM/yyyy', { locale: ptBR })}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3 bg-black/[0.03] dark:bg-muted/30 p-3 rounded-2xl border border-black/5 dark:border-border">
-                            <Clock className="h-4 w-4 text-primary" />
-                            <span className="text-[11px] font-black uppercase tracking-widest opacity-70">{audiencia.hora}</span>
-                          </div>
-                          <div className="flex items-center gap-3 bg-black/[0.03] dark:bg-muted/30 p-3 rounded-2xl border border-black/5 dark:border-border">
-                            <MapPin className="h-4 w-4 text-primary" />
-                            <span className="text-[11px] font-black uppercase tracking-widest opacity-70 truncate">{audiencia.local}</span>
-                          </div>
-                          <div className="flex items-center gap-3 bg-black/[0.03] dark:bg-muted/30 p-3 rounded-2xl border border-black/5 dark:border-border">
-                            <User className="h-4 w-4 text-primary" />
-                            <span className="text-[11px] font-black uppercase tracking-widest opacity-70 truncate">{audiencia.cliente}</span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between pt-4 border-t border-black/5 dark:border-border">
-                          <Badge variant="outline" className="border-primary/20 text-primary bg-primary/5 font-black uppercase text-[10px] tracking-widest rounded-xl px-4 py-1">
-                            {audiencia.tipo}
-                          </Badge>
-                          {audiencia.observacao && (
-                            <p className="text-xs text-muted-foreground font-medium italic opacity-60">
-                              "{audiencia.observacao}"
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex lg:flex-col gap-3 min-w-[140px]">
-                      <Button className="rounded-xl h-11 font-black uppercase text-[10px] tracking-widest bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20">
-                        <FileText className="h-4 w-4 mr-2" />
-                        Detalhes
-                      </Button>
-                      <Button variant="outline" className="rounded-xl h-11 font-black uppercase text-[10px] tracking-widest border-black/10 dark:border-border hover:bg-black/5 dark:hover:bg-muted/30">
-                        Editar
-                      </Button>
-                    </div>
+              {Object.entries(groups).map(([label, items]) =>
+                items.length === 0 ? null : (
+                  <div key={label} className="space-y-2.5">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 px-1 flex items-center gap-2">
+                      {label} <span className="text-muted-foreground/30">·</span> <span className="text-primary/60">{items.length}</span>
+                    </p>
+                    <div className="space-y-2.5">{items.map(renderCard)}</div>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                )
+              )}
+            </>
+          )}
         </TabsContent>
 
-        <TabsContent value="calendario" className="space-y-6">
-          <Card className="border-black/5 dark:border-border bg-card/40 rounded-[2.5rem] overflow-hidden shadow-premium">
-            <CardHeader className="p-8">
-              <CardTitle className="text-2xl font-black tracking-tight">Calendário de Audiências</CardTitle>
-              <CardDescription className="font-medium text-muted-foreground">
-                Visualização mensal das suas audiências agendadas
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-8 pt-0">
-              <div className="text-center text-muted-foreground py-20 bg-black/[0.01] dark:bg-white/[0.01] rounded-[2rem] border border-dashed border-black/10 dark:border-border">
-                <Calendar className="h-16 w-16 mx-auto mb-6 opacity-10" />
-                <p className="font-black uppercase tracking-widest text-xs mb-2">Calendário em desenvolvimento</p>
-                <p className="text-sm font-medium opacity-60">Em breve você poderá visualizar suas audiências em formato de calendário</p>
+        {/* CALENDÁRIO */}
+        <TabsContent value="calendario">
+          <Card className="rounded-2xl border-black/5 dark:border-border bg-card/40">
+            <CardContent className="p-4 grid grid-cols-1 md:grid-cols-2 gap-5">
+              <CalendarUI mode="single" selected={calSelected} onSelect={setCalSelected} locale={ptBR}
+                className="w-full rounded-xl border border-black/5 dark:border-border p-2"
+                modifiers={{ hasEvents: markedDays }}
+                modifiersClassNames={{ hasEvents: "font-black text-orange-500 relative after:absolute after:bottom-0.5 after:left-1/2 after:-translate-x-1/2 after:h-1 after:w-1 after:rounded-full after:bg-orange-500 after:content-['']" }}
+              />
+              <div className="space-y-2 md:border-l md:border-black/5 md:dark:border-border md:pl-5">
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">
+                  {calSelected ? format(calSelected, "dd 'de' MMMM", { locale: ptBR }) : "Selecione um dia"}
+                </p>
+                {calDayEvents.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center text-center py-12 gap-2 text-muted-foreground/40">
+                    <Calendar className="h-7 w-7 opacity-50" />
+                    <p className="text-xs font-semibold">Sem audiências nesta data</p>
+                  </div>
+                ) : calDayEvents.map(renderCard)}
               </div>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
-            <DeleteConfirmDialog
-              open={deleteDialogOpen}
-              onOpenChange={setDeleteDialogOpen}
-              onConfirm={handleConfirmDelete}
-              title="Excluir Audiências"
-              description={`Tem certeza que deseja excluir ${multiSelect.selectedCount} audiência(s)? Esta ação não pode ser desfeita.`}
-              isLoading={isDeleting}
-            />
+      <NovaAudienciaDialog open={dialogOpen} onOpenChange={setDialogOpen} clientes={clientes} audiencia={editTarget} onSubmit={handleSubmit} />
+
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleConfirmDelete}
+        title="Excluir Audiências"
+        description={`Tem certeza que deseja excluir ${multiSelect.selectedCount} audiência(s)? Esta ação pode ser desfeita na lixeira.`}
+        isLoading={remove.isPending}
+      />
     </div>
   );
 };
