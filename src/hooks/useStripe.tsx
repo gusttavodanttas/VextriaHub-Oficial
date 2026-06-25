@@ -33,9 +33,10 @@ export const useStripe = () => {
       if (error) throw error;
 
       return data;
-    } catch (err: any) {
-      setError(err.message);
-      throw err;
+    } catch (err: unknown) {
+      const e = err instanceof Error ? err : new Error(String(err));
+      setError(e.message);
+      throw e;
     } finally {
       setLoading(false);
     }
@@ -62,8 +63,9 @@ export const useStripe = () => {
       if (error) throw error;
 
       return data;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const e = err instanceof Error ? err : new Error(String(err));
+      setError(e.message);
       return { subscribed: false };
     } finally {
       setLoading(false);
@@ -95,9 +97,10 @@ export const useStripe = () => {
       }
 
       return data;
-    } catch (err: any) {
-      setError(err.message);
-      throw err;
+    } catch (err: unknown) {
+      const e = err instanceof Error ? err : new Error(String(err));
+      setError(e.message);
+      throw e;
     } finally {
       setLoading(false);
     }

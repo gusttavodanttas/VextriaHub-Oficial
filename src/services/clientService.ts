@@ -90,7 +90,7 @@ export class ClientService {
   /**
    * Navega para a página de processos com filtro do cliente
    */
-  navigateToProcesses(navigate: (path: string, options?: any) => void, clientId: number, clientName: string) {
+  navigateToProcesses(navigate: (path: string, options?: Record<string, any>) => void, clientId: number, clientName: string) {
     console.log(`Navegando para processos do cliente ${clientId} - ${clientName}`);
     navigate('/processos', { 
       state: { 
@@ -108,7 +108,7 @@ export class ClientService {
   /**
    * Navega para a página de atendimentos com filtro do cliente
    */
-  navigateToAtendimentos(navigate: (path: string, options?: any) => void, clientId: number, clientName: string) {
+  navigateToAtendimentos(navigate: (path: string, options?: Record<string, any>) => void, clientId: number, clientName: string) {
     console.log(`Navegando para atendimentos do cliente ${clientId} - ${clientName}`);
     navigate('/atendimentos', { 
       state: { 
@@ -126,7 +126,7 @@ export class ClientService {
   /**
    * Navega para a página de consultivo com filtro do cliente
    */
-  navigateToConsultivo(navigate: (path: string, options?: any) => void, clientId: number, clientName: string) {
+  navigateToConsultivo(navigate: (path: string, options?: Record<string, any>) => void, clientId: number, clientName: string) {
     console.log(`Navegando para consultivo do cliente ${clientId} - ${clientName}`);
     navigate('/consultivo', { 
       state: { 
