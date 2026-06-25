@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -89,6 +89,9 @@ export const NovaAudienciaDialog = ({ open, onOpenChange, clientes, tipos, audie
             <div className="p-1.5 rounded-lg bg-orange-500/10 text-orange-500"><CalendarPlus className="h-5 w-5" /></div>
             {isEdit ? "Editar Audiência" : "Nova Audiência"}
           </DialogTitle>
+          <DialogDescription>
+            {isEdit ? "Atualize os dados da audiência." : "Preencha os dados para agendar uma nova audiência."}
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
