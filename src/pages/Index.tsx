@@ -1,11 +1,8 @@
-import { PriorityTasks } from "@/components/Dashboard/PriorityTasks";
-import { DeadlinesCard } from "@/components/Dashboard/DeadlinesCard";
-import { HearingsCard } from "@/components/Dashboard/HearingsCard";
 import { CalendarWidget } from "@/components/Dashboard/CalendarWidget";
 import { DashboardHero } from "@/components/Dashboard/DashboardHero";
 import { QuickViewSheet, SheetView } from "@/components/Dashboard/QuickViewSheet";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, FileText, Users, CheckSquare, TrendingUp, ArrowRight, Plus, CalendarCheck, UserCheck } from "lucide-react";
+import { AlertCircle, FileText, CheckSquare, TrendingUp, ArrowRight, Plus, CalendarCheck, UserCheck, Users2, CalendarPlus, UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -29,36 +26,41 @@ function KpiCard({ icon: Icon, label, value, sub, color, bg, onClick, urgent, lo
     <button
       onClick={onClick}
       className={cn(
-        "group relative flex items-center gap-3 px-4 py-3.5 rounded-2xl border transition-all duration-200 text-left w-full",
-        "bg-card/50 hover:shadow-lg hover:-translate-y-px",
+        "group relative flex flex-col gap-3 p-4 rounded-2xl border transition-all duration-200 text-left w-full overflow-hidden",
+        "bg-card/40 hover:bg-card/70 hover:shadow-lg hover:-translate-y-0.5",
         urgent
-          ? "border-rose-500/20 hover:border-rose-500/40"
+          ? "border-rose-500/25 hover:border-rose-500/40"
           : "border-black/5 dark:border-border hover:border-black/10 dark:hover:border-white/15"
       )}
     >
-      {urgent && (
-        <span className="absolute top-2 right-2 flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-75" />
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500" />
-        </span>
-      )}
-      <div className={cn("p-2 rounded-xl shrink-0 transition-transform duration-200 group-hover:scale-110", bg)}>
-        {loading
-          ? <div className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin opacity-50" />
-          : <Icon className={cn("h-4 w-4", color)} />
-        }
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60 leading-none mb-1">{label}</p>
-        <div className="flex items-baseline gap-1.5">
+      {/* brilho de fundo no hover */}
+      <div className={cn("absolute -right-6 -top-6 h-20 w-20 rounded-full blur-2xl opacity-0 group-hover:opacity-60 transition-opacity duration-300", bg)} />
+
+      <div className="flex items-center justify-between">
+        <div className={cn("p-2 rounded-xl shrink-0 transition-transform duration-200 group-hover:scale-110", bg)}>
           {loading
-            ? <div className="h-6 w-10 rounded-lg bg-black/[0.06] dark:bg-white/[0.06] animate-pulse" />
-            : <span className="text-xl font-black tracking-tight">{value}</span>
+            ? <div className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin opacity-50" />
+            : <Icon className={cn("h-4 w-4", color)} />
           }
-          {sub && !loading && <span className="text-[9px] text-muted-foreground/40 font-bold hidden sm:block">{sub}</span>}
         </div>
+        {urgent ? (
+          <span className="flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-rose-500 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500" />
+          </span>
+        ) : (
+          <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/20 group-hover:text-muted-foreground/50 group-hover:translate-x-0.5 transition-all" />
+        )}
       </div>
-      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/20 shrink-0 group-hover:text-muted-foreground/50 group-hover:translate-x-0.5 transition-all" />
+
+      <div className="min-w-0">
+        {loading
+          ? <div className="h-8 w-12 rounded-lg bg-black/[0.06] dark:bg-white/[0.06] animate-pulse mb-1" />
+          : <p className="text-3xl font-black tracking-tight leading-none">{value}</p>
+        }
+        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mt-1.5 leading-tight">{label}</p>
+        {sub && <p className="text-[9px] text-muted-foreground/40 font-bold mt-0.5">{sub}</p>}
+      </div>
     </button>
   );
 }
@@ -90,6 +92,9 @@ const Index = () => {
     );
   }
 
+  const hasFinanceiro = stats.receitaMensal > 0 || stats.despesaMensal > 0;
+  const brl = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v);
+
   return (
     <div className="flex-1 p-4 md:p-6 space-y-5 overflow-x-hidden">
 
@@ -116,7 +121,7 @@ const Index = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
           <KpiCard icon={AlertCircle} label="Prazos urgentes" value={stats.prazosVencendo}
             sub="próx. 3 dias" color="text-rose-500" bg="bg-rose-500/10"
             onClick={() => setSheetView("prazos")} urgent={stats.prazosVencendo > 0} loading={statsLoading} />
@@ -132,67 +137,76 @@ const Index = () => {
           <KpiCard icon={UserCheck} label="Clientes ativos" value={stats.clientes}
             sub="cadastrados" color="text-emerald-500" bg="bg-emerald-500/10"
             onClick={() => setSheetView("clientes")} loading={statsLoading} />
+          <KpiCard icon={Users2} label="Equipe" value={stats.colaboradores}
+            sub="colaboradores" color="text-sky-500" bg="bg-sky-500/10"
+            onClick={() => navigate("/equipe")} loading={statsLoading} />
         </div>
       </section>
 
-      {/* Grid principal */}
+      {/* Conteúdo principal — Agenda em destaque + lateral */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
 
-        {/* Coluna operacional */}
-        <div className="lg:col-span-8 space-y-4 order-2 lg:order-1">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <DeadlinesCard onOpenSheet={() => setSheetView("prazos")} />
-            <HearingsCard onOpenSheet={() => setSheetView("audiencias")} />
-          </div>
-          <PriorityTasks onOpenSheet={() => setSheetView("tarefas")} />
+        {/* Agenda / Calendário */}
+        <div className="lg:col-span-8 rounded-2xl border border-black/5 dark:border-border bg-card/40 shadow-sm overflow-hidden">
+          <CalendarWidget />
         </div>
 
-        {/* Coluna lateral — calendário + financeiro */}
-        <div className="lg:col-span-4 order-1 lg:order-2">
-          <div className="lg:sticky lg:top-24 space-y-4">
+        {/* Lateral — financeiro (se houver) + ações rápidas */}
+        <div className="lg:col-span-4 space-y-4">
 
-            <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 shadow-sm overflow-hidden">
-              <CalendarWidget />
-            </div>
-
-            {/* Resumo financeiro — só aparece se tiver dados reais */}
-            {(stats.receitaMensal > 0 || stats.despesaMensal > 0) && (
-              <div
-                className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 space-y-3 cursor-pointer hover:shadow-md transition-all"
-                onClick={() => navigate("/financeiro")}
-              >
-                <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 flex items-center gap-1.5">
-                  <TrendingUp className="h-3 w-3" /> Financeiro do Mês
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <p className="text-[9px] text-muted-foreground/50 font-bold uppercase tracking-widest mb-0.5">Receita</p>
-                    <p className="text-base font-black text-emerald-500">
-                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(stats.receitaMensal)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] text-muted-foreground/50 font-bold uppercase tracking-widest mb-0.5">Despesas</p>
-                    <p className="text-base font-black text-rose-500">
-                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(stats.despesaMensal)}
-                    </p>
-                  </div>
+          {hasFinanceiro && (
+            <div
+              className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 space-y-3 cursor-pointer hover:shadow-md transition-all"
+              onClick={() => navigate("/financeiro")}
+            >
+              <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 flex items-center gap-1.5">
+                <TrendingUp className="h-3 w-3" /> Financeiro do Mês
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-[9px] text-muted-foreground/50 font-bold uppercase tracking-widest mb-0.5">Receita</p>
+                  <p className="text-base font-black text-emerald-500">{brl(stats.receitaMensal)}</p>
                 </div>
-                <div className="pt-2 border-t border-black/5 dark:border-border">
-                  <p className="text-[9px] text-muted-foreground/50 font-bold uppercase tracking-widest mb-0.5">Saldo líquido</p>
-                  <p className={cn(
-                    "text-xl font-black",
-                    stats.receitaMensal - stats.despesaMensal >= 0 ? "text-emerald-500" : "text-rose-500"
-                  )}>
-                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(stats.receitaMensal - stats.despesaMensal)}
-                  </p>
+                <div>
+                  <p className="text-[9px] text-muted-foreground/50 font-bold uppercase tracking-widest mb-0.5">Despesas</p>
+                  <p className="text-base font-black text-rose-500">{brl(stats.despesaMensal)}</p>
                 </div>
               </div>
-            )}
+              <div className="pt-2 border-t border-black/5 dark:border-border">
+                <p className="text-[9px] text-muted-foreground/50 font-bold uppercase tracking-widest mb-0.5">Saldo líquido</p>
+                <p className={cn("text-xl font-black", stats.receitaMensal - stats.despesaMensal >= 0 ? "text-emerald-500" : "text-rose-500")}>
+                  {brl(stats.receitaMensal - stats.despesaMensal)}
+                </p>
+              </div>
+            </div>
+          )}
 
+          {/* Ações rápidas */}
+          <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 space-y-3">
+            <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50">Ações Rápidas</p>
+            <div className="grid grid-cols-2 gap-2.5">
+              {[
+                { icon: FileText, label: "Novo processo", to: "/processos", color: "text-blue-500", bg: "bg-blue-500/10" },
+                { icon: Plus, label: "Novo prazo", to: "/prazos", color: "text-rose-500", bg: "bg-rose-500/10" },
+                { icon: CalendarPlus, label: "Agendar", to: "/agenda", color: "text-orange-500", bg: "bg-orange-500/10" },
+                { icon: UserPlus, label: "Novo cliente", to: "/clientes", color: "text-emerald-500", bg: "bg-emerald-500/10" },
+              ].map((a) => (
+                <button key={a.label}
+                  onClick={() => navigate(a.to)}
+                  className="group flex flex-col items-start gap-2 p-3 rounded-xl border border-black/5 dark:border-border bg-card/40 hover:bg-card/80 hover:shadow-sm hover:-translate-y-0.5 transition-all text-left"
+                >
+                  <div className={cn("p-1.5 rounded-lg transition-transform group-hover:scale-110", a.bg)}>
+                    <a.icon className={cn("h-4 w-4", a.color)} />
+                  </div>
+                  <span className="text-xs font-bold leading-tight">{a.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
+
         </div>
       </div>
+
       <QuickViewSheet view={sheetView} onClose={() => setSheetView(null)} />
     </div>
   );

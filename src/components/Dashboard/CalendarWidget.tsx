@@ -71,46 +71,51 @@ export function CalendarWidget() {
         )}
       </div>
 
-      {/* Calendário */}
-      <Calendar
-        mode="single"
-        selected={selected}
-        onSelect={setSelected}
-        locale={ptBR}
-        className="w-full rounded-xl border border-black/5 dark:border-border p-2"
-        modifiers={{ hasEvents: markedDates }}
-        modifiersClassNames={{
-          hasEvents: "font-black text-primary after:absolute after:bottom-0.5 after:left-1/2 after:-translate-x-1/2 after:h-1 after:w-1 after:rounded-full after:bg-primary after:content-[''] relative",
-        }}
-      />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Calendário */}
+        <Calendar
+          mode="single"
+          selected={selected}
+          onSelect={setSelected}
+          locale={ptBR}
+          className="w-full rounded-xl border border-black/5 dark:border-border p-2"
+          modifiers={{ hasEvents: markedDates }}
+          modifiersClassNames={{
+            hasEvents: "font-black text-primary after:absolute after:bottom-0.5 after:left-1/2 after:-translate-x-1/2 after:h-1 after:w-1 after:rounded-full after:bg-primary after:content-[''] relative",
+          }}
+        />
 
-      {/* Eventos do dia selecionado */}
-      {selected && (
-        <div className="space-y-1.5">
-          <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 px-1">
-            {format(selected, "dd 'de' MMMM", { locale: ptBR })}
-          </p>
-          {dayEvents.length === 0 ? (
-            <p className="text-xs text-muted-foreground/50 px-1 py-1">Sem eventos nesta data.</p>
-          ) : (
-            dayEvents.map((e, i) => (
-              <div key={i} className={cn(
-                "flex items-center gap-2.5 px-3 py-2 rounded-xl border text-xs",
-                e.type === "prazo"
-                  ? "border-rose-500/15 bg-rose-500/5 text-rose-600 dark:text-rose-400"
-                  : "border-orange-500/15 bg-orange-500/5 text-orange-600 dark:text-orange-400"
-              )}>
-                {e.type === "prazo"
-                  ? <AlertCircle className="h-3 w-3 shrink-0" />
-                  : <Clock className="h-3 w-3 shrink-0" />
-                }
-                <span className="font-semibold truncate flex-1">{e.titulo}</span>
-                {e.hora && <span className="text-[10px] opacity-60 shrink-0">{e.hora}</span>}
+        {/* Eventos do dia selecionado */}
+        {selected && (
+          <div className="space-y-1.5 md:border-l md:border-black/5 md:dark:border-border md:pl-4">
+            <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 px-1">
+              {format(selected, "dd 'de' MMMM", { locale: ptBR })}
+            </p>
+            {dayEvents.length === 0 ? (
+              <div className="flex flex-col items-center justify-center text-center py-8 gap-2 text-muted-foreground/40">
+                <CalendarDays className="h-7 w-7 opacity-50" />
+                <p className="text-xs font-semibold">Sem eventos nesta data</p>
               </div>
-            ))
-          )}
-        </div>
-      )}
+            ) : (
+              dayEvents.map((e, i) => (
+                <div key={i} className={cn(
+                  "flex items-center gap-2.5 px-3 py-2 rounded-xl border text-xs",
+                  e.type === "prazo"
+                    ? "border-rose-500/15 bg-rose-500/5 text-rose-600 dark:text-rose-400"
+                    : "border-orange-500/15 bg-orange-500/5 text-orange-600 dark:text-orange-400"
+                )}>
+                  {e.type === "prazo"
+                    ? <AlertCircle className="h-3 w-3 shrink-0" />
+                    : <Clock className="h-3 w-3 shrink-0" />
+                  }
+                  <span className="font-semibold truncate flex-1">{e.titulo}</span>
+                  {e.hora && <span className="text-[10px] opacity-60 shrink-0">{e.hora}</span>}
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
