@@ -42,43 +42,43 @@ export const useAgendaEvents = (targetDate: Date) => {
       ]);
 
       const allEvents: AgendaEvent[] = [
-        ...(audienciasRes.data || []).map((a: any) => ({
+        ...(audienciasRes.data || []).map((a: Record<string, any>) => ({
           id: a.id,
           name: a.titulo,
           time: format(new Date(a.data_audiencia), 'HH:mm'),
           datetime: a.data_audiencia,
           type: 'audiencia' as const,
-          client: (a as any).clientes?.nome || 'Cliente não informado',
+          client: a.clientes?.nome || 'Cliente não informado',
           location: a.local || 'Local não informado',
           status: (a.status as EventStatus) || 'pendente'
         })),
-        ...(prazosRes.data || []).map((p: any) => ({
+        ...(prazosRes.data || []).map((p: Record<string, any>) => ({
           id: p.id,
           name: p.titulo,
           time: format(new Date(p.data_vencimento), 'HH:mm'),
           datetime: p.data_vencimento,
           type: 'prazo' as const,
-          client: (p as any).processos?.titulo || 'Processo não informado',
+          client: p.processos?.titulo || 'Processo não informado',
           location: 'Digital',
           status: (p.status as EventStatus) || 'pendente'
         })),
-        ...(atendimentosRes.data || []).map((ate: any) => ({
+        ...(atendimentosRes.data || []).map((ate: Record<string, any>) => ({
           id: ate.id,
           name: `Atendimento: ${ate.tipo_atendimento || 'Reunião'}`,
           time: format(new Date(ate.data_atendimento), 'HH:mm'),
           datetime: ate.data_atendimento,
           type: 'reuniao' as const,
-          client: (ate as any).clientes?.nome || 'Cliente não informado',
+          client: ate.clientes?.nome || 'Cliente não informado',
           location: 'Escritório',
           status: (ate.status as EventStatus) || 'confirmado'
         })),
-        ...(tarefasRes.data || []).map((t: any) => ({
+        ...(tarefasRes.data || []).map((t: Record<string, any>) => ({
           id: t.id,
           name: t.titulo,
           time: t.data_vencimento ? format(new Date(t.data_vencimento), 'HH:mm') : '00:00',
           datetime: t.data_vencimento || new Date().toISOString(),
           type: 'tarefa' as const,
-          client: (t as any).clientes?.nome || 'N/A',
+          client: t.clientes?.nome || 'N/A',
           location: 'Interno',
           status: t.concluida ? 'concluido' as const : 'pendente' as const
         }))

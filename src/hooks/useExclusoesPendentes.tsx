@@ -33,11 +33,11 @@ export const useExclusoesPendentes = () => {
   const aprovarMutation = useMutation({
     mutationFn: async (exclusaoId: string) => {
       if (!user || !isSuperAdmin) return false;
-      const exclusao = data.find((e: any) => e.id === exclusaoId);
+      const exclusao = data.find((e: any) => e.id === exclusaoId) as any; // dynamic tabela + join fields from DB
       if (!exclusao) return false;
 
       const { error: deleteError } = await supabase
-        .from(exclusao.tabela as any)
+        .from(exclusao.tabela as string)
         .update({ deletado: true, deletado_pendente: false })
         .eq('id', exclusao.registro_id);
       if (deleteError) throw deleteError;
@@ -51,8 +51,8 @@ export const useExclusoesPendentes = () => {
       return true;
     },
     onSuccess: (_, exclusaoId) => {
-      queryClient.setQueryData(['exclusoes_pendentes', user?.id, isSuperAdmin], (old: any[] = []) => 
-        old.filter((item: any) => item.id !== exclusaoId)
+      queryClient.setQueryData(['exclusoes_pendentes', user?.id, isSuperAdmin], (old: Record<string, any>[] = []) => 
+        old.filter((item) => item.id !== exclusaoId)
       );
       toast({ title: 'Exclusão aprovada', description: 'O registro foi excluído com sucesso.' });
     },
@@ -62,11 +62,11 @@ export const useExclusoesPendentes = () => {
   const rejeitarMutation = useMutation({
     mutationFn: async (exclusaoId: string) => {
       if (!user || !isSuperAdmin) return false;
-      const exclusao = data.find((e: any) => e.id === exclusaoId);
+      const exclusao = data.find((e: any) => e.id === exclusaoId) as any;
       if (!exclusao) return false;
 
       const { error: revertError } = await supabase
-        .from(exclusao.tabela as any)
+        .from(exclusao.tabela as string)
         .update({ deletado_pendente: false })
         .eq('id', exclusao.registro_id);
       if (revertError) throw revertError;
@@ -80,8 +80,8 @@ export const useExclusoesPendentes = () => {
       return true;
     },
     onSuccess: (_, exclusaoId) => {
-      queryClient.setQueryData(['exclusoes_pendentes', user?.id, isSuperAdmin], (old: any[] = []) => 
-        old.filter((item: any) => item.id !== exclusaoId)
+      queryClient.setQueryData(['exclusoes_pendentes', user?.id, isSuperAdmin], (old: Record<string, any>[] = []) => 
+        old.filter((item) => item.id !== exclusaoId)
       );
       toast({ title: 'Exclusão rejeitada', description: 'A solicitação de exclusão foi rejeitada.' });
     },
@@ -93,10 +93,11 @@ export const useExclusoesPendentes = () => {
       if (!user || !isSuperAdmin || exclusaoIds.length === 0) return false;
       const exclusoes = data.filter((e: any) => exclusaoIds.includes(e.id));
       for (const exclusao of exclusoes) {
+        const ex = exclusao as any;
         const { error: deleteError } = await supabase
-          .from(exclusao.tabela as any)
+          .from(ex.tabela as string)
           .update({ deletado: true, deletado_pendente: false })
-          .eq('id', exclusao.registro_id);
+          .eq('id', ex.registro_id);
         if (deleteError) throw deleteError;
         const { error: updateError } = await supabase
           .from('exclusoes_pendentes')
@@ -107,8 +108,8 @@ export const useExclusoesPendentes = () => {
       return true;
     },
     onSuccess: (_, exclusaoIds) => {
-      queryClient.setQueryData(['exclusoes_pendentes', user?.id, isSuperAdmin], (old: any[] = []) => 
-        old.filter((item: any) => !exclusaoIds.includes(item.id))
+      queryClient.setQueryData(['exclusoes_pendentes', user?.id, isSuperAdmin], (old: Record<string, any>[] = []) => 
+        old.filter((item) => !exclusaoIds.includes(item.id))
       );
       toast({ title: 'Exclusões aprovadas', description: `${exclusaoIds.length} solicitação(ões) processada(s) com sucesso.` });
     },
