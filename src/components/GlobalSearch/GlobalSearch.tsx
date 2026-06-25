@@ -92,8 +92,7 @@ export function GlobalSearchBar() {
     }
 
     const oid = user.office_id;
-    // Escapa caracteres especiais de regex para evitar erros
-    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const wild = `%${term}%`;
     const pc = (p?: string | null) =>
       p === "alta" ? "text-rose-500 bg-rose-500/10" :
       p === "media" ? "text-amber-500 bg-amber-500/10" :
@@ -108,15 +107,15 @@ export function GlobalSearchBar() {
         { data: tar },
       ] = await Promise.all([
         supabase.from("processos").select("id, titulo, numero_processo")
-          .eq("office_id", oid).eq("deletado", false).filter("titulo", "~*", escaped).limit(5),
-        supabase.from("clientes").select("id, nome, email, tipo_cliente")
-          .eq("office_id", oid).eq("deletado", false).filter("nome", "~*", escaped).limit(5),
+          .eq("office_id", oid).eq("deletado", false).ilike("titulo", wild).limit(5),
+        supabase.from("clientes").select("id, nome, email, tipo_pessoa")
+          .eq("office_id", oid).eq("deletado", false).ilike("nome", wild).limit(5),
         supabase.from("prazos").select("id, titulo, prioridade, data_vencimento")
-          .eq("office_id", oid).eq("deletado", false).filter("titulo", "~*", escaped).limit(4),
+          .eq("office_id", oid).eq("deletado", false).ilike("titulo", wild).limit(4),
         supabase.from("audiencias").select("id, titulo, local, data_audiencia")
-          .eq("office_id", oid).eq("deletado", false).filter("titulo", "~*", escaped).limit(4),
+          .eq("office_id", oid).eq("deletado", false).ilike("titulo", wild).limit(4),
         supabase.from("tarefas").select("id, titulo, prioridade, data_vencimento")
-          .eq("office_id", oid).eq("deletado", false).eq("concluida", false).filter("titulo", "~*", escaped).limit(4),
+          .eq("office_id", oid).eq("deletado", false).eq("concluida", false).ilike("titulo", wild).limit(4),
       ]);
 
       setResults([
@@ -128,7 +127,7 @@ export function GlobalSearchBar() {
         ...(cli || []).map(c => ({
           id: c.id, group: "clientes" as Group, label: c.nome,
           sub: c.email || undefined, url: `/clientes?id=${c.id}`,
-          badge: c.tipo_cliente || undefined, badgeColor: "text-emerald-600 bg-emerald-500/10",
+          badge: c.tipo_pessoa || undefined, badgeColor: "text-emerald-600 bg-emerald-500/10",
         })),
         ...(praz || []).map(p => ({
           id: p.id, group: "prazos" as Group, label: p.titulo,

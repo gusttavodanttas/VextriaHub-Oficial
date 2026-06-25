@@ -190,13 +190,17 @@ function ProcessosView({ officeId }: { officeId: string }) {
     const fetch = async () => {
       const { data } = await supabase
         .from("processos")
-        .select("id, titulo, numero_processo, cliente, status, area")
+        .select("id, titulo, numero_processo, status, tipo_processo, clientes!cliente_id(nome)")
         .eq("office_id", officeId)
         .eq("deletado", false)
-        .eq("status", "Em andamento")
+        .neq("status", "encerrado")
         .order("created_at", { ascending: false })
         .limit(20);
-      setItems(data || []);
+      setItems((data || []).map((p: any) => ({
+        ...p,
+        cliente: p.clientes?.nome || null,
+        area: p.tipo_processo || null,
+      })));
       setLoading(false);
     };
     fetch();
@@ -324,7 +328,7 @@ function ClientesView({ officeId }: { officeId: string }) {
     const fetch = async () => {
       const { data } = await supabase
         .from("clientes")
-        .select("id, nome, email, telefone, tipo_cliente")
+        .select("id, nome, email, telefone, tipo_pessoa")
         .eq("office_id", officeId)
         .eq("deletado", false)
         .eq("ativo", true)
@@ -355,8 +359,8 @@ function ClientesView({ officeId }: { officeId: string }) {
             <p className="text-sm font-bold truncate">{c.nome}</p>
             <p className="text-[11px] text-muted-foreground truncate mt-0.5">{c.email || c.telefone || "—"}</p>
           </div>
-          {c.tipo_cliente && (
-            <Badge variant="outline" className="text-[9px] shrink-0 rounded-lg capitalize">{c.tipo_cliente}</Badge>
+          {c.tipo_pessoa && (
+            <Badge variant="outline" className="text-[9px] shrink-0 rounded-lg capitalize">{c.tipo_pessoa}</Badge>
           )}
         </div>
       ))}
