@@ -100,6 +100,18 @@ const Processos = () => {
     }
   }, [location.search]);
 
+  // Abre o detalhe do processo quando a busca global navega para ?openId=...
+  useEffect(() => {
+    const openId = searchParams.get('openId');
+    if (!openId || !processos.length) return;
+    const proc = processos.find(p => String(p.id) === openId);
+    if (proc) {
+      setSelectedProcesso(proc);
+      setIsDetailsOpen(true);
+    }
+    navigate('/processos', { replace: true });
+  }, [location.search, processos]);
+
   const [filters, setFilters] = useState<IProcessoFilters>({
     search: '',
     status: 'all',

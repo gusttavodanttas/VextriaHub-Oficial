@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -33,6 +33,8 @@ import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
 
 const Clientes = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
   const { toast } = useToast();
   const { 
     data: dbClientes, 
@@ -88,6 +90,18 @@ const Clientes = () => {
   useEffect(() => {
     applyFilters(clients, searchValue, {});
   }, [dbClientes, searchValue]);
+
+  // Abre o detalhe do cliente quando a busca global navega para ?openId=... (ou ?id=)
+  useEffect(() => {
+    const openId = searchParams.get('openId') || searchParams.get('id');
+    if (!openId || !dbClientes.length) return;
+    const client = clients.find(c => String(c.id) === openId);
+    if (client) {
+      setSelectedClient(client);
+      setClientDetailsOpen(true);
+    }
+    navigate('/clientes', { replace: true });
+  }, [location.search, dbClientes]);
 
   // Multi-seleção
   const multiSelect = useMultiSelect(filteredClients);

@@ -122,11 +122,11 @@ export function GlobalSearchBar() {
         ...(procTit || []).map(p => ({
           id: p.id, group: "processos" as Group, label: p.titulo,
           meta: p.numero_processo || undefined,
-          url: "/processos", badgeColor: "text-blue-500 bg-blue-500/10",
+          url: `/processos?openId=${p.id}`, badgeColor: "text-blue-500 bg-blue-500/10",
         })),
         ...(cli || []).map(c => ({
           id: c.id, group: "clientes" as Group, label: c.nome,
-          sub: c.email || undefined, url: `/clientes?id=${c.id}`,
+          sub: c.email || undefined, url: `/clientes?openId=${c.id}`,
           badge: c.tipo_pessoa || undefined, badgeColor: "text-emerald-600 bg-emerald-500/10",
         })),
         ...(praz || []).map((p: any) => ({
