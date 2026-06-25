@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   Home, FileText, Users, Calendar, BookOpen, Settings, UserCircle, LogOut,
-  ChevronLeft, ChevronRight, ChevronDown, UserCheck, Tag, BarChart3, UserPlus,
+  ChevronLeft, ChevronRight, UserCheck, Tag, BarChart3, UserPlus,
   CalendarDays, DollarSign, Target, UsersIcon, MessageSquareText, Shield,
   Building2, AlertCircle, Clock, CreditCard, Trash2,
 } from "lucide-react";
@@ -12,7 +12,6 @@ import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent,
   SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar,
 } from "@/components/ui/sidebar";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
@@ -20,13 +19,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 const menuItems = [
   { title: "Início", url: "/dashboard", icon: Home },
-  {
-    title: "Processos", url: "/processos", icon: FileText,
-    items: [
-      { title: "Meus Processos", url: "/processos?tab=carteira" },
-      { title: "Importar / Novo", url: "/processos?tab=novo" },
-    ]
-  },
+  { title: "Processos", url: "/processos", icon: FileText },
   { title: "Clientes", url: "/clientes", icon: Users },
   { title: "CRM", url: "/crm", icon: UserPlus },
   { title: "Agenda", url: "/agenda", icon: CalendarDays },
@@ -149,53 +142,6 @@ export function AppSidebar() {
                 <SidebarMenu className="space-y-0.5">
                   {allMenuItems.map((item) => {
                     const isActive = isLinkActive(item.url);
-                    const hasSubItems = 'items' in item && item.items && item.items.length > 0;
-
-                    if (hasSubItems && 'items' in item) {
-                      return (
-                        <Collapsible
-                          key={item.title}
-                          asChild
-                          defaultOpen={location.pathname.startsWith(item.url.split('?')[0])}
-                          className="group/collapsible"
-                        >
-                          <SidebarMenuItem>
-                            <CollapsibleTrigger asChild>
-                              <button className={getNavClasses(isActive)}>
-                                <item.icon className="h-4 w-4 shrink-0" />
-                                {!collapsed && (
-                                  <>
-                                    <span className="truncate flex-1">{item.title}</span>
-                                    <ChevronDown className="ml-auto h-3.5 w-3.5 opacity-40 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
-                                  </>
-                                )}
-                              </button>
-                            </CollapsibleTrigger>
-                            {!collapsed && (
-                              <CollapsibleContent>
-                                <div className="ml-7 flex flex-col gap-0.5 border-l border-black/8 dark:border-border pl-3 py-1 mt-0.5">
-                                  {item.items!.map((sub) => (
-                                    <NavLink
-                                      key={sub.title}
-                                      to={sub.url}
-                                      className={({ isActive }) =>
-                                        `flex h-8 items-center rounded-lg px-2 text-xs transition-all duration-150 font-semibold ${
-                                          isActive
-                                            ? "text-primary bg-primary/10"
-                                            : "text-sidebar-foreground/60 hover:text-foreground hover:bg-muted/50"
-                                        }`
-                                      }
-                                    >
-                                      {sub.title}
-                                    </NavLink>
-                                  ))}
-                                </div>
-                              </CollapsibleContent>
-                            )}
-                          </SidebarMenuItem>
-                        </Collapsible>
-                      );
-                    }
 
                     const menuEl = (
                       <SidebarMenuItem key={item.title}>

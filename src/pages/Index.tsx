@@ -96,25 +96,25 @@ const Index = () => {
 
       {/* KPIs clicáveis */}
       <section className="space-y-2.5">
-        <div className="flex items-center justify-between">
-          <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40">Painel de Controle</p>
-          <div className="flex gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 shrink-0">Painel de Controle</p>
+          <div className="flex gap-2 shrink-0">
             <Button size="sm" variant="outline"
               className="rounded-xl h-8 px-3 text-[10px] font-black uppercase tracking-widest border-black/5 dark:border-border gap-1"
               onClick={() => navigate("/prazos")}
             >
-              <Plus className="h-3 w-3" /> Prazo
+              <Plus className="h-3 w-3" /> <span className="hidden sm:inline">Prazo</span>
             </Button>
             <Button size="sm"
-              className="rounded-xl h-8 px-4 text-[10px] font-black uppercase tracking-widest gap-1 shadow-sm"
+              className="rounded-xl h-8 px-3 sm:px-4 text-[10px] font-black uppercase tracking-widest gap-1 shadow-sm"
               onClick={() => navigate("/processos")}
             >
-              <FileText className="h-3 w-3" /> Novo Processo
+              <FileText className="h-3 w-3" /> <span className="hidden sm:inline">Novo Processo</span><span className="sm:hidden">Processo</span>
             </Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-2.5">
           <KpiCard icon={AlertCircle} label="Prazos urgentes" value={stats.prazosVencendo}
             sub="próx. 3 dias" color="text-rose-500" bg="bg-rose-500/10"
             onClick={() => navigate("/prazos")} urgent={stats.prazosVencendo > 0} loading={statsLoading} />
@@ -137,8 +137,8 @@ const Index = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
 
         {/* Coluna operacional */}
-        <div className="lg:col-span-8 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="lg:col-span-8 space-y-4 order-2 lg:order-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <DeadlinesCard />
             <HearingsCard />
           </div>
@@ -146,8 +146,8 @@ const Index = () => {
         </div>
 
         {/* Coluna lateral — calendário + financeiro */}
-        <div className="lg:col-span-4">
-          <div className="sticky top-24 space-y-4">
+        <div className="lg:col-span-4 order-1 lg:order-2">
+          <div className="lg:sticky lg:top-24 space-y-4">
 
             <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 shadow-sm overflow-hidden">
               <CalendarWidget />
