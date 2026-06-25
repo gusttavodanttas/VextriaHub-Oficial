@@ -58,73 +58,86 @@ export function GlobalSearchBar() {
   const [selectedIdx, setSelectedIdx] = useState(0);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   /* Fecha ao clicar fora */
+  const containerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
+    const fn = (e: MouseEvent) => {
       if (!containerRef.current?.contains(e.target as Node)) setOpen(false);
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("mousedown", fn);
+    return () => document.removeEventListener("mousedown", fn);
   }, []);
 
-  /* Ctrl+K foca o input */
+  /* Ctrl+K / Cmd+K */
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
+    const fn = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         inputRef.current?.focus();
         setOpen(true);
       }
     };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    window.addEventListener("keydown", fn);
+    return () => window.removeEventListener("keydown", fn);
   }, []);
 
+  /* Busca — usa ilike direto (sem .or()) para evitar problema de parsing do Supabase */
   const search = useCallback(async (q: string) => {
-    if (q.trim().length < 2 || !user?.office_id) {
+    const term = q.trim();
+    if (term.length < 2 || !user?.office_id) {
       setResults([]);
       setLoading(false);
       return;
     }
-    setLoading(true);
+
     const oid = user.office_id;
-    const t = `%${q.trim()}%`;
+    const wild = `%${term}%`;
+    const pc = (p?: string | null) =>
+      p === "alta" ? "text-rose-500 bg-rose-500/10" :
+      p === "media" ? "text-amber-500 bg-amber-500/10" :
+      "text-emerald-600 bg-emerald-500/10";
 
     try {
+      /* Busca em cada tabela pelo campo principal — ilike simples, sem .or() */
       const [
-        { data: proc }, { data: cli }, { data: praz }, { data: aud }, { data: tar },
+        { data: procTit }, { data: procCli },
+        { data: cli },
+        { data: praz },
+        { data: aud },
+        { data: tar },
       ] = await Promise.all([
         supabase.from("processos").select("id, titulo, numero_processo, cliente, area")
-          .eq("office_id", oid).eq("deletado", false)
-          .or(`titulo.ilike.${t},numero_processo.ilike.${t},cliente.ilike.${t}`).limit(4),
+          .eq("office_id", oid).eq("deletado", false).ilike("titulo", wild).limit(3),
+        supabase.from("processos").select("id, titulo, numero_processo, cliente, area")
+          .eq("office_id", oid).eq("deletado", false).ilike("cliente", wild).limit(3),
         supabase.from("clientes").select("id, nome, email, tipo_cliente")
-          .eq("office_id", oid).eq("deletado", false)
-          .or(`nome.ilike.${t},email.ilike.${t}`).limit(4),
+          .eq("office_id", oid).eq("deletado", false).ilike("nome", wild).limit(5),
         supabase.from("prazos").select("id, titulo, prioridade, data_fim_prazo")
-          .eq("office_id", oid).eq("status", "pendente")
-          .ilike("titulo", t).limit(4),
+          .eq("office_id", oid).eq("status", "pendente").ilike("titulo", wild).limit(4),
         supabase.from("audiencias").select("id, tipo_audiencia, local, data_audiencia")
-          .eq("office_id", oid).eq("deletado", false)
-          .or(`tipo_audiencia.ilike.${t},local.ilike.${t}`).limit(4),
+          .eq("office_id", oid).eq("deletado", false).ilike("tipo_audiencia", wild).limit(4),
         supabase.from("tarefas").select("id, titulo, prioridade, data_vencimento")
-          .eq("office_id", oid).eq("deletado", false).eq("concluida", false)
-          .ilike("titulo", t).limit(4),
+          .eq("office_id", oid).eq("deletado", false).eq("concluida", false).ilike("titulo", wild).limit(4),
       ]);
 
-      const pc = (p?: string | null) =>
-        p === "alta" ? "text-rose-500 bg-rose-500/10" :
-        p === "media" ? "text-amber-500 bg-amber-500/10" :
-        "text-emerald-600 bg-emerald-500/10";
-
-      setResults([
-        ...(proc || []).map(p => ({
-          id: p.id, group: "processos" as Group, label: p.titulo,
+      /* Merge processos sem duplicar */
+      const seenProc = new Set<string>();
+      const processos: Result[] = [];
+      for (const p of [...(procTit || []), ...(procCli || [])]) {
+        if (seenProc.has(p.id)) continue;
+        seenProc.add(p.id);
+        processos.push({
+          id: p.id, group: "processos", label: p.titulo,
           sub: p.cliente, meta: p.numero_processo || undefined,
           url: "/processos", badge: p.area || undefined,
           badgeColor: "text-blue-500 bg-blue-500/10",
-        })),
+        });
+        if (processos.length >= 4) break;
+      }
+
+      setResults([
+        ...processos,
         ...(cli || []).map(c => ({
           id: c.id, group: "clientes" as Group, label: c.nome,
           sub: c.email || undefined, url: `/clientes?id=${c.id}`,
@@ -163,17 +176,17 @@ export function GlobalSearchBar() {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (query.trim().length < 2) { setResults([]); setLoading(false); return; }
     setLoading(true);
-    debounceRef.current = setTimeout(() => search(query), 300);
+    debounceRef.current = setTimeout(() => search(query), 350);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [query, search]);
 
-  /* Teclado: ↑↓ Enter Esc */
+  /* Teclado */
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") { setOpen(false); inputRef.current?.blur(); return; }
     if (!open || results.length === 0) return;
     if (e.key === "ArrowDown") { e.preventDefault(); setSelectedIdx(i => Math.min(i + 1, results.length - 1)); }
     if (e.key === "ArrowUp")   { e.preventDefault(); setSelectedIdx(i => Math.max(i - 1, 0)); }
     if (e.key === "Enter")     { e.preventDefault(); handleSelect(results[selectedIdx]); }
-    if (e.key === "Escape")    { setOpen(false); inputRef.current?.blur(); }
   };
 
   const handleSelect = (r: Result) => {
@@ -194,12 +207,13 @@ export function GlobalSearchBar() {
 
   return (
     <div ref={containerRef} className="relative hidden lg:flex flex-1 max-w-xl">
+
       {/* Input */}
       <div className={cn(
         "flex items-center gap-3 w-full h-11 px-4 rounded-2xl border transition-all duration-200",
         open
-          ? "border-primary/30 bg-background shadow-lg shadow-primary/5 dark:shadow-primary/10"
-          : "border-black/5 dark:border-border bg-black/[0.02] dark:bg-white/[0.02] hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
+          ? "border-primary/40 bg-background shadow-lg shadow-black/5 ring-1 ring-primary/10"
+          : "border-black/5 dark:border-border bg-black/[0.02] dark:bg-white/[0.02] hover:bg-black/[0.04]"
       )}>
         {loading
           ? <div className="h-3.5 w-3.5 rounded-full border-2 border-primary/40 border-t-primary animate-spin shrink-0" />
@@ -232,7 +246,22 @@ export function GlobalSearchBar() {
 
       {/* Dropdown */}
       {showDropdown && (
-        <div className="absolute top-[calc(100%+8px)] left-0 right-0 z-50 rounded-2xl border border-black/8 dark:border-border bg-popover shadow-xl shadow-black/10 dark:shadow-black/30 overflow-hidden">
+        <div className="absolute top-[calc(100%+6px)] left-0 right-0 z-[200] rounded-2xl border border-black/8 dark:border-border bg-popover shadow-2xl shadow-black/15 dark:shadow-black/40 overflow-hidden">
+
+          {/* Loading skeleton */}
+          {loading && results.length === 0 && (
+            <div className="p-3 space-y-2">
+              {[1,2,3].map(i => (
+                <div key={i} className="flex items-center gap-3 px-2 py-1.5">
+                  <div className="h-8 w-8 rounded-lg bg-muted/40 animate-pulse shrink-0" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="h-3 w-2/3 rounded bg-muted/40 animate-pulse" />
+                    <div className="h-2.5 w-1/2 rounded bg-muted/30 animate-pulse" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Resultados */}
           {results.length > 0 && (
@@ -250,14 +279,14 @@ export function GlobalSearchBar() {
                       </span>
                     </div>
                     {items.map((r, i) => {
-                      const selected = selectedIdx === offset + i;
+                      const sel = selectedIdx === offset + i;
                       return (
                         <button
                           key={r.id}
                           onClick={() => handleSelect(r)}
                           className={cn(
                             "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left group",
-                            selected ? "bg-primary/8 dark:bg-primary/15" : "hover:bg-muted/40"
+                            sel ? "bg-primary/8 dark:bg-primary/15" : "hover:bg-muted/40"
                           )}
                         >
                           <div className={cn("p-1.5 rounded-lg shrink-0", meta.bg)}>
@@ -280,10 +309,7 @@ export function GlobalSearchBar() {
                                 {r.badge}
                               </span>
                             )}
-                            <ArrowRight className={cn(
-                              "h-3 w-3 transition-colors",
-                              selected ? "text-primary" : "text-muted-foreground/15 group-hover:text-muted-foreground/40"
-                            )} />
+                            <ArrowRight className={cn("h-3 w-3 transition-colors", sel ? "text-primary" : "text-muted-foreground/15 group-hover:text-muted-foreground/40")} />
                           </div>
                         </button>
                       );
@@ -297,8 +323,9 @@ export function GlobalSearchBar() {
           {/* Vazio */}
           {isEmpty && (
             <div className="py-8 text-center">
+              <Search className="h-6 w-6 text-muted-foreground/15 mx-auto mb-2" />
               <p className="text-sm font-bold text-muted-foreground/40">Nenhum resultado para "{query}"</p>
-              <p className="text-xs text-muted-foreground/25 mt-1">Tente palavras diferentes</p>
+              <p className="text-xs text-muted-foreground/25 mt-0.5">Tente outras palavras</p>
             </div>
           )}
 
@@ -306,7 +333,7 @@ export function GlobalSearchBar() {
           {results.length > 0 && (
             <div className="border-t border-black/5 dark:border-border px-4 py-2 flex items-center justify-between bg-muted/5">
               <div className="flex items-center gap-3">
-                {[{ keys: ["↑", "↓"], label: "navegar" }, { keys: ["↵"], label: "abrir" }, { keys: ["Esc"], label: "fechar" }].map(item => (
+                {[{ keys: ["↑","↓"], label: "navegar" }, { keys: ["↵"], label: "abrir" }, { keys: ["Esc"], label: "fechar" }].map(item => (
                   <span key={item.label} className="flex items-center gap-1 text-[10px] text-muted-foreground/25">
                     {item.keys.map(k => (
                       <kbd key={k} className="rounded border border-black/8 dark:border-border bg-muted/30 px-1 font-mono text-[9px]">{k}</kbd>
@@ -326,7 +353,6 @@ export function GlobalSearchBar() {
   );
 }
 
-/* Hook mantido para compatibilidade — agora só gerencia mobile */
 export function useGlobalSearch() {
   const [open, setOpen] = useState(false);
   return { open, setOpen };
