@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   CheckSquare, Plus, Search, Trash2, Pencil, MoreHorizontal, User, FileText, MessageSquare,
-  ListChecks, AlertTriangle, CheckCircle2, Flame, Clock, Trophy, Target,
+  ListChecks, AlertTriangle, CheckCircle2, Flame, Clock, Trophy, Target, Repeat, X,
 } from "lucide-react";
 import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
 import { NovaTarefaDialog } from "@/components/Tarefas/NovaTarefaDialog";
@@ -18,6 +18,7 @@ import { useTarefas, type Tarefa, type TarefaInput } from "@/hooks/useTarefas";
 import { useClientes } from "@/hooks/useClientes";
 import { useProcessosV2 } from "@/hooks/useProcessosV2";
 import { useOpenItemFromSearch } from "@/hooks/useOpenItemFromSearch";
+import { continueOccurrences, recorrenciaLabel, type RecRule } from "@/lib/recorrencia";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
@@ -143,6 +144,53 @@ const Tarefas = () => {
     else await create.mutateAsync(input);
   };
   const handleSubmitMany = async (inputs: TarefaInput[]) => {
+    await createMany.mutateAsync(inputs);
+  };
+
+  // Séries de recorrência acabando (poucas ocorrências futuras restantes)
+  const [dismissed, setDismissed] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem("tarefa_series_dismissed") || "[]")); } catch { return new Set(); }
+  });
+  const persistDismissed = (s: Set<string>) => {
+    setDismissed(new Set(s));
+    try { localStorage.setItem("tarefa_series_dismissed", JSON.stringify([...s])); } catch { /* ignore */ }
+  };
+
+  const seriesAcabando = useMemo(() => {
+    const byGroup: Record<string, Tarefa[]> = {};
+    for (const t of tarefas) {
+      if (!t.recorrencia_grupo) continue;
+      (byGroup[t.recorrencia_grupo] ||= []).push(t);
+    }
+    const out: { grupo: string; titulo: string; regra: string; restantes: number }[] = [];
+    for (const [grupo, items] of Object.entries(byGroup)) {
+      if (items.length < 3) continue; // só séries de verdade
+      const restantes = items.filter(t => !t.concluida).length;
+      if (restantes > 0 && restantes <= 2 && !dismissed.has(grupo)) {
+        out.push({ grupo, titulo: items[0].titulo, regra: items[0].recorrencia_regra || "semanal", restantes });
+      }
+    }
+    return out;
+  }, [tarefas, dismissed]);
+
+  const handleExtend = async (grupo: string) => {
+    const items = tarefas.filter(t => t.recorrencia_grupo === grupo);
+    if (!items.length) return;
+    const template = items[items.length - 1]; // tarefas vêm ordenadas por vencimento asc
+    const regra = (template.recorrencia_regra || "semanal") as RecRule;
+    const last = template.data_vencimento ? new Date(`${template.data_vencimento}T12:00:00`) : new Date();
+    const datas = continueOccurrences(last, regra, 4);
+    const inputs: TarefaInput[] = datas.map(d => ({
+      titulo: template.titulo,
+      descricao: template.descricao,
+      data_vencimento: format(d, "yyyy-MM-dd"),
+      prioridade: template.prioridade || "media",
+      cliente_id: template.cliente_id,
+      processo_id: template.processo_id,
+      atendimento_id: template.atendimento_id,
+      recorrencia_grupo: grupo,
+      recorrencia_regra: regra,
+    }));
     await createMany.mutateAsync(inputs);
   };
   const openNew = () => { setEditTarget(null); setDialogOpen(true); };
@@ -284,6 +332,29 @@ const Tarefas = () => {
           </div>
         </div>
       </div>
+
+      {/* Avisos de série de recorrência acabando */}
+      {seriesAcabando.map((s) => (
+        <div key={s.grupo} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3.5 rounded-2xl border border-amber-500/30 bg-amber-500/[0.06]">
+          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+            <div className="p-2 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 shrink-0"><Repeat className="h-4 w-4" /></div>
+            <p className="text-sm font-semibold min-w-0">
+              A recorrência <span className="font-black">"{s.titulo}"</span> ({recorrenciaLabel(s.regra)}) está acabando —
+              resta{s.restantes === 1 ? "" : "m"} <span className="font-black text-amber-600 dark:text-amber-400">{s.restantes}</span>.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button size="sm" onClick={() => handleExtend(s.grupo)} disabled={createMany.isPending}
+              className="rounded-xl h-9 gap-1.5 font-bold bg-amber-500 hover:bg-amber-600 text-white">
+              <Plus className="h-3.5 w-3.5" /> Estender +4
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => persistDismissed(new Set(dismissed).add(s.grupo))}
+              className="rounded-xl h-9 gap-1.5 font-bold text-muted-foreground">
+              <X className="h-3.5 w-3.5" /> Dispensar
+            </Button>
+          </div>
+        </div>
+      ))}
 
       {/* Filtros */}
       <div className="flex flex-col md:flex-row gap-3">

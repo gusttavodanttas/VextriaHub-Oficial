@@ -7,7 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckSquare, Loader2, Repeat } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { addDays, addWeeks, addMonths, format } from "date-fns";
+import { format } from "date-fns";
+import { RECORRENCIAS, generateOccurrences, type RecRule } from "@/lib/recorrencia";
 import type { Tarefa, TarefaInput } from "@/hooks/useTarefas";
 
 interface Option { id: string; label: string; }
@@ -29,26 +30,8 @@ const prioridades = [
   { value: "baixa", label: "Baixa" },
 ];
 
-const recorrencias = [
-  { value: "nenhuma", label: "Não repetir" },
-  { value: "diaria", label: "Diária" },
-  { value: "semanal", label: "Semanal" },
-  { value: "quinzenal", label: "Quinzenal" },
-  { value: "mensal", label: "Mensal" },
-];
-
 const NONE = "__none__";
 const empty = { titulo: "", descricao: "", data_vencimento: "", prioridade: "media", cliente_id: NONE, processo_id: NONE, atendimento_id: NONE, recorrencia: "nenhuma", ocorrencias: "4" };
-
-function addByRule(base: Date, rule: string, i: number): Date {
-  switch (rule) {
-    case "diaria": return addDays(base, i);
-    case "semanal": return addWeeks(base, i);
-    case "quinzenal": return addDays(base, i * 14);
-    case "mensal": return addMonths(base, i);
-    default: return base;
-  }
-}
 
 export const NovaTarefaDialog = ({ open, onOpenChange, clientes, processos, atendimentos, tarefa, onSubmit, onSubmitMany }: NovaTarefaDialogProps) => {
   const { toast } = useToast();
@@ -102,9 +85,13 @@ export const NovaTarefaDialog = ({ open, onOpenChange, clientes, processos, aten
       if (recorrente) {
         const n = Math.max(1, Math.min(52, parseInt(formData.ocorrencias) || 1));
         const baseDate = new Date(`${formData.data_vencimento}T12:00:00`);
-        const inputs: TarefaInput[] = Array.from({ length: n }, (_, i) => ({
+        const grupo = (crypto as any).randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+        const datas = generateOccurrences(baseDate, formData.recorrencia as RecRule, n);
+        const inputs: TarefaInput[] = datas.map((d) => ({
           ...base,
-          data_vencimento: format(addByRule(baseDate, formData.recorrencia, i), "yyyy-MM-dd"),
+          data_vencimento: format(d, "yyyy-MM-dd"),
+          recorrencia_grupo: grupo,
+          recorrencia_regra: formData.recorrencia,
         }));
         await onSubmitMany(inputs);
       } else {
@@ -204,7 +191,7 @@ export const NovaTarefaDialog = ({ open, onOpenChange, clientes, processos, aten
                 <Select value={formData.recorrencia} onValueChange={(v) => setFormData({ ...formData, recorrencia: v })}>
                   <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
                   <SelectContent className="rounded-xl">
-                    {recorrencias.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                    {RECORRENCIAS.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 {formData.recorrencia !== "nenhuma" && (

@@ -14,6 +14,8 @@ export interface Tarefa {
   cliente_id: string | null;
   processo_id: string | null;
   atendimento_id: string | null;
+  recorrencia_grupo: string | null;
+  recorrencia_regra: string | null;
   cliente_nome?: string | null;
   updated_at?: string | null;
 }
@@ -26,6 +28,8 @@ export interface TarefaInput {
   cliente_id: string | null;
   processo_id?: string | null;
   atendimento_id?: string | null;
+  recorrencia_grupo?: string | null;
+  recorrencia_regra?: string | null;
 }
 
 // Monta o payload de insert/update incluindo atendimento_id só quando há valor
@@ -39,6 +43,8 @@ function buildPayload(input: Partial<TarefaInput>) {
   if (input.cliente_id !== undefined) p.cliente_id = input.cliente_id;
   if (input.processo_id !== undefined) p.processo_id = input.processo_id;
   if (input.atendimento_id) p.atendimento_id = input.atendimento_id;
+  if (input.recorrencia_grupo) p.recorrencia_grupo = input.recorrencia_grupo;
+  if (input.recorrencia_regra) p.recorrencia_regra = input.recorrencia_regra;
   return p;
 }
 
@@ -70,6 +76,8 @@ export function useTarefas() {
         cliente_id: t.cliente_id,
         processo_id: t.processo_id,
         atendimento_id: t.atendimento_id ?? null,
+        recorrencia_grupo: t.recorrencia_grupo ?? null,
+        recorrencia_regra: t.recorrencia_regra ?? null,
         cliente_nome: t.clientes?.nome || null,
         updated_at: t.updated_at,
       }));
@@ -100,7 +108,12 @@ export function useTarefas() {
       const rows = inputs.map(input => ({
         ...buildPayload(input), office_id: officeId, user_id: user.id, concluida: false, deletado: false,
       }));
-      const { error } = await supabase.from("tarefas").insert(rows);
+      let { error } = await supabase.from("tarefas").insert(rows);
+      // Fallback: colunas de série ainda não criadas → recria sem elas
+      if (error && /recorrencia_grupo|recorrencia_regra/.test(error.message || "")) {
+        const stripped = rows.map(({ recorrencia_grupo, recorrencia_regra, ...r }: any) => r);
+        ({ error } = await supabase.from("tarefas").insert(stripped));
+      }
       if (error) throw error;
     },
     onSuccess: (_d, inputs) => { invalidate(); toast({ title: "Tarefas criadas", description: `${inputs.length} ocorrências adicionadas.` }); },
