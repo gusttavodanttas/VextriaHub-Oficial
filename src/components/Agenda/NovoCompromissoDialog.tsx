@@ -7,15 +7,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Calendar as CalendarIcon, Clock, MapPin, Check, ChevronsUpDown } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, MapPin } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { ClientSelect } from "@/components/Clientes/ClientSelect";
 
 interface NovoCompromissoDialogProps {
   open: boolean;
@@ -27,9 +25,7 @@ interface NovoCompromissoDialogProps {
 interface FormData {
   titulo: string;
   cliente_id: string;
-  cliente_nome: string;
   processo_id: string;
-  processo_label: string;
   data: Date | undefined;
   horario: string;
   tipo: string;
@@ -44,7 +40,7 @@ const tipos = [
   { value: "consulta", label: "Consulta" },
   { value: "tarefa", label: "Tarefa" },
   { value: "prazo", label: "Prazo" },
-  { value: "outro", label: "Outro" }
+  { value: "outro", label: "Outro" },
 ];
 
 const SEM_HORARIO = ["tarefa", "prazo"];
@@ -52,109 +48,79 @@ const SEM_HORARIO = ["tarefa", "prazo"];
 const statusOptions = [
   { value: "agendado", label: "Agendado" },
   { value: "confirmado", label: "Confirmado" },
-  { value: "pendente", label: "Pendente" }
+  { value: "pendente", label: "Pendente" },
 ];
+
+const NONE = "__none__";
 
 const emptyForm = (date?: Date): FormData => ({
   titulo: "",
-  cliente_id: "",
-  cliente_nome: "",
-  processo_id: "",
-  processo_label: "",
+  cliente_id: NONE,
+  processo_id: NONE,
   data: date || new Date(),
   horario: "",
   tipo: "",
   local: "",
   descricao: "",
-  status: "agendado"
+  status: "agendado",
 });
-
-interface Processo { id: string; label: string; sub?: string; }
-
-const ProcessoSelect: React.FC<{
-  value: string;
-  clienteId: string;
-  onValueChange: (id: string, label: string) => void;
-}> = ({ value, clienteId, onValueChange }) => {
-  const { user } = useAuth();
-  const [open, setOpen] = useState(false);
-  const [processos, setProcessos] = useState<Processo[]>([]);
-
-  useEffect(() => {
-    if (!user?.office_id) return;
-    let q = supabase
-      .from("processos")
-      .select("id, numero_processo, titulo, cliente_id")
-      .eq("office_id", user.office_id)
-      .order("numero_processo");
-    if (clienteId) q = q.eq("cliente_id", clienteId);
-    q.then(({ data }) => {
-      setProcessos(
-        (data || []).map((p: any) => ({
-          id: p.id,
-          label: p.titulo || p.numero_processo || p.id,
-          sub: p.numero_processo,
-        }))
-      );
-    });
-  }, [user, clienteId]);
-
-  const selected = processos.find((p) => p.id === value);
-
-  return (
-    <Popover open={open} onOpenChange={setOpen} modal={false}>
-      <PopoverTrigger asChild>
-        <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-          <span className="truncate">{selected ? selected.label : clienteId ? "Selecionar processo..." : "Selecione um cliente primeiro"}</span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-0 z-[200]" align="start">
-        <Command>
-          <CommandInput placeholder="Buscar processo..." />
-          <CommandList>
-            <CommandEmpty>Nenhum processo encontrado.</CommandEmpty>
-            <CommandGroup>
-              {value && (
-                <CommandItem value="__none__" onSelect={() => { onValueChange("", ""); setOpen(false); }}>
-                  <Check className="mr-2 h-4 w-4 opacity-0" />
-                  <span className="text-muted-foreground">Remover vínculo</span>
-                </CommandItem>
-              )}
-              {processos.map((p) => (
-                <CommandItem key={p.id} value={p.label} onSelect={() => { onValueChange(p.id, p.label); setOpen(false); }}>
-                  <Check className={cn("mr-2 h-4 w-4 shrink-0", value === p.id ? "opacity-100" : "opacity-0")} />
-                  <div className="flex flex-col min-w-0">
-                    <span className="truncate">{p.label}</span>
-                    {p.sub && <span className="text-xs text-muted-foreground truncate">{p.sub}</span>}
-                  </div>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  );
-};
 
 export const NovoCompromissoDialog: React.FC<NovoCompromissoDialogProps> = ({
   open,
   onOpenChange,
   selectedDate,
-  onCreated
+  onCreated,
 }) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<FormData>(emptyForm(selectedDate));
+  const [clientes, setClientes] = useState<{ id: string; nome: string }[]>([]);
+  const [processos, setProcessos] = useState<{ id: string; titulo: string; numero: string }[]>([]);
+  const [calOpen, setCalOpen] = useState(false);
 
-  // Atualiza data se selectedDate mudar
   useEffect(() => {
     if (open) setFormData(emptyForm(selectedDate));
   }, [open, selectedDate]);
 
+  // Busca clientes ao abrir
+  useEffect(() => {
+    if (!open || !user?.office_id) return;
+    supabase
+      .from("clientes")
+      .select("id, nome")
+      .eq("office_id", user.office_id)
+      .eq("deletado", false)
+      .order("nome")
+      .then(({ data }) => setClientes(data || []));
+  }, [open, user]);
+
+  // Busca processos quando cliente muda
+  useEffect(() => {
+    if (!user?.office_id) return;
+    const clienteId = formData.cliente_id === NONE ? null : formData.cliente_id;
+    let q = supabase
+      .from("processos")
+      .select("id, titulo, numero_processo")
+      .eq("office_id", user.office_id)
+      .eq("deletado", false)
+      .order("titulo");
+    if (clienteId) q = (q as any).eq("cliente_id", clienteId);
+    q.then(({ data }) =>
+      setProcessos(
+        (data || []).map((p: any) => ({
+          id: p.id,
+          titulo: p.titulo || p.numero_processo || p.id,
+          numero: p.numero_processo || "",
+        }))
+      )
+    );
+  }, [formData.cliente_id, user]);
+
   const precisaHorario = !SEM_HORARIO.includes(formData.tipo);
+
+  const set = (field: keyof FormData, value: any) =>
+    setFormData((prev) => ({ ...prev, [field]: value }));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -174,16 +140,15 @@ export const NovoCompromissoDialog: React.FC<NovoCompromissoDialogProps> = ({
         datetime.setHours(h, m);
       }
       const dataYmd = format(formData.data, "yyyy-MM-dd");
-      const processoId = formData.processo_id || null;
-      const clienteId = formData.cliente_id || null;
+      const clienteId = formData.cliente_id === NONE ? null : formData.cliente_id;
+      const processoId = formData.processo_id === NONE ? null : formData.processo_id;
 
-      let error;
+      let error: any;
 
       if (formData.tipo === "audiencia") {
         ({ error } = await supabase.from("audiencias").insert({
           user_id: user.id, office_id: user.office_id,
-          cliente_id: clienteId,
-          processo_id: processoId,
+          cliente_id: clienteId, processo_id: processoId,
           titulo: formData.titulo,
           data_audiencia: datetime.toISOString(),
           local: formData.local,
@@ -193,8 +158,7 @@ export const NovoCompromissoDialog: React.FC<NovoCompromissoDialogProps> = ({
       } else if (formData.tipo === "tarefa") {
         ({ error } = await supabase.from("tarefas").insert({
           user_id: user.id, office_id: user.office_id,
-          cliente_id: clienteId,
-          processo_id: processoId,
+          cliente_id: clienteId, processo_id: processoId,
           titulo: formData.titulo,
           descricao: formData.descricao || null,
           data_vencimento: dataYmd,
@@ -213,11 +177,9 @@ export const NovoCompromissoDialog: React.FC<NovoCompromissoDialogProps> = ({
           status: "pendente",
         }));
       } else {
-        // reuniao / consulta / outro → atendimentos
         ({ error } = await supabase.from("atendimentos").insert({
           user_id: user.id, office_id: user.office_id,
-          cliente_id: clienteId,
-          processo_id: processoId,
+          cliente_id: clienteId, processo_id: processoId,
           tipo_atendimento: formData.tipo,
           data_atendimento: datetime.toISOString(),
           observacoes: formData.descricao,
@@ -241,9 +203,6 @@ export const NovoCompromissoDialog: React.FC<NovoCompromissoDialogProps> = ({
       setLoading(false);
     }
   };
-
-  const set = (field: keyof FormData, value: any) =>
-    setFormData((prev) => ({ ...prev, [field]: value }));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -294,15 +253,24 @@ export const NovoCompromissoDialog: React.FC<NovoCompromissoDialogProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Data *</Label>
-              <Popover modal={false}>
+              <Popover open={calOpen} onOpenChange={setCalOpen}>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formData.data && "text-muted-foreground")}>
+                  <Button
+                    variant="outline"
+                    className={cn("w-full justify-start text-left font-normal", !formData.data && "text-muted-foreground")}
+                  >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {formData.data ? format(formData.data, "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : "Selecione a data"}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 z-[200]">
-                  <Calendar mode="single" selected={formData.data} onSelect={(d) => set("data", d)} locale={ptBR} initialFocus />
+                <PopoverContent className="w-auto p-0" side="bottom" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={formData.data}
+                    onSelect={(d) => { set("data", d); setCalOpen(false); }}
+                    locale={ptBR}
+                    initialFocus
+                  />
                 </PopoverContent>
               </Popover>
             </div>
@@ -329,20 +297,52 @@ export const NovoCompromissoDialog: React.FC<NovoCompromissoDialogProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Cliente</Label>
-              <ClientSelect
+              <Select
                 value={formData.cliente_id}
-                onValueChange={(id, name) => {
-                  setFormData((prev) => ({ ...prev, cliente_id: id, cliente_nome: name, processo_id: "", processo_label: "" }));
-                }}
-              />
+                onValueChange={(v) => setFormData((prev) => ({ ...prev, cliente_id: v, processo_id: NONE }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar cliente..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>Nenhum</SelectItem>
+                  {clientes.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+
             <div className="space-y-2">
               <Label>Processo</Label>
-              <ProcessoSelect
+              <Select
                 value={formData.processo_id}
-                clienteId={formData.cliente_id}
-                onValueChange={(id, label) => { set("processo_id", id); set("processo_label", label); }}
-              />
+                onValueChange={(v) => set("processo_id", v)}
+                disabled={processos.length === 0}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={
+                    formData.cliente_id === NONE
+                      ? "Selecione um cliente primeiro"
+                      : processos.length === 0
+                      ? "Nenhum processo encontrado"
+                      : "Selecionar processo..."
+                  } />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>Nenhum</SelectItem>
+                  {processos.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      <div className="flex flex-col">
+                        <span>{p.titulo}</span>
+                        {p.numero && p.numero !== p.titulo && (
+                          <span className="text-xs text-muted-foreground">{p.numero}</span>
+                        )}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
