@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { startOfMonth, endOfMonth, format, isSameDay } from "date-fns";
 
-export type EventType = "audiencia" | "reuniao" | "prazo" | "tarefa";
+export type EventType = "audiencia" | "reuniao" | "atendimento" | "prazo" | "tarefa";
 export type EventStatus = "confirmado" | "pendente" | "cancelado" | "concluido";
 
 export interface AgendaEvent {
@@ -102,10 +102,10 @@ export const useAgendaEvents = (targetDate: Date) => {
         })),
         ...(atendimentos || []).map(ate => ({
           id: ate.id,
-          name: `Atendimento: ${ate.tipo_atendimento}`,
+          name: ate.tipo_atendimento || 'Atendimento',
           time: format(new Date(ate.data_atendimento), 'HH:mm'),
           datetime: ate.data_atendimento,
-          type: 'reuniao' as const,
+          type: 'atendimento' as const,
           client: (ate as any).clientes?.nome || 'Cliente não informado',
           location: 'Escritório',
           status: (ate.status as EventStatus) || 'confirmado'

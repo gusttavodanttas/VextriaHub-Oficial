@@ -37,7 +37,7 @@ interface Event {
   name: string
   time: string
   datetime: string
-  type?: "audiencia" | "reuniao" | "prazo" | "tarefa"
+  type?: "audiencia" | "reuniao" | "atendimento" | "prazo" | "tarefa"
   client?: string
   location?: string
   status?: "confirmado" | "pendente" | "cancelado"
@@ -68,11 +68,12 @@ const colStartClasses = [
 
 const getEventTypeColor = (type?: string) => {
   switch (type) {
-    case "audiencia": return "bg-red-100 text-red-800 border-red-200"
-    case "reuniao": return "bg-blue-100 text-blue-800 border-blue-200"
-    case "prazo": return "bg-orange-100 text-orange-800 border-orange-200"
-    case "tarefa": return "bg-green-100 text-green-800 border-green-200"
-    default: return "bg-gray-100 text-gray-800 border-gray-200"
+    case "audiencia": return "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20"
+    case "reuniao":
+    case "atendimento": return "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
+    case "prazo": return "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
+    case "tarefa": return "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20"
+    default: return "bg-muted text-muted-foreground border-border"
   }
 }
 

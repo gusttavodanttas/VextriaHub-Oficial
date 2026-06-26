@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, useLocation, useNavigate } from "react-router-dom";
-import { Calendar, Clock, Users, MapPin, Plus, CalendarCheck, AlertCircle, ArrowRight, CalendarClock } from "lucide-react";
+import { Calendar, Clock, Users, MapPin, Plus, CalendarCheck, AlertCircle, ArrowRight, CalendarClock, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NovoCompromissoDialog } from "@/components/Agenda/NovoCompromissoDialog";
 import { Button } from "@/components/ui/button";
@@ -12,10 +12,11 @@ import { ptBR } from "date-fns/locale";
 import { useAgendaEvents, AgendaEvent } from "@/hooks/useAgendaEvents";
 
 const typeMeta: Record<string, { label: string; icon: React.ElementType; color: string; bg: string }> = {
-  audiencia: { label: "Audiência", icon: Users, color: "text-orange-500", bg: "bg-orange-500/10" },
-  prazo:     { label: "Prazo", icon: AlertCircle, color: "text-rose-500", bg: "bg-rose-500/10" },
-  reuniao:   { label: "Reunião", icon: Calendar, color: "text-blue-500", bg: "bg-blue-500/10" },
-  tarefa:    { label: "Tarefa", icon: CalendarCheck, color: "text-purple-500", bg: "bg-purple-500/10" },
+  audiencia:   { label: "Audiência", icon: Users, color: "text-orange-500", bg: "bg-orange-500/10" },
+  prazo:       { label: "Prazo", icon: AlertCircle, color: "text-rose-500", bg: "bg-rose-500/10" },
+  atendimento: { label: "Atendimento", icon: MessageSquare, color: "text-blue-500", bg: "bg-blue-500/10" },
+  reuniao:     { label: "Reunião", icon: Calendar, color: "text-blue-500", bg: "bg-blue-500/10" },
+  tarefa:      { label: "Tarefa", icon: CalendarCheck, color: "text-purple-500", bg: "bg-purple-500/10" },
 };
 
 const statusColor = (s: string) =>
@@ -113,7 +114,7 @@ export default function Agenda() {
     if (e.type === "audiencia") navigate(`/audiencias?openId=${e.id}&date=${encodeURIComponent(e.datetime)}`);
     else if (e.type === "prazo") navigate(`/prazos?openId=${e.id}`);
     else if (e.type === "tarefa") navigate(`/tarefas?openId=${e.id}`);
-    else navigate("/atendimentos");
+    else navigate("/atendimentos"); // atendimento / reuniao
   };
 
   const handleNewEvent = (date: Date) => { setSelectedDateForNew(date); setNovoOpen(true); };
@@ -142,7 +143,7 @@ export default function Agenda() {
     { value: "todos", label: "Todos" },
     { value: "audiencia", label: "Audiências" },
     { value: "prazo", label: "Prazos" },
-    { value: "reuniao", label: "Reuniões" },
+    { value: "atendimento", label: "Atendimentos" },
     { value: "tarefa", label: "Tarefas" },
   ];
 
@@ -221,7 +222,7 @@ export default function Agenda() {
 
         {/* CALENDÁRIO */}
         <TabsContent value="calendario" className="m-0">
-          <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 overflow-hidden">
+          <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 overflow-hidden flex flex-col min-h-[80vh]">
             <FullScreenCalendar data={monthData} onEventClick={goToSource} onNewEvent={handleNewEvent} onMonthChange={handleMonthChange} />
           </div>
         </TabsContent>
