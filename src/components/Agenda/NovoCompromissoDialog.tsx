@@ -36,11 +36,16 @@ interface FormData {
 }
 
 const tipos = [
-  { value: "reuniao", label: "Reunião" },
   { value: "audiencia", label: "Audiência" },
+  { value: "reuniao", label: "Reunião / Atendimento" },
   { value: "consulta", label: "Consulta" },
+  { value: "tarefa", label: "Tarefa" },
+  { value: "prazo", label: "Prazo" },
   { value: "outro", label: "Outro" }
 ];
+
+// Tipos que não precisam de horário (são por dia)
+const SEM_HORARIO = ["tarefa", "prazo"];
 
 const statusOptions = [
   { value: "agendado", label: "Agendado" },
@@ -72,7 +77,8 @@ export const NovoCompromissoDialog: React.FC<NovoCompromissoDialogProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.titulo || !formData.data || !formData.horario || !formData.tipo) {
+    const precisaHorario = !SEM_HORARIO.includes(formData.tipo);
+    if (!formData.titulo || !formData.data || !formData.tipo || (precisaHorario && !formData.horario)) {
       toast({
         title: "Erro",
         description: "Por favor, preencha todos os campos obrigatórios.",
@@ -85,45 +91,58 @@ export const NovoCompromissoDialog: React.FC<NovoCompromissoDialogProps> = ({
 
     setLoading(true);
     try {
-      // Unir data e horário para o timestamp do banco
-      const [hours, minutes] = formData.horario.split(':').map(Number);
+      // Une data e horário para os tipos com hora; para tarefa/prazo usa só a data
       const datetime = new Date(formData.data);
-      datetime.setHours(hours, minutes);
+      if (precisaHorario && formData.horario) {
+        const [hours, minutes] = formData.horario.split(':').map(Number);
+        datetime.setHours(hours, minutes);
+      }
+      const dataYmd = format(formData.data, 'yyyy-MM-dd');
 
       let error;
 
       if (formData.tipo === 'audiencia') {
         const { error: err } = await supabase.from('audiencias').insert({
-          user_id: user.id,
-          office_id: user.office_id,
+          user_id: user.id, office_id: user.office_id,
           cliente_id: formData.cliente_id || null,
           titulo: formData.titulo,
           data_audiencia: datetime.toISOString(),
           local: formData.local,
           observacoes: formData.descricao,
-          status: formData.status
+          status: formData.status,
+        });
+        error = err;
+      } else if (formData.tipo === 'tarefa') {
+        const { error: err } = await supabase.from('tarefas').insert({
+          user_id: user.id, office_id: user.office_id,
+          cliente_id: formData.cliente_id || null,
+          titulo: formData.titulo,
+          descricao: formData.descricao || null,
+          data_vencimento: dataYmd,
+          prioridade: 'media',
+          concluida: false,
+          deletado: false,
         });
         error = err;
       } else if (formData.tipo === 'prazo') {
         const { error: err } = await supabase.from('prazos').insert({
-          user_id: user.id,
-          office_id: user.office_id,
+          user_id: user.id, office_id: user.office_id,
           titulo: formData.titulo,
-          descricao: formData.descricao,
-          data_vencimento: format(formData.data, 'yyyy-MM-dd'),
-          status: formData.status === 'agendado' ? 'pendente' : 'concluido'
+          descricao: formData.descricao || null,
+          data_fim_prazo: dataYmd,
+          prioridade: 'media',
+          status: 'pendente',
         });
         error = err;
       } else {
-        // Atendimentos/Outros
+        // Reunião / Consulta / Outro → Atendimentos
         const { error: err } = await supabase.from('atendimentos').insert({
-          user_id: user.id,
-          office_id: user.office_id,
-          cliente_id: formData.cliente_id || null, // Atendimentos geralmente precisam de cliente
+          user_id: user.id, office_id: user.office_id,
+          cliente_id: formData.cliente_id || null,
           tipo_atendimento: formData.tipo,
           data_atendimento: datetime.toISOString(),
           observacoes: formData.descricao,
-          status: formData.status
+          status: formData.status,
         });
         error = err;
       }
@@ -132,7 +151,7 @@ export const NovoCompromissoDialog: React.FC<NovoCompromissoDialogProps> = ({
 
       toast({
         title: "Compromisso criado",
-        description: `${formData.titulo} agendado para ${format(formData.data, "d 'de' MMMM", { locale: ptBR })} às ${formData.horario}.`,
+        description: `${formData.titulo} • ${format(formData.data, "d 'de' MMMM", { locale: ptBR })}${precisaHorario && formData.horario ? ` às ${formData.horario}` : ""}.`,
       });
 
       // Reset form
