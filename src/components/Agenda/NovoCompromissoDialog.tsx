@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Calendar as CalendarIcon, Clock, MapPin } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Calendar as CalendarIcon, Clock, MapPin, Check, ChevronsUpDown } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,8 @@ interface FormData {
   titulo: string;
   cliente_id: string;
   cliente_nome: string;
+  processo_id: string;
+  processo_label: string;
   data: Date | undefined;
   horario: string;
   tipo: string;
@@ -44,7 +47,6 @@ const tipos = [
   { value: "outro", label: "Outro" }
 ];
 
-// Tipos que não precisam de horário (são por dia)
 const SEM_HORARIO = ["tarefa", "prazo"];
 
 const statusOptions = [
@@ -52,6 +54,83 @@ const statusOptions = [
   { value: "confirmado", label: "Confirmado" },
   { value: "pendente", label: "Pendente" }
 ];
+
+const emptyForm = (date?: Date): FormData => ({
+  titulo: "",
+  cliente_id: "",
+  cliente_nome: "",
+  processo_id: "",
+  processo_label: "",
+  data: date || new Date(),
+  horario: "",
+  tipo: "",
+  local: "",
+  descricao: "",
+  status: "agendado"
+});
+
+interface Processo { id: string; label: string; }
+
+const ProcessoSelect: React.FC<{
+  value: string;
+  onValueChange: (id: string, label: string) => void;
+}> = ({ value, onValueChange }) => {
+  const { user } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [processos, setProcessos] = useState<Processo[]>([]);
+
+  useEffect(() => {
+    if (!user?.office_id) return;
+    supabase
+      .from("processos")
+      .select("id, numero_processo, titulo")
+      .eq("office_id", user.office_id)
+      .order("numero_processo")
+      .then(({ data }) => {
+        setProcessos(
+          (data || []).map((p: any) => ({
+            id: p.id,
+            label: p.numero_processo || p.titulo || p.id,
+          }))
+        );
+      });
+  }, [user]);
+
+  const selected = processos.find((p) => p.id === value);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+          <span className="truncate">{selected ? selected.label : "Selecionar processo..."}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-full p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Buscar processo..." />
+          <CommandList>
+            <CommandEmpty>Nenhum processo encontrado.</CommandEmpty>
+            <CommandGroup>
+              {value && (
+                <CommandItem value="__none__" onSelect={() => { onValueChange("", ""); setOpen(false); }}>
+                  <Check className="mr-2 h-4 w-4 opacity-0" />
+                  <span className="text-muted-foreground">Remover vínculo</span>
+                </CommandItem>
+              )}
+              {processos.map((p) => (
+                <CommandItem key={p.id} value={p.label} onSelect={() => { onValueChange(p.id, p.label); setOpen(false); }}>
+                  <Check className={cn("mr-2 h-4 w-4", value === p.id ? "opacity-100" : "opacity-0")} />
+                  {p.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 export const NovoCompromissoDialog: React.FC<NovoCompromissoDialogProps> = ({
   open,
@@ -62,89 +141,82 @@ export const NovoCompromissoDialog: React.FC<NovoCompromissoDialogProps> = ({
   const { toast } = useToast();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState<FormData>({
-    titulo: "",
-    cliente_id: "",
-    cliente_nome: "",
-    data: selectedDate || new Date(),
-    horario: "",
-    tipo: "",
-    local: "",
-    descricao: "",
-    status: "agendado"
-  });
+  const [formData, setFormData] = useState<FormData>(emptyForm(selectedDate));
+
+  // Atualiza data se selectedDate mudar
+  useEffect(() => {
+    if (open) setFormData(emptyForm(selectedDate));
+  }, [open, selectedDate]);
+
+  const precisaHorario = !SEM_HORARIO.includes(formData.tipo);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const precisaHorario = !SEM_HORARIO.includes(formData.tipo);
+
     if (!formData.titulo || !formData.data || !formData.tipo || (precisaHorario && !formData.horario)) {
-      toast({
-        title: "Erro",
-        description: "Por favor, preencha todos os campos obrigatórios.",
-        variant: "destructive"
-      });
+      toast({ title: "Erro", description: "Preencha todos os campos obrigatórios.", variant: "destructive" });
       return;
     }
 
     if (!user) return;
-
     setLoading(true);
+
     try {
-      // Une data e horário para os tipos com hora; para tarefa/prazo usa só a data
       const datetime = new Date(formData.data);
       if (precisaHorario && formData.horario) {
-        const [hours, minutes] = formData.horario.split(':').map(Number);
-        datetime.setHours(hours, minutes);
+        const [h, m] = formData.horario.split(":").map(Number);
+        datetime.setHours(h, m);
       }
-      const dataYmd = format(formData.data, 'yyyy-MM-dd');
+      const dataYmd = format(formData.data, "yyyy-MM-dd");
+      const processoId = formData.processo_id || null;
+      const clienteId = formData.cliente_id || null;
 
       let error;
 
-      if (formData.tipo === 'audiencia') {
-        const { error: err } = await supabase.from('audiencias').insert({
+      if (formData.tipo === "audiencia") {
+        ({ error } = await supabase.from("audiencias").insert({
           user_id: user.id, office_id: user.office_id,
-          cliente_id: formData.cliente_id || null,
+          cliente_id: clienteId,
+          processo_id: processoId,
           titulo: formData.titulo,
           data_audiencia: datetime.toISOString(),
           local: formData.local,
           observacoes: formData.descricao,
           status: formData.status,
-        });
-        error = err;
-      } else if (formData.tipo === 'tarefa') {
-        const { error: err } = await supabase.from('tarefas').insert({
+        }));
+      } else if (formData.tipo === "tarefa") {
+        ({ error } = await supabase.from("tarefas").insert({
           user_id: user.id, office_id: user.office_id,
-          cliente_id: formData.cliente_id || null,
+          cliente_id: clienteId,
+          processo_id: processoId,
           titulo: formData.titulo,
           descricao: formData.descricao || null,
           data_vencimento: dataYmd,
-          prioridade: 'media',
+          prioridade: "media",
           concluida: false,
           deletado: false,
-        });
-        error = err;
-      } else if (formData.tipo === 'prazo') {
-        const { error: err } = await supabase.from('prazos').insert({
+        }));
+      } else if (formData.tipo === "prazo") {
+        ({ error } = await supabase.from("prazos").insert({
           user_id: user.id, office_id: user.office_id,
+          processo_id: processoId,
           titulo: formData.titulo,
           descricao: formData.descricao || null,
           data_fim_prazo: dataYmd,
-          prioridade: 'media',
-          status: 'pendente',
-        });
-        error = err;
+          prioridade: "media",
+          status: "pendente",
+        }));
       } else {
-        // Reunião / Consulta / Outro → Atendimentos
-        const { error: err } = await supabase.from('atendimentos').insert({
+        // reuniao / consulta / outro → atendimentos
+        ({ error } = await supabase.from("atendimentos").insert({
           user_id: user.id, office_id: user.office_id,
-          cliente_id: formData.cliente_id || null,
+          cliente_id: clienteId,
+          processo_id: processoId,
           tipo_atendimento: formData.tipo,
           data_atendimento: datetime.toISOString(),
           observacoes: formData.descricao,
           status: formData.status,
-        });
-        error = err;
+        }));
       }
 
       if (error) throw error;
@@ -154,36 +226,18 @@ export const NovoCompromissoDialog: React.FC<NovoCompromissoDialogProps> = ({
         description: `${formData.titulo} • ${format(formData.data, "d 'de' MMMM", { locale: ptBR })}${precisaHorario && formData.horario ? ` às ${formData.horario}` : ""}.`,
       });
 
-      // Reset form
-      setFormData({
-        titulo: "",
-        cliente_id: "",
-        cliente_nome: "",
-        data: selectedDate || new Date(),
-        horario: "",
-        tipo: "",
-        local: "",
-        descricao: "",
-        status: "agendado"
-      });
-
       onCreated?.();
       onOpenChange(false);
-    } catch (err) {
-      console.error('Erro ao salvar compromisso:', err);
-      toast({
-        title: "Erro",
-        description: "Falha ao salvar o compromisso no banco de dados.",
-        variant: "destructive"
-      });
+    } catch (err: any) {
+      console.error("Erro ao salvar compromisso:", err);
+      toast({ title: "Erro", description: err?.message || "Falha ao salvar no banco de dados.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChange = (field: keyof FormData, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
+  const set = (field: keyof FormData, value: any) =>
+    setFormData((prev) => ({ ...prev, [field]: value }));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -196,133 +250,118 @@ export const NovoCompromissoDialog: React.FC<NovoCompromissoDialogProps> = ({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Título */}
+          <div className="space-y-2">
+            <Label htmlFor="titulo">Título *</Label>
+            <Input
+              id="titulo"
+              value={formData.titulo}
+              onChange={(e) => set("titulo", e.target.value)}
+              placeholder="Ex: Reunião com cliente"
+              required
+            />
+          </div>
+
+          {/* Tipo + Status */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="titulo">Título *</Label>
-              <Input
-                id="titulo"
-                value={formData.titulo}
-                onChange={(e) => handleChange('titulo', e.target.value)}
-                placeholder="Ex: Reunião com cliente"
-                required
-              />
+              <Label>Tipo *</Label>
+              <Select value={formData.tipo} onValueChange={(v) => set("tipo", v)}>
+                <SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
+                <SelectContent>
+                  {tipos.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="cliente">Cliente</Label>
-              <ClientSelect 
-                value={formData.cliente_id} 
-                onValueChange={(id, name) => {
-                  handleChange('cliente_id', id);
-                  handleChange('cliente_nome', name);
-                }}
-              />
+              <Label>Status</Label>
+              <Select value={formData.status} onValueChange={(v) => set("status", v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {statusOptions.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
+          {/* Data + Horário */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Data *</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !formData.data && "text-muted-foreground"
-                    )}
-                  >
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formData.data && "text-muted-foreground")}>
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {formData.data ? (
-                      format(formData.data, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
-                    ) : (
-                      "Selecione a data"
-                    )}
+                    {formData.data ? format(formData.data, "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : "Selecione a data"}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={formData.data}
-                    onSelect={(date) => handleChange('data', date)}
-                    locale={ptBR}
-                    initialFocus
-                  />
+                  <Calendar mode="single" selected={formData.data} onSelect={(d) => set("data", d)} locale={ptBR} initialFocus />
                 </PopoverContent>
               </Popover>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="horario">Horário *</Label>
-              <div className="relative">
-                <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="horario"
-                  type="time"
-                  value={formData.horario}
-                  onChange={(e) => handleChange('horario', e.target.value)}
-                  className="pl-10"
-                  required
-                />
+            {precisaHorario && (
+              <div className="space-y-2">
+                <Label htmlFor="horario">Horário *</Label>
+                <div className="relative">
+                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="horario"
+                    type="time"
+                    value={formData.horario}
+                    onChange={(e) => set("horario", e.target.value)}
+                    className="pl-10"
+                    required={precisaHorario}
+                  />
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
+          {/* Cliente + Processo */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="tipo">Tipo *</Label>
-              <Select value={formData.tipo} onValueChange={(value) => handleChange('tipo', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  {tipos.map((tipo) => (
-                    <SelectItem key={tipo.value} value={tipo.value}>
-                      {tipo.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Cliente</Label>
+              <ClientSelect
+                value={formData.cliente_id}
+                onValueChange={(id, name) => { set("cliente_id", id); set("cliente_nome", name); }}
+              />
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
-              <Select value={formData.status} onValueChange={(value) => handleChange('status', value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {statusOptions.map((status) => (
-                    <SelectItem key={status.value} value={status.value}>
-                      {status.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="local">Local</Label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="local"
-                value={formData.local}
-                onChange={(e) => handleChange('local', e.target.value)}
-                placeholder="Ex: Escritório, Fórum, Online"
-                className="pl-10"
+              <Label>Processo</Label>
+              <ProcessoSelect
+                value={formData.processo_id}
+                onValueChange={(id, label) => { set("processo_id", id); set("processo_label", label); }}
               />
             </div>
           </div>
 
+          {/* Local (oculto para tarefa/prazo) */}
+          {precisaHorario && (
+            <div className="space-y-2">
+              <Label htmlFor="local">Local</Label>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="local"
+                  value={formData.local}
+                  onChange={(e) => set("local", e.target.value)}
+                  placeholder="Ex: Escritório, Fórum, Online"
+                  className="pl-10"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Descrição */}
           <div className="space-y-2">
             <Label htmlFor="descricao">Descrição</Label>
             <Textarea
               id="descricao"
               value={formData.descricao}
-              onChange={(e) => handleChange('descricao', e.target.value)}
-              placeholder="Detalhes adicionais sobre o compromisso..."
+              onChange={(e) => set("descricao", e.target.value)}
+              placeholder="Detalhes adicionais..."
               rows={3}
             />
           </div>
