@@ -1,70 +1,53 @@
-﻿
-import { Calendar, Clock, Users, MapPin, Plus, Trash2, CalendarCheck, AlertCircle } from "lucide-react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useSearchParams, useLocation, useNavigate } from "react-router-dom";
+import { Calendar, Clock, Users, MapPin, Plus, CalendarCheck, AlertCircle, ArrowRight, CalendarClock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Checkbox } from "@/components/ui/checkbox";
-import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
 import { NovoCompromissoDialog } from "@/components/Agenda/NovoCompromissoDialog";
-import { useMultiSelect } from "@/hooks/useMultiSelect";
-import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FullScreenCalendar } from "@/components/ui/fullscreen-calendar";
-import React, { useState, useEffect } from "react";
-import { useSearchParams, useLocation, useNavigate } from "react-router-dom";
-import { format, isToday, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from "date-fns";
+import { format, isToday, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useAgendaEvents, AgendaEvent } from "@/hooks/useAgendaEvents";
 
-import { useAgendaEvents, EventType, EventStatus, AgendaEvent } from "@/hooks/useAgendaEvents";
-
-const getTypeColor = (type: string) => {
-  switch (type) {
-    case "audiencia": return "bg-red-100 text-red-800 border-red-200";
-    case "reuniao": return "bg-blue-100 text-blue-800 border-blue-200";
-    case "prazo": return "bg-orange-100 text-orange-800 border-orange-200";
-    case "tarefa": return "bg-green-100 text-green-800 border-green-200";
-    default: return "bg-gray-100 text-gray-800 border-gray-200";
-  }
+const typeMeta: Record<string, { label: string; icon: React.ElementType; color: string; bg: string }> = {
+  audiencia: { label: "Audiência", icon: Users, color: "text-orange-500", bg: "bg-orange-500/10" },
+  prazo:     { label: "Prazo", icon: AlertCircle, color: "text-rose-500", bg: "bg-rose-500/10" },
+  reuniao:   { label: "Reunião", icon: Calendar, color: "text-blue-500", bg: "bg-blue-500/10" },
+  tarefa:    { label: "Tarefa", icon: CalendarCheck, color: "text-purple-500", bg: "bg-purple-500/10" },
 };
 
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case "confirmado":
-    case "concluido": return "bg-green-100 text-green-800";
-    case "pendente": return "bg-yellow-100 text-yellow-800";
-    case "cancelado": return "bg-red-100 text-red-800";
-    default: return "bg-gray-100 text-gray-800";
-  }
-};
+const statusColor = (s: string) =>
+  s === "confirmado" || s === "concluido" ? "text-emerald-600 bg-emerald-500/10" :
+  s === "cancelado" ? "text-rose-600 bg-rose-500/10" :
+  "text-amber-600 bg-amber-500/10";
 
-const getTypeIcon = (type: string) => {
-  switch (type) {
-    case "audiencia": return <Users className="h-4 w-4" />;
-    case "reuniao": return <Calendar className="h-4 w-4" />;
-    case "prazo": return <AlertCircle className="h-4 w-4" />;
-    case "tarefa": return <CalendarCheck className="h-4 w-4" />;
-    default: return <Calendar className="h-4 w-4" />;
-  }
-};
+function StatCard({ icon: Icon, label, value, color, bg }: { icon: React.ElementType; label: string; value: number; color: string; bg: string }) {
+  return (
+    <div className="flex items-center gap-3 p-4 rounded-2xl border border-black/5 dark:border-border bg-card/40">
+      <div className={cn("p-2.5 rounded-xl shrink-0", bg)}><Icon className={cn("h-5 w-5", color)} /></div>
+      <div className="min-w-0">
+        <p className="text-2xl font-black leading-none">{value}</p>
+        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mt-1">{label}</p>
+      </div>
+    </div>
+  );
+}
 
 export default function Agenda() {
-  const { toast } = useToast();
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [novoCompromissoOpen, setNovoCompromissoOpen] = useState(false);
+  const [novoOpen, setNovoOpen] = useState(false);
   const [selectedDateForNew, setSelectedDateForNew] = useState<Date>(new Date());
-  const [selectedEvent, setSelectedEvent] = useState<AgendaEvent | null>(null);
   const [currentViewMonth, setCurrentViewMonth] = useState(new Date());
+  const [typeFilter, setTypeFilter] = useState<string>("todos");
 
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Hook de Dados Reais
-  const { events, loading, getEventsForDay } = useAgendaEvents(currentViewMonth);
+  const { events, loading, getEventsForDay, refresh } = useAgendaEvents(currentViewMonth);
 
-  // Busca global: vai para o mês do evento (?date) e destaca o item (?openId)
+  // Busca global: vai ao mês do evento (?date) e destaca (?openId)
   useEffect(() => {
     const dateStr = searchParams.get("date");
     if (dateStr) setCurrentViewMonth(new Date(dateStr));
@@ -86,375 +69,165 @@ export default function Agenda() {
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, events, location.search]);
-  
-  const todayEvents = getEventsForDay(new Date());
-  const multiSelect = useMultiSelect<AgendaEvent>(todayEvents);
 
-  // Callback para quando o mês muda no calendário
-  const handleMonthChange = React.useCallback((date: Date) => {
-    setCurrentViewMonth(date);
-  }, []);
+  const handleMonthChange = useCallback((date: Date) => setCurrentViewMonth(date), []);
 
-  // Preparar dados para o calendário por dia (necessário para o componente FullScreenCalendar)
-  const currentMonthData = React.useMemo(() => {
-    const startM = startOfMonth(currentViewMonth);
-    const endM = endOfMonth(currentViewMonth);
-    const daysInMonth = eachDayOfInterval({ start: startM, end: endM });
+  const filteredEvents = useMemo(
+    () => (typeFilter === "todos" ? events : events.filter(e => e.type === typeFilter)),
+    [events, typeFilter]
+  );
 
-    return daysInMonth.map(day => ({
-      day,
-      events: getEventsForDay(day)
-    }));
-  }, [currentViewMonth, events]);
+  const monthData = useMemo(() => {
+    const days = eachDayOfInterval({ start: startOfMonth(currentViewMonth), end: endOfMonth(currentViewMonth) });
+    return days.map(day => ({ day, events: filteredEvents.filter(e => isSameDay(new Date(e.datetime), day)) }));
+  }, [currentViewMonth, filteredEvents]);
 
-  const handleDeleteSelected = () => {
-    const selectedItems = multiSelect.getSelectedItems();
-    const pastEvents = selectedItems.filter(event => {
-      const eventDate = new Date();
-      eventDate.setHours(parseInt(event.time.split(':')[0]), parseInt(event.time.split(':')[1]));
-      return eventDate < new Date();
-    });
-    
-    if (pastEvents.length > 0) {
-      toast({
-        title: "Não é possível excluir",
-        description: "Eventos passados não podem ser excluídos.",
-        variant: "destructive",
-      });
-      return;
+  // Próximos: a partir de hoje, ordenados
+  const proximos = useMemo(() => {
+    const now = new Date(); now.setHours(0, 0, 0, 0);
+    return filteredEvents.filter(e => new Date(e.datetime) >= now);
+  }, [filteredEvents]);
+
+  // Agrupar próximos por dia
+  const proximosPorDia = useMemo(() => {
+    const map: Record<string, AgendaEvent[]> = {};
+    for (const e of proximos) {
+      const k = format(new Date(e.datetime), "yyyy-MM-dd");
+      (map[k] ||= []).push(e);
     }
-    setDeleteDialogOpen(true);
+    return Object.entries(map).sort(([a], [b]) => a.localeCompare(b));
+  }, [proximos]);
+
+  const stats = useMemo(() => {
+    const today = new Date();
+    const in7 = new Date(Date.now() + 7 * 86400000);
+    return {
+      hoje: events.filter(e => isSameDay(new Date(e.datetime), today)).length,
+      semana: events.filter(e => { const d = new Date(e.datetime); return d >= today && d <= in7; }).length,
+      audiencias: events.filter(e => e.type === "audiencia").length,
+      prazos: events.filter(e => e.type === "prazo").length,
+    };
+  }, [events]);
+
+  const goToSource = (e: AgendaEvent) => {
+    if (e.type === "audiencia") navigate(`/audiencias?openId=${e.id}&date=${encodeURIComponent(e.datetime)}`);
+    else if (e.type === "prazo") navigate(`/prazos?openId=${e.id}`);
+    else if (e.type === "tarefa") navigate(`/tarefas?openId=${e.id}`);
+    else navigate("/atendimentos");
   };
 
-  const handleConfirmDelete = async () => {
-    setIsDeleting(true);
-    try {
-      const selectedItems = multiSelect.getSelectedItems();
-      const selectedIds = selectedItems.map(item => item.id);
-      
-      setAgendaData(prev => {
-        const newData = [...prev];
-        const todayIndex = newData.findIndex(day => isSameDay(day.day, today));
-        if (todayIndex !== -1) {
-          newData[todayIndex].events = newData[todayIndex].events.filter(event => !selectedIds.includes(event.id));
-        }
-        return newData;
-      });
-      
-      toast({
-        title: "Compromissos excluídos",
-        description: `${selectedItems.length} compromisso(s) foram excluído(s) com sucesso.`,
-      });
-      multiSelect.clearSelection();
-    } catch (error) {
-      toast({
-        title: "Erro ao excluir",
-        description: "Ocorreu um erro ao excluir os compromissos.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsDeleting(false);
-      setDeleteDialogOpen(false);
-    }
+  const handleNewEvent = (date: Date) => { setSelectedDateForNew(date); setNovoOpen(true); };
+
+  const EventRow = ({ e }: { e: AgendaEvent }) => {
+    const m = typeMeta[e.type] || typeMeta.reuniao;
+    return (
+      <button id={`item-${e.id}`} onClick={() => goToSource(e)}
+        className="w-full flex items-center gap-3 p-3 rounded-xl border border-black/5 dark:border-border bg-card/40 hover:shadow-md hover:border-black/10 dark:hover:border-white/15 transition-all text-left group">
+        <div className={cn("p-2 rounded-lg shrink-0", m.bg)}><m.icon className={cn("h-4 w-4", m.color)} /></div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{e.name}</p>
+          <div className="flex flex-wrap items-center gap-x-3 text-[11px] text-muted-foreground font-medium mt-0.5">
+            <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{e.time}</span>
+            {e.client && <span className="truncate">{e.client}</span>}
+            {e.location && <span className="flex items-center gap-1 truncate"><MapPin className="h-3 w-3 shrink-0" />{e.location}</span>}
+          </div>
+        </div>
+        <Badge variant="outline" className={cn("shrink-0 rounded-lg text-[9px] font-black uppercase tracking-widest px-2 py-0.5", m.color, m.bg)}>{m.label}</Badge>
+        <ArrowRight className="h-4 w-4 text-muted-foreground/20 group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
+      </button>
+    );
   };
 
-  const handleEventClick = (event: AgendaEvent) => {
-    setSelectedEvent(event);
-    toast({
-      title: event.name,
-      description: `${event.time} - ${event.client}`,
-    });
-  };
-
-  const handleNewEvent = (date: Date) => {
-    setSelectedDateForNew(date);
-    setNovoCompromissoOpen(true);
-  };
-
-  const todayDate = new Date();
-  const todayEventsCount = getEventsForDay(todayDate).length;
-  const weekEventsCount = events.length;
-  const audienciasCount = events.filter(c => c.type === 'audiencia').length;
-  const reunioesCount = events.filter(c => c.type === 'reuniao').length;
+  const typeChips = [
+    { value: "todos", label: "Todos" },
+    { value: "audiencia", label: "Audiências" },
+    { value: "prazo", label: "Prazos" },
+    { value: "reuniao", label: "Reuniões" },
+    { value: "tarefa", label: "Tarefas" },
+  ];
 
   return (
-    <div className="flex flex-col h-full entry-animate">
-      <div className="p-8 border-b border-black/5 dark:border-border bg-background/50">
-        <div className="max-w-7xl mx-auto space-y-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-            <div className="space-y-2">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-primary/10">
-                  <Calendar className="h-6 w-6 md:h-8 md:w-8 text-primary" />
-                </div>
-                <h1 className="text-3xl md:text-5xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/60 drop-shadow-sm">
-                  Agenda Estratégica
-                </h1>
-              </div>
-              <p className="text-sm md:text-lg text-muted-foreground font-medium max-w-2xl">
-                Gerencie seus compromissos, audiências e prazos com visão 360º.
-              </p>
-            </div>
-            <div className="flex items-center gap-3 glass-morphism p-2 rounded-2xl shadow-premium">
-              {!multiSelect.isNoneSelected && (
-                <Button
-                  variant="destructive"
-                  onClick={handleDeleteSelected}
-                  className="rounded-xl h-12 px-6 font-bold uppercase text-xs tracking-widest shadow-lg shadow-rose-500/20"
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Excluir ({multiSelect.selectedCount})
-                </Button>
-              )}
-              <Button 
-                onClick={() => handleNewEvent(new Date())} 
-                size="lg" 
-                className="rounded-xl shadow-premium h-12 px-8 font-black uppercase text-xs tracking-widest bg-primary hover:bg-primary/90"
-              >
-                <Plus className="h-5 w-5 mr-2" />
-                Novo Compromisso
-              </Button>
-            </div>
-        </div>
-      </div>
-    </div>
-
-      <div className="flex-1 flex overflow-hidden">
-        <Tabs defaultValue="calendar" className="flex-1 flex flex-col">
-          <div className="border-b border-black/5 dark:border-border px-8 bg-black/[0.02] dark:bg-white/[0.02] backdrop-blur-sm">
-            <TabsList className="h-14 w-fit gap-2 bg-transparent border-none">
-              <TabsTrigger value="calendar" className="rounded-xl px-8 h-10 font-bold uppercase text-[10px] tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-premium transition-all">Calendário</TabsTrigger>
-              <TabsTrigger value="list" className="rounded-xl px-8 h-10 font-bold uppercase text-[10px] tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-premium transition-all">Lista Diária</TabsTrigger>
-              <TabsTrigger value="agenda" className="rounded-xl px-8 h-10 font-bold uppercase text-[10px] tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-premium transition-all">Visão Expandida</TabsTrigger>
-            </TabsList>
+    <div className="flex-1 p-4 md:p-6 space-y-5 overflow-x-hidden">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-primary/10 text-primary border border-primary/20"><Calendar className="h-5 w-5" /></div>
+          <div>
+            <h1 className="text-2xl font-black tracking-tight">Agenda</h1>
+            <p className="text-sm text-muted-foreground">Audiências, prazos, reuniões e tarefas em um só lugar.</p>
           </div>
-
-          <TabsContent value="calendar" className="flex-1 m-0 overflow-auto">
-            <FullScreenCalendar 
-              data={currentMonthData}
-              onEventClick={handleEventClick}
-              onNewEvent={handleNewEvent}
-              onMonthChange={handleMonthChange}
-            />
-          </TabsContent>
-
-          <TabsContent value="list" className="flex-1 p-8 overflow-auto">
-            <div className="max-w-7xl mx-auto">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <Card className="glass-card border-black/5 dark:border-border rounded-[2rem] overflow-hidden">
-                  <CardHeader className="p-8 pb-4">
-                    <CardTitle className="text-xl font-black">Hoje - {format(new Date(), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}</CardTitle>
-                    <CardDescription className="font-medium">Seus compromissos de hoje</CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-8 pt-0 space-y-4">
-                                         {todayEvents.length > 0 && (
-                      <div className="flex items-center justify-between p-4 bg-black/[0.03] dark:bg-white/[0.03] border border-black/5 dark:border-border rounded-[1.5rem] mb-6">
-                        <div className="flex items-center gap-3">
-                          <Checkbox
-                            checked={multiSelect.isAllSelected}
-                            onCheckedChange={() => 
-                              multiSelect.isAllSelected ? multiSelect.clearSelection() : multiSelect.selectAll()
-                            }
-                            className="rounded-md border-black/10 dark:border-border"
-                          />
-                          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
-                            {multiSelect.selectedCount > 0 ? (
-                                                              `${multiSelect.selectedCount} de ${todayEvents.length} selecionados`
-                            ) : (
-                              "Selecionar todos"
-                            )}
-                          </span>
-                        </div>
-                        {multiSelect.selectedCount > 0 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={multiSelect.clearSelection}
-                            className="rounded-xl h-8 text-[10px] font-black uppercase tracking-widest hover:bg-black/5 dark:hover:bg-muted/30"
-                          >
-                            Limpar seleção
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                                         {todayEvents.map((event) => (
-                      <div key={event.id} id={`item-${event.id}`} className={cn(
-                        "flex items-start space-x-4 p-5 rounded-[1.5rem] border transition-all duration-300 group",
-                        multiSelect.isSelected(event.id) 
-                          ? "bg-primary/[0.03] border-primary/20 ring-2 ring-primary/10" 
-                          : "bg-black/[0.01] dark:bg-white/[0.01] border-black/5 dark:border-border hover:border-primary/20"
-                      )}>
-                        <Checkbox
-                          checked={multiSelect.isSelected(event.id)}
-                          onCheckedChange={() => multiSelect.toggleItem(event.id)}
-                          className="mt-1 rounded-md border-black/10 dark:border-border"
-                        />
-                        <div className="flex-1 space-y-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <div className={cn("p-2 rounded-lg", getTypeColor(event.type).split(' ')[0].replace('100', '10'))}>
-                                {getTypeIcon(event.type)}
-                              </div>
-                              <div className="text-sm font-black text-primary uppercase tracking-tighter">
-                                {event.time}
-                              </div>
-                            </div>
-                            <Badge className={cn("rounded-lg px-3 py-1 text-[10px] font-black uppercase tracking-widest", getStatusColor(event.status))}>
-                              {event.status}
-                            </Badge>
-                          </div>
-                          
-                          <div>
-                            <div className="font-black text-base text-foreground group-hover:text-primary transition-colors">{event.name}</div>
-                            <div className="text-xs font-bold text-muted-foreground/60">{event.client}</div>
-                          </div>
-                          
-                          <div className="flex items-center justify-between pt-2 border-t border-black/5 dark:border-border">
-                            <div className="flex items-center text-[10px] font-bold text-muted-foreground/40 uppercase tracking-widest">
-                              <MapPin className="h-3 w-3 mr-1.5 text-primary/40" />
-                              {event.location || 'Local não definido'}
-                            </div>
-                            <Badge variant="outline" className={cn("rounded-md text-[9px] font-black uppercase tracking-tighter border-black/5 dark:border-border", getTypeColor(event.type))}>
-                              {event.type}
-                            </Badge>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                                         {todayEvents.length === 0 && (
-                      <div className="flex flex-col items-center justify-center py-16 text-center space-y-4">
-                        <div className="p-4 rounded-full bg-primary/5 border border-primary/10">
-                          <Calendar className="h-10 w-10 text-primary/30" />
-                        </div>
-                        <div className="space-y-1">
-                          <p className="font-bold text-foreground">Agenda livre hoje</p>
-                          <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-                            Aproveite para organizar suas tarefas ou colocar a leitura em dia.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card className="glass-card border-black/5 dark:border-border rounded-[2rem] overflow-hidden">
-                  <CardHeader className="p-8 pb-4">
-                    <CardTitle className="text-xl font-black">Próximos Compromissos</CardTitle>
-                    <CardDescription className="font-medium">Agenda da próxima semana</CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-8 pt-0 space-y-3">
-                    {events.slice(0, 10).map((compromisso) => (
-                      <div key={compromisso.id} id={`item-${compromisso.id}`} className="flex items-center justify-between p-4 rounded-2xl border border-black/5 dark:border-border bg-black/[0.01] dark:bg-white/[0.01] hover:bg-primary/[0.03] transition-all group cursor-pointer" onClick={() => handleEventClick(compromisso)}>
-                        <div className="flex items-center gap-4">
-                          <div className={cn("p-2.5 rounded-xl transition-colors group-hover:bg-primary/10", getTypeColor(compromisso.type).split(' ')[0].replace('100', '10'))}>
-                            {getTypeIcon(compromisso.type)}
-                          </div>
-                          <div>
-                            <div className="font-black text-sm text-foreground group-hover:text-primary transition-colors">{compromisso.name}</div>
-                            <div className="text-[10px] font-bold text-muted-foreground/60">{compromisso.client}</div>
-                            <div className="text-[9px] font-black uppercase tracking-widest text-primary/40 mt-1">
-                              {format(new Date(compromisso.datetime), "d 'de' MMM", { locale: ptBR })} • {compromisso.time}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-1.5">
-                          <Badge className={cn("rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-tighter", getStatusColor(compromisso.status))}>
-                            {compromisso.status}
-                          </Badge>
-                          <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-tighter border-black/5 dark:border-border", getTypeColor(compromisso.type))}>
-                            {compromisso.type}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="agenda" className="flex-1 p-8 overflow-auto">
-            <div className="max-w-4xl mx-auto">
-              <Card className="glass-card border-black/5 dark:border-border rounded-[2rem] overflow-hidden">
-                <CardHeader className="p-8 pb-4">
-                  <CardTitle className="text-xl font-black">Agenda Completa</CardTitle>
-                  <CardDescription className="font-medium">Visão detalhada de todos os compromissos</CardDescription>
-                </CardHeader>
-                <CardContent className="p-8 pt-0">
-                  <div className="space-y-10">
-                    {currentMonthData.map((day, index) => (
-                      <div key={index} className="border-l-2 border-primary/20 pl-6 py-2">
-                        <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-primary mb-6 flex items-center gap-3">
-                          <span className="w-2 h-2 rounded-full bg-primary" />
-                          {format(day.day, "EEEE, d 'de' MMMM", { locale: ptBR })}
-                          {isToday(day.day) && (
-                            <Badge className="ml-2 bg-primary text-primary-foreground font-black text-[9px] px-2 py-0.5 rounded-full uppercase tracking-widest">Hoje</Badge>
-                          )}
-                        </h3>
-                        <div className="space-y-4">
-                          {day.events.map((event) => (
-                            <div 
-                              key={event.id} 
-                              className="flex items-center gap-5 p-5 bg-black/[0.01] dark:bg-white/[0.01] border border-black/5 dark:border-border rounded-[1.5rem] hover:shadow-xl hover:shadow-primary/5 hover:border-primary/20 transition-all cursor-pointer group"
-                              onClick={() => handleEventClick(event)}
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className={cn("p-2 rounded-xl group-hover:bg-primary/10 transition-colors", getTypeColor(event.type).split(' ')[0].replace('100', '10'))}>
-                                  {getTypeIcon(event.type)}
-                                </div>
-                                <span className="text-sm font-black text-primary uppercase tracking-tighter">{event.time}</span>
-                              </div>
-                              <div className="flex-1">
-                                <div className="font-black text-base text-foreground group-hover:text-primary transition-colors">{event.name}</div>
-                                <div className="text-xs font-bold text-muted-foreground/60">{event.client}</div>
-                                {event.location && (
-                                  <div className="flex items-center text-[10px] font-bold text-muted-foreground/40 uppercase tracking-widest mt-2">
-                                    <MapPin className="h-3 w-3 mr-1.5 text-primary/40" />
-                                    {event.location}
-                                  </div>
-                                )}
-                              </div>
-                              <div className="flex flex-col items-end gap-1.5">
-                                <Badge className={cn("rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-tighter", getStatusColor(event.status))}>
-                                  {event.status}
-                                </Badge>
-                                <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-tighter border-black/5 dark:border-border", getTypeColor(event.type))}>
-                                  {event.type}
-                                </Badge>
-                              </div>
-                            </div>
-                          ))}
-                          {day.events.length === 0 && (
-                            <p className="text-[10px] font-bold text-muted-foreground/30 uppercase tracking-widest pl-10 italic">
-                              Sem compromissos
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-        </Tabs>
+        </div>
+        <Button onClick={() => handleNewEvent(new Date())} className="rounded-xl h-10 gap-2 font-bold shadow-sm">
+          <Plus className="h-4 w-4" /> Novo Compromisso
+        </Button>
       </div>
 
-      <DeleteConfirmDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        onConfirm={handleConfirmDelete}
-        title="Excluir Compromissos"
-        description={`Tem certeza que deseja excluir ${multiSelect.selectedCount} compromisso(s)? Esta ação não pode ser desfeita.`}
-        isLoading={isDeleting}
-      />
-      
-      <NovoCompromissoDialog
-        open={novoCompromissoOpen}
-        onOpenChange={setNovoCompromissoOpen}
-        selectedDate={selectedDateForNew}
-      />
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+        <StatCard icon={Calendar} label="Hoje" value={stats.hoje} color="text-primary" bg="bg-primary/10" />
+        <StatCard icon={CalendarClock} label="Próximos 7 dias" value={stats.semana} color="text-blue-500" bg="bg-blue-500/10" />
+        <StatCard icon={Users} label="Audiências no mês" value={stats.audiencias} color="text-orange-500" bg="bg-orange-500/10" />
+        <StatCard icon={AlertCircle} label="Prazos no mês" value={stats.prazos} color="text-rose-500" bg="bg-rose-500/10" />
+      </div>
+
+      {/* Filtro por tipo */}
+      <div className="flex flex-wrap gap-2">
+        {typeChips.map(c => (
+          <button key={c.value} onClick={() => setTypeFilter(c.value)}
+            className={cn(
+              "px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border",
+              typeFilter === c.value ? "bg-primary text-primary-foreground border-primary" : "bg-card/40 border-black/5 dark:border-border hover:border-black/10 dark:hover:border-white/15"
+            )}>
+            {c.label}
+          </button>
+        ))}
+      </div>
+
+      <Tabs defaultValue="lista" className="space-y-4">
+        <TabsList className="rounded-xl bg-card/40 border border-black/5 dark:border-border p-1 h-auto">
+          <TabsTrigger value="lista" className="rounded-lg px-6 py-2 text-xs font-black uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Lista</TabsTrigger>
+          <TabsTrigger value="calendario" className="rounded-lg px-6 py-2 text-xs font-black uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Calendário</TabsTrigger>
+        </TabsList>
+
+        {/* LISTA */}
+        <TabsContent value="lista" className="space-y-5">
+          {loading ? (
+            <div className="space-y-2.5">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-16 rounded-xl bg-black/[0.03] dark:bg-muted/20 animate-pulse" />)}</div>
+          ) : proximosPorDia.length === 0 ? (
+            <div className="flex flex-col items-center justify-center text-center py-20 gap-4">
+              <div className="p-5 rounded-full bg-primary/10 text-primary"><Calendar className="h-10 w-10 opacity-70" /></div>
+              <div>
+                <p className="font-black text-lg">Agenda livre</p>
+                <p className="text-sm text-muted-foreground mt-1">Nenhum compromisso futuro {typeFilter !== "todos" ? "deste tipo " : ""}neste mês.</p>
+              </div>
+              <Button onClick={() => handleNewEvent(new Date())} className="rounded-xl gap-2 font-bold"><Plus className="h-4 w-4" /> Novo Compromisso</Button>
+            </div>
+          ) : (
+            proximosPorDia.map(([dayKey, items]) => {
+              const d = parseISO(dayKey);
+              return (
+                <div key={dayKey} className="space-y-2">
+                  <p className={cn("text-[10px] font-black uppercase tracking-widest px-1 flex items-center gap-2", isToday(d) ? "text-primary" : "text-muted-foreground/50")}>
+                    {format(d, "EEEE, dd 'de' MMMM", { locale: ptBR })}
+                    {isToday(d) && <Badge className="bg-primary text-primary-foreground text-[8px] px-1.5 py-0 rounded-full uppercase">Hoje</Badge>}
+                    <span className="text-muted-foreground/30">·</span><span className="opacity-70">{items.length}</span>
+                  </p>
+                  <div className="space-y-2">{items.map(e => <EventRow key={e.id} e={e} />)}</div>
+                </div>
+              );
+            })
+          )}
+        </TabsContent>
+
+        {/* CALENDÁRIO */}
+        <TabsContent value="calendario" className="m-0">
+          <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 overflow-hidden">
+            <FullScreenCalendar data={monthData} onEventClick={goToSource} onNewEvent={handleNewEvent} onMonthChange={handleMonthChange} />
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      <NovoCompromissoDialog open={novoOpen} onOpenChange={setNovoOpen} selectedDate={selectedDateForNew} onCreated={refresh} />
     </div>
   );
 }
-

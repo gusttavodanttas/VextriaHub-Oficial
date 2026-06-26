@@ -20,6 +20,7 @@ interface NovoCompromissoDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedDate?: Date;
+  onCreated?: () => void;
 }
 
 interface FormData {
@@ -38,7 +39,6 @@ const tipos = [
   { value: "reuniao", label: "Reunião" },
   { value: "audiencia", label: "Audiência" },
   { value: "consulta", label: "Consulta" },
-  { value: "prazo", label: "Prazo" },
   { value: "outro", label: "Outro" }
 ];
 
@@ -51,7 +51,8 @@ const statusOptions = [
 export const NovoCompromissoDialog: React.FC<NovoCompromissoDialogProps> = ({
   open,
   onOpenChange,
-  selectedDate
+  selectedDate,
+  onCreated
 }) => {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -147,6 +148,7 @@ export const NovoCompromissoDialog: React.FC<NovoCompromissoDialogProps> = ({
         status: "agendado"
       });
 
+      onCreated?.();
       onOpenChange(false);
     } catch (err) {
       console.error('Erro ao salvar compromisso:', err);

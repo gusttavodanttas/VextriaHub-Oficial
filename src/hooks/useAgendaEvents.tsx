@@ -49,14 +49,13 @@ export const useAgendaEvents = (targetDate: Date) => {
         .lte("data_audiencia", end.toISOString())
         .eq("deletado", false);
 
-      // 2. Buscar Prazos
+      // 2. Buscar Prazos (schema real: data_fim_prazo, sem deletado; título vem da publicação)
       const { data: prazos, error: praError } = await supabase
         .from("prazos")
-        .select("*, processos(titulo)")
+        .select("*, publicacoes(titulo)")
         .eq("office_id", user.office_id)
-        .gte("data_vencimento", start.toISOString())
-        .lte("data_vencimento", end.toISOString())
-        .eq("deletado", false);
+        .gte("data_fim_prazo", format(start, "yyyy-MM-dd"))
+        .lte("data_fim_prazo", format(end, "yyyy-MM-dd"));
 
       // 3. Buscar Atendimentos (Reuniões)
       const { data: atendimentos, error: ateError } = await supabase
@@ -91,15 +90,15 @@ export const useAgendaEvents = (targetDate: Date) => {
           location: a.local || 'Local não informado',
           status: (a.status as EventStatus) || 'pendente'
         })),
-        ...(prazos || []).map(p => ({
+        ...(prazos || []).map((p: any) => ({
           id: p.id,
-          name: p.titulo,
-          time: format(new Date(p.data_vencimento), 'HH:mm'),
-          datetime: p.data_vencimento,
+          name: p.publicacoes?.titulo || p.tipo_prazo || p.numero_processo || 'Prazo',
+          time: '—',
+          datetime: `${p.data_fim_prazo}T12:00:00`,
           type: 'prazo' as const,
-          client: (p as any).processos?.titulo || 'Processo não informado',
+          client: p.numero_processo || 'Prazo processual',
           location: 'Digital',
-          status: (p.status as EventStatus) || 'pendente'
+          status: 'pendente' as const
         })),
         ...(atendimentos || []).map(ate => ({
           id: ate.id,
