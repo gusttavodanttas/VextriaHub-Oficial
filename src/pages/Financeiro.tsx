@@ -99,15 +99,17 @@ const CATEGORIAS = [
   "Outros",
 ];
 
+const NONE = "__none__";
+
 const defaultForm = (tipo: TipoType = "receita"): FormState => ({
   tipo,
   descricao: "",
   valor: "",
   data_vencimento: format(new Date(), "yyyy-MM-dd"),
   status: "pendente",
-  categoria: "",
-  cliente_id: "",
-  processo_id: "",
+  categoria: NONE,
+  cliente_id: NONE,
+  processo_id: NONE,
 });
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
@@ -248,7 +250,7 @@ const FormDialog: React.FC<FormDialogProps> = ({
 
   const { data: processos = [] } = useQuery<ProcessoOption[]>({
     queryKey: ["processos-select", officeId, form.cliente_id],
-    enabled: !!officeId && !!form.cliente_id,
+    enabled: !!officeId && !!form.cliente_id && form.cliente_id !== NONE,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("processos")
@@ -265,6 +267,7 @@ const FormDialog: React.FC<FormDialogProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const n = (v: string) => (v === NONE || v === "" ? null : v);
     const payload = {
       tipo: form.tipo,
       descricao: form.descricao,
@@ -272,9 +275,9 @@ const FormDialog: React.FC<FormDialogProps> = ({
       data_vencimento: form.data_vencimento,
       data_pagamento: form.status === "pago" ? format(new Date(), "yyyy-MM-dd") : null,
       status: form.status,
-      categoria: form.categoria || null,
-      cliente_id: form.cliente_id || null,
-      processo_id: form.processo_id || null,
+      categoria: n(form.categoria),
+      cliente_id: n(form.cliente_id),
+      processo_id: n(form.processo_id),
       user_id: userId,
       office_id: officeId,
     };
@@ -391,12 +394,12 @@ const FormDialog: React.FC<FormDialogProps> = ({
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1.5 block">
                 Cliente
               </Label>
-              <Select value={form.cliente_id} onValueChange={(v) => { set("cliente_id", v); set("processo_id", ""); }}>
+              <Select value={form.cliente_id} onValueChange={(v) => { set("cliente_id", v); set("processo_id", NONE); }}>
                 <SelectTrigger className="rounded-xl">
                   <SelectValue placeholder="Selecionar cliente..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nenhum</SelectItem>
+                  <SelectItem value="__none__">Nenhum</SelectItem>
                   {clientes.map((c) => (
                     <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
                   ))}
@@ -414,7 +417,7 @@ const FormDialog: React.FC<FormDialogProps> = ({
                     <SelectValue placeholder="Selecionar processo..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhum</SelectItem>
+                    <SelectItem value="__none__">Nenhum</SelectItem>
                     {processos.map((p) => (
                       <SelectItem key={p.id} value={p.id}>{p.numero}{p.titulo ? ` — ${p.titulo}` : ""}</SelectItem>
                     ))}
@@ -676,9 +679,9 @@ const Financeiro = () => {
         valor: String(editItem.valor),
         data_vencimento: editItem.data_vencimento,
         status: editItem.status,
-        categoria: editItem.categoria ?? "",
-        cliente_id: editItem.cliente_id ?? "",
-        processo_id: editItem.processo_id ?? "",
+        categoria: editItem.categoria ?? NONE,
+        cliente_id: editItem.cliente_id ?? NONE,
+        processo_id: editItem.processo_id ?? NONE,
       }
     : defaultForm(defaultTipo);
 
