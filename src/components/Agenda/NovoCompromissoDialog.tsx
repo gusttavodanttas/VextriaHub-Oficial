@@ -73,40 +73,42 @@ interface Processo { id: string; label: string; }
 
 const ProcessoSelect: React.FC<{
   value: string;
+  clienteId: string;
   onValueChange: (id: string, label: string) => void;
-}> = ({ value, onValueChange }) => {
+}> = ({ value, clienteId, onValueChange }) => {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [processos, setProcessos] = useState<Processo[]>([]);
 
   useEffect(() => {
     if (!user?.office_id) return;
-    supabase
+    let q = supabase
       .from("processos")
-      .select("id, numero_processo, titulo")
+      .select("id, numero_processo, titulo, cliente_id")
       .eq("office_id", user.office_id)
-      .order("numero_processo")
-      .then(({ data }) => {
-        setProcessos(
-          (data || []).map((p: any) => ({
-            id: p.id,
-            label: p.numero_processo || p.titulo || p.id,
-          }))
-        );
-      });
-  }, [user]);
+      .order("numero_processo");
+    if (clienteId) q = q.eq("cliente_id", clienteId);
+    q.then(({ data }) => {
+      setProcessos(
+        (data || []).map((p: any) => ({
+          id: p.id,
+          label: p.numero_processo || p.titulo || p.id,
+        }))
+      );
+    });
+  }, [user, clienteId]);
 
   const selected = processos.find((p) => p.id === value);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal={false}>
       <PopoverTrigger asChild>
         <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-          <span className="truncate">{selected ? selected.label : "Selecionar processo..."}</span>
+          <span className="truncate">{selected ? selected.label : clienteId ? "Selecionar processo..." : "Selecione um cliente primeiro"}</span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0" align="start">
+      <PopoverContent className="w-[300px] p-0 z-[200]" align="start">
         <Command>
           <CommandInput placeholder="Buscar processo..." />
           <CommandList>
@@ -288,14 +290,14 @@ export const NovoCompromissoDialog: React.FC<NovoCompromissoDialogProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Data *</Label>
-              <Popover>
+              <Popover modal={false}>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formData.data && "text-muted-foreground")}>
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {formData.data ? format(formData.data, "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : "Selecione a data"}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
+                <PopoverContent className="w-auto p-0 z-[200]">
                   <Calendar mode="single" selected={formData.data} onSelect={(d) => set("data", d)} locale={ptBR} initialFocus />
                 </PopoverContent>
               </Popover>
@@ -325,13 +327,16 @@ export const NovoCompromissoDialog: React.FC<NovoCompromissoDialogProps> = ({
               <Label>Cliente</Label>
               <ClientSelect
                 value={formData.cliente_id}
-                onValueChange={(id, name) => { set("cliente_id", id); set("cliente_nome", name); }}
+                onValueChange={(id, name) => {
+                  setFormData((prev) => ({ ...prev, cliente_id: id, cliente_nome: name, processo_id: "", processo_label: "" }));
+                }}
               />
             </div>
             <div className="space-y-2">
               <Label>Processo</Label>
               <ProcessoSelect
                 value={formData.processo_id}
+                clienteId={formData.cliente_id}
                 onValueChange={(id, label) => { set("processo_id", id); set("processo_label", label); }}
               />
             </div>
