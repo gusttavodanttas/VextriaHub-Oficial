@@ -765,10 +765,10 @@ const Financeiro = () => {
             <Button size="icon" variant="ghost" className="h-11 w-11 rounded-xl" onClick={() => setCatDialogOpen(true)} title="Gerenciar categorias">
               <Settings2 className="h-5 w-5 text-muted-foreground" />
             </Button>
-            <Button size="lg" variant="outline"
-              className="rounded-xl h-11 px-5 font-black uppercase text-xs tracking-widest"
+            <Button size="lg"
+              className="rounded-xl h-11 px-5 font-black uppercase text-xs tracking-widest bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20"
               onClick={() => openNew("despesa")}>
-              <TrendingDown className="mr-2 h-4 w-4 text-orange-500" />Nova Despesa
+              <TrendingDown className="mr-2 h-4 w-4" />Nova Despesa
             </Button>
             <Button size="lg"
               className="rounded-xl h-11 px-7 font-black uppercase text-xs tracking-widest bg-primary hover:bg-primary/90 shadow-premium"
