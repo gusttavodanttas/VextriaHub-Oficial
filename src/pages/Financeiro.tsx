@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -228,10 +228,9 @@ const FormDialog: React.FC<FormDialogProps> = ({
 }) => {
   const [form, setForm] = useState<FormState>(initial);
 
-  // Sync when dialog opens with new initial
-  useState(() => {
+  useEffect(() => {
     setForm(initial);
-  });
+  }, [open]);
 
   const { data: clientes = [] } = useQuery<ClienteOption[]>({
     queryKey: ["clientes-select", officeId],
@@ -253,11 +252,11 @@ const FormDialog: React.FC<FormDialogProps> = ({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("processos")
-        .select("id, numero, titulo")
+        .select("id, numero_processo, titulo")
         .eq("office_id", officeId)
         .eq("cliente_id", form.cliente_id);
       if (error) throw error;
-      return (data ?? []) as ProcessoOption[];
+      return (data ?? []).map((p: any) => ({ id: p.id, numero: p.numero_processo, titulo: p.titulo })) as ProcessoOption[];
     },
   });
 
