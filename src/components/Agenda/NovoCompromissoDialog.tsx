@@ -69,7 +69,7 @@ const emptyForm = (date?: Date): FormData => ({
   status: "agendado"
 });
 
-interface Processo { id: string; label: string; }
+interface Processo { id: string; label: string; sub?: string; }
 
 const ProcessoSelect: React.FC<{
   value: string;
@@ -92,7 +92,8 @@ const ProcessoSelect: React.FC<{
       setProcessos(
         (data || []).map((p: any) => ({
           id: p.id,
-          label: p.numero_processo || p.titulo || p.id,
+          label: p.titulo || p.numero_processo || p.id,
+          sub: p.numero_processo,
         }))
       );
     });
@@ -122,8 +123,11 @@ const ProcessoSelect: React.FC<{
               )}
               {processos.map((p) => (
                 <CommandItem key={p.id} value={p.label} onSelect={() => { onValueChange(p.id, p.label); setOpen(false); }}>
-                  <Check className={cn("mr-2 h-4 w-4", value === p.id ? "opacity-100" : "opacity-0")} />
-                  {p.label}
+                  <Check className={cn("mr-2 h-4 w-4 shrink-0", value === p.id ? "opacity-100" : "opacity-0")} />
+                  <div className="flex flex-col min-w-0">
+                    <span className="truncate">{p.label}</span>
+                    {p.sub && <span className="text-xs text-muted-foreground truncate">{p.sub}</span>}
+                  </div>
                 </CommandItem>
               ))}
             </CommandGroup>
