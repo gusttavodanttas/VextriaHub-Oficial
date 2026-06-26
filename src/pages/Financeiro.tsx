@@ -591,18 +591,40 @@ const LoadingSkeleton = () => (
   </div>
 );
 
-// ─── Helpers para localStorage de categorias ──────────────────────────────────
+// ─── Hook de categorias (persiste em offices.settings no Supabase) ───────────
 
-const loadCategorias = (officeId: string, tipo: "receita" | "despesa"): string[] => {
-  try {
-    const raw = localStorage.getItem(`fin_cat_${tipo}_${officeId}`);
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return tipo === "receita" ? DEFAULT_CATEGORIAS_RECEITA : DEFAULT_CATEGORIAS_DESPESA;
-};
+const useFinanceiroCategorias = (officeId: string) => {
+  const queryClient = useQueryClient();
 
-const saveCategorias = (officeId: string, tipo: "receita" | "despesa", cats: string[]) => {
-  try { localStorage.setItem(`fin_cat_${tipo}_${officeId}`, JSON.stringify(cats)); } catch {}
+  const { data } = useQuery({
+    queryKey: ["office-settings", officeId],
+    enabled: !!officeId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("offices")
+        .select("settings")
+        .eq("id", officeId)
+        .single();
+      const s = (data?.settings as any) ?? {};
+      return {
+        receita: (s.fin_categorias_receita as string[]) ?? DEFAULT_CATEGORIAS_RECEITA,
+        despesa: (s.fin_categorias_despesa as string[]) ?? DEFAULT_CATEGORIAS_DESPESA,
+      };
+    },
+  });
+
+  const save = useCallback(async (receita: string[], despesa: string[]) => {
+    const { data: cur } = await supabase.from("offices").select("settings").eq("id", officeId).single();
+    const merged = { ...(cur?.settings as any ?? {}), fin_categorias_receita: receita, fin_categorias_despesa: despesa };
+    await supabase.from("offices").update({ settings: merged }).eq("id", officeId);
+    queryClient.invalidateQueries({ queryKey: ["office-settings", officeId] });
+  }, [officeId, queryClient]);
+
+  return {
+    categoriasReceita: data?.receita ?? DEFAULT_CATEGORIAS_RECEITA,
+    categoriasDespesa: data?.despesa ?? DEFAULT_CATEGORIAS_DESPESA,
+    save,
+  };
 };
 
 // ─── Page ────────────────────────────────────────────────────────────────────
@@ -614,21 +636,10 @@ const Financeiro = () => {
   const { query, create, update, remove, markPago } = useFinanceiro(officeId);
   const items = query.data ?? [];
 
-  // Categorias personalizadas por tipo
-  const [categoriasReceita, setCategoriasReceita] = useState<string[]>(() =>
-    officeId ? loadCategorias(officeId, "receita") : DEFAULT_CATEGORIAS_RECEITA
-  );
-  const [categoriasDespesa, setCategoriasDespesa] = useState<string[]>(() =>
-    officeId ? loadCategorias(officeId, "despesa") : DEFAULT_CATEGORIAS_DESPESA
-  );
+  const { categoriasReceita, categoriasDespesa, save: saveCategorias } = useFinanceiroCategorias(officeId);
 
-  const handleSaveCategorias = (receita: string[], despesa: string[]) => {
-    setCategoriasReceita(receita);
-    setCategoriasDespesa(despesa);
-    if (officeId) {
-      saveCategorias(officeId, "receita", receita);
-      saveCategorias(officeId, "despesa", despesa);
-    }
+  const handleSaveCategorias = async (receita: string[], despesa: string[]) => {
+    await saveCategorias(receita, despesa);
   };
 
   const [busca, setBusca] = useState("");
