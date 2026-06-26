@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, useLocation, useNavigate } from "react-router-dom";
-import { Calendar, Clock, Users, MapPin, Plus, CalendarCheck, AlertCircle, ArrowRight, CalendarClock, MessageSquare } from "lucide-react";
+import { Calendar, Clock, Users, MapPin, Plus, CalendarCheck, AlertCircle, ArrowRight, CalendarClock, MessageSquare, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NovoCompromissoDialog } from "@/components/Agenda/NovoCompromissoDialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FullScreenCalendar } from "@/components/ui/fullscreen-calendar";
@@ -42,6 +43,7 @@ export default function Agenda() {
   const [selectedDateForNew, setSelectedDateForNew] = useState<Date>(new Date());
   const [currentViewMonth, setCurrentViewMonth] = useState(new Date());
   const [typeFilter, setTypeFilter] = useState<string>("todos");
+  const [search, setSearch] = useState("");
   const [dayDetail, setDayDetail] = useState<Date | null>(null);
 
   const [searchParams] = useSearchParams();
@@ -75,10 +77,14 @@ export default function Agenda() {
 
   const handleMonthChange = useCallback((date: Date) => setCurrentViewMonth(date), []);
 
-  const filteredEvents = useMemo(
-    () => (typeFilter === "todos" ? events : events.filter(e => e.type === typeFilter)),
-    [events, typeFilter]
-  );
+  const filteredEvents = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return events.filter(e => {
+      const matchesType = typeFilter === "todos" || e.type === typeFilter;
+      const matchesSearch = !q || e.name.toLowerCase().includes(q) || (e.client || "").toLowerCase().includes(q);
+      return matchesType && matchesSearch;
+    });
+  }, [events, typeFilter, search]);
 
   const monthData = useMemo(() => {
     const days = eachDayOfInterval({ start: startOfMonth(currentViewMonth), end: endOfMonth(currentViewMonth) });
@@ -173,16 +179,37 @@ export default function Agenda() {
         <StatCard icon={AlertCircle} label="Prazos no mês" value={stats.prazos} color="text-rose-500" bg="bg-rose-500/10" />
       </div>
 
-      {/* Filtro por tipo */}
-      <div className="flex flex-wrap gap-2">
-        {typeChips.map(c => (
-          <button key={c.value} onClick={() => setTypeFilter(c.value)}
-            className={cn(
-              "px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border",
-              typeFilter === c.value ? "bg-primary text-primary-foreground border-primary" : "bg-card/40 border-black/5 dark:border-border hover:border-black/10 dark:hover:border-white/15"
-            )}>
-            {c.label}
-          </button>
+      {/* Busca + filtro por tipo */}
+      <div className="flex flex-col md:flex-row md:items-center gap-3">
+        <div className="relative md:w-72">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+          <Input placeholder="Buscar por título ou cliente..." value={search}
+            onChange={(e) => setSearch(e.target.value)} className="pl-10 h-10 rounded-xl bg-card/40 border-black/5 dark:border-border" />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {typeChips.map(c => (
+            <button key={c.value} onClick={() => setTypeFilter(c.value)}
+              className={cn(
+                "px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border",
+                typeFilter === c.value ? "bg-primary text-primary-foreground border-primary" : "bg-card/40 border-black/5 dark:border-border hover:border-black/10 dark:hover:border-white/15"
+              )}>
+              {c.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Legenda de cores */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-1">
+        {[
+          { label: "Audiências", c: "bg-orange-500" },
+          { label: "Prazos", c: "bg-rose-500" },
+          { label: "Atendimentos", c: "bg-blue-500" },
+          { label: "Tarefas", c: "bg-purple-500" },
+        ].map(l => (
+          <span key={l.label} className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground">
+            <span className={cn("h-2.5 w-2.5 rounded-full", l.c)} /> {l.label}
+          </span>
         ))}
       </div>
 
