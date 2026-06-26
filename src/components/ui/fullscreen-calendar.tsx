@@ -11,6 +11,7 @@ import {
   isSameDay,
   isSameMonth,
   isToday,
+  startOfMonth,
   startOfToday,
   startOfWeek,
 } from "date-fns"
@@ -70,7 +71,7 @@ export function FullScreenCalendar({
   const [selectedDay, setSelectedDay] = React.useState(today)
   const [currentDate, setCurrentDate] = React.useState(today)
 
-  const firstDayCurrentMonth = isValidDate(currentDate) ? currentDate : today
+  const firstDayCurrentMonth = startOfMonth(isValidDate(currentDate) ? currentDate : today)
 
   React.useEffect(() => {
     if (isValidDate(firstDayCurrentMonth)) onMonthChange?.(firstDayCurrentMonth)
