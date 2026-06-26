@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FullScreenCalendar } from "@/components/ui/fullscreen-calendar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { format, isToday, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useAgendaEvents, AgendaEvent } from "@/hooks/useAgendaEvents";
@@ -41,6 +42,7 @@ export default function Agenda() {
   const [selectedDateForNew, setSelectedDateForNew] = useState<Date>(new Date());
   const [currentViewMonth, setCurrentViewMonth] = useState(new Date());
   const [typeFilter, setTypeFilter] = useState<string>("todos");
+  const [dayDetail, setDayDetail] = useState<Date | null>(null);
 
   const [searchParams] = useSearchParams();
   const location = useLocation();
@@ -223,12 +225,49 @@ export default function Agenda() {
         {/* CALENDÁRIO */}
         <TabsContent value="calendario" className="m-0">
           <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 overflow-hidden flex flex-col min-h-[80vh]">
-            <FullScreenCalendar data={monthData} onEventClick={goToSource} onNewEvent={handleNewEvent} onMonthChange={handleMonthChange} />
+            <FullScreenCalendar data={monthData} onEventClick={goToSource} onNewEvent={handleNewEvent} onMonthChange={handleMonthChange} onDayClick={setDayDetail} />
           </div>
         </TabsContent>
       </Tabs>
 
       <NovoCompromissoDialog open={novoOpen} onOpenChange={setNovoOpen} selectedDate={selectedDateForNew} onCreated={refresh} />
+
+      {/* Detalhe do dia (ao clicar num dia / "+N mais" no calendário) */}
+      <Dialog open={!!dayDetail} onOpenChange={(o) => !o && setDayDetail(null)}>
+        <DialogContent className="max-w-lg rounded-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-black capitalize">
+              {dayDetail ? format(dayDetail, "EEEE, dd 'de' MMMM", { locale: ptBR }) : ""}
+            </DialogTitle>
+            <DialogDescription>Compromissos do dia.</DialogDescription>
+          </DialogHeader>
+          {(() => {
+            if (!dayDetail) return null;
+            const dayEvents = filteredEvents
+              .filter(e => isSameDay(new Date(e.datetime), dayDetail))
+              .sort((a, b) => a.datetime.localeCompare(b.datetime));
+            if (dayEvents.length === 0) {
+              return (
+                <div className="flex flex-col items-center text-center py-8 gap-3">
+                  <div className="p-4 rounded-full bg-primary/10 text-primary"><Calendar className="h-8 w-8 opacity-70" /></div>
+                  <p className="text-sm text-muted-foreground font-semibold">Nenhum compromisso neste dia</p>
+                  <Button onClick={() => { handleNewEvent(dayDetail); setDayDetail(null); }} className="rounded-xl gap-2 font-bold">
+                    <Plus className="h-4 w-4" /> Novo Compromisso
+                  </Button>
+                </div>
+              );
+            }
+            return (
+              <div className="space-y-2">
+                {dayEvents.map(e => <EventRow key={e.id} e={e} />)}
+                <Button variant="outline" onClick={() => { handleNewEvent(dayDetail); setDayDetail(null); }} className="w-full rounded-xl gap-2 font-bold mt-2">
+                  <Plus className="h-4 w-4" /> Adicionar neste dia
+                </Button>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

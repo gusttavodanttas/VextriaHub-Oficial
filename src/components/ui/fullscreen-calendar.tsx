@@ -54,6 +54,7 @@ interface FullScreenCalendarProps {
   onNewEvent?: (date: Date) => void
   onEventTypeFilter?: (type: string) => void
   onMonthChange?: (date: Date) => void
+  onDayClick?: (date: Date) => void
 }
 
 const colStartClasses = [
@@ -93,10 +94,11 @@ const isValidDate = (date: Date): boolean => {
 
 export function FullScreenCalendar({ 
   data = [], 
-  onEventClick, 
+  onEventClick,
   onNewEvent,
   onEventTypeFilter,
-  onMonthChange 
+  onMonthChange,
+  onDayClick
 }: FullScreenCalendarProps) {
   const today = startOfToday()
   const [selectedDay, setSelectedDay] = React.useState(today)
@@ -261,7 +263,7 @@ export function FullScreenCalendar({
               return (
                 <div
                   key={dayIdx}
-                  onClick={() => setSelectedDay(day)}
+                  onClick={() => { setSelectedDay(day); onDayClick?.(day); }}
                   className={cn(
                     dayIdx === 0 && colStartClasses[getDay(day)],
                     !isEqual(day, selectedDay) &&
@@ -330,9 +332,13 @@ export function FullScreenCalendar({
                       </div>
                     ))}
                     {dayEvents.length > 3 && (
-                      <div className="text-[10px] text-muted-foreground px-1">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onDayClick?.(day); }}
+                        className="w-full text-left text-[10px] font-bold text-primary hover:underline px-1"
+                      >
                         +{dayEvents.length - 3} mais
-                      </div>
+                      </button>
                     )}
                   </div>
                 </div>
@@ -347,7 +353,7 @@ export function FullScreenCalendar({
               
               return (
                 <button
-                  onClick={() => setSelectedDay(day)}
+                  onClick={() => { setSelectedDay(day); onDayClick?.(day); }}
                   key={dayIdx}
                   type="button"
                   className={cn(

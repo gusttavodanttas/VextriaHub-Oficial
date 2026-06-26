@@ -102,7 +102,7 @@ export const useAgendaEvents = (targetDate: Date) => {
         })),
         ...(atendimentos || []).map(ate => ({
           id: ate.id,
-          name: ate.tipo_atendimento || 'Atendimento',
+          name: ({ reuniao: "Reunião", consulta: "Consulta", outro: "Atendimento" } as Record<string, string>)[ate.tipo_atendimento] || ate.tipo_atendimento || 'Atendimento',
           time: format(new Date(ate.data_atendimento), 'HH:mm'),
           datetime: ate.data_atendimento,
           type: 'atendimento' as const,
