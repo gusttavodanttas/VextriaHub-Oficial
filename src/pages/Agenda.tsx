@@ -75,7 +75,11 @@ export default function Agenda() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, events, location.search]);
 
-  const handleMonthChange = useCallback((date: Date) => setCurrentViewMonth(date), []);
+  const handleMonthChange = useCallback((date: Date) => {
+    setCurrentViewMonth(prev =>
+      prev.getFullYear() === date.getFullYear() && prev.getMonth() === date.getMonth() ? prev : date
+    );
+  }, []);
 
   const filteredEvents = useMemo(() => {
     const q = search.trim().toLowerCase();

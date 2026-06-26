@@ -71,11 +71,19 @@ export function FullScreenCalendar({
   const [selectedDay, setSelectedDay] = React.useState(today)
   const [currentDate, setCurrentDate] = React.useState(today)
 
-  const firstDayCurrentMonth = startOfMonth(isValidDate(currentDate) ? currentDate : today)
+  // Memoizado por mês (string) para não recriar o Date a cada render — senão o
+  // efeito de onMonthChange dispara em loop infinito (ERR_INSUFFICIENT_RESOURCES).
+  const monthKey = format(isValidDate(currentDate) ? currentDate : today, "yyyy-MM")
+  const firstDayCurrentMonth = React.useMemo(
+    () => startOfMonth(isValidDate(currentDate) ? currentDate : today),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [monthKey],
+  )
 
   React.useEffect(() => {
-    if (isValidDate(firstDayCurrentMonth)) onMonthChange?.(firstDayCurrentMonth)
-  }, [firstDayCurrentMonth, onMonthChange])
+    onMonthChange?.(firstDayCurrentMonth)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monthKey])
 
   const days = eachDayOfInterval({
     start: startOfWeek(firstDayCurrentMonth, { weekStartsOn: 0 }),
