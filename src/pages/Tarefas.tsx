@@ -8,17 +8,21 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  CheckSquare, Plus, Search, Trash2, Pencil, MoreHorizontal, User, Calendar,
-  ListChecks, AlertTriangle, CheckCircle2, Flame, Clock,
+  CheckSquare, Plus, Search, Trash2, Pencil, MoreHorizontal, User, FileText, MessageSquare,
+  ListChecks, AlertTriangle, CheckCircle2, Flame, Clock, Trophy, Target,
 } from "lucide-react";
 import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
 import { NovaTarefaDialog } from "@/components/Tarefas/NovaTarefaDialog";
 import { useMultiSelect } from "@/hooks/useMultiSelect";
 import { useTarefas, type Tarefa, type TarefaInput } from "@/hooks/useTarefas";
 import { useClientes } from "@/hooks/useClientes";
+import { useProcessosV2 } from "@/hooks/useProcessosV2";
 import { useOpenItemFromSearch } from "@/hooks/useOpenItemFromSearch";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
-import { format, isToday, isTomorrow, isThisWeek, isPast, parseISO, differenceInCalendarDays } from "date-fns";
+import { format, isToday, isTomorrow, isThisWeek, isPast, parseISO, differenceInCalendarDays, startOfWeek, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 const prioMeta: Record<string, { label: string; cls: string; dot: string }> = {
@@ -40,9 +44,29 @@ function StatCard({ icon: Icon, label, value, color, bg }: { icon: React.Element
 }
 
 const Tarefas = () => {
-  const { tarefas, isLoading, create, update, toggle, remove } = useTarefas();
+  const { tarefas, isLoading, create, createMany, update, toggle, remove } = useTarefas();
   const { data: clientesData } = useClientes();
-  const clientes = useMemo(() => (clientesData || []).map((c: any) => ({ id: c.id, nome: c.nome })), [clientesData]);
+  const { data: processosData } = useProcessosV2();
+  const { user } = useAuth();
+
+  const { data: atendimentosData } = useQuery({
+    queryKey: ["atendimentos-opts", user?.office_id],
+    queryFn: async () => {
+      if (!user?.office_id) return [];
+      const { data } = await supabase.from("atendimentos")
+        .select("id, tipo_atendimento, data_atendimento")
+        .eq("office_id", user.office_id).eq("deletado", false)
+        .order("data_atendimento", { ascending: false }).limit(100);
+      return data || [];
+    },
+    enabled: !!user?.office_id,
+  });
+
+  const clientes = useMemo(() => (clientesData || []).map((c: any) => ({ id: c.id, label: c.nome })), [clientesData]);
+  const processos = useMemo(() => (processosData || []).map((p: any) => ({ id: p.id, label: p.numeroProcesso ? `${p.titulo} · ${p.numeroProcesso}` : p.titulo })), [processosData]);
+  const atendimentos = useMemo(() => (atendimentosData || []).map((a: any) => ({ id: a.id, label: `${a.tipo_atendimento}${a.data_atendimento ? " · " + format(parseISO(a.data_atendimento), "dd/MM/yy") : ""}` })), [atendimentosData]);
+  const processoMap = useMemo(() => Object.fromEntries(processos.map(p => [p.id, p.label])), [processos]);
+  const atendimentoMap = useMemo(() => Object.fromEntries(atendimentos.map(a => [a.id, a.label])), [atendimentos]);
 
   const [search, setSearch] = useState("");
   const [prioridadeFilter, setPrioridadeFilter] = useState("todas");
@@ -94,11 +118,32 @@ const Tarefas = () => {
     "Esta semana": "text-blue-500", Futuras: "text-muted-foreground/50", "Sem prazo": "text-muted-foreground/50", Concluídas: "text-emerald-500",
   };
 
+  // Gamificação (dados reais)
+  const game = useMemo(() => {
+    const concluidas = tarefas.filter(t => t.concluida && t.updated_at);
+    const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+    const concluidasSemana = concluidas.filter(t => parseISO(t.updated_at!) >= weekStart).length;
+    const totalConcluidas = tarefas.filter(t => t.concluida).length;
+    const pontos = totalConcluidas * 10;
+    const nivel = Math.floor(pontos / 100) + 1;
+    // Sequência (streak): dias consecutivos com ao menos 1 tarefa concluída
+    const dias = new Set(concluidas.map(t => format(parseISO(t.updated_at!), "yyyy-MM-dd")));
+    let streak = 0;
+    let cursor = new Date();
+    if (!dias.has(format(cursor, "yyyy-MM-dd"))) cursor = subDays(cursor, 1);
+    while (dias.has(format(cursor, "yyyy-MM-dd"))) { streak++; cursor = subDays(cursor, 1); }
+    const metaSemanal = 10;
+    return { concluidasSemana, pontos, nivel, streak, metaSemanal, progresso: Math.min(100, Math.round((concluidasSemana / metaSemanal) * 100)) };
+  }, [tarefas]);
+
   useOpenItemFromSearch("/tarefas", !isLoading && tarefas.length > 0);
 
   const handleSubmit = async (input: TarefaInput, id?: string) => {
     if (id) await update.mutateAsync({ id, input });
     else await create.mutateAsync(input);
+  };
+  const handleSubmitMany = async (inputs: TarefaInput[]) => {
+    await createMany.mutateAsync(inputs);
   };
   const openNew = () => { setEditTarget(null); setDialogOpen(true); };
   const openEdit = (t: Tarefa) => { setEditTarget(t); setDialogOpen(true); };
@@ -148,6 +193,8 @@ const Tarefas = () => {
           <p className={cn("font-bold truncate", t.concluida && "line-through text-muted-foreground")}>{t.titulo}</p>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-[11px] text-muted-foreground font-medium">
             {t.cliente_nome && <span className="flex items-center gap-1 truncate"><User className="h-3 w-3 shrink-0" />{t.cliente_nome}</span>}
+            {t.processo_id && processoMap[t.processo_id] && <span className="flex items-center gap-1 truncate max-w-[180px]"><FileText className="h-3 w-3 shrink-0" />{processoMap[t.processo_id]}</span>}
+            {t.atendimento_id && atendimentoMap[t.atendimento_id] && <span className="flex items-center gap-1 truncate"><MessageSquare className="h-3 w-3 shrink-0" />{atendimentoMap[t.atendimento_id]}</span>}
             {due && <span className={cn("flex items-center gap-1", due.cls)}><Clock className="h-3 w-3" />{due.label}</span>}
           </div>
         </div>
@@ -207,6 +254,35 @@ const Tarefas = () => {
         <StatCard icon={AlertTriangle} label="Atrasadas" value={stats.atrasadas} color="text-rose-500" bg="bg-rose-500/10" />
         <StatCard icon={Flame} label="Vencem hoje" value={stats.hoje} color="text-orange-500" bg="bg-orange-500/10" />
         <StatCard icon={CheckCircle2} label="Concluídas" value={stats.concluidas} color="text-emerald-500" bg="bg-emerald-500/10" />
+      </div>
+
+      {/* Gamificação */}
+      <div className="rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/[0.06] to-transparent p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="p-2.5 rounded-xl bg-primary/10 text-primary"><Trophy className="h-5 w-5" /></div>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-primary/60">Nível {game.nivel}</p>
+              <p className="text-lg font-black leading-none">{game.pontos} <span className="text-xs font-bold text-muted-foreground">pts</span></p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0 px-3 py-1.5 rounded-xl bg-orange-500/10 text-orange-500">
+            <Flame className="h-4 w-4" />
+            <span className="text-sm font-black">{game.streak}</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest">dia{game.streak === 1 ? "" : "s"} seguidos</span>
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest mb-1.5">
+              <span className="text-muted-foreground/70 flex items-center gap-1.5"><Target className="h-3 w-3" /> Meta semanal</span>
+              <span className="text-primary">{game.concluidasSemana} / {game.metaSemanal}</span>
+            </div>
+            <div className="h-2.5 w-full rounded-full bg-black/5 dark:bg-muted/30 overflow-hidden">
+              <div className="h-full rounded-full bg-gradient-to-r from-primary to-primary/60 transition-all duration-500" style={{ width: `${game.progresso}%` }} />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Filtros */}
@@ -270,7 +346,9 @@ const Tarefas = () => {
         </div>
       )}
 
-      <NovaTarefaDialog open={dialogOpen} onOpenChange={setDialogOpen} clientes={clientes} tarefa={editTarget} onSubmit={handleSubmit} />
+      <NovaTarefaDialog open={dialogOpen} onOpenChange={setDialogOpen}
+        clientes={clientes} processos={processos} atendimentos={atendimentos}
+        tarefa={editTarget} onSubmit={handleSubmit} onSubmitMany={handleSubmitMany} />
 
       <DeleteConfirmDialog
         open={deleteDialogOpen}

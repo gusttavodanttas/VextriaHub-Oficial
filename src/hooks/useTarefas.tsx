@@ -13,6 +13,7 @@ export interface Tarefa {
   status: string | null;
   cliente_id: string | null;
   processo_id: string | null;
+  atendimento_id: string | null;
   cliente_nome?: string | null;
   updated_at?: string | null;
 }
@@ -23,6 +24,22 @@ export interface TarefaInput {
   data_vencimento: string | null;
   prioridade: string;
   cliente_id: string | null;
+  processo_id?: string | null;
+  atendimento_id?: string | null;
+}
+
+// Monta o payload de insert/update incluindo atendimento_id só quando há valor
+// (evita erro caso a coluna ainda não tenha sido criada via SQL).
+function buildPayload(input: Partial<TarefaInput>) {
+  const p: any = {};
+  if (input.titulo !== undefined) p.titulo = input.titulo;
+  if (input.descricao !== undefined) p.descricao = input.descricao;
+  if (input.data_vencimento !== undefined) p.data_vencimento = input.data_vencimento;
+  if (input.prioridade !== undefined) p.prioridade = input.prioridade;
+  if (input.cliente_id !== undefined) p.cliente_id = input.cliente_id;
+  if (input.processo_id !== undefined) p.processo_id = input.processo_id;
+  if (input.atendimento_id) p.atendimento_id = input.atendimento_id;
+  return p;
 }
 
 export function useTarefas() {
@@ -52,6 +69,7 @@ export function useTarefas() {
         status: t.status,
         cliente_id: t.cliente_id,
         processo_id: t.processo_id,
+        atendimento_id: t.atendimento_id ?? null,
         cliente_nome: t.clientes?.nome || null,
         updated_at: t.updated_at,
       }));
@@ -68,7 +86,7 @@ export function useTarefas() {
     mutationFn: async (input: TarefaInput) => {
       if (!officeId || !user?.id) throw new Error("Sem escritório/usuário");
       const { error } = await supabase.from("tarefas").insert([{
-        ...input, office_id: officeId, user_id: user.id, concluida: false, deletado: false,
+        ...buildPayload(input), office_id: officeId, user_id: user.id, concluida: false, deletado: false,
       }]);
       if (error) throw error;
     },
@@ -76,9 +94,22 @@ export function useTarefas() {
     onError: (e: any) => toast({ title: "Erro ao criar", description: e.message, variant: "destructive" }),
   });
 
+  const createMany = useMutation({
+    mutationFn: async (inputs: TarefaInput[]) => {
+      if (!officeId || !user?.id) throw new Error("Sem escritório/usuário");
+      const rows = inputs.map(input => ({
+        ...buildPayload(input), office_id: officeId, user_id: user.id, concluida: false, deletado: false,
+      }));
+      const { error } = await supabase.from("tarefas").insert(rows);
+      if (error) throw error;
+    },
+    onSuccess: (_d, inputs) => { invalidate(); toast({ title: "Tarefas criadas", description: `${inputs.length} ocorrências adicionadas.` }); },
+    onError: (e: any) => toast({ title: "Erro ao criar", description: e.message, variant: "destructive" }),
+  });
+
   const update = useMutation({
     mutationFn: async ({ id, input }: { id: string; input: Partial<TarefaInput> }) => {
-      const { error } = await supabase.from("tarefas").update(input).eq("id", id);
+      const { error } = await supabase.from("tarefas").update(buildPayload(input)).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => { invalidate(); toast({ title: "Tarefa atualizada", description: "As alterações foram salvas." }); },
@@ -103,5 +134,5 @@ export function useTarefas() {
     onError: (e: any) => toast({ title: "Erro ao excluir", description: e.message, variant: "destructive" }),
   });
 
-  return { tarefas, isLoading, create, update, toggle, remove };
+  return { tarefas, isLoading, create, createMany, update, toggle, remove };
 }
