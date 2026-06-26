@@ -86,7 +86,7 @@ export function FullScreenCalendar({
   const goToToday = () => { setCurrentDate(today); setSelectedDay(today) }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex flex-col">
       {/* Header */}
       <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between border-b border-black/5 dark:border-border shrink-0">
         <div>
@@ -127,7 +127,7 @@ export function FullScreenCalendar({
       </div>
 
       {/* Grade do mês — responsiva, mesma para todos os tamanhos */}
-      <div className="grid flex-1 grid-cols-7 auto-rows-fr">
+      <div className="grid grid-cols-7">
         {days.map((day, dayIdx) => {
           const dayEvents = data?.find((d) => isSameDay(d.day, day))?.events || []
           const outside = !isSameMonth(day, firstDayCurrentMonth)

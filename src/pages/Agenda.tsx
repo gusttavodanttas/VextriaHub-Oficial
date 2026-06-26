@@ -224,7 +224,7 @@ export default function Agenda() {
 
         {/* CALENDÁRIO */}
         <TabsContent value="calendario" className="m-0">
-          <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 overflow-hidden flex flex-col h-[80vh]">
+          <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 overflow-hidden">
             <FullScreenCalendar data={monthData} onEventClick={goToSource} onNewEvent={handleNewEvent} onMonthChange={handleMonthChange} onDayClick={setDayDetail} />
           </div>
         </TabsContent>
