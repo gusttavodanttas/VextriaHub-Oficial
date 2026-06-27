@@ -40,6 +40,8 @@ import {
   AlertCircle,
   Mail,
   MapPin,
+  Settings2,
+  X,
 } from "lucide-react";
 import { format, parseISO, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -49,14 +51,16 @@ import { cn } from "@/lib/utils";
 
 const NONE = "__none__";
 
-const TIPOS_ATENDIMENTO = [
-  { value: "consulta",         label: "Consulta",          Icon: MessageSquare },
-  { value: "reuniao",          label: "Reunião",            Icon: Users },
-  { value: "telefonema",       label: "Telefonema",         Icon: Phone },
-  { value: "videoconferencia", label: "Videoconferência",   Icon: Video },
-  { value: "presencial",       label: "Presencial",         Icon: MapPin },
-  { value: "email",            label: "E-mail",             Icon: Mail },
+const TIPOS_FIXOS = [
+  { value: "consulta",         label: "Consulta",        Icon: MessageSquare },
+  { value: "reuniao",          label: "Reunião",          Icon: Users },
+  { value: "telefonema",       label: "Telefonema",       Icon: Phone },
+  { value: "video",            label: "Vídeo",            Icon: Video },
+  { value: "presencial",       label: "Presencial",       Icon: MapPin },
+  { value: "email",            label: "E-mail",           Icon: Mail },
 ];
+
+const TIPOS_ATENDIMENTO = TIPOS_FIXOS; // referência estática para o tipoInfo helper
 
 const STATUS_CONFIG = {
   agendado:  { label: "Agendado",  className: "border-blue-500/50 text-blue-500 bg-blue-500/10",     Icon: Clock },
@@ -110,8 +114,119 @@ const defaultForm = (): FormState => ({
   processo_id: NONE,
 });
 
-const tipoInfo = (tipo: string) =>
-  TIPOS_ATENDIMENTO.find((t) => t.value === tipo) ?? TIPOS_ATENDIMENTO[TIPOS_ATENDIMENTO.length - 1];
+const tipoInfo = (tipo: string, extras: string[] = []) => {
+  const fixo = TIPOS_FIXOS.find((t) => t.value === tipo);
+  if (fixo) return fixo;
+  if (extras.includes(tipo)) return { value: tipo, label: tipo, Icon: FileText };
+  return { value: tipo, label: tipo, Icon: FileText };
+};
+
+// ─── Hook tipos customizados ─────────────────────────────────────────────────
+
+const useAtendimentoTipos = (officeId: string) => {
+  const queryClient = useQueryClient();
+
+  const { data: extras = [] } = useQuery<string[]>({
+    queryKey: ["office-settings-at", officeId],
+    enabled: !!officeId,
+    queryFn: async () => {
+      const { data } = await supabase.from("offices").select("settings").eq("id", officeId).single();
+      return ((data?.settings as any)?.at_tipos_extras as string[]) ?? [];
+    },
+  });
+
+  const save = useCallback(async (tipos: string[]) => {
+    const { data: cur } = await supabase.from("offices").select("settings").eq("id", officeId).single();
+    const merged = { ...(cur?.settings as any ?? {}), at_tipos_extras: tipos };
+    await supabase.from("offices").update({ settings: merged }).eq("id", officeId);
+    queryClient.invalidateQueries({ queryKey: ["office-settings-at", officeId] });
+  }, [officeId, queryClient]);
+
+  return { extras, save };
+};
+
+// ─── Gerenciar Tipos Dialog ───────────────────────────────────────────────────
+
+const GerenciarTiposDialog: React.FC<{
+  open: boolean;
+  onClose: () => void;
+  extras: string[];
+  onSave: (tipos: string[]) => void;
+}> = ({ open, onClose, extras, onSave }) => {
+  const [lista, setLista] = useState<string[]>([]);
+  const [novo, setNovo] = useState("");
+
+  useEffect(() => { if (open) { setLista([...extras]); setNovo(""); } }, [open, extras]);
+
+  const add = () => {
+    const v = novo.trim();
+    if (v && !lista.includes(v) && !TIPOS_FIXOS.find(t => t.label.toLowerCase() === v.toLowerCase())) {
+      setLista([...lista, v]);
+      setNovo("");
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="sm:max-w-xs p-0 rounded-3xl border border-black/5 dark:border-border shadow-premium overflow-hidden">
+        <div className="px-5 pt-4 pb-3 bg-gradient-to-br from-primary/8 via-primary/4 to-transparent">
+          <DialogHeader>
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                <Settings2 className="h-4 w-4" />
+              </div>
+              <DialogTitle className="text-lg font-black tracking-tight">Tipos de Atendimento</DialogTitle>
+            </div>
+          </DialogHeader>
+        </div>
+
+        <div className="px-5 pb-5 space-y-4">
+          {/* Fixos (read-only) */}
+          <div className="space-y-2">
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">Padrão (não editáveis)</p>
+            <div className="flex flex-wrap gap-1.5">
+              {TIPOS_FIXOS.map((t) => (
+                <span key={t.value} className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-muted/40 text-muted-foreground text-[11px] font-bold">
+                  <t.Icon className="h-3 w-3" />{t.label}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Customizados */}
+          <div className="space-y-2">
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">Personalizados</p>
+            {lista.length === 0 && (
+              <p className="text-xs text-muted-foreground/40 italic">Nenhum tipo personalizado.</p>
+            )}
+            <div className="flex flex-wrap gap-1.5">
+              {lista.map((t) => (
+                <span key={t} className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-[11px] font-bold border border-primary/20">
+                  {t}
+                  <button onClick={() => setLista(lista.filter(x => x !== t))} className="hover:text-red-500 transition-colors ml-0.5">
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Input placeholder="Novo tipo..." value={novo}
+                onChange={(e) => setNovo(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), add())}
+                className="rounded-xl h-9 text-sm" />
+              <Button size="sm" onClick={add} className="rounded-xl h-9 px-3"><Plus className="h-4 w-4" /></Button>
+            </div>
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <Button variant="outline" onClick={onClose} className="flex-1 rounded-xl h-9 font-black uppercase text-[10px] tracking-widest">Cancelar</Button>
+            <Button onClick={() => { onSave(lista); onClose(); }} className="flex-1 rounded-xl h-9 font-black uppercase text-[10px] tracking-widest shadow-premium">Salvar</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
 
@@ -187,10 +302,11 @@ const FormDialog: React.FC<{
   editId?: string;
   officeId: string;
   userId: string;
+  extras: string[];
   onSave: (data: any) => void;
   onUpdate: (data: any) => void;
   loading: boolean;
-}> = ({ open, onClose, initial, editId, officeId, userId, onSave, onUpdate, loading }) => {
+}> = ({ open, onClose, initial, editId, officeId, userId, extras, onSave, onUpdate, loading }) => {
   const [form, setForm] = useState<FormState>(initial);
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((prev) => ({ ...prev, [k]: v }));
@@ -266,18 +382,31 @@ const FormDialog: React.FC<{
           {/* Tipo */}
           <div className="space-y-1.5">
             <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Tipo *</Label>
-            <div className="grid grid-cols-3 gap-1.5">
-              {TIPOS_ATENDIMENTO.map(({ value, label, Icon }) => (
+            <div className="grid grid-cols-2 gap-1.5">
+              {TIPOS_FIXOS.map(({ value, label, Icon }) => (
                 <button key={value} type="button"
                   onClick={() => set("tipo_atendimento", value)}
                   className={cn(
-                    "flex items-center gap-1.5 py-2 px-2 rounded-xl border text-left transition-all text-[10px] font-black uppercase tracking-wide",
+                    "flex items-center gap-2 py-2 px-3 rounded-xl border text-left transition-all text-[11px] font-black uppercase tracking-wide",
                     form.tipo_atendimento === value
                       ? "bg-primary/10 border-primary/40 text-primary"
                       : "border-black/8 dark:border-border text-muted-foreground hover:border-foreground/20 hover:bg-muted/30"
                   )}>
                   <Icon className="h-3.5 w-3.5 shrink-0" />
-                  <span className="leading-tight">{label}</span>
+                  <span>{label}</span>
+                </button>
+              ))}
+              {extras.map((label) => (
+                <button key={label} type="button"
+                  onClick={() => set("tipo_atendimento", label)}
+                  className={cn(
+                    "flex items-center gap-2 py-2 px-3 rounded-xl border text-left transition-all text-[11px] font-black uppercase tracking-wide",
+                    form.tipo_atendimento === label
+                      ? "bg-primary/10 border-primary/40 text-primary"
+                      : "border-black/8 dark:border-border text-muted-foreground hover:border-foreground/20 hover:bg-muted/30"
+                  )}>
+                  <FileText className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{label}</span>
                 </button>
               ))}
             </div>
@@ -481,6 +610,7 @@ const Atendimentos = () => {
   const officeId = office?.id ?? user?.office_id ?? "";
 
   const { query, create, update, remove, markRealizado } = useAtendimentos(officeId);
+  const { extras, save: saveExtras } = useAtendimentoTipos(officeId);
   const items = query.data ?? [];
 
   const [busca, setBusca] = useState("");
@@ -488,6 +618,7 @@ const Atendimentos = () => {
   const [filtroTipo, setFiltroTipo] = useState("todos");
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [tiposDialogOpen, setTiposDialogOpen] = useState(false);
   const [editItem, setEditItem] = useState<Atendimento | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
@@ -558,10 +689,16 @@ const Atendimentos = () => {
             </p>
           </div>
         </div>
-        <Button size="lg" onClick={openNew}
-          className="rounded-xl h-11 px-6 font-black uppercase text-xs tracking-widest shadow-premium">
-          <Plus className="mr-2 h-4 w-4" />Novo Atendimento
-        </Button>
+        <div className="flex gap-2">
+          <Button size="icon" variant="outline" onClick={() => setTiposDialogOpen(true)}
+            className="h-11 w-11 rounded-xl" title="Gerenciar tipos de atendimento">
+            <Settings2 className="h-4 w-4" />
+          </Button>
+          <Button size="lg" onClick={openNew}
+            className="rounded-xl h-11 px-6 font-black uppercase text-xs tracking-widest shadow-premium">
+            <Plus className="mr-2 h-4 w-4" />Novo Atendimento
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -598,8 +735,11 @@ const Atendimentos = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos os tipos</SelectItem>
-            {TIPOS_ATENDIMENTO.map((t) => (
+            {TIPOS_FIXOS.map((t) => (
               <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+            ))}
+            {extras.map((t) => (
+              <SelectItem key={t} value={t}>{t}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -651,7 +791,7 @@ const Atendimentos = () => {
         </div>
       )}
 
-      {/* Dialog */}
+      {/* Dialog form */}
       {dialogOpen && (
         <FormDialog
           open={dialogOpen}
@@ -660,11 +800,20 @@ const Atendimentos = () => {
           editId={editItem?.id}
           officeId={officeId}
           userId={user?.id ?? ""}
+          extras={extras}
           onSave={handleSave}
           onUpdate={handleUpdate}
           loading={create.isPending || update.isPending}
         />
       )}
+
+      {/* Dialog gerenciar tipos */}
+      <GerenciarTiposDialog
+        open={tiposDialogOpen}
+        onClose={() => setTiposDialogOpen(false)}
+        extras={extras}
+        onSave={saveExtras}
+      />
     </div>
   );
 };
