@@ -133,6 +133,36 @@ export type Database = {
           },
         ]
       }
+      user_permissions: {
+        Row: {
+          id: string
+          office_id: string | null
+          user_id: string
+          permission_key: string
+          granted: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          office_id?: string | null
+          user_id: string
+          permission_key: string
+          granted?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          office_id?: string | null
+          user_id?: string
+          permission_key?: string
+          granted?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       consultivo_categorias: {
         Row: {
           id: string

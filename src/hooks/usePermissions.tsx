@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useAuth, SUPER_ADMIN_EMAILS } from '@/contexts/AuthContext';
 import { usePlanFeatures } from './usePlanFeatures';
 import { FeaturePermissions } from '@/types/permissions';
+import { useMyPermissionOverrides } from './useUserPermissions';
 
 /**
  * Hook para gerenciar permissões granulares baseadas em roles e contexto
@@ -10,6 +11,7 @@ import { FeaturePermissions } from '@/types/permissions';
 export const usePermissions = (): FeaturePermissions => {
   const { user, isSuperAdmin, isAdmin, isOfficeAdmin, office, officeUser, isLoading, session } = useAuth();
   const planFeatures = usePlanFeatures();
+  const { overrides, loaded: overridesLoaded } = useMyPermissionOverrides();
 
   return useMemo(() => {
     if (isLoading) {
@@ -37,10 +39,21 @@ export const usePermissions = (): FeaturePermissions => {
       basePermissions = createUserPermissions();
     }
 
-    const finalPermissions = applyPlanRestrictions(basePermissions, planFeatures);
+    const afterPlan = applyPlanRestrictions(basePermissions, planFeatures);
 
-    return finalPermissions;
-  }, [user, isSuperAdmin, isAdmin, isOfficeAdmin, office, officeUser, isLoading, session, planFeatures]);
+    // Apply per-user overrides (super/global admins are never overridden)
+    if (!isSuperAdmin && !isAdmin && overridesLoaded && Object.keys(overrides).length > 0) {
+      const finalPermissions = { ...afterPlan };
+      for (const [key, granted] of Object.entries(overrides)) {
+        if (key in finalPermissions) {
+          (finalPermissions as any)[key] = granted;
+        }
+      }
+      return finalPermissions;
+    }
+
+    return afterPlan;
+  }, [user, isSuperAdmin, isAdmin, isOfficeAdmin, office, officeUser, isLoading, session, planFeatures, overrides, overridesLoaded]);
 };
 
 /**
