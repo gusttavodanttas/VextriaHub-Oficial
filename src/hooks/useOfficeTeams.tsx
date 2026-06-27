@@ -90,14 +90,26 @@ export function useTeamMembers(teamId: string | null) {
   const fetch = useCallback(async () => {
     if (!teamId) { setMembers([]); return; }
     setLoading(true);
-    const { data } = await supabase
+    const { data: membersData } = await supabase
       .from("office_team_members")
-      .select("*, profiles(full_name, email)")
+      .select("*")
       .eq("team_id", teamId);
+
+    if (!membersData?.length) { setMembers([]); setLoading(false); return; }
+
+    const userIds = membersData.map((m: any) => m.user_id);
+    const { data: profilesData } = await supabase
+      .from("profiles")
+      .select("user_id, full_name, email")
+      .in("user_id", userIds);
+
+    const profileMap: Record<string, any> = {};
+    (profilesData || []).forEach((p: any) => { profileMap[p.user_id] = p; });
+
     setMembers(
-      (data || []).map((m: any) => ({
+      membersData.map((m: any) => ({
         ...m,
-        profile: m.profiles,
+        profile: profileMap[m.user_id] || null,
       }))
     );
     setLoading(false);
