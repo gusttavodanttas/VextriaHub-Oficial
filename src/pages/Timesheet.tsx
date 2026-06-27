@@ -443,22 +443,21 @@ export default function Timesheet() {
 
       {/* ── Dialog Novo Timer ───────────────────────────────────────────────── */}
       <Dialog open={dialogOpen} onOpenChange={(v) => { setDialogOpen(v); if (!v) resetDialog(); }}>
-        <DialogContent className="sm:max-w-md rounded-2xl p-0 overflow-hidden">
+        <DialogContent className="sm:max-w-md rounded-2xl p-0 overflow-hidden max-h-[90vh] flex flex-col">
 
           {/* Header gradient */}
-          <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent px-6 pt-6 pb-5 border-b border-black/5 dark:border-border">
+          <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent px-5 pt-5 pb-4 border-b border-black/5 dark:border-border shrink-0">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2.5 font-black text-lg">
-                <div className="h-8 w-8 rounded-xl bg-primary/15 flex items-center justify-center">
-                  <Timer className="h-4 w-4 text-primary" />
+              <DialogTitle className="flex items-center gap-2 font-black text-base">
+                <div className="h-7 w-7 rounded-lg bg-primary/15 flex items-center justify-center">
+                  <Timer className="h-3.5 w-3.5 text-primary" />
                 </div>
                 Iniciar Timer
               </DialogTitle>
-              <p className="text-xs text-muted-foreground/70 mt-1">Preencha a atividade e vincule ao contexto relevante</p>
             </DialogHeader>
           </div>
 
-          <div className="px-6 py-5 space-y-5">
+          <div className="px-5 py-4 space-y-4 overflow-y-auto flex-1">
 
             {/* ① Atividade */}
             <div className="space-y-1.5">
@@ -477,19 +476,19 @@ export default function Timesheet() {
                 <span className="h-4 w-4 rounded bg-primary/15 text-primary text-[9px] font-black flex items-center justify-center">2</span>
                 Categoria
               </Label>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-4 gap-1.5">
                 {TIMESHEET_CATEGORIAS.map(cat => {
                   const cfg = CATEGORIA_CONFIG[cat];
                   const active = categoria === cat;
                   return (
                     <button key={cat} type="button" onClick={() => setCategoria(cat)}
                       className={cn(
-                        "flex flex-col items-center gap-1.5 p-2.5 rounded-xl border text-center transition-all text-[9px] font-black uppercase tracking-wider",
+                        "flex flex-col items-center gap-1 p-2 rounded-lg border text-center transition-all text-[8px] font-black uppercase tracking-wider",
                         active
                           ? cn("border-primary/40 shadow-sm", cfg.color)
                           : "border-black/5 dark:border-border text-muted-foreground/60 hover:border-primary/20 hover:bg-black/[0.02]"
                       )}>
-                      <cfg.Icon className="h-4 w-4" />
+                      <cfg.Icon className="h-3.5 w-3.5" />
                       {cfg.label}
                     </button>
                   );
@@ -582,7 +581,7 @@ export default function Timesheet() {
           </div>
 
           {/* Footer */}
-          <div className="px-6 pb-6 flex gap-2 justify-end border-t border-black/5 dark:border-border pt-4">
+          <div className="px-5 pb-5 flex gap-2 justify-end border-t border-black/5 dark:border-border pt-3 shrink-0">
             <Button variant="ghost" onClick={() => { setDialogOpen(false); resetDialog(); }} className="rounded-xl">
               Cancelar
             </Button>
