@@ -778,10 +778,6 @@ export default function Equipe() {
 
           {/* add menu */}
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => { setInviteOpen(true); }}
-              className="rounded-xl font-black gap-2">
-              <Send className="h-4 w-4" />Convidar por link
-            </Button>
             <Button onClick={() => setCreateOpen(true)} className="rounded-xl font-black gap-2">
               <KeyRound className="h-4 w-4" />Criar com senha
             </Button>
@@ -906,7 +902,7 @@ export default function Equipe() {
               <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
                 <div className="p-4 rounded-2xl bg-muted/40"><Send className="h-8 w-8 text-muted-foreground/40" /></div>
                 <p className="font-bold">Nenhum convite registrado</p>
-                <p className="text-sm text-muted-foreground">Use "Convidar por link" ou "Criar com senha".</p>
+                <p className="text-sm text-muted-foreground">Use "Criar com senha" para adicionar membros.</p>
               </div>
             ) : (
               <div className="space-y-2">
