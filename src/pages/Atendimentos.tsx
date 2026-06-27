@@ -31,16 +31,15 @@ import {
   Clock,
   User,
   FileText,
-  Calendar,
   Loader2,
   Phone,
   Video,
   Users,
-  Gavel,
   CheckCircle2,
   XCircle,
   AlertCircle,
-  ChevronDown,
+  Mail,
+  MapPin,
 } from "lucide-react";
 import { format, parseISO, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -51,12 +50,12 @@ import { cn } from "@/lib/utils";
 const NONE = "__none__";
 
 const TIPOS_ATENDIMENTO = [
-  { value: "consulta",       label: "Consulta",         Icon: MessageSquare },
-  { value: "reuniao",        label: "Reunião",           Icon: Users },
-  { value: "audiencia",      label: "Audiência",         Icon: Gavel },
-  { value: "telefonema",     label: "Telefonema",        Icon: Phone },
-  { value: "videoconferencia", label: "Videoconferência", Icon: Video },
-  { value: "outro",          label: "Outro",             Icon: FileText },
+  { value: "consulta",         label: "Consulta",          Icon: MessageSquare },
+  { value: "reuniao",          label: "Reunião",            Icon: Users },
+  { value: "telefonema",       label: "Telefonema",         Icon: Phone },
+  { value: "videoconferencia", label: "Videoconferência",   Icon: Video },
+  { value: "presencial",       label: "Presencial",         Icon: MapPin },
+  { value: "email",            label: "E-mail",             Icon: Mail },
 ];
 
 const STATUS_CONFIG = {
