@@ -35,12 +35,12 @@ const CATEGORIA_CONFIG: Record<TimesheetCategoria, { label: string; Icon: React.
 
 type ReferenciaTipo = "atendimento" | "audiencia" | "prazo" | "tarefa" | "consultivo";
 
-const REFERENCIA_CONFIG: Record<ReferenciaTipo, { label: string; Icon: React.FC<any>; color: string; table: string; labelField: string; dateField?: string }> = {
-  atendimento: { label: "Atendimento",  Icon: Phone,              color: "bg-blue-500/10 text-blue-600 dark:text-blue-400",       table: "atendimentos", labelField: "observacoes", dateField: "data_atendimento" },
-  audiencia:   { label: "Audiência",    Icon: Gavel,              color: "bg-red-500/10 text-red-600 dark:text-red-400",          table: "audiencias",   labelField: "titulo",      dateField: "data_audiencia" },
-  prazo:       { label: "Prazo",        Icon: AlertCircle,        color: "bg-orange-500/10 text-orange-600 dark:text-orange-400", table: "prazos",       labelField: "titulo",      dateField: "data_vencimento" },
-  tarefa:      { label: "Tarefa",       Icon: CheckSquare,        color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400", table: "tarefas",   labelField: "titulo",      dateField: "data_vencimento" },
-  consultivo:  { label: "Consultivo",   Icon: MessageSquareText,  color: "bg-teal-500/10 text-teal-600 dark:text-teal-400",       table: "processos",    labelField: "titulo",      dateField: "created_at" },
+const REFERENCIA_CONFIG: Record<ReferenciaTipo, { label: string; Icon: React.FC<any>; color: string; table: string; labelField: string; dateField?: string; clienteField?: string }> = {
+  atendimento: { label: "Atendimento",  Icon: Phone,              color: "bg-blue-500/10 text-blue-600 dark:text-blue-400",          table: "atendimentos", labelField: "observacoes", dateField: "data_atendimento", clienteField: "cliente_id" },
+  audiencia:   { label: "Audiência",    Icon: Gavel,              color: "bg-red-500/10 text-red-600 dark:text-red-400",             table: "audiencias",   labelField: "titulo",      dateField: "data_audiencia",   clienteField: "cliente_id" },
+  prazo:       { label: "Prazo",        Icon: AlertCircle,        color: "bg-orange-500/10 text-orange-600 dark:text-orange-400",    table: "prazos",       labelField: "titulo",      dateField: "data_vencimento"   /* sem cliente_id direto */ },
+  tarefa:      { label: "Tarefa",       Icon: CheckSquare,        color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400", table: "tarefas",      labelField: "titulo",      dateField: "data_vencimento",  clienteField: "cliente_id" },
+  consultivo:  { label: "Consultivo",   Icon: MessageSquareText,  color: "bg-teal-500/10 text-teal-600 dark:text-teal-400",          table: "processos",    labelField: "titulo",      dateField: "created_at",       clienteField: "cliente_id" },
 };
 
 interface ReferenciaItem { id: string; label: string; sublabel?: string }
@@ -140,13 +140,20 @@ export default function Timesheet() {
 
     const fetchItems = async () => {
       try {
-        const { data } = await (supabase as any)
+        let query = (supabase as any)
           .from(cfg.table)
           .select(`id, ${cfg.labelField}${cfg.dateField ? `, ${cfg.dateField}` : ""}`)
           .eq("user_id", user.id)
           .eq("deletado", false)
           .order(cfg.dateField || "created_at", { ascending: false })
           .limit(50);
+
+        // Filtrar pelo cliente selecionado se a tabela tiver cliente_id direto
+        if (clienteId && cfg.clienteField) {
+          query = query.eq(cfg.clienteField, clienteId);
+        }
+
+        const { data } = await query;
 
         if (data) {
           setRefItems(data.map((row: any) => ({
@@ -160,7 +167,7 @@ export default function Timesheet() {
       }
     };
     fetchItems();
-  }, [refTipo, user]);
+  }, [refTipo, clienteId, user]);
 
   const resetDialog = () => {
     setDescricao(""); setCategoria(""); setClienteId("");
@@ -499,6 +506,13 @@ export default function Timesheet() {
                       <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
                         {REFERENCIA_CONFIG[refTipo].label}
                       </Label>
+                      {/* Aviso quando prazo não tem filtro por cliente */}
+                      {clienteId && refTipo === "prazo" && (
+                        <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold px-1">
+                          ⚠ Prazos são filtrados por processo, não por cliente diretamente — exibindo todos.
+                        </p>
+                      )}
+
                       {refLoading ? (
                         <Skeleton className="h-9 rounded-lg" />
                       ) : refItems.length === 0 ? (
