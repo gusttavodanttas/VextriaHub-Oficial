@@ -484,60 +484,40 @@ const FormDialog: React.FC<FormDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="sm:max-w-lg p-0 rounded-3xl border border-black/5 dark:border-border shadow-premium overflow-hidden">
+      <DialogContent className="sm:max-w-md p-0 rounded-3xl border border-black/5 dark:border-border shadow-premium overflow-hidden">
 
         {/* Header colorido */}
         <div className={cn(
-          "px-7 pt-7 pb-6",
+          "px-6 pt-6 pb-4",
           isReceita
             ? "bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent"
             : "bg-gradient-to-br from-orange-500/10 via-orange-500/5 to-transparent"
         )}>
-          {/* Tipo toggle */}
-          {!editId && (
-            <div className="flex gap-2 mb-5">
-              {([
-                { value: "receita", label: "Receita", Icon: TrendingUp },
-                { value: "despesa", label: "Despesa", Icon: TrendingDown },
-              ] as const).map(({ value, label, Icon }) => (
-                <button key={value} type="button"
-                  onClick={() => { set("tipo", value); set("categoria", NONE); }}
-                  className={cn(
-                    "flex items-center gap-1.5 px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-widest border transition-all duration-200",
-                    form.tipo === value
-                      ? value === "receita"
-                        ? "bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/25"
-                        : "bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-500/25"
-                      : "border-black/10 dark:border-border text-muted-foreground hover:border-foreground/20 bg-background/50"
-                  )}>
-                  <Icon className="h-3.5 w-3.5" />{label}
-                </button>
-              ))}
-            </div>
-          )}
-
           <DialogHeader>
-            <DialogTitle className="text-2xl font-black tracking-tight">
-              {editId
-                ? `Editar ${isReceita ? "Receita" : "Despesa"}`
-                : isReceita ? "Nova Receita" : "Nova Despesa"}
-            </DialogTitle>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {editId ? "Altere os dados do lançamento." : isReceita
-                ? "Registre um valor a receber ou recebido."
-                : "Registre uma despesa ou custo do escritório."}
-            </p>
+            <div className="flex items-center gap-3">
+              <div className={cn(
+                "h-9 w-9 rounded-xl flex items-center justify-center shrink-0",
+                isReceita ? "bg-emerald-500/15 text-emerald-500" : "bg-orange-500/15 text-orange-500"
+              )}>
+                {isReceita ? <TrendingUp className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />}
+              </div>
+              <DialogTitle className="text-xl font-black tracking-tight">
+                {editId
+                  ? `Editar ${isReceita ? "Receita" : "Despesa"}`
+                  : isReceita ? "Nova Receita" : "Nova Despesa"}
+              </DialogTitle>
+            </div>
           </DialogHeader>
         </div>
 
-        <form onSubmit={handleSubmit} className="px-7 pb-7 space-y-5 mt-1">
+        <form onSubmit={handleSubmit} className="px-6 pb-6 space-y-4 mt-1">
 
           {/* Descrição */}
           <div className="space-y-1.5">
             <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Descrição *</Label>
             <Input required value={form.descricao}
               onChange={(e) => set("descricao", e.target.value)}
-              className="rounded-xl h-11 text-sm font-medium"
+              className="rounded-xl h-10 text-sm font-medium"
               placeholder={isReceita ? "Ex: Honorários advocatícios" : "Ex: Custas processuais"} />
           </div>
 
@@ -550,7 +530,7 @@ const FormDialog: React.FC<FormDialogProps> = ({
                 <Input required type="number" min="0" step="0.01" value={form.valor}
                   onChange={(e) => set("valor", e.target.value)}
                   className={cn(
-                    "rounded-xl h-11 pl-9 text-sm font-bold tabular-nums",
+                    "rounded-xl h-10 pl-9 text-sm font-bold tabular-nums",
                     valorNum > 0 && (isReceita ? "text-emerald-500" : "text-orange-500")
                   )}
                   placeholder="0,00" />
@@ -560,7 +540,7 @@ const FormDialog: React.FC<FormDialogProps> = ({
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Vencimento *</Label>
               <Input required type="date" value={form.data_vencimento}
                 onChange={(e) => set("data_vencimento", e.target.value)}
-                className="rounded-xl h-11 text-sm" />
+                className="rounded-xl h-10 text-sm" />
             </div>
           </div>
 
@@ -660,7 +640,7 @@ const FormDialog: React.FC<FormDialogProps> = ({
             <div className="space-y-1.5">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Categoria</Label>
               <Select value={form.categoria} onValueChange={(v) => set("categoria", v)}>
-                <SelectTrigger className="rounded-xl h-11 text-sm"><SelectValue placeholder="Nenhuma" /></SelectTrigger>
+                <SelectTrigger className="rounded-xl h-10 text-sm"><SelectValue placeholder="Nenhuma" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE}>Nenhuma</SelectItem>
                   {categorias.filter(c => c && c.trim()).map((c) => (
@@ -672,7 +652,7 @@ const FormDialog: React.FC<FormDialogProps> = ({
             <div className="space-y-1.5">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Status</Label>
               <Select value={form.status} onValueChange={(v) => set("status", v as StatusType)}>
-                <SelectTrigger className="rounded-xl h-11 text-sm"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="rounded-xl h-10 text-sm"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="pendente">Pendente</SelectItem>
                   <SelectItem value="pago">Pago</SelectItem>
@@ -688,7 +668,7 @@ const FormDialog: React.FC<FormDialogProps> = ({
             <div className="space-y-1.5">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Cliente</Label>
               <Select value={form.cliente_id} onValueChange={(v) => { set("cliente_id", v); set("processo_id", NONE); }}>
-                <SelectTrigger className="rounded-xl h-11 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                <SelectTrigger className="rounded-xl h-10 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE}>Nenhum</SelectItem>
                   {clientes.map((c) => (
@@ -701,7 +681,7 @@ const FormDialog: React.FC<FormDialogProps> = ({
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Processo</Label>
                 <Select value={form.processo_id} onValueChange={(v) => set("processo_id", v)}>
-                  <SelectTrigger className="rounded-xl h-11 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                  <SelectTrigger className="rounded-xl h-10 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value={NONE}>Nenhum</SelectItem>
                     {processos.map((p) => (
@@ -718,12 +698,12 @@ const FormDialog: React.FC<FormDialogProps> = ({
           {/* Botões */}
           <div className="flex gap-3 pt-1">
             <Button type="button" variant="outline" onClick={onClose}
-              className="flex-1 rounded-xl h-11 font-black uppercase text-[10px] tracking-widest">
+              className="flex-1 rounded-xl h-10 font-black uppercase text-[10px] tracking-widest">
               Cancelar
             </Button>
             <Button type="submit" disabled={loading}
               className={cn(
-                "flex-1 rounded-xl h-11 font-black uppercase text-[10px] tracking-widest text-white",
+                "flex-1 rounded-xl h-10 font-black uppercase text-[10px] tracking-widest text-white",
                 isReceita
                   ? "bg-emerald-500 hover:bg-emerald-600 shadow-lg shadow-emerald-500/25"
                   : "bg-orange-500 hover:bg-orange-600 shadow-lg shadow-orange-500/25"
