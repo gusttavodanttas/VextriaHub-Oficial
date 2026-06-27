@@ -1,14 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 import { useInvitations } from "@/hooks/useInvitations";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -17,11 +19,10 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Users, Plus, Search, Mail, Clock, ShieldCheck, User,
   Trash2, Send, RefreshCw, XCircle, CheckCircle2, Crown,
-  Settings2, RotateCcw,
+  Settings2, RotateCcw, KeyRound, Eye, EyeOff, Copy, ChevronRight, ChevronLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -36,7 +37,6 @@ function getInitials(name: string | null | undefined) {
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
-
 function avatarColor(seed: string) {
   const colors = [
     "bg-blue-500/15 text-blue-700 dark:text-blue-300",
@@ -52,11 +52,14 @@ function avatarColor(seed: string) {
   for (let i = 0; i < seed.length; i++) hash = seed.charCodeAt(i) + ((hash << 5) - hash);
   return colors[Math.abs(hash) % colors.length];
 }
-
 function fmtDate(d: string | null | undefined) {
   if (!d) return "–";
   try { return format(new Date(d), "dd/MM/yyyy", { locale: ptBR }); }
   catch { return d; }
+}
+function genPassword() {
+  const chars = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789@#!";
+  return Array.from({ length: 12 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
 }
 
 const ROLE_LABEL: Record<string, string> = { admin: "Administrador", user: "Usuário" };
@@ -73,132 +76,126 @@ const STATUS_LABEL: Record<string, string> = { pending: "Pendente", accepted: "A
 
 // ─── permission groups ────────────────────────────────────────────────────────
 
-type PermGroup = { label: string; perms: { key: string; label: string; defaultUser: boolean }[] };
+type PermItem = { key: string; label: string; defaultUser: boolean };
+type PermGroup = { label: string; perms: PermItem[] };
 
 const PERMISSION_GROUPS: PermGroup[] = [
-  {
-    label: "Clientes",
-    perms: [
-      { key: "canViewClients",   label: "Visualizar",  defaultUser: true  },
-      { key: "canCreateClients", label: "Criar",        defaultUser: true  },
-      { key: "canEditClients",   label: "Editar",       defaultUser: true  },
-      { key: "canDeleteClients", label: "Excluir",      defaultUser: false },
-    ],
-  },
-  {
-    label: "Processos",
-    perms: [
-      { key: "canViewProcesses",   label: "Visualizar", defaultUser: true  },
-      { key: "canCreateProcesses", label: "Criar",       defaultUser: true  },
-      { key: "canEditProcesses",   label: "Editar",      defaultUser: true  },
-      { key: "canDeleteProcesses", label: "Excluir",     defaultUser: false },
-    ],
-  },
-  {
-    label: "Atendimentos",
-    perms: [
-      { key: "canViewAtendimentos",   label: "Visualizar", defaultUser: true  },
-      { key: "canCreateAtendimentos", label: "Criar",       defaultUser: true  },
-      { key: "canEditAtendimentos",   label: "Editar",      defaultUser: true  },
-      { key: "canDeleteAtendimentos", label: "Excluir",     defaultUser: false },
-    ],
-  },
-  {
-    label: "Financeiro",
-    perms: [
-      { key: "canViewFinanceiro",   label: "Visualizar", defaultUser: true  },
-      { key: "canManageFinanceiro", label: "Gerenciar",  defaultUser: false },
-    ],
-  },
-  {
-    label: "Agenda & Audiências",
-    perms: [
-      { key: "canViewAgenda",      label: "Ver agenda",      defaultUser: true },
-      { key: "canManageAgenda",    label: "Gerenciar agenda", defaultUser: true },
-      { key: "canViewAudiencias",  label: "Ver audiências",   defaultUser: true },
-      { key: "canManageAudiencias",label: "Gerenciar audiências", defaultUser: true },
-    ],
-  },
-  {
-    label: "Tarefas & Prazos",
-    perms: [
-      { key: "canViewTarefas",   label: "Ver tarefas",    defaultUser: true },
-      { key: "canManageTarefas", label: "Gerenciar tarefas", defaultUser: true },
-      { key: "canViewPrazos",    label: "Ver prazos",     defaultUser: true },
-      { key: "canManagePrazos",  label: "Gerenciar prazos",  defaultUser: true },
-    ],
-  },
-  {
-    label: "Consultivo",
-    perms: [
-      { key: "canViewConsultivo",   label: "Visualizar", defaultUser: true  },
-      { key: "canManageConsultivo", label: "Gerenciar",  defaultUser: false },
-    ],
-  },
-  {
-    label: "Relatórios",
-    perms: [
-      { key: "canViewGraficos",          label: "Ver gráficos",         defaultUser: true  },
-      { key: "canViewAdvancedAnalytics", label: "Analytics avançados",  defaultUser: false },
-    ],
-  },
-  {
-    label: "Metas",
-    perms: [
-      { key: "canViewMetas",   label: "Visualizar", defaultUser: true  },
-      { key: "canManageMetas", label: "Gerenciar",  defaultUser: false },
-    ],
-  },
-  {
-    label: "Equipe & Escritório",
-    perms: [
-      { key: "canViewEquipe",    label: "Ver equipe",        defaultUser: true  },
-      { key: "canManageEquipe",  label: "Gerenciar equipe",  defaultUser: false },
-      { key: "canInviteUsers",   label: "Convidar membros",  defaultUser: false },
-    ],
-  },
+  { label: "Clientes", perms: [
+    { key: "canViewClients",   label: "Visualizar", defaultUser: true  },
+    { key: "canCreateClients", label: "Criar",       defaultUser: true  },
+    { key: "canEditClients",   label: "Editar",      defaultUser: true  },
+    { key: "canDeleteClients", label: "Excluir",     defaultUser: false },
+  ]},
+  { label: "Processos", perms: [
+    { key: "canViewProcesses",   label: "Visualizar", defaultUser: true  },
+    { key: "canCreateProcesses", label: "Criar",       defaultUser: true  },
+    { key: "canEditProcesses",   label: "Editar",      defaultUser: true  },
+    { key: "canDeleteProcesses", label: "Excluir",     defaultUser: false },
+  ]},
+  { label: "Atendimentos", perms: [
+    { key: "canViewAtendimentos",   label: "Visualizar", defaultUser: true  },
+    { key: "canCreateAtendimentos", label: "Criar",       defaultUser: true  },
+    { key: "canEditAtendimentos",   label: "Editar",      defaultUser: true  },
+    { key: "canDeleteAtendimentos", label: "Excluir",     defaultUser: false },
+  ]},
+  { label: "Financeiro", perms: [
+    { key: "canViewFinanceiro",   label: "Visualizar", defaultUser: true  },
+    { key: "canManageFinanceiro", label: "Gerenciar",  defaultUser: false },
+  ]},
+  { label: "Agenda & Audiências", perms: [
+    { key: "canViewAgenda",       label: "Ver agenda",          defaultUser: true },
+    { key: "canManageAgenda",     label: "Gerenciar agenda",    defaultUser: true },
+    { key: "canViewAudiencias",   label: "Ver audiências",      defaultUser: true },
+    { key: "canManageAudiencias", label: "Gerenciar audiências",defaultUser: true },
+  ]},
+  { label: "Tarefas & Prazos", perms: [
+    { key: "canViewTarefas",   label: "Ver tarefas",      defaultUser: true },
+    { key: "canManageTarefas", label: "Gerenciar tarefas",defaultUser: true },
+    { key: "canViewPrazos",    label: "Ver prazos",       defaultUser: true },
+    { key: "canManagePrazos",  label: "Gerenciar prazos", defaultUser: true },
+  ]},
+  { label: "Consultivo", perms: [
+    { key: "canViewConsultivo",   label: "Visualizar", defaultUser: true  },
+    { key: "canManageConsultivo", label: "Gerenciar",  defaultUser: false },
+  ]},
+  { label: "Relatórios", perms: [
+    { key: "canViewGraficos",          label: "Ver gráficos",        defaultUser: true  },
+    { key: "canViewAdvancedAnalytics", label: "Analytics avançados", defaultUser: false },
+  ]},
+  { label: "Metas", perms: [
+    { key: "canViewMetas",   label: "Visualizar", defaultUser: true  },
+    { key: "canManageMetas", label: "Gerenciar",  defaultUser: false },
+  ]},
+  { label: "Equipe & Escritório", perms: [
+    { key: "canViewEquipe",   label: "Ver equipe",       defaultUser: true  },
+    { key: "canManageEquipe", label: "Gerenciar equipe", defaultUser: false },
+    { key: "canInviteUsers",  label: "Convidar membros", defaultUser: false },
+  ]},
 ];
 
-// ─── PermissionsDialog ───────────────────────────────────────────────────────
+// ─── PermissionsPanel (reusável nos dois dialogs) ────────────────────────────
 
-function PermissionsDialog({
-  open, onOpenChange,
-  targetUserId, targetName, targetRole,
+function PermissionsPanel({
+  role,
+  overrides,
+  onChange,
 }: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  targetUserId: string;
-  targetName: string;
-  targetRole: string;
+  role: "user" | "admin";
+  overrides: Record<string, boolean>;
+  onChange: (key: string, value: boolean) => void;
 }) {
-  const { overrides, loading, setPermission, resetAll } = useUserPermissions(open ? targetUserId : null);
+  const effective = (key: string, defaultUser: boolean) =>
+    key in overrides ? overrides[key] : (role === "admin" ? true : defaultUser);
+
+  return (
+    <div className="space-y-4">
+      {PERMISSION_GROUPS.map(group => (
+        <div key={group.label}>
+          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mb-2">{group.label}</p>
+          <div className="rounded-2xl border border-black/5 dark:border-border overflow-hidden divide-y divide-border">
+            {group.perms.map(perm => {
+              const value = effective(perm.key, perm.defaultUser);
+              const customized = perm.key in overrides;
+              return (
+                <div key={perm.key} className="flex items-center justify-between px-4 py-3 bg-card hover:bg-muted/20 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold">{perm.label}</span>
+                    {customized && (
+                      <Badge variant="outline" className="text-[9px] font-black px-1.5 py-0 rounded border-primary/30 text-primary bg-primary/5">custom</Badge>
+                    )}
+                  </div>
+                  <Switch checked={value} onCheckedChange={v => onChange(perm.key, v)} />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── PermissionsDialog (editar membro existente) ─────────────────────────────
+
+function PermissionsDialog({ open, onOpenChange, targetUserId, targetName, targetRole }: {
+  open: boolean; onOpenChange: (v: boolean) => void;
+  targetUserId: string; targetName: string; targetRole: string;
+}) {
+  const { overrides: raw, loading, setPermission, resetAll } = useUserPermissions(open ? targetUserId : null);
   const { toast } = useToast();
 
-  // build effective value: override > role default
-  const effectiveValue = (key: string, defaultUser: boolean): boolean => {
-    const override = overrides.find(o => o.permission_key === key);
-    if (override !== undefined) return override.granted;
-    // admin role has all permissions by default
-    return targetRole === "admin" ? true : defaultUser;
-  };
+  const overrides: Record<string, boolean> = useMemo(() => {
+    const map: Record<string, boolean> = {};
+    raw.forEach(o => { map[o.permission_key] = o.granted; });
+    return map;
+  }, [raw]);
 
-  const isOverridden = (key: string) => overrides.some(o => o.permission_key === key);
-
-  const handleToggle = async (key: string, defaultUser: boolean, current: boolean) => {
-    const roleDefault = targetRole === "admin" ? true : defaultUser;
-    // if toggling back to role default, remove override
-    if (current !== roleDefault) {
-      // we're currently overriding; clicking means going back to non-default again — just set
-    }
-    await setPermission(key, !current);
-  };
+  const handleChange = (key: string, value: boolean) => setPermission(key, value);
 
   const handleReset = async () => {
     await resetAll();
     toast({ title: "Permissões redefinidas", description: `${targetName} voltou às permissões padrão da função.` });
   };
-
-  const overrideCount = overrides.length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -207,74 +204,242 @@ function PermissionsDialog({
           <div className="flex items-start justify-between">
             <div>
               <DialogTitle className="font-black text-lg flex items-center gap-2">
-                <Settings2 className="h-5 w-5 text-primary" />
-                Permissões — {targetName}
+                <Settings2 className="h-5 w-5 text-primary" />Permissões — {targetName}
               </DialogTitle>
               <p className="text-xs text-muted-foreground mt-1">
                 Função base: <strong>{ROLE_LABEL[targetRole] ?? targetRole}</strong>
-                {overrideCount > 0 && (
-                  <span className="ml-2 text-primary font-semibold">· {overrideCount} override{overrideCount > 1 ? "s" : ""} ativos</span>
-                )}
+                {raw.length > 0 && <span className="ml-2 text-primary font-semibold">· {raw.length} override{raw.length > 1 ? "s" : ""} ativos</span>}
               </p>
             </div>
-            {overrideCount > 0 && (
-              <Button variant="ghost" size="sm" onClick={handleReset}
-                className="text-xs font-bold text-muted-foreground hover:text-foreground rounded-xl gap-1.5 shrink-0">
+            {raw.length > 0 && (
+              <Button variant="ghost" size="sm" onClick={handleReset} className="text-xs font-bold rounded-xl gap-1.5 shrink-0">
                 <RotateCcw className="h-3.5 w-3.5" />Redefinir
               </Button>
             )}
           </div>
         </DialogHeader>
-
-        <div className="overflow-y-auto flex-1 px-6 py-4 space-y-5">
+        <div className="overflow-y-auto flex-1 px-6 py-4">
           {loading ? (
-            <div className="space-y-3">
-              {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}
-            </div>
+            <div className="space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}</div>
           ) : (
-            PERMISSION_GROUPS.map(group => (
-              <div key={group.label}>
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mb-2">{group.label}</p>
-                <div className="rounded-2xl border border-black/5 dark:border-border overflow-hidden divide-y divide-border">
-                  {group.perms.map(perm => {
-                    const value     = effectiveValue(perm.key, perm.defaultUser);
-                    const overridden = isOverridden(perm.key);
-                    const roleDefault = targetRole === "admin" ? true : perm.defaultUser;
-                    return (
-                      <div key={perm.key} className="flex items-center justify-between px-4 py-3 bg-card hover:bg-muted/20 transition-colors">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-sm font-semibold">{perm.label}</span>
-                          {overridden && (
-                            <Badge variant="outline" className="text-[9px] font-black px-1.5 py-0 rounded border-primary/30 text-primary bg-primary/5">
-                              custom
-                            </Badge>
-                          )}
-                          {!overridden && (
-                            <span className="text-[10px] text-muted-foreground/40 font-medium">padrão</span>
-                          )}
-                        </div>
-                        <Switch
-                          checked={value}
-                          onCheckedChange={() => handleToggle(perm.key, perm.defaultUser, value)}
-                          className="shrink-0"
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))
+            <PermissionsPanel
+              role={targetRole as "user" | "admin"}
+              overrides={overrides}
+              onChange={handleChange}
+            />
           )}
         </div>
-
         <DialogFooter className="px-6 py-4 border-t border-border shrink-0">
-          <p className="text-xs text-muted-foreground flex-1">
-            Alterações são salvas automaticamente e aplicadas no próximo login do usuário.
-          </p>
-          <Button onClick={() => onOpenChange(false)} className="rounded-xl font-black">
-            Concluído
-          </Button>
+          <p className="text-xs text-muted-foreground flex-1">Alterações salvas automaticamente.</p>
+          <Button onClick={() => onOpenChange(false)} className="rounded-xl font-black">Concluído</Button>
         </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── CreateMemberDialog (senha provisória + permissões) ──────────────────────
+
+function CreateMemberDialog({ open, onOpenChange, officeId, onSuccess }: {
+  open: boolean; onOpenChange: (v: boolean) => void;
+  officeId: string; onSuccess: () => void;
+}) {
+  const { toast } = useToast();
+  const [step, setStep] = useState<1 | 2>(1);
+  const [form, setForm] = useState({ email: "", password: genPassword(), role: "user" as "user" | "admin" });
+  const [showPass, setShowPass] = useState(false);
+  const [permOverrides, setPermOverrides] = useState<Record<string, boolean>>({});
+  const [saving, setSaving] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const reset = () => {
+    setStep(1); setForm({ email: "", password: genPassword(), role: "user" });
+    setShowPass(false); setPermOverrides({}); setSaving(false); setDone(false);
+  };
+
+  const handleClose = (v: boolean) => { if (!v) reset(); onOpenChange(v); };
+
+  const handlePermChange = (key: string, value: boolean) => {
+    setPermOverrides(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleCreate = async () => {
+    if (!form.email.trim() || !form.password) return;
+    setSaving(true);
+
+    // build permissions array — only overrides that differ from role default
+    const permissions: { key: string; granted: boolean }[] = [];
+    PERMISSION_GROUPS.forEach(g => g.perms.forEach(p => {
+      const roleDefault = form.role === "admin" ? true : p.defaultUser;
+      const override = permOverrides[p.key];
+      if (override !== undefined && override !== roleDefault) {
+        permissions.push({ key: p.key, granted: override });
+      }
+    }));
+
+    const { data, error } = await supabase.functions.invoke("create-team-member", {
+      body: { email: form.email.trim(), password: form.password, office_id: officeId, role: form.role, permissions },
+    });
+
+    setSaving(false);
+
+    if (error || data?.error) {
+      toast({ title: "Erro ao criar membro", description: data?.error || String(error), variant: "destructive" });
+      return;
+    }
+
+    setDone(true);
+    onSuccess();
+  };
+
+  const copyPassword = () => {
+    navigator.clipboard.writeText(form.password);
+    toast({ title: "Senha copiada!" });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="sm:max-w-xl rounded-2xl p-0 overflow-hidden max-h-[90vh] flex flex-col">
+        <DialogHeader className="px-6 pt-5 pb-4 border-b border-border shrink-0">
+          <DialogTitle className="font-black text-lg flex items-center gap-2">
+            <KeyRound className="h-5 w-5 text-primary" />
+            {done ? "Membro criado!" : "Criar com Senha Provisória"}
+          </DialogTitle>
+          {!done && (
+            <div className="flex gap-1 mt-2">
+              {([1, 2] as const).map(s => (
+                <div key={s} className={cn("h-1 flex-1 rounded-full transition-colors", step >= s ? "bg-primary" : "bg-muted")} />
+              ))}
+            </div>
+          )}
+        </DialogHeader>
+
+        {done ? (
+          <div className="px-6 py-8 flex flex-col items-center gap-4 text-center">
+            <div className="p-4 rounded-2xl bg-emerald-500/10">
+              <CheckCircle2 className="h-10 w-10 text-emerald-500" />
+            </div>
+            <div>
+              <p className="font-black text-lg">Acesso criado com sucesso!</p>
+              <p className="text-sm text-muted-foreground mt-1">Compartilhe as credenciais abaixo com o novo membro.</p>
+            </div>
+            <div className="w-full rounded-2xl border border-black/5 dark:border-border bg-muted/30 p-4 space-y-3 text-left">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 mb-1">E-mail</p>
+                <p className="font-bold text-sm">{form.email}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 mb-1">Senha provisória</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-mono font-bold text-sm flex-1">{form.password}</p>
+                  <Button size="sm" variant="ghost" onClick={copyPassword} className="h-7 w-7 rounded-lg">
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 mb-1">Função</p>
+                <p className="font-bold text-sm">{ROLE_LABEL[form.role]}</p>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">Oriente o membro a alterar a senha no primeiro acesso.</p>
+          </div>
+        ) : (
+          <div className="overflow-y-auto flex-1 px-6 py-5">
+            {step === 1 && (
+              <div className="space-y-5">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground">E-mail *</Label>
+                  <Input type="email" placeholder="nome@escritorio.com.br"
+                    value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                    className="rounded-xl border-black/8 dark:border-border" autoFocus />
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground">Senha provisória *</Label>
+                    <button onClick={() => setForm(f => ({ ...f, password: genPassword() }))}
+                      className="text-[10px] text-primary font-bold hover:underline">Gerar nova</button>
+                  </div>
+                  <div className="relative">
+                    <Input
+                      type={showPass ? "text" : "password"}
+                      value={form.password}
+                      onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                      className="rounded-xl border-black/8 dark:border-border font-mono pr-20"
+                    />
+                    <div className="absolute right-1 top-1 flex gap-0.5">
+                      <Button size="sm" variant="ghost" onClick={() => setShowPass(s => !s)} className="h-7 w-7 rounded-lg">
+                        {showPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={copyPassword} className="h-7 w-7 rounded-lg">
+                        <Copy className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Compartilhe com o membro. Ele poderá alterar no primeiro acesso.</p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground">Função</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(["user", "admin"] as const).map(role => (
+                      <button key={role} type="button" onClick={() => setForm(f => ({ ...f, role }))}
+                        className={cn(
+                          "flex flex-col items-center gap-2 p-3 rounded-xl border transition-all",
+                          form.role === role ? "border-primary bg-primary/5 text-primary" : "border-black/8 dark:border-border hover:bg-muted/40"
+                        )}>
+                        {role === "admin" ? <Crown className="h-5 w-5" /> : <User className="h-5 w-5" />}
+                        <span className="text-xs font-black">{ROLE_LABEL[role]}</span>
+                        <span className="text-[10px] text-muted-foreground leading-tight text-center">
+                          {role === "admin" ? "Acesso total ao escritório" : "Acesso padrão — personalize abaixo"}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {step === 2 && (
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground mb-4">
+                  Personalize o acesso de <strong className="text-foreground">{form.email || "novo membro"}</strong>. Ajustes marcados como <span className="text-primary font-semibold">custom</span> substituem o padrão da função.
+                </p>
+                <PermissionsPanel role={form.role} overrides={permOverrides} onChange={handlePermChange} />
+              </div>
+            )}
+          </div>
+        )}
+
+        {!done && (
+          <DialogFooter className="px-6 py-4 border-t border-border shrink-0 flex gap-2">
+            {step === 2 && (
+              <Button variant="ghost" onClick={() => setStep(1)} className="rounded-xl font-black gap-1.5 mr-auto">
+                <ChevronLeft className="h-4 w-4" />Voltar
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => handleClose(false)} className="rounded-xl font-black" disabled={saving}>
+              Cancelar
+            </Button>
+            {step === 1 ? (
+              <Button onClick={() => setStep(2)} className="rounded-xl font-black gap-1.5"
+                disabled={!form.email.trim() || !form.password}>
+                Permissões<ChevronRight className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button onClick={handleCreate} className="rounded-xl font-black" disabled={saving}>
+                {saving ? "Criando..." : "Criar Acesso"}
+              </Button>
+            )}
+          </DialogFooter>
+        )}
+
+        {done && (
+          <DialogFooter className="px-6 py-4 border-t border-border shrink-0">
+            <Button onClick={() => handleClose(false)} className="rounded-xl font-black w-full">Fechar</Button>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -283,8 +448,7 @@ function PermissionsDialog({
 // ─── StatCard ────────────────────────────────────────────────────────────────
 
 function StatCard({ label, value, Icon, color, bg }: {
-  label: string; value: number | string;
-  Icon: React.ElementType; color: string; bg: string;
+  label: string; value: number | string; Icon: React.ElementType; color: string; bg: string;
 }) {
   return (
     <div className="rounded-2xl bg-card border border-black/5 dark:border-border shadow-premium p-4 flex items-center gap-4">
@@ -302,29 +466,24 @@ function StatCard({ label, value, Icon, color, bg }: {
 // ─── main page ───────────────────────────────────────────────────────────────
 
 export default function Equipe() {
-  const { user: me } = useAuth();
+  const { user: me, office } = useAuth();
   const { toast } = useToast();
-  const { users, loading: usersLoading, removeUser, updateUser } = useOfficeUsers();
-  const {
-    invitations, loading: invLoading, createInvitation,
-    resendInvitation, cancelInvitation, pendingInvitations,
-  } = useInvitations();
+  const { users, loading: usersLoading, removeUser, updateUser, refresh: refreshUsers } = useOfficeUsers();
+  const { invitations, loading: invLoading, createInvitation, resendInvitation, cancelInvitation, pendingInvitations } = useInvitations();
 
-  const [search, setSearch]   = useState("");
-  const [tab, setTab]         = useState("membros");
+  const [search, setSearch] = useState("");
+  const [tab, setTab]       = useState("membros");
 
-  // invite dialog
-  const [inviteOpen, setInviteOpen] = useState(false);
-  const [inviteForm, setInviteForm] = useState({ email: "", role: "user" as "user" | "admin" });
-  const [sending, setSending]       = useState(false);
-
-  // role dialog
+  // dialogs
+  const [addMenuOpen, setAddMenuOpen]       = useState(false);
+  const [inviteOpen, setInviteOpen]         = useState(false);
+  const [createOpen, setCreateOpen]         = useState(false);
+  const [inviteForm, setInviteForm]         = useState({ email: "", role: "user" as "user" | "admin" });
+  const [sending, setSending]               = useState(false);
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
-  const [roleTarget, setRoleTarget] = useState<{ id: string; name: string; role: string } | null>(null);
-  const [newRole, setNewRole]       = useState<"user" | "admin">("user");
-
-  // permissions dialog
-  const [permTarget, setPermTarget] = useState<{ userId: string; name: string; role: string } | null>(null);
+  const [roleTarget, setRoleTarget]         = useState<{ id: string; name: string; role: string } | null>(null);
+  const [newRole, setNewRole]               = useState<"user" | "admin">("user");
+  const [permTarget, setPermTarget]         = useState<{ userId: string; name: string; role: string } | null>(null);
 
   const totalMembros = users.length;
   const admins       = users.filter(u => u.role === "admin").length;
@@ -335,25 +494,19 @@ export default function Equipe() {
     const email = u.profile?.email || "";
     return !search || name.toLowerCase().includes(search.toLowerCase()) || email.toLowerCase().includes(search.toLowerCase());
   });
-
-  const filteredInv = invitations.filter(i =>
-    !search || i.email.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredInv = invitations.filter(i => !search || i.email.toLowerCase().includes(search.toLowerCase()));
 
   const handleInvite = async () => {
     if (!inviteForm.email.trim()) return;
     setSending(true);
-    try {
-      const result = await createInvitation({ email: inviteForm.email.trim(), role: inviteForm.role });
-      if (result) {
-        toast({ title: "Convite enviado", description: `Convite enviado para ${inviteForm.email}` });
-        setInviteOpen(false);
-        setInviteForm({ email: "", role: "user" });
-      } else {
-        toast({ title: "Erro ao enviar convite", variant: "destructive" });
-      }
-    } finally {
-      setSending(false);
+    const result = await createInvitation({ email: inviteForm.email.trim(), role: inviteForm.role });
+    setSending(false);
+    if (result) {
+      toast({ title: "Convite registrado", description: `Convite para ${inviteForm.email} criado. Compartilhe o link de acesso manualmente.` });
+      setInviteOpen(false);
+      setInviteForm({ email: "", role: "user" });
+    } else {
+      toast({ title: "Erro ao registrar convite", variant: "destructive" });
     }
   };
 
@@ -368,11 +521,6 @@ export default function Equipe() {
     await updateUser(roleTarget.id, { role: newRole });
     toast({ title: "Função atualizada" });
     setRoleDialogOpen(false);
-  };
-
-  const handleRemove = async (id: string) => {
-    await removeUser(id);
-    toast({ title: "Membro removido da equipe" });
   };
 
   return (
@@ -390,16 +538,24 @@ export default function Equipe() {
               <p className="text-sm text-muted-foreground">Membros e convites do escritório</p>
             </div>
           </div>
-          <Button onClick={() => setInviteOpen(true)} className="rounded-xl font-black gap-2">
-            <Plus className="h-4 w-4" />Convidar Membro
-          </Button>
+
+          {/* add menu */}
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => { setInviteOpen(true); }}
+              className="rounded-xl font-black gap-2">
+              <Send className="h-4 w-4" />Convidar por link
+            </Button>
+            <Button onClick={() => setCreateOpen(true)} className="rounded-xl font-black gap-2">
+              <KeyRound className="h-4 w-4" />Criar com senha
+            </Button>
+          </div>
         </div>
 
         {/* stat cards */}
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-          <StatCard label="Membros"         value={totalMembros} Icon={Users}  color="text-primary"    bg="bg-primary/10" />
-          <StatCard label="Administradores" value={admins}       Icon={Crown}  color="text-violet-500" bg="bg-violet-500/10" />
-          <StatCard label="Convites Pend."  value={convitesPend} Icon={Clock}  color="text-amber-500"  bg="bg-amber-500/10" />
+          <StatCard label="Membros"         value={totalMembros} Icon={Users} color="text-primary"    bg="bg-primary/10" />
+          <StatCard label="Administradores" value={admins}       Icon={Crown} color="text-violet-500" bg="bg-violet-500/10" />
+          <StatCard label="Convites Pend."  value={convitesPend} Icon={Clock} color="text-amber-500"  bg="bg-amber-500/10" />
         </div>
 
         {/* search */}
@@ -430,9 +586,8 @@ export default function Equipe() {
               <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
                 <div className="p-4 rounded-2xl bg-muted/40"><Users className="h-8 w-8 text-muted-foreground/40" /></div>
                 <p className="font-bold">Nenhum membro encontrado</p>
-                <p className="text-sm text-muted-foreground">Convide alguém para começar.</p>
-                <Button onClick={() => setInviteOpen(true)} className="rounded-xl font-black gap-2 mt-1">
-                  <Plus className="h-4 w-4" />Convidar Membro
+                <Button onClick={() => setCreateOpen(true)} className="rounded-xl font-black gap-2 mt-1">
+                  <Plus className="h-4 w-4" />Adicionar Membro
                 </Button>
               </div>
             ) : (
@@ -458,12 +613,10 @@ export default function Equipe() {
                         </p>
                         <p className="text-[10px] text-muted-foreground/50 mt-0.5">Desde {fmtDate(u.joined_at)}</p>
                       </div>
-
                       <Badge variant="outline" className={cn("text-[10px] font-black px-2 py-0.5 rounded-lg border shrink-0", ROLE_CLS[u.role] ?? ROLE_CLS.user)}>
                         {u.role === "admin" ? <Crown className="h-3 w-3 mr-1 inline" /> : <User className="h-3 w-3 mr-1 inline" />}
                         {ROLE_LABEL[u.role] ?? u.role}
                       </Badge>
-
                       {!isMe && (
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                           <Button size="sm" variant="ghost"
@@ -486,13 +639,11 @@ export default function Equipe() {
                             <AlertDialogContent className="rounded-2xl">
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Remover {name}?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  O membro perderá acesso ao escritório. Pode ser revertido convidando-o novamente.
-                                </AlertDialogDescription>
+                                <AlertDialogDescription>O membro perderá acesso ao escritório.</AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel className="rounded-xl">Cancelar</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleRemove(u.id)}
+                                <AlertDialogAction onClick={() => { removeUser(u.id); toast({ title: "Membro removido" }); }}
                                   className="rounded-xl bg-destructive hover:bg-destructive/90">Remover</AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
@@ -513,71 +664,74 @@ export default function Equipe() {
             ) : filteredInv.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
                 <div className="p-4 rounded-2xl bg-muted/40"><Send className="h-8 w-8 text-muted-foreground/40" /></div>
-                <p className="font-bold">Nenhum convite encontrado</p>
-                <p className="text-sm text-muted-foreground">Convide alguém para que apareça aqui.</p>
-                <Button onClick={() => setInviteOpen(true)} className="rounded-xl font-black gap-2 mt-1">
-                  <Plus className="h-4 w-4" />Convidar Membro
-                </Button>
+                <p className="font-bold">Nenhum convite registrado</p>
+                <p className="text-sm text-muted-foreground">Use "Convidar por link" ou "Criar com senha".</p>
               </div>
             ) : (
               <div className="space-y-2">
-                {filteredInv.map(inv => {
-                  const stCls  = STATUS_CLS[inv.status]   ?? STATUS_CLS.expired;
-                  const stLbl  = STATUS_LABEL[inv.status] ?? inv.status;
-                  const roleCls = ROLE_CLS[inv.role] ?? ROLE_CLS.user;
-                  return (
-                    <div key={inv.id} className="group flex items-center gap-4 bg-card border border-black/5 dark:border-border rounded-2xl shadow-premium hover:shadow-lg transition-all duration-200 p-4">
-                      <div className="h-11 w-11 rounded-xl flex items-center justify-center shrink-0 bg-muted/40">
-                        <Mail className="h-5 w-5 text-muted-foreground/50" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-black text-sm tracking-tight truncate">{inv.email}</p>
-                        <p className="text-[10px] text-muted-foreground/50 mt-0.5">
-                          Enviado {fmtDate(inv.created_at)} · Expira {fmtDate(inv.expires_at)}
-                        </p>
-                      </div>
-                      <div className="flex gap-1.5 shrink-0">
-                        <Badge variant="outline" className={cn("text-[10px] font-black px-2 py-0.5 rounded-lg border", roleCls)}>
-                          {ROLE_LABEL[inv.role] ?? inv.role}
-                        </Badge>
-                        <Badge variant="outline" className={cn("text-[10px] font-black px-2 py-0.5 rounded-lg border", stCls)}>
-                          {stLbl}
-                        </Badge>
-                      </div>
-                      {inv.status === "pending" && (
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                          <Button size="sm" variant="ghost"
-                            className="h-8 px-2.5 text-[10px] font-black rounded-xl hover:bg-primary/10 hover:text-primary"
-                            onClick={async () => {
-                              const r = await resendInvitation(inv.id);
-                              if (r) toast({ title: "Convite reenviado", description: `Reenviado para ${inv.email}` });
-                            }}>
-                            <RefreshCw className="h-3 w-3 mr-1" />Reenviar
-                          </Button>
-                          <Button size="sm" variant="ghost"
-                            className="h-8 px-2.5 text-[10px] rounded-xl text-muted-foreground/50 hover:text-rose-500 hover:bg-rose-500/10"
-                            onClick={async () => { await cancelInvitation(inv.id); toast({ title: "Convite cancelado" }); }}>
-                            <XCircle className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      )}
-                      {inv.status === "accepted" && <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />}
+                {filteredInv.map(inv => (
+                  <div key={inv.id} className="group flex items-center gap-4 bg-card border border-black/5 dark:border-border rounded-2xl shadow-premium hover:shadow-lg transition-all duration-200 p-4">
+                    <div className="h-11 w-11 rounded-xl flex items-center justify-center shrink-0 bg-muted/40">
+                      <Mail className="h-5 w-5 text-muted-foreground/50" />
                     </div>
-                  );
-                })}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-black text-sm tracking-tight truncate">{inv.email}</p>
+                      <p className="text-[10px] text-muted-foreground/50 mt-0.5">
+                        Enviado {fmtDate(inv.created_at)} · Expira {fmtDate(inv.expires_at)}
+                      </p>
+                    </div>
+                    <div className="flex gap-1.5 shrink-0">
+                      <Badge variant="outline" className={cn("text-[10px] font-black px-2 py-0.5 rounded-lg border", ROLE_CLS[inv.role] ?? ROLE_CLS.user)}>
+                        {ROLE_LABEL[inv.role] ?? inv.role}
+                      </Badge>
+                      <Badge variant="outline" className={cn("text-[10px] font-black px-2 py-0.5 rounded-lg border", STATUS_CLS[inv.status] ?? STATUS_CLS.expired)}>
+                        {STATUS_LABEL[inv.status] ?? inv.status}
+                      </Badge>
+                    </div>
+                    {inv.status === "pending" && (
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        <Button size="sm" variant="ghost"
+                          className="h-8 px-2.5 text-[10px] font-black rounded-xl hover:bg-primary/10 hover:text-primary"
+                          onClick={async () => { const r = await resendInvitation(inv.id); if (r) toast({ title: "Convite atualizado" }); }}>
+                          <RefreshCw className="h-3 w-3 mr-1" />Renovar
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="sm" variant="ghost" className="h-8 w-8 rounded-xl text-muted-foreground/50 hover:text-rose-500 hover:bg-rose-500/10">
+                              <XCircle className="h-3.5 w-3.5" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent className="rounded-2xl">
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Excluir convite?</AlertDialogTitle>
+                              <AlertDialogDescription>O convite de {inv.email} será removido permanentemente.</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel className="rounded-xl">Cancelar</AlertDialogCancel>
+                              <AlertDialogAction onClick={async () => { await cancelInvitation(inv.id); toast({ title: "Convite excluído" }); }}
+                                className="rounded-xl bg-destructive hover:bg-destructive/90">Excluir</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    )}
+                    {inv.status === "accepted" && <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />}
+                  </div>
+                ))}
               </div>
             )}
           </TabsContent>
         </Tabs>
       </div>
 
-      {/* ── invite dialog ───────────────────────────────────────────── */}
+      {/* ── invite dialog ─────────────────────────────────────────────── */}
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
         <DialogContent className="sm:max-w-sm rounded-2xl p-0 overflow-hidden">
           <DialogHeader className="px-6 pt-5 pb-4 border-b border-border">
             <DialogTitle className="font-black text-lg flex items-center gap-2">
-              <Send className="h-5 w-5 text-primary" />Convidar Membro
+              <Send className="h-5 w-5 text-primary" />Registrar Convite
             </DialogTitle>
+            <p className="text-xs text-muted-foreground mt-1">Registra o e-mail. O membro deverá criar a senha no primeiro acesso.</p>
           </DialogHeader>
           <div className="px-6 py-4 space-y-4">
             <div className="space-y-1.5">
@@ -592,15 +746,10 @@ export default function Equipe() {
               <div className="grid grid-cols-2 gap-2">
                 {(["user", "admin"] as const).map(role => (
                   <button key={role} type="button" onClick={() => setInviteForm(f => ({ ...f, role }))}
-                    className={cn(
-                      "flex flex-col items-center gap-2 p-3 rounded-xl border transition-all",
-                      inviteForm.role === role ? "border-primary bg-primary/5 text-primary" : "border-black/8 dark:border-border hover:bg-muted/40"
-                    )}>
+                    className={cn("flex flex-col items-center gap-2 p-3 rounded-xl border transition-all",
+                      inviteForm.role === role ? "border-primary bg-primary/5 text-primary" : "border-black/8 dark:border-border hover:bg-muted/40")}>
                     {role === "admin" ? <Crown className="h-5 w-5" /> : <User className="h-5 w-5" />}
                     <span className="text-xs font-black">{ROLE_LABEL[role]}</span>
-                    <span className="text-[10px] text-muted-foreground leading-tight text-center">
-                      {role === "admin" ? "Acesso total ao escritório" : "Acesso padrão — personalize depois"}
-                    </span>
                   </button>
                 ))}
               </div>
@@ -609,13 +758,21 @@ export default function Equipe() {
           <DialogFooter className="px-6 py-4 border-t border-border flex gap-2">
             <Button variant="outline" onClick={() => setInviteOpen(false)} className="rounded-xl font-black" disabled={sending}>Cancelar</Button>
             <Button onClick={handleInvite} className="rounded-xl font-black flex-1" disabled={sending || !inviteForm.email.trim()}>
-              {sending ? "Enviando..." : "Enviar Convite"}
+              {sending ? "Registrando..." : "Registrar"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* ── role dialog ─────────────────────────────────────────────── */}
+      {/* ── create with password dialog ───────────────────────────────── */}
+      {office?.id && (
+        <CreateMemberDialog
+          open={createOpen} onOpenChange={setCreateOpen}
+          officeId={office.id} onSuccess={refreshUsers}
+        />
+      )}
+
+      {/* ── role dialog ───────────────────────────────────────────────── */}
       <Dialog open={roleDialogOpen} onOpenChange={setRoleDialogOpen}>
         <DialogContent className="sm:max-w-xs rounded-2xl p-0 overflow-hidden">
           <DialogHeader className="px-6 pt-5 pb-4 border-b border-border">
@@ -626,10 +783,8 @@ export default function Equipe() {
             <div className="grid grid-cols-2 gap-2">
               {(["user", "admin"] as const).map(role => (
                 <button key={role} type="button" onClick={() => setNewRole(role)}
-                  className={cn(
-                    "flex flex-col items-center gap-2 p-3 rounded-xl border transition-all",
-                    newRole === role ? "border-primary bg-primary/5 text-primary" : "border-black/8 dark:border-border hover:bg-muted/40"
-                  )}>
+                  className={cn("flex flex-col items-center gap-2 p-3 rounded-xl border transition-all",
+                    newRole === role ? "border-primary bg-primary/5 text-primary" : "border-black/8 dark:border-border hover:bg-muted/40")}>
                   {role === "admin" ? <Crown className="h-5 w-5" /> : <User className="h-5 w-5" />}
                   <span className="text-xs font-black">{ROLE_LABEL[role]}</span>
                 </button>
@@ -643,14 +798,11 @@ export default function Equipe() {
         </DialogContent>
       </Dialog>
 
-      {/* ── permissions dialog ──────────────────────────────────────── */}
+      {/* ── permissions dialog ────────────────────────────────────────── */}
       {permTarget && (
         <PermissionsDialog
-          open={!!permTarget}
-          onOpenChange={v => { if (!v) setPermTarget(null); }}
-          targetUserId={permTarget.userId}
-          targetName={permTarget.name}
-          targetRole={permTarget.role}
+          open={!!permTarget} onOpenChange={v => { if (!v) setPermTarget(null); }}
+          targetUserId={permTarget.userId} targetName={permTarget.name} targetRole={permTarget.role}
         />
       )}
     </div>

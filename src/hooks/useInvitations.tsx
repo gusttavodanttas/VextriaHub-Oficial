@@ -114,17 +114,15 @@ export const useInvitations = () => {
   const cancelInvitation = async (invitationId: string) => {
     try {
       setError(null);
-      const { data, error: updateError } = await supabase
+      const { error: updateError } = await supabase
         .from('invitations')
-        .update({ status: 'expired' })
-        .eq('id', invitationId)
-        .select()
-        .single();
+        .delete()
+        .eq('id', invitationId);
 
       if (updateError) throw updateError;
 
-      setInvitations(prev => prev.map(i => i.id === invitationId ? data : i));
-      return data;
+      setInvitations(prev => prev.filter(i => i.id !== invitationId));
+      return true;
     } catch (err) {
       console.error('Error canceling invitation:', err);
       setError('Erro ao cancelar convite');
