@@ -14,7 +14,7 @@ export interface TimesheetHookResult {
   create: (newRecord: NovoTimesheet) => Promise<Timesheet | null>;
   update: (id: string, updates: AtualizarTimesheet) => Promise<boolean>;
   remove: (id: string) => Promise<boolean>;
-  startTimer: (tarefa_descricao: string, categoria: TimesheetCategoria, cliente_id?: string, processo_id?: string) => Promise<Timesheet | null>;
+  startTimer: (tarefa_descricao: string, categoria: TimesheetCategoria, cliente_id?: string, processo_id?: string, referencia_tipo?: string, referencia_id?: string, referencia_label?: string) => Promise<Timesheet | null>;
   pauseTimer: (id: string) => Promise<boolean>;
   stopTimer: (id: string, observacoes?: string) => Promise<boolean>;
   getActiveTimer: () => Promise<Timesheet | null>;
@@ -99,7 +99,10 @@ export function useTimesheet(): TimesheetHookResult {
     tarefa_descricao: string,
     categoria: TimesheetCategoria,
     cliente_id?: string,
-    processo_id?: string
+    processo_id?: string,
+    referencia_tipo?: string,
+    referencia_id?: string,
+    referencia_label?: string
   ): Promise<Timesheet | null> => {
     if (!user) return null;
 
@@ -116,6 +119,9 @@ export function useTimesheet(): TimesheetHookResult {
         categoria,
         cliente_id: cliente_id || null,
         processo_id: processo_id || null,
+        referencia_tipo: referencia_tipo || null,
+        referencia_id: referencia_id || null,
+        referencia_label: referencia_label || null,
         data_inicio: new Date().toISOString(),
         status: 'ativo'
       });

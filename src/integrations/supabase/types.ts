@@ -909,6 +909,9 @@ export type Database = {
           observacoes: string | null
           office_id: string | null
           processo_id: string | null
+          referencia_id: string | null
+          referencia_label: string | null
+          referencia_tipo: string | null
           status: string | null
           tarefa_descricao: string
           updated_at: string | null
@@ -927,6 +930,9 @@ export type Database = {
           observacoes?: string | null
           office_id?: string | null
           processo_id?: string | null
+          referencia_id?: string | null
+          referencia_label?: string | null
+          referencia_tipo?: string | null
           status?: string | null
           tarefa_descricao: string
           updated_at?: string | null
@@ -945,6 +951,9 @@ export type Database = {
           observacoes?: string | null
           office_id?: string | null
           processo_id?: string | null
+          referencia_id?: string | null
+          referencia_label?: string | null
+          referencia_tipo?: string | null
           status?: string | null
           tarefa_descricao?: string
           updated_at?: string | null
