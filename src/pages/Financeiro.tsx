@@ -38,6 +38,8 @@ import {
   Loader2,
   Settings2,
   X,
+  Repeat,
+  Layers,
 } from "lucide-react";
 import {
   format,
@@ -46,6 +48,8 @@ import {
   parseISO,
   isAfter,
   isBefore,
+  addMonths,
+  addWeeks,
 } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -75,11 +79,18 @@ interface FinanceiroItem {
   user_id: string;
   office_id: string;
   deletado: boolean;
+  grupo_id?: string | null;
+  parcela_numero?: number | null;
+  parcela_total?: number | null;
+  recorrencia?: string | null;
   clientes?: { nome: string } | null;
 }
 
 interface ClienteOption { id: string; nome: string; }
 interface ProcessoOption { id: string; titulo: string; numero: string; }
+
+type ModoLancamento = "unico" | "parcelado" | "recorrente";
+type RecorrenciaTipo = "mensal" | "semanal" | "quinzenal";
 
 interface FormState {
   tipo: TipoType;
@@ -90,6 +101,11 @@ interface FormState {
   categoria: string;
   cliente_id: string;
   processo_id: string;
+  // Recorrência / parcelamento
+  modo: ModoLancamento;
+  parcelas: string;        // número de parcelas (parcelado)
+  recorrencia: RecorrenciaTipo; // frequência (recorrente)
+  meses_recorrencia: string;   // quantos meses gerar (recorrente)
 }
 
 // Converte qualquer valor falsy/NONE para null para enviar ao DB
@@ -105,6 +121,10 @@ const defaultForm = (tipo: TipoType = "receita"): FormState => ({
   categoria: NONE,
   cliente_id: NONE,
   processo_id: NONE,
+  modo: "unico",
+  parcelas: "2",
+  recorrencia: "mensal",
+  meses_recorrencia: "12",
 });
 
 // ─── Hook financeiro ─────────────────────────────────────────────────────────
@@ -134,11 +154,15 @@ const useFinanceiro = (officeId: string | null | undefined) => {
   );
 
   const create = useMutation({
-    mutationFn: async (payload: any) => {
+    mutationFn: async (payload: any | any[]) => {
       const { error } = await supabase.from("financeiro").insert(payload);
       if (error) throw error;
     },
-    onSuccess: () => { invalidate(); toast({ title: "Registro criado!" }); },
+    onSuccess: (_d, payload) => {
+      invalidate();
+      const n = Array.isArray(payload) ? payload.length : 1;
+      toast({ title: n > 1 ? `${n} lançamentos criados!` : "Registro criado!" });
+    },
     onError: (e: Error) => toast({ title: "Erro ao criar", description: e.message, variant: "destructive" }),
   });
 
@@ -172,7 +196,21 @@ const useFinanceiro = (officeId: string | null | undefined) => {
     onError: (e: Error) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
-  return { query, create, update, remove, markPago };
+  const cancelarGrupo = useMutation({
+    mutationFn: async (grupoId: string) => {
+      const hoje = format(new Date(), "yyyy-MM-dd");
+      const { error } = await supabase.from("financeiro")
+        .update({ deletado: true })
+        .eq("grupo_id", grupoId)
+        .eq("status", "pendente")
+        .gte("data_vencimento", hoje);
+      if (error) throw error;
+    },
+    onSuccess: () => { invalidate(); toast({ title: "Lançamentos futuros cancelados." }); },
+    onError: (e: Error) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+  });
+
+  return { query, create, update, remove, markPago, cancelarGrupo };
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -361,21 +399,67 @@ const FormDialog: React.FC<FormDialogProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const payload = {
+    const valorTotal = parseFloat(form.valor) || 0;
+    const base = {
       tipo: form.tipo,
       descricao: form.descricao.trim(),
-      valor: parseFloat(form.valor),
-      data_vencimento: form.data_vencimento,
-      data_pagamento: form.status === "pago" ? format(new Date(), "yyyy-MM-dd") : null,
       status: form.status,
       categoria: toNull(form.categoria),
       cliente_id: toNull(form.cliente_id),
       processo_id: toNull(form.processo_id),
       user_id: userId,
       office_id: officeId,
+      data_pagamento: form.status === "pago" ? format(new Date(), "yyyy-MM-dd") : null,
     };
-    if (editId) onUpdate({ id: editId, ...payload });
-    else onSave(payload);
+
+    if (editId) {
+      onUpdate({ id: editId, ...base, valor: valorTotal, data_vencimento: form.data_vencimento });
+      return;
+    }
+
+    const grupo_id = crypto.randomUUID();
+    const dataBase = parseISO(form.data_vencimento);
+
+    if (form.modo === "parcelado") {
+      const n = Math.max(2, Math.min(120, parseInt(form.parcelas) || 2));
+      const valorParcela = Math.round((valorTotal / n) * 100) / 100;
+      const rows = Array.from({ length: n }, (_, i) => ({
+        ...base,
+        valor: i === n - 1 ? Math.round((valorTotal - valorParcela * (n - 1)) * 100) / 100 : valorParcela,
+        data_vencimento: format(addMonths(dataBase, i), "yyyy-MM-dd"),
+        grupo_id,
+        parcela_numero: i + 1,
+        parcela_total: n,
+        recorrencia: null,
+        status: "pendente",
+        data_pagamento: null,
+        descricao: `${base.descricao} (${i + 1}/${n})`,
+      }));
+      onSave(rows);
+    } else if (form.modo === "recorrente") {
+      const meses = Math.max(1, Math.min(120, parseInt(form.meses_recorrencia) || 12));
+      const rows = Array.from({ length: meses }, (_, i) => {
+        const data = form.recorrencia === "semanal"
+          ? addWeeks(dataBase, i)
+          : form.recorrencia === "quinzenal"
+          ? addWeeks(dataBase, i * 2)
+          : addMonths(dataBase, i);
+        return {
+          ...base,
+          valor: valorTotal,
+          data_vencimento: format(data, "yyyy-MM-dd"),
+          grupo_id,
+          parcela_numero: null,
+          parcela_total: null,
+          recorrencia: form.recorrencia,
+          status: "pendente",
+          data_pagamento: null,
+        };
+      });
+      onSave(rows);
+    } else {
+      onSave({ ...base, valor: valorTotal, data_vencimento: form.data_vencimento });
+    }
   };
 
   return (
@@ -420,6 +504,82 @@ const FormDialog: React.FC<FormDialogProps> = ({
               <Input required type="date" value={form.data_vencimento} onChange={(e) => set("data_vencimento", e.target.value)} className="rounded-xl" />
             </div>
           </div>
+
+          {/* Modo de lançamento (só ao criar) */}
+          {!editId && (
+            <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 space-y-3">
+              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
+                <Repeat className="h-3.5 w-3.5" /> Lançamento
+              </div>
+
+              {/* Chips de modo */}
+              <div className="flex gap-2">
+                {([
+                  { value: "unico",      label: "Único",      Icon: DollarSign },
+                  { value: "parcelado",  label: "Parcelado",  Icon: Layers },
+                  { value: "recorrente", label: "Recorrente", Icon: Repeat },
+                ] as const).map(({ value, label, Icon }) => (
+                  <button key={value} type="button"
+                    onClick={() => set("modo", value)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all",
+                      form.modo === value
+                        ? "bg-primary text-white border-primary shadow-sm"
+                        : "border-black/10 dark:border-border text-muted-foreground hover:border-primary/40"
+                    )}>
+                    <Icon className="h-3.5 w-3.5" />{label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Parcelado */}
+              {form.modo === "parcelado" && (
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                    Número de parcelas
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Input type="number" min={2} max={120} value={form.parcelas}
+                      onChange={(e) => set("parcelas", e.target.value)}
+                      className="rounded-xl w-24 text-center font-bold" />
+                    <span className="text-sm text-muted-foreground">
+                      {form.valor && parseFloat(form.valor) > 0
+                        ? `× ${fmt(Math.round(parseFloat(form.valor) / (parseInt(form.parcelas) || 2) * 100) / 100)} / mês`
+                        : "parcelas mensais"}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Recorrente */}
+              {form.modo === "recorrente" && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Frequência</Label>
+                    <Select value={form.recorrencia} onValueChange={(v) => set("recorrencia", v as RecorrenciaTipo)}>
+                      <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="mensal">Mensal</SelectItem>
+                        <SelectItem value="quinzenal">Quinzenal</SelectItem>
+                        <SelectItem value="semanal">Semanal</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Gerar por</Label>
+                    <div className="flex items-center gap-2">
+                      <Input type="number" min={1} max={120} value={form.meses_recorrencia}
+                        onChange={(e) => set("meses_recorrencia", e.target.value)}
+                        className="rounded-xl text-center font-bold" />
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {form.recorrencia === "semanal" ? "sem." : form.recorrencia === "quinzenal" ? "quinz." : "meses"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Status + Categoria */}
           <div className="grid grid-cols-2 gap-4">
@@ -502,10 +662,13 @@ const FinanceiroRow: React.FC<{
   onMarkPago: (id: string) => void;
   onEdit: (item: FinanceiroItem) => void;
   onDelete: (id: string) => void;
+  onCancelarGrupo: (grupoId: string) => void;
   loadingId: string | null;
-}> = ({ item, onMarkPago, onEdit, onDelete, loadingId }) => {
+}> = ({ item, onMarkPago, onEdit, onDelete, onCancelarGrupo, loadingId }) => {
   const isVencido = item.status === "vencido";
   const cfg = statusConfig[item.status] ?? statusConfig.cancelado;
+  const isParcela = !!item.parcela_total;
+  const isRecorrente = !!item.recorrencia && !isParcela;
 
   return (
     <div className={cn(
@@ -522,9 +685,23 @@ const FinanceiroRow: React.FC<{
       </div>
 
       <div className="flex-1 min-w-0">
-        <p className="font-black text-base tracking-tight truncate group-hover:text-primary transition-colors">
-          {item.descricao}
-        </p>
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className="font-black text-base tracking-tight truncate group-hover:text-primary transition-colors">
+            {item.descricao}
+          </p>
+          {isParcela && (
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-primary/10 text-primary text-[9px] font-black uppercase tracking-widest border border-primary/20">
+              <Layers className="h-3 w-3" />
+              {item.parcela_numero}/{item.parcela_total}
+            </span>
+          )}
+          {isRecorrente && (
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-violet-500/10 text-violet-500 text-[9px] font-black uppercase tracking-widest border border-violet-500/20">
+              <Repeat className="h-3 w-3" />
+              {item.recorrencia}
+            </span>
+          )}
+        </div>
         <div className="flex flex-wrap gap-2 mt-1 text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">
           {item.clientes?.nome && <span>{item.clientes.nome}</span>}
           {item.categoria && item.clientes?.nome && <span className="opacity-40">·</span>}
@@ -560,6 +737,13 @@ const FinanceiroRow: React.FC<{
             onClick={() => onEdit(item)} title="Editar">
             <Pencil className="h-4 w-4" />
           </Button>
+          {item.grupo_id && item.status === "pendente" && (
+            <Button size="icon" variant="ghost"
+              className="h-8 w-8 rounded-xl hover:bg-red-500/10 hover:text-red-500"
+              onClick={() => onCancelarGrupo(item.grupo_id!)} title="Cancelar lançamentos futuros do grupo">
+              <X className="h-4 w-4" />
+            </Button>
+          )}
           <Button size="icon" variant="ghost"
             className="h-8 w-8 rounded-xl hover:bg-red-500/10 hover:text-red-500"
             onClick={() => onDelete(item.id)} title="Excluir">
@@ -633,7 +817,7 @@ const Financeiro = () => {
   const { user, office } = useAuth();
   const officeId = office?.id ?? user?.office_id ?? "";
 
-  const { query, create, update, remove, markPago } = useFinanceiro(officeId);
+  const { query, create, update, remove, markPago, cancelarGrupo } = useFinanceiro(officeId);
   const items = query.data ?? [];
 
   const { categoriasReceita, categoriasDespesa, save: saveCategorias } = useFinanceiroCategorias(officeId);
@@ -740,8 +924,17 @@ const Financeiro = () => {
         categoria: toNull(editItem.categoria) ?? NONE,
         cliente_id: toNull(editItem.cliente_id) ?? NONE,
         processo_id: toNull(editItem.processo_id) ?? NONE,
+        modo: "unico",
+        parcelas: "2",
+        recorrencia: "mensal",
+        meses_recorrencia: "12",
       }
     : defaultForm(defaultTipo);
+
+  const handleCancelarGrupo = (grupoId: string) => {
+    if (!confirm("Cancelar todos os lançamentos futuros pendentes deste grupo?")) return;
+    cancelarGrupo.mutate(grupoId);
+  };
 
   return (
     <PermissionGuard permission="canViewFinanceiro" showDeniedMessage>
@@ -856,7 +1049,8 @@ const Financeiro = () => {
                 : data.map((item) => (
                     <FinanceiroRow key={item.id} item={item}
                       onMarkPago={handleMarkPago} onEdit={openEdit}
-                      onDelete={handleDelete} loadingId={loadingId} />
+                      onDelete={handleDelete} onCancelarGrupo={handleCancelarGrupo}
+                      loadingId={loadingId} />
                   ))
               }
             </TabsContent>
