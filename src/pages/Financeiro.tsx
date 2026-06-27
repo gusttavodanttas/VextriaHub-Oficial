@@ -462,118 +462,192 @@ const FormDialog: React.FC<FormDialogProps> = ({
     }
   };
 
+  const isReceita = form.tipo === "receita";
+  const accentColor = isReceita ? "emerald" : "orange";
+  const valorNum = parseFloat(form.valor) || 0;
+  const nParcelas = parseInt(form.parcelas) || 2;
+  const nRecorrencia = parseInt(form.meses_recorrencia) || 12;
+
+  // Preview de resumo
+  const resumo = (() => {
+    if (!valorNum || editId) return null;
+    if (form.modo === "parcelado") {
+      const pv = Math.round(valorNum / nParcelas * 100) / 100;
+      return `${nParcelas}× de ${fmt(pv)} mensais — total ${fmt(valorNum)}`;
+    }
+    if (form.modo === "recorrente") {
+      const freq = form.recorrencia === "semanal" ? "semanais" : form.recorrencia === "quinzenal" ? "quinzenais" : "mensais";
+      return `${nRecorrencia} lançamentos ${freq} de ${fmt(valorNum)}`;
+    }
+    return null;
+  })();
+
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="sm:max-w-lg rounded-3xl border border-black/5 dark:border-border shadow-premium">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-xl font-black">
-            <div className={cn("p-1.5 rounded-lg", form.tipo === "receita" ? "bg-emerald-500/10 text-emerald-500" : "bg-orange-500/10 text-orange-500")}>
-              {form.tipo === "receita" ? <TrendingUp className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />}
-            </div>
-            {editId ? "Editar Registro" : form.tipo === "receita" ? "Nova Receita" : "Nova Despesa"}
-          </DialogTitle>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-lg p-0 rounded-3xl border border-black/5 dark:border-border shadow-premium overflow-hidden">
 
-        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
-          {/* Tipo */}
-          <div>
-            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1.5 block">Tipo</Label>
-            <Select value={form.tipo} onValueChange={(v) => { set("tipo", v as TipoType); set("categoria", NONE); }}>
-              <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="receita">Receita</SelectItem>
-                <SelectItem value="despesa">Despesa</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+        {/* Header colorido */}
+        <div className={cn(
+          "px-7 pt-7 pb-6",
+          isReceita
+            ? "bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent"
+            : "bg-gradient-to-br from-orange-500/10 via-orange-500/5 to-transparent"
+        )}>
+          {/* Tipo toggle */}
+          {!editId && (
+            <div className="flex gap-2 mb-5">
+              {([
+                { value: "receita", label: "Receita", Icon: TrendingUp },
+                { value: "despesa", label: "Despesa", Icon: TrendingDown },
+              ] as const).map(({ value, label, Icon }) => (
+                <button key={value} type="button"
+                  onClick={() => { set("tipo", value); set("categoria", NONE); }}
+                  className={cn(
+                    "flex items-center gap-1.5 px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-widest border transition-all duration-200",
+                    form.tipo === value
+                      ? value === "receita"
+                        ? "bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/25"
+                        : "bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-500/25"
+                      : "border-black/10 dark:border-border text-muted-foreground hover:border-foreground/20 bg-background/50"
+                  )}>
+                  <Icon className="h-3.5 w-3.5" />{label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-black tracking-tight">
+              {editId
+                ? `Editar ${isReceita ? "Receita" : "Despesa"}`
+                : isReceita ? "Nova Receita" : "Nova Despesa"}
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {editId ? "Altere os dados do lançamento." : isReceita
+                ? "Registre um valor a receber ou recebido."
+                : "Registre uma despesa ou custo do escritório."}
+            </p>
+          </DialogHeader>
+        </div>
+
+        <form onSubmit={handleSubmit} className="px-7 pb-7 space-y-5 mt-1">
 
           {/* Descrição */}
-          <div>
-            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1.5 block">Descrição *</Label>
-            <Input required value={form.descricao} onChange={(e) => set("descricao", e.target.value)} className="rounded-xl" placeholder="Ex: Honorários processo nº 001" />
+          <div className="space-y-1.5">
+            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Descrição *</Label>
+            <Input required value={form.descricao}
+              onChange={(e) => set("descricao", e.target.value)}
+              className="rounded-xl h-11 text-sm font-medium"
+              placeholder={isReceita ? "Ex: Honorários advocatícios" : "Ex: Custas processuais"} />
           </div>
 
           {/* Valor + Vencimento */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1.5 block">Valor (R$) *</Label>
-              <Input required type="number" min="0" step="0.01" value={form.valor} onChange={(e) => set("valor", e.target.value)} className="rounded-xl" placeholder="0,00" />
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Valor *</Label>
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-black text-muted-foreground">R$</span>
+                <Input required type="number" min="0" step="0.01" value={form.valor}
+                  onChange={(e) => set("valor", e.target.value)}
+                  className={cn(
+                    "rounded-xl h-11 pl-9 text-sm font-bold tabular-nums",
+                    valorNum > 0 && (isReceita ? "text-emerald-500" : "text-orange-500")
+                  )}
+                  placeholder="0,00" />
+              </div>
             </div>
-            <div>
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1.5 block">Vencimento *</Label>
-              <Input required type="date" value={form.data_vencimento} onChange={(e) => set("data_vencimento", e.target.value)} className="rounded-xl" />
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Vencimento *</Label>
+              <Input required type="date" value={form.data_vencimento}
+                onChange={(e) => set("data_vencimento", e.target.value)}
+                className="rounded-xl h-11 text-sm" />
             </div>
           </div>
 
-          {/* Modo de lançamento (só ao criar) */}
+          {/* Modo lançamento */}
           {!editId && (
-            <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 space-y-3">
-              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
-                <Repeat className="h-3.5 w-3.5" /> Lançamento
-              </div>
-
-              {/* Chips de modo */}
-              <div className="flex gap-2">
+            <div className="space-y-3">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Tipo de lançamento</Label>
+              <div className="grid grid-cols-3 gap-2">
                 {([
-                  { value: "unico",      label: "Único",      Icon: DollarSign },
-                  { value: "parcelado",  label: "Parcelado",  Icon: Layers },
-                  { value: "recorrente", label: "Recorrente", Icon: Repeat },
-                ] as const).map(({ value, label, Icon }) => (
+                  { value: "unico",      label: "Único",      Icon: DollarSign, desc: "Um lançamento" },
+                  { value: "parcelado",  label: "Parcelado",  Icon: Layers,     desc: "Divide em parcelas" },
+                  { value: "recorrente", label: "Recorrente", Icon: Repeat,     desc: "Repete periodicamente" },
+                ] as const).map(({ value, label, Icon, desc }) => (
                   <button key={value} type="button"
                     onClick={() => set("modo", value)}
                     className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all",
+                      "flex flex-col items-center gap-1.5 p-3 rounded-2xl border text-center transition-all duration-200",
                       form.modo === value
-                        ? "bg-primary text-white border-primary shadow-sm"
-                        : "border-black/10 dark:border-border text-muted-foreground hover:border-primary/40"
+                        ? isReceita
+                          ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
+                          : "bg-orange-500/10 border-orange-500/40 text-orange-600 dark:text-orange-400"
+                        : "border-black/8 dark:border-border text-muted-foreground hover:border-foreground/20 hover:bg-muted/30"
                     )}>
-                    <Icon className="h-3.5 w-3.5" />{label}
+                    <Icon className="h-4 w-4" />
+                    <span className="text-[11px] font-black uppercase tracking-wide leading-none">{label}</span>
+                    <span className="text-[10px] opacity-60 leading-tight">{desc}</span>
                   </button>
                 ))}
               </div>
 
-              {/* Parcelado */}
+              {/* Parcelado config */}
               {form.modo === "parcelado" && (
-                <div className="space-y-1">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                    Número de parcelas
-                  </Label>
-                  <div className="flex items-center gap-2">
+                <div className={cn(
+                  "rounded-2xl p-4 space-y-3 border",
+                  isReceita ? "bg-emerald-500/5 border-emerald-500/20" : "bg-orange-500/5 border-orange-500/20"
+                )}>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Nº de parcelas</Label>
+                    {resumo && <span className={cn("text-xs font-bold", isReceita ? "text-emerald-500" : "text-orange-500")}>{resumo}</span>}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {[2,3,4,6,10,12].map((n) => (
+                      <button key={n} type="button"
+                        onClick={() => set("parcelas", String(n))}
+                        className={cn(
+                          "w-9 h-9 rounded-xl text-xs font-black border transition-all",
+                          form.parcelas === String(n)
+                            ? isReceita ? "bg-emerald-500 text-white border-emerald-500" : "bg-orange-500 text-white border-orange-500"
+                            : "border-black/10 dark:border-border text-muted-foreground hover:border-foreground/20"
+                        )}>{n}x</button>
+                    ))}
                     <Input type="number" min={2} max={120} value={form.parcelas}
                       onChange={(e) => set("parcelas", e.target.value)}
-                      className="rounded-xl w-24 text-center font-bold" />
-                    <span className="text-sm text-muted-foreground">
-                      {form.valor && parseFloat(form.valor) > 0
-                        ? `× ${fmt(Math.round(parseFloat(form.valor) / (parseInt(form.parcelas) || 2) * 100) / 100)} / mês`
-                        : "parcelas mensais"}
-                    </span>
+                      className="rounded-xl h-9 w-16 text-center text-xs font-bold" />
                   </div>
                 </div>
               )}
 
-              {/* Recorrente */}
+              {/* Recorrente config */}
               {form.modo === "recorrente" && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Frequência</Label>
-                    <Select value={form.recorrencia} onValueChange={(v) => set("recorrencia", v as RecorrenciaTipo)}>
-                      <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="mensal">Mensal</SelectItem>
-                        <SelectItem value="quinzenal">Quinzenal</SelectItem>
-                        <SelectItem value="semanal">Semanal</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Gerar por</Label>
-                    <div className="flex items-center gap-2">
-                      <Input type="number" min={1} max={120} value={form.meses_recorrencia}
-                        onChange={(e) => set("meses_recorrencia", e.target.value)}
-                        className="rounded-xl text-center font-bold" />
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">
-                        {form.recorrencia === "semanal" ? "sem." : form.recorrencia === "quinzenal" ? "quinz." : "meses"}
-                      </span>
+                <div className={cn(
+                  "rounded-2xl p-4 space-y-3 border",
+                  isReceita ? "bg-emerald-500/5 border-emerald-500/20" : "bg-orange-500/5 border-orange-500/20"
+                )}>
+                  {resumo && <p className={cn("text-xs font-bold", isReceita ? "text-emerald-500" : "text-orange-500")}>{resumo}</p>}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Frequência</Label>
+                      <Select value={form.recorrencia} onValueChange={(v) => set("recorrencia", v as RecorrenciaTipo)}>
+                        <SelectTrigger className="rounded-xl h-9 text-sm"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="mensal">Mensal</SelectItem>
+                          <SelectItem value="quinzenal">Quinzenal</SelectItem>
+                          <SelectItem value="semanal">Semanal</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Gerar por</Label>
+                      <div className="flex items-center gap-2">
+                        <Input type="number" min={1} max={120} value={form.meses_recorrencia}
+                          onChange={(e) => set("meses_recorrencia", e.target.value)}
+                          className="rounded-xl h-9 text-center text-sm font-bold" />
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          {form.recorrencia === "semanal" ? "sem." : form.recorrencia === "quinzenal" ? "quinz." : "meses"}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -581,24 +655,12 @@ const FormDialog: React.FC<FormDialogProps> = ({
             </div>
           )}
 
-          {/* Status + Categoria */}
+          {/* Categoria + Status */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1.5 block">Status</Label>
-              <Select value={form.status} onValueChange={(v) => set("status", v as StatusType)}>
-                <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pendente">Pendente</SelectItem>
-                  <SelectItem value="pago">Pago</SelectItem>
-                  <SelectItem value="vencido">Vencido</SelectItem>
-                  <SelectItem value="cancelado">Cancelado</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1.5 block">Categoria</Label>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Categoria</Label>
               <Select value={form.categoria} onValueChange={(v) => set("categoria", v)}>
-                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+                <SelectTrigger className="rounded-xl h-11 text-sm"><SelectValue placeholder="Nenhuma" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE}>Nenhuma</SelectItem>
                   {categorias.filter(c => c && c.trim()).map((c) => (
@@ -607,46 +669,74 @@ const FormDialog: React.FC<FormDialogProps> = ({
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Status</Label>
+              <Select value={form.status} onValueChange={(v) => set("status", v as StatusType)}>
+                <SelectTrigger className="rounded-xl h-11 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pendente">Pendente</SelectItem>
+                  <SelectItem value="pago">Pago</SelectItem>
+                  <SelectItem value="vencido">Vencido</SelectItem>
+                  <SelectItem value="cancelado">Cancelado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          {/* Cliente */}
-          <div>
-            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1.5 block">Cliente</Label>
-            <Select value={form.cliente_id} onValueChange={(v) => { set("cliente_id", v); set("processo_id", NONE); }}>
-              <SelectTrigger className="rounded-xl"><SelectValue placeholder="Selecionar cliente..." /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE}>Nenhum</SelectItem>
-                {clientes.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Processo (só se cliente selecionado) */}
-          {clienteSelecionado && (
-            <div>
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1.5 block">Processo</Label>
-              <Select value={form.processo_id} onValueChange={(v) => set("processo_id", v)}>
-                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Selecionar processo..." /></SelectTrigger>
+          {/* Cliente + Processo */}
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Cliente</Label>
+              <Select value={form.cliente_id} onValueChange={(v) => { set("cliente_id", v); set("processo_id", NONE); }}>
+                <SelectTrigger className="rounded-xl h-11 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE}>Nenhum</SelectItem>
-                  {processos.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.titulo}{p.numero && p.numero !== p.titulo ? ` — ${p.numero}` : ""}
-                    </SelectItem>
+                  {clientes.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-          )}
+            {clienteSelecionado && (
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Processo</Label>
+                <Select value={form.processo_id} onValueChange={(v) => set("processo_id", v)}>
+                  <SelectTrigger className="rounded-xl h-11 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}>Nenhum</SelectItem>
+                    {processos.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.titulo}{p.numero && p.numero !== p.titulo ? ` — ${p.numero}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
 
-          <div className="flex gap-3 pt-2">
-            <Button type="button" variant="outline" onClick={onClose} className="flex-1 rounded-xl font-black uppercase text-[10px] tracking-widest">
+          {/* Botões */}
+          <div className="flex gap-3 pt-1">
+            <Button type="button" variant="outline" onClick={onClose}
+              className="flex-1 rounded-xl h-11 font-black uppercase text-[10px] tracking-widest">
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading} className="flex-1 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-premium">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : editId ? "Salvar" : "Criar"}
+            <Button type="submit" disabled={loading}
+              className={cn(
+                "flex-1 rounded-xl h-11 font-black uppercase text-[10px] tracking-widest text-white",
+                isReceita
+                  ? "bg-emerald-500 hover:bg-emerald-600 shadow-lg shadow-emerald-500/25"
+                  : "bg-orange-500 hover:bg-orange-600 shadow-lg shadow-orange-500/25"
+              )}>
+              {loading
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : editId
+                  ? "Salvar alterações"
+                  : form.modo === "parcelado"
+                    ? `Criar ${nParcelas} parcelas`
+                    : form.modo === "recorrente"
+                      ? `Criar ${nRecorrencia} lançamentos`
+                      : isReceita ? "Registrar receita" : "Registrar despesa"}
             </Button>
           </div>
         </form>
