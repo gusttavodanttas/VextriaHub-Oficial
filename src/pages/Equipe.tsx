@@ -74,7 +74,7 @@ const STATUS_CLS: Record<string, string> = {
   accepted: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
   expired:  "bg-slate-500/10 text-slate-500 border-slate-500/20",
 };
-const STATUS_LABEL: Record<string, string> = { pending: "Pendente", accepted: "Aceito", expired: "Expirado" };
+const STATUS_LABEL: Record<string, string> = { pending: "Aguardando", accepted: "Aceito", expired: "Expirado" };
 
 // ─── permission groups ────────────────────────────────────────────────────────
 
@@ -930,7 +930,7 @@ export default function Equipe() {
                       </Badge>
                     </div>
                     {inv.status === "pending" && (
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                      <div className="flex gap-1 shrink-0">
                         <Button size="sm" variant="ghost"
                           className="h-8 px-2.5 text-[10px] font-black rounded-xl hover:bg-primary/10 hover:text-primary"
                           onClick={async () => { const r = await resendInvitation(inv.id); if (r) toast({ title: "Convite atualizado" }); }}>
