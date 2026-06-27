@@ -249,21 +249,21 @@ const FormDialog: React.FC<{
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="sm:max-w-sm p-0 rounded-3xl border border-black/5 dark:border-border shadow-premium overflow-hidden">
-        <div className="px-5 pt-5 pb-3 bg-gradient-to-br from-primary/8 via-primary/4 to-transparent">
+      <DialogContent className="sm:max-w-sm p-0 rounded-3xl border border-black/5 dark:border-border shadow-premium" style={{maxHeight:"88vh",overflowY:"auto"}}>
+        <div className="px-5 pt-4 pb-3 bg-gradient-to-br from-primary/8 via-primary/4 to-transparent">
           <DialogHeader>
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 bg-primary/10 text-primary">
-                <MessageSquare className="h-5 w-5" />
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-xl flex items-center justify-center shrink-0 bg-primary/10 text-primary">
+                <MessageSquare className="h-4 w-4" />
               </div>
-              <DialogTitle className="text-xl font-black tracking-tight">
+              <DialogTitle className="text-lg font-black tracking-tight">
                 {editId ? "Editar Atendimento" : "Novo Atendimento"}
               </DialogTitle>
             </div>
           </DialogHeader>
         </div>
 
-        <form onSubmit={handleSubmit} className="px-5 pb-5 space-y-3 mt-1">
+        <form onSubmit={handleSubmit} className="px-5 pb-5 space-y-3">
           {/* Tipo */}
           <div className="space-y-1.5">
             <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Tipo *</Label>
@@ -272,68 +272,68 @@ const FormDialog: React.FC<{
                 <button key={value} type="button"
                   onClick={() => set("tipo_atendimento", value)}
                   className={cn(
-                    "flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl border text-center transition-all text-[10px] font-black uppercase tracking-wide",
+                    "flex items-center gap-1.5 py-2 px-2 rounded-xl border text-left transition-all text-[10px] font-black uppercase tracking-wide",
                     form.tipo_atendimento === value
                       ? "bg-primary/10 border-primary/40 text-primary"
                       : "border-black/8 dark:border-border text-muted-foreground hover:border-foreground/20 hover:bg-muted/30"
                   )}>
-                  <Icon className="h-4 w-4" />
-                  {label}
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                  <span className="leading-tight">{label}</span>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Data + Hora */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
+          {/* Data + Hora + Status em linha */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Data *</Label>
               <Input required type="date" value={form.data_atendimento}
                 onChange={(e) => set("data_atendimento", e.target.value)}
-                className="rounded-xl h-10 text-sm" />
+                className="rounded-xl h-9 text-sm" />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Hora *</Label>
               <Input required type="time" value={form.hora_atendimento}
                 onChange={(e) => set("hora_atendimento", e.target.value)}
-                className="rounded-xl h-10 text-sm" />
+                className="rounded-xl h-9 text-sm" />
             </div>
           </div>
 
-          {/* Status */}
-          <div className="space-y-1.5">
-            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Status</Label>
-            <Select value={form.status} onValueChange={(v) => set("status", v as StatusType)}>
-              <SelectTrigger className="rounded-xl h-10 text-sm"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="agendado">Agendado</SelectItem>
-                <SelectItem value="realizado">Realizado</SelectItem>
-                <SelectItem value="pendente">Pendente</SelectItem>
-                <SelectItem value="cancelado">Cancelado</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Cliente */}
-          <div className="space-y-1.5">
-            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Cliente</Label>
-            <Select value={form.cliente_id} onValueChange={(v) => { set("cliente_id", v); set("processo_id", NONE); }}>
-              <SelectTrigger className="rounded-xl h-10 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE}>Nenhum</SelectItem>
-                {clientes.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* Status + Cliente em linha */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Status</Label>
+              <Select value={form.status} onValueChange={(v) => set("status", v as StatusType)}>
+                <SelectTrigger className="rounded-xl h-9 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="agendado">Agendado</SelectItem>
+                  <SelectItem value="realizado">Realizado</SelectItem>
+                  <SelectItem value="pendente">Pendente</SelectItem>
+                  <SelectItem value="cancelado">Cancelado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Cliente</Label>
+              <Select value={form.cliente_id} onValueChange={(v) => { set("cliente_id", v); set("processo_id", NONE); }}>
+                <SelectTrigger className="rounded-xl h-9 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>Nenhum</SelectItem>
+                  {clientes.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Processo */}
           {clienteSelecionado && (
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Processo</Label>
               <Select value={form.processo_id} onValueChange={(v) => set("processo_id", v)}>
-                <SelectTrigger className="rounded-xl h-10 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                <SelectTrigger className="rounded-xl h-9 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE}>Nenhum</SelectItem>
                   {processos.map((p) => (
@@ -347,21 +347,21 @@ const FormDialog: React.FC<{
           )}
 
           {/* Observações */}
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Observações</Label>
             <Textarea value={form.observacoes} onChange={(e) => set("observacoes", e.target.value)}
-              className="rounded-xl text-sm resize-none" rows={3}
-              placeholder="Detalhes do atendimento, tópicos discutidos..." />
+              className="rounded-xl text-sm resize-none" rows={2}
+              placeholder="Detalhes do atendimento..." />
           </div>
 
           {/* Botões */}
-          <div className="flex gap-3 pt-1">
+          <div className="flex gap-2 pt-1">
             <Button type="button" variant="outline" onClick={onClose}
-              className="flex-1 rounded-xl h-10 font-black uppercase text-[10px] tracking-widest">
+              className="flex-1 rounded-xl h-9 font-black uppercase text-[10px] tracking-widest">
               Cancelar
             </Button>
             <Button type="submit" disabled={loading || form.tipo_atendimento === NONE}
-              className="flex-1 rounded-xl h-10 font-black uppercase text-[10px] tracking-widest shadow-premium">
+              className="flex-1 rounded-xl h-9 font-black uppercase text-[10px] tracking-widest shadow-premium">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : editId ? "Salvar" : "Registrar"}
             </Button>
           </div>
