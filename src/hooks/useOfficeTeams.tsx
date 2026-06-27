@@ -28,15 +28,26 @@ export function useOfficeTeams() {
   const fetch = useCallback(async () => {
     if (!office?.id) { setTeams([]); setLoading(false); return; }
     setLoading(true);
-    const { data } = await supabase
+    const { data: teamsData } = await supabase
       .from("office_teams")
-      .select("*, office_team_members(count)")
+      .select("*")
       .eq("office_id", office.id)
       .order("name");
+
+    const { data: countsData } = await supabase
+      .from("office_team_members")
+      .select("team_id")
+      .in("team_id", (teamsData || []).map((t: any) => t.id));
+
+    const countMap: Record<string, number> = {};
+    (countsData || []).forEach((m: any) => {
+      countMap[m.team_id] = (countMap[m.team_id] || 0) + 1;
+    });
+
     setTeams(
-      (data || []).map((t: any) => ({
+      (teamsData || []).map((t: any) => ({
         ...t,
-        member_count: t.office_team_members?.[0]?.count ?? 0,
+        member_count: countMap[t.id] ?? 0,
       }))
     );
     setLoading(false);
