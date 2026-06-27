@@ -16,6 +16,7 @@ export type TeamMember = {
   id: string;
   team_id: string;
   user_id: string;
+  role: "coordinator" | "member";
   profile?: { full_name: string | null; email: string | null };
 };
 
@@ -93,12 +94,23 @@ export function useTeamMembers(teamId: string | null) {
 
   useEffect(() => { fetch(); }, [fetch]);
 
-  const addMember = async (userId: string) => {
+  const addMember = async (userId: string, role: "coordinator" | "member" = "member") => {
     if (!teamId || !office?.id) return false;
     const { error } = await supabase
       .from("office_team_members")
-      .upsert({ team_id: teamId, user_id: userId, office_id: office.id }, { onConflict: "team_id,user_id" });
+      .upsert({ team_id: teamId, user_id: userId, office_id: office.id, role }, { onConflict: "team_id,user_id" });
     if (!error) fetch();
+    return !error;
+  };
+
+  const setMemberRole = async (userId: string, role: "coordinator" | "member") => {
+    if (!teamId) return false;
+    const { error } = await supabase
+      .from("office_team_members")
+      .update({ role })
+      .eq("team_id", teamId)
+      .eq("user_id", userId);
+    if (!error) setMembers(prev => prev.map(m => m.user_id === userId ? { ...m, role } : m));
     return !error;
   };
 
@@ -111,5 +123,5 @@ export function useTeamMembers(teamId: string | null) {
     return !error;
   };
 
-  return { members, loading, addMember, removeMember, refetch: fetch };
+  return { members, loading, addMember, removeMember, setMemberRole, refetch: fetch };
 }
