@@ -484,11 +484,11 @@ const FormDialog: React.FC<FormDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="sm:max-w-md p-0 rounded-3xl border border-black/5 dark:border-border shadow-premium overflow-hidden">
+      <DialogContent className="sm:max-w-sm p-0 rounded-3xl border border-black/5 dark:border-border shadow-premium overflow-hidden">
 
         {/* Header colorido */}
         <div className={cn(
-          "px-6 pt-6 pb-4",
+          "px-5 pt-5 pb-3",
           isReceita
             ? "bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent"
             : "bg-gradient-to-br from-orange-500/10 via-orange-500/5 to-transparent"
@@ -510,7 +510,7 @@ const FormDialog: React.FC<FormDialogProps> = ({
           </DialogHeader>
         </div>
 
-        <form onSubmit={handleSubmit} className="px-6 pb-6 space-y-4 mt-1">
+        <form onSubmit={handleSubmit} className="px-5 pb-5 space-y-3 mt-1">
 
           {/* Descrição */}
           <div className="space-y-1.5">
