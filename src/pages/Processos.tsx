@@ -3,7 +3,8 @@ import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProcessosV2 } from '@/hooks/useProcessosV2';
-import { FileText, Loader2, RotateCw, Search, Plus, Database, Scale, CheckCircle2, PauseCircle, FolderOpen } from 'lucide-react';
+import { FileText, Loader2, RotateCw, Search, Plus, Database, Scale, CheckCircle2, PauseCircle, FolderOpen, Users } from 'lucide-react';
+import { useMyTeams } from '@/hooks/useMyTeams';
 import { cn } from '@/lib/utils';
 
 import { Button } from '@/components/ui/button';
@@ -72,6 +73,7 @@ const Processos = () => {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const location = useLocation();
+  const { teams: myTeams, isAnyCoordinator, coordinatedMemberIds } = useMyTeams();
 
   const {
     data: processos,
@@ -79,6 +81,9 @@ const Processos = () => {
     refresh,
     requestDelete,
   } = useProcessosV2();
+
+  // equipe selecionada para filtro (null = todos)
+  const [teamFilter, setTeamFilter] = useState<string | null>(null);
 
   const [view, setView] = useState<'grid' | 'table'>('grid');
   const [isNovoDialogOpen, setIsNovoDialogOpen] = useState(false);
@@ -131,6 +136,9 @@ const Processos = () => {
 
   const filteredProcessos = useMemo(() => {
     const tab = STATUS_TABS.find(t => t.key === activeTab);
+    const teamMemberIds = teamFilter
+      ? myTeams.find(t => t.id === teamFilter)?.memberIds ?? []
+      : null;
     return processos.filter(p => {
       const matchesSearch =
         p.titulo.toLowerCase().includes(filters.search.toLowerCase()) ||
@@ -139,9 +147,10 @@ const Processos = () => {
       const matchesCliente = filters.cliente === 'all' || p.cliente === filters.cliente;
       const matchesArea = filters.area === 'all' || p.area === filters.area;
       const matchesTab = tab ? tab.match(p) : true;
-      return matchesSearch && matchesCliente && matchesArea && matchesTab;
+      const matchesTeam = !teamMemberIds || teamMemberIds.includes(p.responsavelId ?? '');
+      return matchesSearch && matchesCliente && matchesArea && matchesTab && matchesTeam;
     });
-  }, [processos, filters, activeTab]);
+  }, [processos, filters, activeTab, teamFilter, myTeams]);
 
   const clientesDisponiveis = useMemo(() => {
     const unique = new Set(processos.map(p => p.cliente));
@@ -271,6 +280,27 @@ const Processos = () => {
           activeFiltersCount={activeFiltersCount}
           onClearFilters={handleClearFilters}
         />
+        {/* Filtro de equipe — visível só para coordenadores */}
+        {isAnyCoordinator && myTeams.filter(t => t.myRole === 'coordinator').length > 0 && (
+          <div className="flex gap-1.5">
+            {myTeams.filter(t => t.myRole === 'coordinator').map(team => (
+              <button
+                key={team.id}
+                onClick={() => setTeamFilter(prev => prev === team.id ? null : team.id)}
+                className={cn(
+                  "h-10 px-3 rounded-xl border text-xs font-black flex items-center gap-1.5 transition-all whitespace-nowrap",
+                  teamFilter === team.id
+                    ? "border-transparent text-white"
+                    : "border-black/10 dark:border-border text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                )}
+                style={teamFilter === team.id ? { backgroundColor: team.color } : {}}
+              >
+                <Users className="h-3.5 w-3.5" />
+                {team.name}
+              </button>
+            ))}
+          </div>
+        )}
         <ProcessoViewSwitcher view={view} onViewChange={setView} />
       </div>
 

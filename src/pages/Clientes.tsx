@@ -9,6 +9,7 @@ import { useClientes } from "@/hooks/useClientes";
 import { cn } from "@/lib/utils";
 
 import { Users, Plus, Search, LayoutGrid, List, UserCheck, UserX, Building2, User } from "lucide-react";
+import { useMyTeams } from "@/hooks/useMyTeams";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -55,6 +56,9 @@ const Clientes = () => {
   const hasAdminRights = isAdmin || isOfficeAdmin || isSuperAdmin;
 
   // Mapeia todos os clientes reais (qualquer status exceto leads CRM puros)
+  const { teams: myTeams, isAnyCoordinator } = useMyTeams();
+  const [teamFilter, setTeamFilter] = useState<string | null>(null);
+
   const clients: Client[] = useMemo(() =>
     dbClientes.map((c) => ({
       id: c.id,
@@ -70,6 +74,7 @@ const Clientes = () => {
       endereco: c.endereco || "",
       dataAniversario: c.data_aniversario || "",
       createdAt: c.created_at,
+      userId: (c as any).user_id || null,
     })),
     [dbClientes]
   );
@@ -119,8 +124,14 @@ const Clientes = () => {
     if (advancedFilters.dataInicioFrom) filtered = filtered.filter((c) => new Date(c.createdAt) >= advancedFilters.dataInicioFrom);
     if (advancedFilters.dataInicioTo) filtered = filtered.filter((c) => new Date(c.createdAt) <= advancedFilters.dataInicioTo);
 
+    // Filtro de equipe (coordenador)
+    if (teamFilter) {
+      const teamMemberIds = myTeams.find(t => t.id === teamFilter)?.memberIds ?? [];
+      filtered = filtered.filter((c) => teamMemberIds.includes((c as any).userId));
+    }
+
     setFilteredClients(filtered);
-  }, [clients, searchValue, advancedFilters]);
+  }, [clients, searchValue, advancedFilters, teamFilter, myTeams]);
 
   // Abrir cliente via query param
   useEffect(() => {
@@ -238,6 +249,23 @@ const Clientes = () => {
           onFiltersChange={setAdvancedFilters}
           onClearFilters={() => { setAdvancedFilters({}); setSearchValue(""); }}
         />
+        {/* Filtro de equipe — só para coordenadores */}
+        {isAnyCoordinator && myTeams.filter(t => t.myRole === 'coordinator').map(team => (
+          <button
+            key={team.id}
+            onClick={() => setTeamFilter(prev => prev === team.id ? null : team.id)}
+            className={cn(
+              "h-11 px-3 rounded-xl border text-xs font-black flex items-center gap-1.5 transition-all whitespace-nowrap shrink-0",
+              teamFilter === team.id
+                ? "border-transparent text-white"
+                : "border-black/8 dark:border-border text-muted-foreground hover:text-foreground hover:bg-muted/40"
+            )}
+            style={teamFilter === team.id ? { backgroundColor: team.color } : {}}
+          >
+            <Users className="h-3.5 w-3.5" />
+            {team.name}
+          </button>
+        ))}
       </div>
 
       {/* Conteúdo */}
