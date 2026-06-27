@@ -133,6 +133,39 @@ export type Database = {
           },
         ]
       }
+      consultivo_categorias: {
+        Row: {
+          id: string
+          office_id: string | null
+          label: string
+          valor: string
+          cor: string
+          icone: string
+          ordem: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          office_id?: string | null
+          label: string
+          valor: string
+          cor?: string
+          icone?: string
+          ordem?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          office_id?: string | null
+          label?: string
+          valor?: string
+          cor?: string
+          icone?: string
+          ordem?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
       consultivos: {
         Row: {
           id: string
