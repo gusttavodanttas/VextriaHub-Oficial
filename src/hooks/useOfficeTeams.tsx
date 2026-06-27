@@ -109,9 +109,13 @@ export function useTeamMembers(teamId: string | null) {
     if (!teamId || !office?.id) return false;
     const { error } = await supabase
       .from("office_team_members")
-      .upsert({ team_id: teamId, user_id: userId, office_id: office.id, role }, { onConflict: "team_id,user_id" });
-    if (!error) fetch();
-    return !error;
+      .insert({ team_id: teamId, user_id: userId, office_id: office.id, role });
+    if (error) {
+      console.error("addMember error:", error);
+      return false;
+    }
+    fetch();
+    return true;
   };
 
   const setMemberRole = async (userId: string, role: "coordinator" | "member") => {
