@@ -13,7 +13,7 @@ export const timesheetService = {
 
     const { data, error } = await supabase
       .from('timesheets')
-      .select('*')
+      .select('*, clientes(nome)')
       .eq('user_id', userId)
       .eq('deletado', false)
       .gte('data_inicio', startDate.toISOString())
@@ -29,7 +29,7 @@ export const timesheetService = {
   async getActiveTimer(userId: string) {
     const { data, error } = await supabase
       .from('timesheets')
-      .select('*')
+      .select('*, clientes(nome)')
       .eq('user_id', userId)
       .eq('status', 'ativo')
       .eq('deletado', false)

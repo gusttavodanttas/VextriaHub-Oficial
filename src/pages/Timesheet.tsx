@@ -10,7 +10,7 @@ import {
   Clock, Play, Pause, Square, Timer, Plus, TrendingUp,
   FileText, Users, Phone, Gavel, Scale, Search, BookOpen,
   CalendarDays, CalendarClock, Link2, ChevronDown, ChevronUp,
-  AlertCircle, CheckSquare, Calendar
+  AlertCircle, CheckSquare, UserCircle, MessageSquareText
 } from "lucide-react";
 import { useTimesheet } from "@/hooks/useTimesheet";
 import { useAuth } from "@/contexts/AuthContext";
@@ -33,13 +33,14 @@ const CATEGORIA_CONFIG: Record<TimesheetCategoria, { label: string; Icon: React.
 
 // ─── Referência config ────────────────────────────────────────────────────────
 
-type ReferenciaTipo = "atendimento" | "audiencia" | "prazo" | "tarefa";
+type ReferenciaTipo = "atendimento" | "audiencia" | "prazo" | "tarefa" | "consultivo";
 
 const REFERENCIA_CONFIG: Record<ReferenciaTipo, { label: string; Icon: React.FC<any>; color: string; table: string; labelField: string; dateField?: string }> = {
-  atendimento: { label: "Atendimento",  Icon: Phone,         color: "bg-blue-500/10 text-blue-600 dark:text-blue-400",    table: "atendimentos", labelField: "observacoes",    dateField: "data_atendimento" },
-  audiencia:   { label: "Audiência",    Icon: Gavel,         color: "bg-red-500/10 text-red-600 dark:text-red-400",       table: "audiencias",   labelField: "titulo",         dateField: "data_audiencia" },
-  prazo:       { label: "Prazo",        Icon: AlertCircle,   color: "bg-orange-500/10 text-orange-600 dark:text-orange-400", table: "prazos",    labelField: "titulo",         dateField: "data_vencimento" },
-  tarefa:      { label: "Tarefa",       Icon: CheckSquare,   color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400", table: "tarefas", labelField: "titulo",        dateField: "data_vencimento" },
+  atendimento: { label: "Atendimento",  Icon: Phone,              color: "bg-blue-500/10 text-blue-600 dark:text-blue-400",       table: "atendimentos", labelField: "observacoes", dateField: "data_atendimento" },
+  audiencia:   { label: "Audiência",    Icon: Gavel,              color: "bg-red-500/10 text-red-600 dark:text-red-400",          table: "audiencias",   labelField: "titulo",      dateField: "data_audiencia" },
+  prazo:       { label: "Prazo",        Icon: AlertCircle,        color: "bg-orange-500/10 text-orange-600 dark:text-orange-400", table: "prazos",       labelField: "titulo",      dateField: "data_vencimento" },
+  tarefa:      { label: "Tarefa",       Icon: CheckSquare,        color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400", table: "tarefas",   labelField: "titulo",      dateField: "data_vencimento" },
+  consultivo:  { label: "Consultivo",   Icon: MessageSquareText,  color: "bg-teal-500/10 text-teal-600 dark:text-teal-400",       table: "processos",    labelField: "titulo",      dateField: "created_at" },
 };
 
 interface ReferenciaItem { id: string; label: string; sublabel?: string }
@@ -92,6 +93,11 @@ export default function Timesheet() {
   const [descricao, setDescricao] = useState("");
   const [categoria, setCategoria] = useState<TimesheetCategoria | "">("");
 
+  // Cliente
+  const [clienteId, setClienteId] = useState("");
+  const [clientes, setClientes] = useState<{ id: string; nome: string }[]>([]);
+  const [clientesLoading, setClientesLoading] = useState(false);
+
   // Vinculação
   const [mostrarVinculo, setMostrarVinculo] = useState(false);
   const [refTipo, setRefTipo] = useState<ReferenciaTipo | "">("");
@@ -108,6 +114,20 @@ export default function Timesheet() {
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [activeTimer]);
+
+  // Carregar clientes ao abrir dialog
+  useEffect(() => {
+    if (!dialogOpen || !user || clientes.length > 0) return;
+    setClientesLoading(true);
+    supabase
+      .from("clientes")
+      .select("id, nome")
+      .eq("office_id", user.office_id)
+      .eq("deletado", false)
+      .order("nome", { ascending: true })
+      .limit(100)
+      .then(({ data }) => { setClientes(data || []); setClientesLoading(false); });
+  }, [dialogOpen, user]);
 
   // Buscar itens ao selecionar tipo de referência
   useEffect(() => {
@@ -143,7 +163,7 @@ export default function Timesheet() {
   }, [refTipo, user]);
 
   const resetDialog = () => {
-    setDescricao(""); setCategoria("");
+    setDescricao(""); setCategoria(""); setClienteId("");
     setMostrarVinculo(false); setRefTipo(""); setRefItems([]); setRefId(""); setRefLabel("");
   };
 
@@ -153,7 +173,7 @@ export default function Timesheet() {
     await startTimer(
       descricao,
       categoria as TimesheetCategoria,
-      undefined,
+      clienteId || undefined,
       undefined,
       refTipo || undefined,
       refId || undefined,
@@ -227,6 +247,11 @@ export default function Timesheet() {
               {catCfg && (
                 <div className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest", catCfg.color)}>
                   <catCfg.Icon className="h-3.5 w-3.5" />{catCfg.label}
+                </div>
+              )}
+              {(activeTimer as any).clientes?.nome && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest bg-slate-500/10 text-slate-600 dark:text-slate-400">
+                  <UserCircle className="h-3.5 w-3.5" />{(activeTimer as any).clientes.nome}
                 </div>
               )}
               {activeRefCfg && activeTimer.referencia_label && (
@@ -329,6 +354,11 @@ export default function Timesheet() {
                       <p className="font-bold text-sm truncate">{t.tarefa_descricao}</p>
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                         {cfg && <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">{cfg.label}</span>}
+                        {(t as any).clientes?.nome && (
+                          <span className="flex items-center gap-1 text-[10px] font-black px-1.5 py-0.5 rounded-md bg-slate-500/10 text-slate-600 dark:text-slate-400">
+                            <UserCircle className="h-2.5 w-2.5" />{(t as any).clientes.nome}
+                          </span>
+                        )}
                         {rCfg && t.referencia_label && (
                           <span className={cn("flex items-center gap-1 text-[10px] font-black px-1.5 py-0.5 rounded-md", rCfg.color)}>
                             <rCfg.Icon className="h-2.5 w-2.5" />{t.referencia_label}
@@ -399,6 +429,32 @@ export default function Timesheet() {
                   })}
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Cliente */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground/70">
+                Cliente / Lead
+              </Label>
+              {clientesLoading ? (
+                <Skeleton className="h-10 rounded-xl" />
+              ) : (
+                <Select value={clienteId} onValueChange={setClienteId}>
+                  <SelectTrigger className="h-10 rounded-xl">
+                    <SelectValue placeholder="Selecionar cliente (opcional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clientes.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        <div className="flex items-center gap-2">
+                          <UserCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                          {c.nome}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
 
             {/* Vinculação colapsável */}
