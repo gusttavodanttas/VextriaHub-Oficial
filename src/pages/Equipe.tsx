@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 import { useInvitations } from "@/hooks/useInvitations";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
+import { useOfficeTeams, useTeamMembers, type OfficeTeam } from "@/hooks/useOfficeTeams";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ import {
   Users, Plus, Search, Mail, Clock, ShieldCheck, User,
   Trash2, Send, RefreshCw, XCircle, CheckCircle2, Crown,
   Settings2, RotateCcw, KeyRound, Eye, EyeOff, Copy, ChevronRight, ChevronLeft,
+  FolderOpen, Pencil, UserPlus, UserMinus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -246,14 +248,14 @@ function CreateMemberDialog({ open, onOpenChange, officeId, onSuccess }: {
 }) {
   const { toast } = useToast();
   const [step, setStep] = useState<1 | 2>(1);
-  const [form, setForm] = useState({ email: "", password: genPassword(), role: "user" as "user" | "admin" });
+  const [form, setForm] = useState({ name: "", email: "", password: genPassword(), role: "user" as "user" | "admin" });
   const [showPass, setShowPass] = useState(false);
   const [permOverrides, setPermOverrides] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
 
   const reset = () => {
-    setStep(1); setForm({ email: "", password: genPassword(), role: "user" });
+    setStep(1); setForm({ name: "", email: "", password: genPassword(), role: "user" });
     setShowPass(false); setPermOverrides({}); setSaving(false); setDone(false);
   };
 
@@ -278,7 +280,7 @@ function CreateMemberDialog({ open, onOpenChange, officeId, onSuccess }: {
     }));
 
     const { data, error } = await supabase.functions.invoke("create-team-member", {
-      body: { email: form.email.trim(), password: form.password, office_id: officeId, role: form.role, permissions },
+      body: { full_name: form.name.trim(), email: form.email.trim(), password: form.password, office_id: officeId, role: form.role, permissions },
     });
 
     setSaving(false);
@@ -324,6 +326,12 @@ function CreateMemberDialog({ open, onOpenChange, officeId, onSuccess }: {
               <p className="text-sm text-muted-foreground mt-1">Compartilhe as credenciais abaixo com o novo membro.</p>
             </div>
             <div className="w-full rounded-2xl border border-black/5 dark:border-border bg-muted/30 p-3 space-y-2 text-left">
+              {form.name && (
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 mb-1">Nome</p>
+                  <p className="font-bold text-sm">{form.name}</p>
+                </div>
+              )}
               <div>
                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 mb-1">E-mail</p>
                 <p className="font-bold text-sm">{form.email}</p>
@@ -349,10 +357,17 @@ function CreateMemberDialog({ open, onOpenChange, officeId, onSuccess }: {
             {step === 1 && (
               <div className="space-y-5">
                 <div className="space-y-1.5">
+                  <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground">Nome completo</Label>
+                  <Input placeholder="João da Silva"
+                    value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                    className="rounded-xl border-black/8 dark:border-border" autoFocus />
+                </div>
+
+                <div className="space-y-1.5">
                   <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground">E-mail *</Label>
                   <Input type="email" placeholder="nome@escritorio.com.br"
                     value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                    className="rounded-xl border-black/8 dark:border-border" autoFocus />
+                    className="rounded-xl border-black/8 dark:border-border" />
                 </div>
 
                 <div className="space-y-1.5">
@@ -404,7 +419,7 @@ function CreateMemberDialog({ open, onOpenChange, officeId, onSuccess }: {
             {step === 2 && (
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground mb-4">
-                  Personalize o acesso de <strong className="text-foreground">{form.email || "novo membro"}</strong>. Ajustes marcados como <span className="text-primary font-semibold">custom</span> substituem o padrão da função.
+                  Personalize o acesso de <strong className="text-foreground">{form.name || form.email || "novo membro"}</strong>. Ajustes marcados como <span className="text-primary font-semibold">custom</span> substituem o padrão da função.
                 </p>
                 <PermissionsPanel role={form.role} overrides={permOverrides} onChange={handlePermChange} />
               </div>
@@ -445,6 +460,176 @@ function CreateMemberDialog({ open, onOpenChange, officeId, onSuccess }: {
   );
 }
 
+// ─── TEAM_COLORS ─────────────────────────────────────────────────────────────
+
+const TEAM_COLORS = [
+  { value: "#3b82f6", label: "Azul" },
+  { value: "#8b5cf6", label: "Violeta" },
+  { value: "#10b981", label: "Verde" },
+  { value: "#f59e0b", label: "Âmbar" },
+  { value: "#ef4444", label: "Vermelho" },
+  { value: "#06b6d4", label: "Ciano" },
+  { value: "#f97316", label: "Laranja" },
+  { value: "#ec4899", label: "Rosa" },
+];
+
+// ─── TeamDialog ───────────────────────────────────────────────────────────────
+
+function TeamDialog({ open, onOpenChange, initial, onSave }: {
+  open: boolean; onOpenChange: (v: boolean) => void;
+  initial?: { name: string; color: string; description: string };
+  onSave: (name: string, color: string, description: string) => Promise<void>;
+}) {
+  const [name, setName] = useState(initial?.name ?? "");
+  const [color, setColor] = useState(initial?.color ?? TEAM_COLORS[0].value);
+  const [description, setDescription] = useState(initial?.description ?? "");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) { setName(initial?.name ?? ""); setColor(initial?.color ?? TEAM_COLORS[0].value); setDescription(initial?.description ?? ""); }
+  }, [open, initial?.name, initial?.color, initial?.description]);
+
+  const handleSave = async () => {
+    if (!name.trim()) return;
+    setSaving(true);
+    await onSave(name.trim(), color, description.trim());
+    setSaving(false);
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-sm rounded-2xl p-0 overflow-hidden">
+        <DialogHeader className="px-6 pt-5 pb-4 border-b border-border">
+          <DialogTitle className="font-black text-lg">{initial ? "Editar Equipe" : "Nova Equipe"}</DialogTitle>
+        </DialogHeader>
+        <div className="px-6 py-4 space-y-4">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground">Nome *</Label>
+            <Input placeholder="Ex: Cível, Previdenciário…" value={name} onChange={e => setName(e.target.value)}
+              className="rounded-xl border-black/8 dark:border-border" autoFocus
+              onKeyDown={e => e.key === "Enter" && handleSave()} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground">Cor</Label>
+            <div className="flex gap-2 flex-wrap">
+              {TEAM_COLORS.map(c => (
+                <button key={c.value} type="button" onClick={() => setColor(c.value)}
+                  className={cn("h-7 w-7 rounded-lg border-2 transition-all", color === c.value ? "border-foreground scale-110" : "border-transparent")}
+                  style={{ backgroundColor: c.value }} title={c.label} />
+              ))}
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground">Descrição</Label>
+            <Input placeholder="Opcional…" value={description} onChange={e => setDescription(e.target.value)}
+              className="rounded-xl border-black/8 dark:border-border" />
+          </div>
+        </div>
+        <DialogFooter className="px-6 py-4 border-t border-border flex gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl font-black" disabled={saving}>Cancelar</Button>
+          <Button onClick={handleSave} className="rounded-xl font-black flex-1" disabled={saving || !name.trim()}>
+            {saving ? "Salvando…" : initial ? "Salvar" : "Criar Equipe"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── TeamDetailDialog ─────────────────────────────────────────────────────────
+
+function TeamDetailDialog({ open, onOpenChange, team, allUsers }: {
+  open: boolean; onOpenChange: (v: boolean) => void;
+  team: OfficeTeam; allUsers: any[];
+}) {
+  const { members, loading, addMember, removeMember } = useTeamMembers(open ? team.id : null);
+  const { toast } = useToast();
+
+  const memberIds = new Set(members.map(m => m.user_id));
+  const availableToAdd = allUsers.filter(u => !memberIds.has(u.user_id));
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md rounded-2xl p-0 overflow-hidden max-h-[85vh] flex flex-col">
+        <DialogHeader className="px-6 pt-5 pb-4 border-b border-border shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 rounded-xl shrink-0" style={{ backgroundColor: team.color + "33" }}>
+              <div className="h-full w-full flex items-center justify-center">
+                <div className="h-3 w-3 rounded-full" style={{ backgroundColor: team.color }} />
+              </div>
+            </div>
+            <div>
+              <DialogTitle className="font-black text-lg leading-none">{team.name}</DialogTitle>
+              {team.description && <p className="text-xs text-muted-foreground mt-0.5">{team.description}</p>}
+            </div>
+          </div>
+        </DialogHeader>
+
+        <div className="overflow-y-auto flex-1 px-6 py-4 space-y-4">
+          {/* current members */}
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 mb-2">
+              Membros da equipe ({members.length})
+            </p>
+            {loading ? (
+              <div className="space-y-2">{[...Array(2)].map((_, i) => <Skeleton key={i} className="h-12 rounded-xl" />)}</div>
+            ) : members.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-3">Nenhum membro ainda.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {members.map(m => {
+                  const name = m.profile?.full_name || m.profile?.email || "Membro";
+                  return (
+                    <div key={m.id} className="flex items-center gap-3 bg-muted/20 rounded-xl px-3 py-2">
+                      <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center text-xs font-black shrink-0", avatarColor(m.user_id))}>
+                        {getInitials(name)}
+                      </div>
+                      <p className="text-sm font-bold flex-1 truncate">{name}</p>
+                      <Button size="sm" variant="ghost" onClick={async () => { await removeMember(m.user_id); toast({ title: "Removido da equipe" }); }}
+                        className="h-7 w-7 rounded-lg text-muted-foreground/50 hover:text-rose-500 hover:bg-rose-500/10">
+                        <UserMinus className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* add members */}
+          {availableToAdd.length > 0 && (
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 mb-2">Adicionar à equipe</p>
+              <div className="space-y-1.5">
+                {availableToAdd.map(u => {
+                  const name = u.profile?.full_name || u.profile?.email || "Membro";
+                  return (
+                    <div key={u.id} className="flex items-center gap-3 rounded-xl px-3 py-2 border border-black/5 dark:border-border hover:bg-muted/20 transition-colors">
+                      <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center text-xs font-black shrink-0", avatarColor(u.user_id))}>
+                        {getInitials(name)}
+                      </div>
+                      <p className="text-sm font-bold flex-1 truncate">{name}</p>
+                      <Button size="sm" variant="ghost" onClick={async () => { await addMember(u.user_id); toast({ title: "Adicionado à equipe" }); }}
+                        className="h-7 w-7 rounded-lg text-muted-foreground/50 hover:text-primary hover:bg-primary/10">
+                        <UserPlus className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="px-6 py-4 border-t border-border shrink-0">
+          <Button onClick={() => onOpenChange(false)} className="rounded-xl font-black w-full">Fechar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── StatCard ────────────────────────────────────────────────────────────────
 
 function StatCard({ label, value, Icon, color, bg }: {
@@ -470,6 +655,7 @@ export default function Equipe() {
   const { toast } = useToast();
   const { users, loading: usersLoading, removeUser, updateUser, refresh: refreshUsers } = useOfficeUsers();
   const { invitations, loading: invLoading, createInvitation, resendInvitation, cancelInvitation, pendingInvitations } = useInvitations();
+  const { teams, loading: teamsLoading, create: createTeam, update: updateTeam, remove: removeTeam } = useOfficeTeams();
 
   const [search, setSearch] = useState("");
   const [tab, setTab]       = useState("membros");
@@ -484,6 +670,10 @@ export default function Equipe() {
   const [roleTarget, setRoleTarget]         = useState<{ id: string; name: string; role: string } | null>(null);
   const [newRole, setNewRole]               = useState<"user" | "admin">("user");
   const [permTarget, setPermTarget]         = useState<{ userId: string; name: string; role: string } | null>(null);
+  // teams
+  const [teamDialogOpen, setTeamDialogOpen]   = useState(false);
+  const [editingTeam, setEditingTeam]         = useState<OfficeTeam | null>(null);
+  const [detailTeam, setDetailTeam]           = useState<OfficeTeam | null>(null);
 
   const totalMembros = users.length;
   const admins       = users.filter(u => u.role === "admin").length;
@@ -575,6 +765,10 @@ export default function Equipe() {
             <TabsTrigger value="convites" className="rounded-lg font-bold text-xs">
               Convites
               {invitations.length > 0 && <span className="ml-1.5 text-[10px] bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-black">{invitations.length}</span>}
+            </TabsTrigger>
+            <TabsTrigger value="equipes" className="rounded-lg font-bold text-xs">
+              Equipes
+              {teams.length > 0 && <span className="ml-1.5 text-[10px] bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-black">{teams.length}</span>}
             </TabsTrigger>
           </TabsList>
 
@@ -721,6 +915,72 @@ export default function Equipe() {
               </div>
             )}
           </TabsContent>
+
+          {/* ── equipes ── */}
+          <TabsContent value="equipes" className="mt-4">
+            <div className="flex justify-end mb-3">
+              <Button onClick={() => { setEditingTeam(null); setTeamDialogOpen(true); }} className="rounded-xl font-black gap-2">
+                <Plus className="h-4 w-4" />Nova Equipe
+              </Button>
+            </div>
+            {teamsLoading ? (
+              <div className="space-y-3">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-2xl" />)}</div>
+            ) : teams.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+                <div className="p-4 rounded-2xl bg-muted/40"><FolderOpen className="h-8 w-8 text-muted-foreground/40" /></div>
+                <p className="font-bold">Nenhuma equipe criada</p>
+                <p className="text-sm text-muted-foreground">Crie equipes para organizar os membros por área de atuação.</p>
+                <Button onClick={() => { setEditingTeam(null); setTeamDialogOpen(true); }} className="rounded-xl font-black gap-2 mt-1">
+                  <Plus className="h-4 w-4" />Criar primeira equipe
+                </Button>
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {teams.map(team => (
+                  <div key={team.id}
+                    className="group bg-card border border-black/5 dark:border-border rounded-2xl shadow-premium hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 p-4 cursor-pointer"
+                    onClick={() => setDetailTeam(team)}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-10 w-10 rounded-xl shrink-0 flex items-center justify-center" style={{ backgroundColor: team.color + "22" }}>
+                          <div className="h-4 w-4 rounded-full" style={{ backgroundColor: team.color }} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-black text-sm tracking-tight truncate">{team.name}</p>
+                          {team.description && <p className="text-xs text-muted-foreground/60 truncate">{team.description}</p>}
+                          <p className="text-[10px] text-muted-foreground/50 mt-0.5">{team.member_count ?? 0} membro{(team.member_count ?? 0) !== 1 ? "s" : ""}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" onClick={e => e.stopPropagation()}>
+                        <Button size="sm" variant="ghost" className="h-7 w-7 rounded-lg hover:bg-muted/60"
+                          onClick={() => { setEditingTeam(team); setTeamDialogOpen(true); }}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="sm" variant="ghost" className="h-7 w-7 rounded-lg text-muted-foreground/50 hover:text-rose-500 hover:bg-rose-500/10">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent className="rounded-2xl">
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Excluir equipe "{team.name}"?</AlertDialogTitle>
+                              <AlertDialogDescription>Os membros não serão removidos do escritório, apenas desta equipe.</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel className="rounded-xl">Cancelar</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => { removeTeam(team.id); toast({ title: "Equipe excluída" }); }}
+                                className="rounded-xl bg-destructive hover:bg-destructive/90">Excluir</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </TabsContent>
         </Tabs>
       </div>
 
@@ -803,6 +1063,30 @@ export default function Equipe() {
         <PermissionsDialog
           open={!!permTarget} onOpenChange={v => { if (!v) setPermTarget(null); }}
           targetUserId={permTarget.userId} targetName={permTarget.name} targetRole={permTarget.role}
+        />
+      )}
+
+      {/* ── team create/edit dialog ───────────────────────────────────── */}
+      <TeamDialog
+        open={teamDialogOpen} onOpenChange={setTeamDialogOpen}
+        initial={editingTeam ? { name: editingTeam.name, color: editingTeam.color, description: editingTeam.description || "" } : undefined}
+        onSave={async (name, color, description) => {
+          if (editingTeam) {
+            await updateTeam(editingTeam.id, { name, color, description });
+            toast({ title: "Equipe atualizada" });
+          } else {
+            await createTeam(name, color, description);
+            toast({ title: "Equipe criada" });
+          }
+          setEditingTeam(null);
+        }}
+      />
+
+      {/* ── team detail dialog ───────────────────────────────────────── */}
+      {detailTeam && (
+        <TeamDetailDialog
+          open={!!detailTeam} onOpenChange={v => { if (!v) setDetailTeam(null); }}
+          team={detailTeam} allUsers={users}
         />
       )}
     </div>

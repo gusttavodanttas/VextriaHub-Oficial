@@ -22,6 +22,7 @@ export const useInvitations = () => {
         .from('invitations')
         .select('*')
         .eq('office_id', office.id)
+        .in('status', ['pending', 'accepted'])
         .order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;
