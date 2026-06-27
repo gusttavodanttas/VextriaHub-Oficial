@@ -48,6 +48,18 @@ const REFERENCIA_CONFIG: Record<ReferenciaTipo, {
 
 interface ReferenciaItem { id: string; label: string; sublabel?: string }
 
+// Categorias que mapeiam diretamente a um tipo de vínculo
+const CATEGORIA_TO_REF: Partial<Record<TimesheetCategoria, ReferenciaTipo>> = {
+  atendimento: "atendimento",
+  audiencia:   "audiencia",
+  processo:    "consultivo",
+  peticao:     "consultivo",
+  consulta:    "atendimento",
+};
+
+// Categorias sem mapeamento direto — usuário escolhe entre prazo ou tarefa
+const REF_LIVRES: ReferenciaTipo[] = ["prazo", "tarefa"];
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatSeconds(s: number) {
@@ -179,6 +191,14 @@ export default function Timesheet() {
     };
     fetchItems();
   }, [refTipo, clienteId, user]);
+
+  // Auto-mapear categoria → refTipo
+  const handleSetCategoria = (cat: TimesheetCategoria) => {
+    setCategoria(cat);
+    setRefId(""); setRefLabel(""); setRefItems([]);
+    const mapped = CATEGORIA_TO_REF[cat];
+    setRefTipo(mapped ?? "");
+  };
 
   const resetDialog = () => {
     setDescricao(""); setCategoria(""); setClienteId("");
@@ -481,7 +501,7 @@ export default function Timesheet() {
                   const cfg = CATEGORIA_CONFIG[cat];
                   const active = categoria === cat;
                   return (
-                    <button key={cat} type="button" onClick={() => setCategoria(cat)}
+                    <button key={cat} type="button" onClick={() => handleSetCategoria(cat)}
                       className={cn(
                         "flex flex-col items-center gap-1 p-2 rounded-lg border text-center transition-all text-[8px] font-black uppercase tracking-wider",
                         active
@@ -521,63 +541,67 @@ export default function Timesheet() {
               )}
             </div>
 
-            {/* ④ Vincular */}
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 flex items-center gap-1.5">
-                <span className="h-4 w-4 rounded bg-primary/15 text-primary text-[9px] font-black flex items-center justify-center">4</span>
-                Vincular a
-                <span className="text-muted-foreground/40 normal-case font-medium tracking-normal">— opcional</span>
-              </Label>
+            {/* ④ Vincular — condicional à categoria */}
+            {categoria && (
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 flex items-center gap-1.5">
+                  <span className="h-4 w-4 rounded bg-primary/15 text-primary text-[9px] font-black flex items-center justify-center">4</span>
+                  {CATEGORIA_TO_REF[categoria as TimesheetCategoria]
+                    ? `Vincular ${REFERENCIA_CONFIG[CATEGORIA_TO_REF[categoria as TimesheetCategoria]!].label}`
+                    : "Vincular a"}
+                  <span className="text-muted-foreground/40 normal-case font-medium tracking-normal">— opcional</span>
+                </Label>
 
-              {/* Tipo: botões pill */}
-              <div className="flex flex-wrap gap-1.5">
-                {(Object.entries(REFERENCIA_CONFIG) as [ReferenciaTipo, typeof REFERENCIA_CONFIG[ReferenciaTipo]][]).map(([key, cfg]) => {
-                  const active = refTipo === key;
-                  return (
-                    <button key={key} type="button"
-                      onClick={() => setRefTipo(active ? "" : key)}
-                      className={cn(
-                        "flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all",
-                        active ? cn("border-transparent shadow-sm", cfg.color) : "border-black/8 dark:border-border text-muted-foreground/60 hover:border-primary/20"
-                      )}>
-                      <cfg.Icon className="h-3 w-3" />{cfg.label}
-                    </button>
-                  );
-                })}
+                {/* Categorias sem mapeamento direto: pills de prazo/tarefa */}
+                {!CATEGORIA_TO_REF[categoria as TimesheetCategoria] && (
+                  <div className="flex gap-1.5">
+                    {REF_LIVRES.map(key => {
+                      const cfg = REFERENCIA_CONFIG[key];
+                      const active = refTipo === key;
+                      return (
+                        <button key={key} type="button"
+                          onClick={() => { setRefTipo(active ? "" : key); setRefId(""); setRefLabel(""); setRefItems([]); }}
+                          className={cn(
+                            "flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all",
+                            active ? cn("border-transparent shadow-sm", cfg.color) : "border-black/8 dark:border-border text-muted-foreground/60 hover:border-primary/20"
+                          )}>
+                          <cfg.Icon className="h-3 w-3" />{cfg.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Selector do item específico */}
+                {refTipo && (
+                  refLoading ? <Skeleton className="h-10 rounded-xl" /> :
+                  refItems.length === 0 ? (
+                    <p className="text-xs text-muted-foreground/60 py-2.5 px-3 rounded-xl bg-muted/10 border border-black/5 dark:border-border text-center">
+                      {clienteId ? "Nenhum item encontrado para este cliente" : "Nenhum item encontrado"}
+                    </p>
+                  ) : (
+                    <Select value={refId} onValueChange={v => {
+                      setRefId(v);
+                      setRefLabel(refItems.find(i => i.id === v)?.label ?? "");
+                    }}>
+                      <SelectTrigger className="h-10 rounded-xl">
+                        <SelectValue placeholder={`Selecionar ${REFERENCIA_CONFIG[refTipo].label.toLowerCase()}...`} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {refItems.map(item => (
+                          <SelectItem key={item.id} value={item.id}>
+                            <div className="flex flex-col">
+                              <span className="text-xs font-semibold">{item.label}</span>
+                              {item.sublabel && <span className="text-[10px] text-muted-foreground">{item.sublabel}</span>}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )
+                )}
               </div>
-
-              {/* Item específico */}
-              {refTipo && (
-                <div>
-                  {refLoading ? <Skeleton className="h-10 rounded-xl" /> :
-                    refItems.length === 0 ? (
-                      <p className="text-xs text-muted-foreground/60 py-2.5 px-3 rounded-xl bg-muted/10 border border-black/5 dark:border-border text-center">
-                        {clienteId ? "Nenhum item encontrado para este cliente" : "Nenhum item encontrado"}
-                      </p>
-                    ) : (
-                      <Select value={refId} onValueChange={v => {
-                        setRefId(v);
-                        setRefLabel(refItems.find(i => i.id === v)?.label ?? "");
-                      }}>
-                        <SelectTrigger className="h-10 rounded-xl">
-                          <SelectValue placeholder={`Selecionar ${REFERENCIA_CONFIG[refTipo].label.toLowerCase()}...`} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {refItems.map(item => (
-                            <SelectItem key={item.id} value={item.id}>
-                              <div className="flex flex-col">
-                                <span className="text-xs font-semibold">{item.label}</span>
-                                {item.sublabel && <span className="text-[10px] text-muted-foreground">{item.sublabel}</span>}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )
-                  }
-                </div>
-              )}
-            </div>
+            )}
           </div>
 
           {/* Footer */}
