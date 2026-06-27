@@ -85,7 +85,6 @@ interface Atendimento {
   office_id: string;
   deletado: boolean;
   clientes?: { nome: string } | null;
-  processos?: { titulo: string; numero_processo: string } | null;
 }
 
 interface ClienteOpt { id: string; nome: string; }
@@ -240,12 +239,11 @@ const useAtendimentos = (officeId: string | null | undefined) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("atendimentos")
-        .select("*, clientes!cliente_id(nome), processos!processo_id(titulo, numero_processo)")
+        .select("*, clientes(nome)")
         .eq("office_id", officeId!)
-        .eq("deletado", false)
         .order("data_atendimento", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as Atendimento[];
+      return (data ?? []).filter((i: any) => !i.deletado) as Atendimento[];
     },
   });
 
@@ -534,21 +532,11 @@ const AtendimentoCard: React.FC<{
         </Badge>
       </div>
 
-      {/* Cliente + Processo */}
-      {(item.clientes?.nome || item.processos) && (
-        <div className="flex flex-col gap-1">
-          {item.clientes?.nome && (
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <User className="h-3.5 w-3.5 text-primary/60" />
-              <span className="font-semibold">{item.clientes.nome}</span>
-            </div>
-          )}
-          {item.processos && (
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <FileText className="h-3.5 w-3.5 text-primary/60" />
-              <span className="truncate">{item.processos.titulo || item.processos.numero_processo}</span>
-            </div>
-          )}
+      {/* Cliente */}
+      {item.clientes?.nome && (
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <User className="h-3.5 w-3.5 text-primary/60" />
+          <span className="font-semibold">{item.clientes.nome}</span>
         </div>
       )}
 
