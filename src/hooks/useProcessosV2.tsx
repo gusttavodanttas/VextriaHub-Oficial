@@ -140,6 +140,10 @@ export function useProcessosV2() {
         insertPayload.cliente_id = r.clienteId || r.cliente_id;
       }
 
+      if (r.teamId || r.team_id) {
+        insertPayload.team_id = r.teamId || r.team_id;
+      }
+
       // Verifica se já existe antes de inserir
       const numeroLimpo = insertPayload.numero_processo;
       const { data: existing } = await supabase

@@ -26,6 +26,7 @@ import { usePlanLimits } from '@/hooks/usePlanFeatures';
 import { useToast } from '@/hooks/use-toast';
 import { PermissionGuard } from '@/components/Auth/PermissionGuard';
 import { useOfficeUsers } from '@/hooks/useOfficeUsers';
+import { useOfficeTeams } from '@/hooks/useOfficeTeams';
 import { useAuth } from '@/contexts/AuthContext';
 import { NovoProcessoForm, tiposProcesso, statusProcesso, fasesProcessuais } from '@/types/processo';
 import { Separator } from '@/components/ui/separator';
@@ -56,6 +57,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
   const { user, profile } = useAuth();
   const { limits } = usePlanLimits();
   const { users: teamMembers } = useOfficeUsers();
+  const { teams: officeTeams } = useOfficeTeams();
   const { addMovimentacao, create } = useProcessosV2();
 
   // Wrapper: usa o callback do pai se existir; senão chama create() direto.
@@ -93,8 +95,19 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
     requerido: initialData?.requerido || (initialData as any)?.reu || '',
     parteAutora: (initialData as any)?.parteAutora || (initialData as any)?.autor || '',
     segredoJustica: false,
-    justicaGratuita: false
-  });
+    justicaGratuita: false,
+    teamId: '',
+  } as any);
+
+  // Auto-preenche teamId com a primeira equipe do usuário logado
+  React.useEffect(() => {
+    if (officeTeams.length === 0) return;
+    setFormData(prev => {
+      if ((prev as any).teamId) return prev;
+      // Deixa em branco — o trigger do banco preenche pelo responsavelId
+      return prev;
+    });
+  }, [officeTeams]);
 
   // Reseta formData a partir do initialData sempre que ele chega/muda.
   // Aceita tanto chaves canônicas (parteAutora/requerido) quanto raw da edge function (autor/reu).
@@ -524,6 +537,30 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
                               className="h-11 rounded-xl"
                             />
                           </div>
+                          {officeTeams.length > 0 && (
+                            <div className="space-y-2">
+                              <Label htmlFor="teamId">Equipe Responsável</Label>
+                              <Select
+                                value={(formData as any).teamId || ''}
+                                onValueChange={(v) => handleChange('teamId' as any, v === 'none' ? '' : v)}
+                              >
+                                <SelectTrigger className="h-11 rounded-xl">
+                                  <SelectValue placeholder="Selecionar equipe (opcional)" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none">Sem equipe específica</SelectItem>
+                                  {officeTeams.map(t => (
+                                    <SelectItem key={t.id} value={t.id}>
+                                      <span className="flex items-center gap-2">
+                                        <span className="inline-block w-2 h-2 rounded-full" style={{ background: t.color }} />
+                                        {t.name}
+                                      </span>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
                           <div className="space-y-2">
                             <Label htmlFor="numeroProcesso">Número do Processo (CNJ)</Label>
                             <Input
