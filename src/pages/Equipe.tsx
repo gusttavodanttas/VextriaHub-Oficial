@@ -315,15 +315,15 @@ function CreateMemberDialog({ open, onOpenChange, officeId, onSuccess }: {
         </DialogHeader>
 
         {done ? (
-          <div className="px-6 py-8 flex flex-col items-center gap-4 text-center">
-            <div className="p-4 rounded-2xl bg-emerald-500/10">
-              <CheckCircle2 className="h-10 w-10 text-emerald-500" />
+          <div className="overflow-y-auto flex-1 px-6 py-6 flex flex-col items-center gap-4 text-center">
+            <div className="p-3 rounded-2xl bg-emerald-500/10">
+              <CheckCircle2 className="h-9 w-9 text-emerald-500" />
             </div>
             <div>
               <p className="font-black text-lg">Acesso criado com sucesso!</p>
               <p className="text-sm text-muted-foreground mt-1">Compartilhe as credenciais abaixo com o novo membro.</p>
             </div>
-            <div className="w-full rounded-2xl border border-black/5 dark:border-border bg-muted/30 p-4 space-y-3 text-left">
+            <div className="w-full rounded-2xl border border-black/5 dark:border-border bg-muted/30 p-3 space-y-2 text-left">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 mb-1">E-mail</p>
                 <p className="font-bold text-sm">{form.email}</p>
