@@ -133,6 +133,68 @@ export type Database = {
           },
         ]
       }
+      consultivos: {
+        Row: {
+          id: string
+          office_id: string | null
+          user_id: string
+          cliente_id: string | null
+          titulo: string
+          descricao: string | null
+          categoria: string
+          prioridade: string | null
+          status: string | null
+          tags: string[] | null
+          observacoes: string | null
+          deletado: boolean
+          deletado_pendente: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          office_id?: string | null
+          user_id: string
+          cliente_id?: string | null
+          titulo: string
+          descricao?: string | null
+          categoria?: string
+          prioridade?: string | null
+          status?: string | null
+          tags?: string[] | null
+          observacoes?: string | null
+          deletado?: boolean
+          deletado_pendente?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          office_id?: string | null
+          user_id?: string
+          cliente_id?: string | null
+          titulo?: string
+          descricao?: string | null
+          categoria?: string
+          prioridade?: string | null
+          status?: string | null
+          tags?: string[] | null
+          observacoes?: string | null
+          deletado?: boolean
+          deletado_pendente?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultivos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clientes: {
         Row: {
           cpf_cnpj: string | null
