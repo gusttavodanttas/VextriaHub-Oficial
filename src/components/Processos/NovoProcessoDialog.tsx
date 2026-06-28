@@ -561,6 +561,27 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
                               </Select>
                             </div>
                           )}
+                          {teamMembers.length > 0 && (
+                            <div className="space-y-2">
+                              <Label htmlFor="responsavelId">Responsável</Label>
+                              <Select
+                                value={(formData as any).responsavelId || user?.id || ''}
+                                onValueChange={(v) => handleChange('responsavelId' as any, v)}
+                              >
+                                <SelectTrigger className="h-11 rounded-xl">
+                                  <SelectValue placeholder="Selecionar responsável" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {teamMembers.map(m => (
+                                    <SelectItem key={m.user_id} value={m.user_id}>
+                                      {m.profile?.full_name || m.profile?.email || "Membro"}
+                                      {m.user_id === user?.id ? " (você)" : ""}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
                           <div className="space-y-2">
                             <Label htmlFor="numeroProcesso">Número do Processo (CNJ)</Label>
                             <Input

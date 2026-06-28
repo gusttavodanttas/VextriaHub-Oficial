@@ -47,6 +47,7 @@ export function useProcessosV2() {
       fonteSincronizacao: dbRecord.fonte_sincronizacao || undefined,
       sincronizadoEm: dbRecord.sincronizado_em || undefined,
       team_id: dbRecord.team_id || null,
+      responsavel_id: dbRecord.responsavel_id || dbRecord.user_id || null,
     } as any;
   };
 
@@ -144,6 +145,9 @@ export function useProcessosV2() {
       if (r.teamId || r.team_id) {
         insertPayload.team_id = r.teamId || r.team_id;
       }
+
+      // Responsável: padrão é o criador, mas pode ser atribuído a um membro
+      insertPayload.responsavel_id = r.responsavelId || r.responsavel_id || user.id;
 
       // Verifica se já existe antes de inserir
       const numeroLimpo = insertPayload.numero_processo;
@@ -347,6 +351,7 @@ export function useProcessosV2() {
         updatePayload.observacoes = updates.descricao || (updates as any).observacoes;
       }
       if ((updates as any).team_id !== undefined) updatePayload.team_id = (updates as any).team_id;
+      if ((updates as any).responsavel_id !== undefined) updatePayload.responsavel_id = (updates as any).responsavel_id;
 
       const { data: result, error } = await supabase
         .from('processos')

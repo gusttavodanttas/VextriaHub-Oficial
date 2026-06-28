@@ -267,14 +267,17 @@ function TeamDetailDialog({
       let result: DetailItem[] = [];
 
       if (type === "processos") {
-        const [byTeam, byMember] = await Promise.all([
-          supabase.from("processos").select("id, titulo, numero_processo, status")
+        const sel = "id, titulo, numero_processo, status";
+        const [byTeam, byResp, byCreator] = await Promise.all([
+          supabase.from("processos").select(sel)
             .eq("office_id", officeId).eq("deletado", false).neq("status", "encerrado").eq("team_id", teamId),
-          supabase.from("processos").select("id, titulo, numero_processo, status")
+          supabase.from("processos").select(sel)
+            .eq("office_id", officeId).eq("deletado", false).neq("status", "encerrado").in("responsavel_id", memberIds),
+          supabase.from("processos").select(sel)
             .eq("office_id", officeId).eq("deletado", false).neq("status", "encerrado").in("user_id", memberIds),
         ]);
         const seen = new Set<string>();
-        result = [...(byTeam.data || []), ...(byMember.data || [])]
+        result = [...(byTeam.data || []), ...(byResp.data || []), ...(byCreator.data || [])]
           .filter(p => { if (seen.has(p.id)) return false; seen.add(p.id); return true; })
           .map(p => ({ id: p.id, primary: p.titulo || "Processo", secondary: p.numero_processo || "", badge: p.status }));
       } else if (type === "tarefas") {
@@ -404,15 +407,20 @@ export default function EquipeDetalhe() {
     const profileMap: Record<string, { full_name: string | null; email: string | null }> = {};
     (profilesData || []).forEach(p => { profileMap[p.user_id] = p; });
 
-    // 2. Processos da equipe (por team_id OU user_id dos membros — sem filtro de data, são ativos)
-    const [processosByTeam, processosByMember] = await Promise.all([
-      supabase.from("processos").select("user_id").eq("office_id", user.office_id)
+    // 2. Processos da equipe (team_id, responsável OU criador membro — sem filtro de data, são ativos)
+    const procSel = "id, user_id, responsavel_id, team_id";
+    const [procByTeam, procByResp, procByCreator] = await Promise.all([
+      supabase.from("processos").select(procSel).eq("office_id", user.office_id)
         .eq("deletado", false).neq("status", "encerrado").eq("team_id", teamId),
-      supabase.from("processos").select("user_id").eq("office_id", user.office_id)
+      supabase.from("processos").select(procSel).eq("office_id", user.office_id)
+        .eq("deletado", false).neq("status", "encerrado").in("responsavel_id", userIds),
+      supabase.from("processos").select(procSel).eq("office_id", user.office_id)
         .eq("deletado", false).neq("status", "encerrado").in("user_id", userIds),
     ]);
-    // Mescla evitando contar o mesmo processo duas vezes (processo pode ter team_id E user_id de membro)
-    const processosData = [...(processosByTeam.data || []), ...(processosByMember.data || [])];
+    // Mescla deduplicando por id (um processo pode bater em mais de um critério)
+    const procSeen = new Set<string>();
+    const processosData = [...(procByTeam.data || []), ...(procByResp.data || []), ...(procByCreator.data || [])]
+      .filter((p: any) => { if (procSeen.has(p.id)) return false; procSeen.add(p.id); return true; });
 
     // 3. Buscar demais métricas em paralelo filtradas pelo período
     const [
@@ -442,7 +450,11 @@ export default function EquipeDetalhe() {
       return map;
     };
 
-    const processosMap = countBy(processosData);
+    const processosMap: Record<string, number> = {};
+    processosData.forEach((p: any) => {
+      const k = p.responsavel_id || p.user_id;
+      if (k) processosMap[k] = (processosMap[k] || 0) + 1;
+    });
     const audienciasMap = countBy(audienciasRes.data);
     const prazosMap = countBy(prazosRes.data, "responsavel_id");
     const atendimentosMap = countBy(atendimentosRes.data);

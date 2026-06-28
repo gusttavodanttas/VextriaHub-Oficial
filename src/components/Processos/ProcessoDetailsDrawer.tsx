@@ -41,6 +41,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useOfficeTeams } from '@/hooks/useOfficeTeams';
+import { useOfficeUsers } from '@/hooks/useOfficeUsers';
 
 interface Movimentacao {
   id: string;
@@ -78,6 +79,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { teams: officeTeams } = useOfficeTeams();
+  const { users: officeUsers } = useOfficeUsers();
 
   const [movements, setMovements] = useState<Movimentacao[]>([]);
   const [loadingMovements, setLoadingMovements] = useState(false);
@@ -118,6 +120,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
     comarca: '',
     valor_causa: 0,
     team_id: '' as string,
+    responsavel_id: '' as string,
   });
 
   useEffect(() => {
@@ -135,6 +138,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
         comarca: processo.comarca || '',
         valor_causa: processo.valorCausa || 0,
         team_id: (processo as any).team_id || '',
+        responsavel_id: (processo as any).responsavel_id || (processo as any).responsavelId || '',
       });
       setEditing(false);
       setActiveTab("resumo");
@@ -181,6 +185,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
         comarca: editData.comarca,
         valorCausa: editData.valor_causa,
         team_id: editData.team_id || null,
+        responsavel_id: editData.responsavel_id || null,
       } as any);
       setEditing(false);
     } catch (e: any) {
@@ -750,6 +755,38 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                               return team
                                 ? <><span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ background: team.color }} /><p className="text-sm font-semibold">{team.name}</p></>
                                 : <p className="text-sm font-semibold text-foreground/40">—</p>;
+                            })()}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {officeUsers.length > 0 && (
+                      <div className="space-y-1.5">
+                        <p className="text-[10px] text-muted-foreground/60 uppercase font-black tracking-widest">Responsável</p>
+                        {editing ? (
+                          <Select
+                            value={editData.responsavel_id || ''}
+                            onValueChange={(v) => setEditData({ ...editData, responsavel_id: v })}
+                          >
+                            <SelectTrigger className="h-10 text-sm rounded-xl bg-background border-border">
+                              <SelectValue placeholder="Selecionar responsável" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {officeUsers.map(u => (
+                                <SelectItem key={u.user_id} value={u.user_id}>
+                                  {u.profile?.full_name || u.profile?.email || "Membro"}
+                                  {u.user_id === user?.id ? " (você)" : ""}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <div className="flex items-center gap-2 min-h-[40px] px-3 py-2 rounded-xl bg-muted/20 border border-transparent">
+                            {(() => {
+                              const resp = officeUsers.find(u => u.user_id === editData.responsavel_id);
+                              const nome = resp?.profile?.full_name || resp?.profile?.email;
+                              return <p className={cn("text-sm font-semibold", !nome && "text-foreground/40")}>{nome || "—"}</p>;
                             })()}
                           </div>
                         )}
