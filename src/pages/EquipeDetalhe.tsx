@@ -379,7 +379,14 @@ function TeamDetailDialog({
 
 // ─── AssignProcessosDialog (atribuir responsável) ───────────────────────────────
 
-interface AssignProc { id: string; titulo: string; numero: string; responsavel_id: string | null; status: string | null; }
+interface AssignItem { id: string; titulo: string; sub: string; responsavel_id: string | null; }
+type AssignKind = "processos" | "tarefas" | "audiencias";
+
+const ASSIGN_TABS: { kind: AssignKind; label: string; icon: any }[] = [
+  { kind: "processos", label: "Processos", icon: FileText },
+  { kind: "tarefas", label: "Tarefas", icon: CheckSquare },
+  { kind: "audiencias", label: "Audiências", icon: Calendar },
+];
 
 function AssignProcessosDialog({
   open, teamId, officeId, members, defaultMemberId, onClose, onChanged,
@@ -392,40 +399,65 @@ function AssignProcessosDialog({
   onClose: () => void;
   onChanged: () => void;
 }) {
-  const [procs, setProcs] = useState<AssignProc[]>([]);
+  const [kind, setKind] = useState<AssignKind>("processos");
+  const [items, setItems] = useState<AssignItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [justSaved, setJustSaved] = useState<string | null>(null);
+
+  const ids = members.length ? members.map(m => m.user_id) : ["00000000-0000-0000-0000-000000000000"];
 
   useEffect(() => {
     if (!open) return;
     let cancel = false;
     (async () => {
       setLoading(true);
-      const ids = members.length ? members.map(m => m.user_id) : ["00000000-0000-0000-0000-000000000000"];
-      const sel = "id, titulo, numero_processo, responsavel_id, status";
-      const [a, b, c] = await Promise.all([
-        supabase.from("processos").select(sel).eq("office_id", officeId).eq("deletado", false).neq("status", "encerrado").eq("team_id", teamId),
-        supabase.from("processos").select(sel).eq("office_id", officeId).eq("deletado", false).neq("status", "encerrado").in("responsavel_id", ids),
-        supabase.from("processos").select(sel).eq("office_id", officeId).eq("deletado", false).neq("status", "encerrado").in("user_id", ids),
-      ]);
-      const seen = new Set<string>();
-      const merged = [...(a.data || []), ...(b.data || []), ...(c.data || [])]
-        .filter((p: any) => { if (seen.has(p.id)) return false; seen.add(p.id); return true; })
-        .map((p: any) => ({ id: p.id, titulo: p.titulo || "Processo", numero: p.numero_processo || "", responsavel_id: p.responsavel_id, status: p.status }));
-      if (!cancel) { setProcs(merged); setLoading(false); }
+      const dedup = (rows: any[]) => {
+        const seen = new Set<string>();
+        return rows.filter(r => { if (seen.has(r.id)) return false; seen.add(r.id); return true; });
+      };
+      let result: AssignItem[] = [];
+
+      if (kind === "processos") {
+        const sel = "id, titulo, numero_processo, responsavel_id";
+        const [a, b, c] = await Promise.all([
+          supabase.from("processos").select(sel).eq("office_id", officeId).eq("deletado", false).neq("status", "encerrado").eq("team_id", teamId),
+          supabase.from("processos").select(sel).eq("office_id", officeId).eq("deletado", false).neq("status", "encerrado").in("responsavel_id", ids),
+          supabase.from("processos").select(sel).eq("office_id", officeId).eq("deletado", false).neq("status", "encerrado").in("user_id", ids),
+        ]);
+        result = dedup([...(a.data || []), ...(b.data || []), ...(c.data || [])])
+          .map((p: any) => ({ id: p.id, titulo: p.titulo || "Processo", sub: p.numero_processo || "", responsavel_id: p.responsavel_id }));
+      } else if (kind === "tarefas") {
+        const sel = "id, titulo, data_vencimento, responsavel_id";
+        const [a, b] = await Promise.all([
+          supabase.from("tarefas").select(sel).eq("office_id", officeId).eq("deletado", false).in("responsavel_id", ids),
+          supabase.from("tarefas").select(sel).eq("office_id", officeId).eq("deletado", false).in("user_id", ids),
+        ]);
+        result = dedup([...(a.data || []), ...(b.data || [])])
+          .map((t: any) => ({ id: t.id, titulo: t.titulo || "Tarefa", sub: t.data_vencimento ? `Vence ${fmtDate(t.data_vencimento)}` : "", responsavel_id: t.responsavel_id }));
+      } else {
+        const sel = "id, titulo, data_audiencia, responsavel_id";
+        const [a, b] = await Promise.all([
+          supabase.from("audiencias").select(sel).eq("office_id", officeId).eq("deletado", false).in("responsavel_id", ids),
+          supabase.from("audiencias").select(sel).eq("office_id", officeId).eq("deletado", false).in("user_id", ids),
+        ]);
+        result = dedup([...(a.data || []), ...(b.data || [])])
+          .map((a2: any) => ({ id: a2.id, titulo: a2.titulo || "Audiência", sub: a2.data_audiencia ? fmtDate(a2.data_audiencia) : "", responsavel_id: a2.responsavel_id }));
+      }
+
+      if (!cancel) { setItems(result); setLoading(false); }
     })();
     return () => { cancel = true; };
-  }, [open, teamId, officeId, members.map(m => m.user_id).join(",")]);
+  }, [open, kind, teamId, officeId, ids.join(",")]);
 
-  const assign = async (procId: string, userId: string) => {
-    setSavingId(procId);
-    const { error } = await supabase.from("processos").update({ responsavel_id: userId }).eq("id", procId);
+  const assign = async (itemId: string, userId: string) => {
+    setSavingId(itemId);
+    const { error } = await supabase.from(kind).update({ responsavel_id: userId }).eq("id", itemId);
     setSavingId(null);
     if (!error) {
-      setProcs(prev => prev.map(p => p.id === procId ? { ...p, responsavel_id: userId } : p));
-      setJustSaved(procId);
-      setTimeout(() => setJustSaved(s => s === procId ? null : s), 1500);
+      setItems(prev => prev.map(p => p.id === itemId ? { ...p, responsavel_id: userId } : p));
+      setJustSaved(itemId);
+      setTimeout(() => setJustSaved(s => s === itemId ? null : s), 1500);
       onChanged();
     }
   };
@@ -441,28 +473,44 @@ function AssignProcessosDialog({
         <DialogHeader className="px-5 pt-5 pb-3 border-b border-border">
           <DialogTitle className="flex items-center gap-2.5 text-base font-black">
             <span className="p-1.5 rounded-lg bg-blue-500/10 text-blue-500"><FolderPlus className="h-4 w-4" /></span>
-            Atribuir Processos
+            Atribuir trabalho
             {defaultMemberId && (
               <span className="text-xs font-bold text-muted-foreground">→ {nameOf(defaultMemberId)}</span>
             )}
           </DialogTitle>
-          <p className="text-[11px] text-muted-foreground mt-1">Defina o responsável de cada processo da equipe.</p>
+          <p className="text-[11px] text-muted-foreground mt-1">Defina o responsável de cada item da equipe.</p>
         </DialogHeader>
+
+        {/* Tabs */}
+        <div className="flex gap-1 px-5 pt-3">
+          {ASSIGN_TABS.map(t => {
+            const Icon = t.icon;
+            return (
+              <button key={t.kind} type="button" onClick={() => setKind(t.kind)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors",
+                  kind === t.kind ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/50"
+                )}>
+                <Icon className="h-3.5 w-3.5" /> {t.label}
+              </button>
+            );
+          })}
+        </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2">
           {loading ? (
             [...Array(4)].map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-xl" />)
-          ) : procs.length === 0 ? (
+          ) : items.length === 0 ? (
             <div className="py-12 text-center">
               <FolderPlus className="h-10 w-10 mx-auto mb-2 opacity-20 text-blue-500" />
-              <p className="text-sm text-muted-foreground">Nenhum processo na equipe ainda.</p>
+              <p className="text-sm text-muted-foreground">Nenhum item da equipe aqui ainda.</p>
             </div>
           ) : (
-            procs.map(p => (
+            items.map(p => (
               <div key={p.id} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/20">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold truncate">{p.titulo}</p>
-                  {p.numero && <p className="text-xs text-muted-foreground truncate">{p.numero}</p>}
+                  {p.sub && <p className="text-xs text-muted-foreground truncate">{p.sub}</p>}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {justSaved === p.id && <Check className="h-4 w-4 text-emerald-500" />}
@@ -654,11 +702,6 @@ export default function EquipeDetalhe() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const totalTarefas = summary.tarefasPendentes + summary.tarefasConcluidas;
-  const progressPct = totalTarefas > 0
-    ? Math.round((summary.tarefasConcluidas / totalTarefas) * 100)
-    : 0;
-
   const sortedMembers = [...members].sort((a, b) => b[sortKey] - a[sortKey]);
 
   // Só admin do escritório ou coordenador desta equipe pode atribuir processos
@@ -669,6 +712,25 @@ export default function EquipeDetalhe() {
   const visibleMembers = canSeeAllMembers
     ? sortedMembers
     : sortedMembers.filter(m => m.user_id === user?.id);
+
+  // Resumo: time inteiro para admin/coordenador; só os próprios números para o membro
+  const ownStats = members.find(m => m.user_id === user?.id);
+  const displaySummary: TeamSummary = canSeeAllMembers ? summary : {
+    processos: ownStats?.processos ?? 0,
+    tarefasPendentes: ownStats?.tarefasPendentes ?? 0,
+    tarefasConcluidas: ownStats?.tarefasConcluidas ?? 0,
+    audiencias: ownStats?.audiencias ?? 0,
+    prazos: ownStats?.prazos ?? 0,
+    atendimentos: ownStats?.atendimentos ?? 0,
+    consultivos: ownStats?.consultivos ?? 0,
+    horasTimesheet: ownStats?.horasTimesheet ?? 0,
+  };
+  const effectiveMemberIds = canSeeAllMembers ? memberIds : (user?.id ? [user.id] : []);
+
+  const totalTarefas = displaySummary.tarefasPendentes + displaySummary.tarefasConcluidas;
+  const progressPct = totalTarefas > 0
+    ? Math.round((displaySummary.tarefasConcluidas / totalTarefas) * 100)
+    : 0;
 
   const periodLabel: Record<Period, string> = {
     week: "Esta semana", month: "Este mês", quarter: "Últimos 3 meses", year: "Este ano"
@@ -738,17 +800,17 @@ export default function EquipeDetalhe() {
           <div>
             <div className="flex items-center gap-2 mb-4">
               <TrendingUp className="h-4 w-4 text-primary" />
-              <h2 className="font-black text-base">Resumo da Equipe</h2>
-              <Badge variant="secondary" className="ml-1">{members.length} membros</Badge>
+              <h2 className="font-black text-base">{canSeeAllMembers ? "Resumo da Equipe" : "Meu Resumo"}</h2>
+              {canSeeAllMembers && <Badge variant="secondary" className="ml-1">{members.length} membros</Badge>}
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <StatCard icon={FileText} label="Processos ativos" value={summary.processos} color="bg-blue-500/10 text-blue-500" onClick={() => setDetailType("processos")} />
-              <StatCard icon={CheckSquare} label="Tarefas abertas" value={summary.tarefasPendentes} color="bg-violet-500/10 text-violet-500" onClick={() => setDetailType("tarefas")} />
-              <StatCard icon={Calendar} label="Audiências (7 dias)" value={summary.audiencias} color="bg-emerald-500/10 text-emerald-500" onClick={() => setDetailType("audiencias")} />
-              <StatCard icon={AlertCircle} label="Prazos (3 dias)" value={summary.prazos} color="bg-amber-500/10 text-amber-500" onClick={() => setDetailType("prazos")} />
-              <StatCard icon={MessageSquare} label="Atendimentos (mês)" value={summary.atendimentos} color="bg-rose-500/10 text-rose-500" onClick={() => setDetailType("atendimentos")} />
-              <StatCard icon={BookOpen} label="Consultivos" value={summary.consultivos} color="bg-cyan-500/10 text-cyan-500" onClick={() => setDetailType("consultivos")} />
-              <StatCard icon={Clock} label="Horas timesheet (mês)" value={summary.horasTimesheet} color="bg-fuchsia-500/10 text-fuchsia-500" />
+              <StatCard icon={FileText} label="Processos ativos" value={displaySummary.processos} color="bg-blue-500/10 text-blue-500" onClick={() => setDetailType("processos")} />
+              <StatCard icon={CheckSquare} label="Tarefas abertas" value={displaySummary.tarefasPendentes} color="bg-violet-500/10 text-violet-500" onClick={() => setDetailType("tarefas")} />
+              <StatCard icon={Calendar} label="Audiências (7 dias)" value={displaySummary.audiencias} color="bg-emerald-500/10 text-emerald-500" onClick={() => setDetailType("audiencias")} />
+              <StatCard icon={AlertCircle} label="Prazos (3 dias)" value={displaySummary.prazos} color="bg-amber-500/10 text-amber-500" onClick={() => setDetailType("prazos")} />
+              <StatCard icon={MessageSquare} label="Atendimentos (mês)" value={displaySummary.atendimentos} color="bg-rose-500/10 text-rose-500" onClick={() => setDetailType("atendimentos")} />
+              <StatCard icon={BookOpen} label="Consultivos" value={displaySummary.consultivos} color="bg-cyan-500/10 text-cyan-500" onClick={() => setDetailType("consultivos")} />
+              <StatCard icon={Clock} label="Horas timesheet (mês)" value={displaySummary.horasTimesheet} color="bg-fuchsia-500/10 text-fuchsia-500" />
               <div className="flex flex-col justify-center bg-muted/30 border border-border rounded-xl p-4 gap-1.5">
                 <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground">Conclusão tarefas</span>
@@ -757,7 +819,7 @@ export default function EquipeDetalhe() {
                 <div className="h-2 bg-muted rounded-full overflow-hidden">
                   <div className="h-full bg-violet-500 rounded-full" style={{ width: `${progressPct}%` }} />
                 </div>
-                <p className="text-[10px] text-muted-foreground">{summary.tarefasConcluidas} de {totalTarefas} tarefas</p>
+                <p className="text-[10px] text-muted-foreground">{displaySummary.tarefasConcluidas} de {totalTarefas} tarefas</p>
               </div>
             </div>
           </div>
@@ -775,7 +837,7 @@ export default function EquipeDetalhe() {
                   onClick={() => { setAssignMember(null); setAssignOpen(true); }}
                   className="h-8 rounded-xl gap-1.5 text-xs font-bold ml-auto"
                 >
-                  <FolderPlus className="h-3.5 w-3.5" /> Atribuir processos
+                  <FolderPlus className="h-3.5 w-3.5" /> Atribuir trabalho
                 </Button>
               )}
               {canSeeAllMembers && (
@@ -807,7 +869,7 @@ export default function EquipeDetalhe() {
       <TeamDetailDialog
         type={detailType}
         teamId={teamId || ""}
-        memberIds={memberIds}
+        memberIds={effectiveMemberIds}
         officeId={user?.office_id || ""}
         period={period}
         onClose={() => setDetailType(null)}

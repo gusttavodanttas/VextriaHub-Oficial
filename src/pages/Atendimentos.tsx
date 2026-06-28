@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOfficeUsers } from "@/hooks/useOfficeUsers";
+import { useOpenItemFromSearch } from "@/hooks/useOpenItemFromSearch";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -656,6 +657,12 @@ const Atendimentos = () => {
 
   const openNew = () => { setEditItem(null); setDialogOpen(true); };
   const openEdit = (item: Atendimento) => { setEditItem(item); setDialogOpen(true); };
+
+  // Abre o atendimento específico vindo de ?openId= (ex.: painel da equipe)
+  useOpenItemFromSearch("/atendimentos", !query.isLoading && items.length > 0, (openId) => {
+    const it = items.find(x => String(x.id) === openId);
+    if (it) openEdit(it);
+  });
 
   const handleSave = (data: any) => {
     create.mutate(data, { onSuccess: () => setDialogOpen(false) });

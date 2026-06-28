@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useConsultivos, Consultivo } from "@/hooks/useConsultivos";
+import { useOpenItemFromSearch } from "@/hooks/useOpenItemFromSearch";
 import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 import { useConsultivoCategorias, ConsultivoCategoria } from "@/hooks/useConsultivoCategorias";
 import { useAuth } from "@/contexts/AuthContext";
@@ -443,6 +444,12 @@ export default function ConsultivoPage() {
     });
     setDialogOpen(true);
   };
+
+  // Abre o consultivo específico vindo de ?openId= (ex.: painel da equipe)
+  useOpenItemFromSearch("/consultivo", !loading && data.length > 0, (openId) => {
+    const it = data.find(x => String(x.id) === openId);
+    if (it) openEdit(it);
+  });
 
   const handleSave = async () => {
     if (!form.titulo.trim()) return;

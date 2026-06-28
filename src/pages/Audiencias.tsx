@@ -20,6 +20,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMultiSelect } from "@/hooks/useMultiSelect";
 import { useAudiencias, type Audiencia, type AudienciaInput } from "@/hooks/useAudiencias";
+import { useOpenItemFromSearch } from "@/hooks/useOpenItemFromSearch";
 import { useClientes } from "@/hooks/useClientes";
 import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 import { cn } from "@/lib/utils";
@@ -121,6 +122,12 @@ const Audiencias = () => {
 
   const openNew = () => { setEditTarget(null); setDialogOpen(true); };
   const openEdit = (a: Audiencia) => { setEditTarget(a); setDialogOpen(true); };
+
+  // Abre a audiência específica vinda de ?openId= (ex.: painel da equipe)
+  useOpenItemFromSearch("/audiencias", !isLoading && audiencias.length > 0, (openId) => {
+    const a = audiencias.find(x => String(x.id) === openId);
+    if (a) openEdit(a);
+  });
 
   const handleConfirmDelete = async () => {
     const ids = multiSelect.getSelectedItems().map(i => i.id);
