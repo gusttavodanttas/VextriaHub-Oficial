@@ -200,10 +200,17 @@ export const usePlanFeatures = () => {
       return PLAN_FEATURES.premium;
     }
     
-    // Usar o plano do escritório ou trial como padrão
-    const plan = office?.plan || 'trial';
-    const features = PLAN_FEATURES[plan as PlanType] || PLAN_FEATURES.trial;
-    
+    // Normaliza nomes de plano legados (enum antigo) para os atuais
+    const LEGACY_PLAN_MAP: Record<string, PlanType> = {
+      free: 'trial',
+      basic: 'basico',
+      professional: 'avancado',
+      enterprise: 'premium',
+    };
+    const raw = (office?.plan || 'trial') as string;
+    const normalized: PlanType = (PLAN_FEATURES[raw as PlanType] ? (raw as PlanType) : (LEGACY_PLAN_MAP[raw] || 'trial'));
+    const features = PLAN_FEATURES[normalized] || PLAN_FEATURES.trial;
+
     return features;
   }, [office?.plan, office?.is_lifetime, isSuperAdmin]);
 };
