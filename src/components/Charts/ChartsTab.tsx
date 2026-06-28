@@ -213,6 +213,18 @@ export function ChartsTab() {
             </div>
           </div>
 
+          <ChartCard title="Duração média por tipo de processo (dias)" empty={d.duracaoPorTipo.length === 0}>
+            <ResponsiveContainer width="100%" height={Math.max(240, d.duracaoPorTipo.length * 40)}>
+              <BarChart data={d.duracaoPorTipo} layout="vertical" margin={{ left: 16 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+                <XAxis type="number" fontSize={11} allowDecimals={false} unit="d" />
+                <YAxis type="category" dataKey="name" fontSize={11} width={120} />
+                <Tooltip {...tooltipStyle} formatter={(v: any, _n: any, p: any) => [`${v} dias · ${p?.payload?.qtd} processos`, "Média"]} />
+                <Bar dataKey="dias" name="Duração média" radius={[0, 4, 4, 0]} fill="#6366f1" />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
           <ChartCard title="Processos por área de atuação" empty={d.processosPorArea.length === 0}>
             <ResponsiveContainer width="100%" height={Math.max(240, d.processosPorArea.length * 40)}>
               <BarChart data={d.processosPorArea} layout="vertical" margin={{ left: 16 }}>

@@ -19,9 +19,10 @@ interface CreateGoalDialogProps {
   onOpenChange: (open: boolean) => void;
   onSave: (goal: any) => void;
   initial?: any | null;
+  teams?: { id: string; name: string }[];
 }
 
-export const CreateGoalDialog = ({ open, onOpenChange, onSave, initial }: CreateGoalDialogProps) => {
+export const CreateGoalDialog = ({ open, onOpenChange, onSave, initial, teams = [] }: CreateGoalDialogProps) => {
   const { toast } = useToast();
   const isEdit = !!initial;
   const [formData, setFormData] = useState({
@@ -31,7 +32,8 @@ export const CreateGoalDialog = ({ open, onOpenChange, onSave, initial }: Create
     dataInicio: undefined as Date | undefined,
     dataFim: undefined as Date | undefined,
     valorMeta: "",
-    descricao: ""
+    descricao: "",
+    teamId: "",
   });
 
   React.useEffect(() => {
@@ -44,9 +46,10 @@ export const CreateGoalDialog = ({ open, onOpenChange, onSave, initial }: Create
         dataFim: initial.dataFim ? new Date(initial.dataFim) : undefined,
         valorMeta: initial.valorMeta != null ? String(initial.valorMeta) : "",
         descricao: initial.descricao || "",
+        teamId: initial.teamId || "",
       });
     } else if (open && !initial) {
-      setFormData({ titulo: "", tipo: "", periodo: "", dataInicio: undefined, dataFim: undefined, valorMeta: "", descricao: "" });
+      setFormData({ titulo: "", tipo: "", periodo: "", dataInicio: undefined, dataFim: undefined, valorMeta: "", descricao: "", teamId: "" });
     }
   }, [open, initial]);
 
@@ -90,6 +93,7 @@ export const CreateGoalDialog = ({ open, onOpenChange, onSave, initial }: Create
       valorAtual: 0,
       descricao: formData.descricao,
       status: "ativa",
+      teamId: formData.teamId || null,
     };
 
     onSave(novaMeta);
@@ -160,6 +164,24 @@ export const CreateGoalDialog = ({ open, onOpenChange, onSave, initial }: Create
               </SelectContent>
             </Select>
           </div>
+
+          {teams.length > 0 && (
+            <div className="space-y-2">
+              <Label>Equipe (opcional)</Label>
+              <Select value={formData.teamId || "none"} onValueChange={(value) => setFormData({ ...formData, teamId: value === "none" ? "" : value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Meta individual" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Meta individual</SelectItem>
+                  {teams.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>Equipe: {t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">Meta de equipe soma o progresso de todos os membros.</p>
+            </div>
+          )}
 
           {formData.periodo === "personalizado" && (
             <div className="grid grid-cols-2 gap-4">

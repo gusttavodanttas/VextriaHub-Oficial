@@ -13,6 +13,8 @@ export interface Meta {
   status: string;
   dataInicio: string; // YYYY-MM-DD
   dataFim: string;    // YYYY-MM-DD
+  teamId: string | null;
+  teamName: string | null;
 }
 
 export interface NovaMetaInput {
@@ -22,6 +24,7 @@ export interface NovaMetaInput {
   valorMeta: number;
   dataInicio?: Date | string;
   dataFim?: Date | string;
+  teamId?: string | null;
 }
 
 const toISODate = (d: Date) => d.toISOString().split("T")[0];
@@ -57,48 +60,50 @@ export function useMetas() {
   const [metas, setMetas] = useState<Meta[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Calcula o valor atingido de uma meta com base em dados reais
-  const computeAtual = useCallback(async (tipo: string, inicio: string, fim: string, fallback: number): Promise<number> => {
+  // Calcula o valor atingido de uma meta com base em dados reais.
+  // Se memberIds for informado (meta de equipe), restringe aos membros.
+  const computeAtual = useCallback(async (tipo: string, inicio: string, fim: string, fallback: number, memberIds?: string[] | null): Promise<number> => {
     if (!user?.office_id) return fallback;
     const office = user.office_id;
     const startIso = `${inicio}T00:00:00`;
     const endIso = `${fim}T23:59:59`;
+    const scope = (q: any, col: string) => (memberIds && memberIds.length ? q.in(col, memberIds) : q);
     try {
       switch (tipo) {
         case "receita": {
-          const { data } = await supabase.from("financeiro").select("valor")
+          const { data } = await scope(supabase.from("financeiro").select("valor")
             .eq("office_id", office).eq("deletado", false).eq("tipo", "receita")
-            .gte("created_at", startIso).lte("created_at", endIso);
+            .gte("created_at", startIso).lte("created_at", endIso), "user_id");
           return (data || []).reduce((s: number, r: any) => s + (Number(r.valor) || 0), 0);
         }
         case "clientes": {
-          const { count } = await supabase.from("clientes").select("id", { count: "exact", head: true })
+          const { count } = await scope(supabase.from("clientes").select("id", { count: "exact", head: true })
             .eq("office_id", office).eq("deletado", false).in("status", ["ativo", "convertido"])
-            .gte("created_at", startIso).lte("created_at", endIso);
+            .gte("created_at", startIso).lte("created_at", endIso), "user_id");
           return count || 0;
         }
         case "processos": {
-          const { count } = await supabase.from("processos").select("id", { count: "exact", head: true })
+          const { count } = await scope(supabase.from("processos").select("id", { count: "exact", head: true })
             .eq("office_id", office).eq("deletado", false).eq("status", "encerrado")
-            .gte("updated_at", startIso).lte("updated_at", endIso);
+            .gte("updated_at", startIso).lte("updated_at", endIso), "responsavel_id");
           return count || 0;
         }
         case "audiencias": {
-          const { count } = await supabase.from("audiencias").select("id", { count: "exact", head: true })
+          const { count } = await scope(supabase.from("audiencias").select("id", { count: "exact", head: true })
             .eq("office_id", office).eq("deletado", false).eq("status", "realizada")
-            .gte("data_audiencia", startIso).lte("data_audiencia", endIso);
+            .gte("data_audiencia", startIso).lte("data_audiencia", endIso), "responsavel_id");
           return count || 0;
         }
         case "atendimentos": {
-          const { count } = await supabase.from("atendimentos").select("id", { count: "exact", head: true })
+          const { count } = await scope(supabase.from("atendimentos").select("id", { count: "exact", head: true })
             .eq("office_id", office).eq("deletado", false)
-            .gte("created_at", startIso).lte("created_at", endIso);
+            .gte("created_at", startIso).lte("created_at", endIso), "responsavel_id");
           return count || 0;
         }
         case "prazos": {
-          const { count } = await supabase.from("prazos").select("id", { count: "exact", head: true })
+          const { count } = await scope(supabase.from("prazos").select("id", { count: "exact", head: true })
             .eq("office_id", office).eq("status", "concluido")
-            .gte("data_fim_prazo", inicio).lte("data_fim_prazo", fim);
+            .gte("data_fim_prazo", inicio).lte("data_fim_prazo", fim), "responsavel_id");
           return count || 0;
         }
         default:
@@ -112,16 +117,32 @@ export function useMetas() {
   const fetch = useCallback(async () => {
     if (!user?.office_id) { setMetas([]); setLoading(false); return; }
     setLoading(true);
-    const { data } = await supabase.from("metas").select("*")
-      .eq("deletado", false).order("created_at", { ascending: false });
+    const [{ data }, teamsRes] = await Promise.all([
+      supabase.from("metas").select("*").eq("deletado", false).order("created_at", { ascending: false }),
+      supabase.from("office_teams").select("id, name").eq("office_id", user.office_id),
+    ]);
+    const teamName: Record<string, string> = {};
+    (teamsRes.data || []).forEach((t: any) => { teamName[t.id] = t.name; });
+
+    // Cache de membros por equipe (para metas de equipe)
+    const teamMembersCache: Record<string, string[]> = {};
+    const getTeamMembers = async (teamId: string): Promise<string[]> => {
+      if (teamMembersCache[teamId]) return teamMembersCache[teamId];
+      const { data: tm } = await supabase.from("office_team_members").select("user_id").eq("team_id", teamId);
+      const ids = (tm || []).map((m: any) => m.user_id);
+      teamMembersCache[teamId] = ids.length ? ids : ["00000000-0000-0000-0000-000000000000"];
+      return teamMembersCache[teamId];
+    };
 
     const rows = data || [];
     const withProgress = await Promise.all(rows.map(async (r: any) => {
-      const valorAtual = await computeAtual(r.tipo, r.data_inicio, r.data_fim, Number(r.valor_atual) || 0);
+      const memberIds = r.team_id ? await getTeamMembers(r.team_id) : null;
+      const valorAtual = await computeAtual(r.tipo, r.data_inicio, r.data_fim, Number(r.valor_atual) || 0, memberIds);
       return {
         id: r.id, titulo: r.titulo, tipo: r.tipo, periodo: r.periodo,
         valorMeta: Number(r.valor_meta) || 0, valorAtual, status: r.status || "ativa",
         dataInicio: r.data_inicio, dataFim: r.data_fim,
+        teamId: r.team_id || null, teamName: r.team_id ? (teamName[r.team_id] || "Equipe") : null,
       } as Meta;
     }));
     setMetas(withProgress);
@@ -137,7 +158,7 @@ export function useMetas() {
       user_id: user.id, office_id: user.office_id,
       titulo: input.titulo, tipo: input.tipo, periodo: input.periodo,
       valor_meta: input.valorMeta, valor_atual: 0, status: "ativa",
-      data_inicio: inicio, data_fim: fim,
+      data_inicio: inicio, data_fim: fim, team_id: input.teamId || null,
     });
     if (error) { toast({ title: "Erro ao criar meta", description: error.message, variant: "destructive" }); return false; }
     toast({ title: "Meta criada" });
@@ -150,7 +171,7 @@ export function useMetas() {
     const { error } = await supabase.from("metas").update({
       titulo: input.titulo, tipo: input.tipo, periodo: input.periodo,
       valor_meta: input.valorMeta, data_inicio: inicio, data_fim: fim,
-      updated_at: new Date().toISOString(),
+      team_id: input.teamId || null, updated_at: new Date().toISOString(),
     }).eq("id", id);
     if (error) { toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" }); return false; }
     toast({ title: "Meta atualizada" });

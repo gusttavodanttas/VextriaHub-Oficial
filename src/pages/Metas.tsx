@@ -11,6 +11,8 @@ import { CreateGoalDialog } from "@/components/Goals/CreateGoalDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PermissionGuard } from "@/components/Auth/PermissionGuard";
 import { useMetas, type Meta } from "@/hooks/useMetas";
+import { useOfficeTeams } from "@/hooks/useOfficeTeams";
+import { Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -82,6 +84,11 @@ function MetaCard({ meta, onEdit, onDelete }: { meta: Meta; onEdit: (m: Meta) =>
               <Icon className="h-3 w-3" /> {s.label}
             </span>
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-muted/50 text-muted-foreground uppercase tracking-wider">{meta.periodo}</span>
+            {meta.teamName && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-primary/10 text-primary uppercase tracking-wider">
+                <Users className="h-3 w-3" /> {meta.teamName}
+              </span>
+            )}
           </div>
         </div>
         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
@@ -121,9 +128,10 @@ const Metas = () => {
   const [createGoalOpen, setCreateGoalOpen] = useState(false);
   const [editGoal, setEditGoal] = useState<any | null>(null);
   const { metas, loading, create, update, remove } = useMetas();
+  const { teams } = useOfficeTeams();
 
   const handleSaveGoal = (m: any) => {
-    const payload = { titulo: m.titulo, tipo: m.tipo, periodo: m.periodo, valorMeta: m.valorMeta, dataInicio: m.dataInicio, dataFim: m.dataFim };
+    const payload = { titulo: m.titulo, tipo: m.tipo, periodo: m.periodo, valorMeta: m.valorMeta, dataInicio: m.dataInicio, dataFim: m.dataFim, teamId: m.teamId ?? null };
     if (editGoal?.id) update(editGoal.id, payload);
     else create(payload);
     setEditGoal(null);
@@ -319,6 +327,7 @@ const Metas = () => {
           onOpenChange={(o) => { setCreateGoalOpen(o); if (!o) setEditGoal(null); }}
           onSave={handleSaveGoal}
           initial={editGoal}
+          teams={teams.map(t => ({ id: t.id, name: t.name }))}
         />
       </div>
     </PermissionGuard>
