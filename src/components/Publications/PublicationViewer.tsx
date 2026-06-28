@@ -71,7 +71,7 @@ export const PublicationViewer = ({ publication }: PublicationViewerProps) => {
             Visualizar
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto bg-background border border-border p-0 rounded-[2rem] shadow-2xl">
+        <DialogContent aria-describedby={undefined} className="max-w-3xl max-h-[85vh] overflow-y-auto bg-background border border-border p-0 rounded-[2rem] shadow-2xl">
           <DialogHeader className="p-6 pb-4 border-b border-border bg-muted/20">
             <DialogTitle className="flex items-center gap-2 text-lg font-black text-foreground">
               <Eye className="h-5 w-5 text-primary" />

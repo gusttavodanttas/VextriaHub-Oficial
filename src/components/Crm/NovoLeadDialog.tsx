@@ -211,7 +211,7 @@ export const NovoLeadDialog = ({ open, onOpenChange, onSave }: NovoLeadDialogPro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] bg-background border-border shadow-2xl p-0 overflow-hidden rounded-[2.5rem]">
+      <DialogContent aria-describedby={undefined} className="sm:max-w-[700px] bg-background border-border shadow-2xl p-0 overflow-hidden rounded-[2.5rem]">
         <DialogHeader className="p-8 pb-4 border-b border-border">
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">

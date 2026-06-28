@@ -226,7 +226,7 @@ export function ProcessoDetalhes({ processo, open, onOpenChange }: ProcessoDetal
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto bg-background border border-border rounded-[2rem] shadow-2xl">
+      <DialogContent aria-describedby={undefined} className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto bg-background border border-border rounded-[2rem] shadow-2xl">
         <DialogHeader className="pb-3 border-b border-border">
           <DialogTitle className="flex items-center gap-2 text-xl font-black text-foreground">
             <FileText className="h-5 w-5 text-primary" />

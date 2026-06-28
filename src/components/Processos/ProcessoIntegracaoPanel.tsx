@@ -58,7 +58,7 @@ export const ProcessoIntegracaoPanel: React.FC<ProcessoIntegracaoPanelProps> = (
   if (isDialogMode) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-[1280px] w-[95vw] bg-background border border-border p-0 overflow-hidden flex flex-col h-[90vh] max-h-[90vh] shadow-2xl rounded-[2rem]">
+        <DialogContent aria-describedby={undefined} className="max-w-[1280px] w-[95vw] bg-background border border-border p-0 overflow-hidden flex flex-col h-[90vh] max-h-[90vh] shadow-2xl rounded-[2rem]">
           <div className="flex-1 overflow-y-auto px-8 py-6">
             {body}
           </div>

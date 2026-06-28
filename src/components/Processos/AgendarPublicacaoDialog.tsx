@@ -172,7 +172,7 @@ export const AgendarPublicacaoDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md bg-background border border-border p-0 rounded-[2rem] shadow-2xl overflow-hidden">
+      <DialogContent aria-describedby={undefined} className="max-w-md bg-background border border-border p-0 rounded-[2rem] shadow-2xl overflow-hidden">
         <DialogHeader className="p-6 pb-4 border-b border-border bg-muted/20">
           <DialogTitle className="flex items-center gap-2 text-lg font-black text-foreground">
             <Icon className={`h-5 w-5 ${META[tipo].color}`} />

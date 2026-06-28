@@ -327,7 +327,7 @@ function TeamDetailDialog({
 
   return (
     <Dialog open={!!type} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-lg rounded-2xl p-0 overflow-hidden max-h-[80vh] flex flex-col">
+      <DialogContent aria-describedby={undefined} className="max-w-lg rounded-2xl p-0 overflow-hidden max-h-[80vh] flex flex-col">
         <DialogHeader className="px-5 pt-5 pb-3 border-b border-border">
           <DialogTitle className="flex items-center gap-2.5 text-base font-black">
             <span className={cn("p-1.5 rounded-lg bg-muted/50", cfg.color)}><Icon className="h-4 w-4" /></span>
@@ -469,7 +469,7 @@ function AssignProcessosDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-lg rounded-2xl p-0 overflow-hidden max-h-[82vh] flex flex-col">
+      <DialogContent aria-describedby={undefined} className="max-w-lg rounded-2xl p-0 overflow-hidden max-h-[82vh] flex flex-col">
         <DialogHeader className="px-5 pt-5 pb-3 border-b border-border">
           <DialogTitle className="flex items-center gap-2.5 text-base font-black">
             <span className="p-1.5 rounded-lg bg-blue-500/10 text-blue-500"><FolderPlus className="h-4 w-4" /></span>

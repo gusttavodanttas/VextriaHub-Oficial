@@ -133,7 +133,7 @@ export const PublicationDetailsDialog = ({
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-      <DialogContent className="max-w-4xl h-[92vh] border-border bg-background rounded-[2.5rem] shadow-2xl p-0 overflow-hidden flex flex-col focus:outline-none ring-0">
+      <DialogContent aria-describedby={undefined} className="max-w-4xl h-[92vh] border-border bg-background rounded-[2.5rem] shadow-2xl p-0 overflow-hidden flex flex-col focus:outline-none ring-0">
 
         {/* Header */}
         <DialogHeader className="p-7 pb-5 shrink-0 border-b border-border bg-muted/20">

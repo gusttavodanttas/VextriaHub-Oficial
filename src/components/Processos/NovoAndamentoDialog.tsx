@@ -77,7 +77,7 @@ export const NovoAndamentoDialog = ({ onAddAndamento }: NovoAndamentoDialogProps
           Novo Andamento
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-md bg-background border border-border p-6 rounded-[2rem] shadow-2xl">
+      <DialogContent aria-describedby={undefined} className="max-w-md bg-background border border-border p-6 rounded-[2rem] shadow-2xl">
         <DialogHeader className="pb-3 border-b border-border">
           <DialogTitle className="text-xl font-black text-foreground">Adicionar Andamento</DialogTitle>
         </DialogHeader>

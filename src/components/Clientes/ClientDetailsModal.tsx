@@ -49,7 +49,7 @@ export const ClientDetailsModal: React.FC<ClientDetailsModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="w-full sm:max-w-2xl bg-[#0A0D14] border border-border text-foreground p-0 shadow-2xl overflow-hidden rounded-3xl">
+      <DialogContent aria-describedby={undefined} className="w-full sm:max-w-2xl bg-[#0A0D14] border border-border text-foreground p-0 shadow-2xl overflow-hidden rounded-3xl">
         <div className="p-6 md:p-8 space-y-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
           <DialogHeader className="border-b border-border pb-6">
             <DialogTitle className="flex items-center gap-3 text-2xl font-bold text-foreground">

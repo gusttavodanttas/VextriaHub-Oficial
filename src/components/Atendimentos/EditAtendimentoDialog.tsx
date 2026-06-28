@@ -71,7 +71,7 @@ export const EditAtendimentoDialog = ({ atendimento, open, onOpenChange, onSave 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent aria-describedby={undefined} className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Editar Atendimento</DialogTitle>
         </DialogHeader>

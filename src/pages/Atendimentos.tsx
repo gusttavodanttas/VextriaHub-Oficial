@@ -171,7 +171,7 @@ const GerenciarTiposDialog: React.FC<{
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="sm:max-w-xs p-0 rounded-3xl border border-black/5 dark:border-border shadow-premium overflow-hidden">
+      <DialogContent aria-describedby={undefined} className="sm:max-w-xs p-0 rounded-3xl border border-black/5 dark:border-border shadow-premium overflow-hidden">
         <div className="px-5 pt-4 pb-3 bg-gradient-to-br from-primary/8 via-primary/4 to-transparent">
           <DialogHeader>
             <div className="flex items-center gap-2.5">
@@ -370,7 +370,7 @@ const FormDialog: React.FC<{
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="sm:max-w-sm p-0 rounded-3xl border border-black/5 dark:border-border shadow-premium" style={{maxHeight:"88vh",overflowY:"auto"}}>
+      <DialogContent aria-describedby={undefined} className="sm:max-w-sm p-0 rounded-3xl border border-black/5 dark:border-border shadow-premium" style={{maxHeight:"88vh",overflowY:"auto"}}>
         <div className="px-5 pt-4 pb-3 bg-gradient-to-br from-primary/8 via-primary/4 to-transparent">
           <DialogHeader>
             <div className="flex items-center gap-2.5">

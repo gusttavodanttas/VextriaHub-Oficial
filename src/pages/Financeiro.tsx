@@ -263,7 +263,7 @@ const GerenciarCategoriasDialog: React.FC<GerenciarCategoriasProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="sm:max-w-md rounded-3xl border border-black/5 dark:border-border shadow-premium">
+      <DialogContent aria-describedby={undefined} className="sm:max-w-md rounded-3xl border border-black/5 dark:border-border shadow-premium">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl font-black">
             <div className="p-1.5 rounded-lg bg-primary/10 text-primary"><Settings2 className="h-5 w-5" /></div>
@@ -484,7 +484,7 @@ const FormDialog: React.FC<FormDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="sm:max-w-sm p-0 rounded-3xl border border-black/5 dark:border-border shadow-premium overflow-hidden">
+      <DialogContent aria-describedby={undefined} className="sm:max-w-sm p-0 rounded-3xl border border-black/5 dark:border-border shadow-premium overflow-hidden">
 
         {/* Header colorido */}
         <div className={cn(

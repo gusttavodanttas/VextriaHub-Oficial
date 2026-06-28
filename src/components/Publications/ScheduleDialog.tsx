@@ -49,7 +49,7 @@ export const ScheduleDialog = ({ publicationTitle, processNumber, type, iconOnly
           {!iconOnly && title}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-md bg-background border border-border p-6 rounded-[2rem] shadow-2xl">
+      <DialogContent aria-describedby={undefined} className="max-w-md bg-background border border-border p-6 rounded-[2rem] shadow-2xl">
         <DialogHeader className="pb-3 border-b border-border">
           <DialogTitle className="flex items-center gap-2 text-xl font-black text-foreground">
             {React.createElement(icon, { className: "h-5 w-5 text-primary" })}

@@ -612,7 +612,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl w-[96vw] h-[92vh] p-0 rounded-3xl border border-border bg-background shadow-2xl flex flex-col overflow-hidden gap-0">
+      <DialogContent aria-describedby={undefined} className="max-w-5xl w-[96vw] h-[92vh] p-0 rounded-3xl border border-border bg-background shadow-2xl flex flex-col overflow-hidden gap-0">
 
         {/* ═══ HEADER ═══ */}
         <div className="px-8 pt-7 pb-4 space-y-4 border-b border-border shrink-0 relative overflow-hidden">
