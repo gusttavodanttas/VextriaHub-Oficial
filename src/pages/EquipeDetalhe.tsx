@@ -662,8 +662,13 @@ export default function EquipeDetalhe() {
   const sortedMembers = [...members].sort((a, b) => b[sortKey] - a[sortKey]);
 
   // Só admin do escritório ou coordenador desta equipe pode atribuir processos
+  // e ver a produtividade de todos os membros
   const myRole = members.find(m => m.user_id === user?.id)?.role;
   const canAssign = isOfficeAdmin || myRole === "coordinator";
+  const canSeeAllMembers = canAssign;
+  const visibleMembers = canSeeAllMembers
+    ? sortedMembers
+    : sortedMembers.filter(m => m.user_id === user?.id);
 
   const periodLabel: Record<Period, string> = {
     week: "Esta semana", month: "Este mês", quarter: "Últimos 3 meses", year: "Este ano"
@@ -773,25 +778,27 @@ export default function EquipeDetalhe() {
                   <FolderPlus className="h-3.5 w-3.5" /> Atribuir processos
                 </Button>
               )}
-              <div className="flex items-center gap-2">
-                <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
-                <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
-                  <SelectTrigger className="h-8 w-44 rounded-xl text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="processos">Processos</SelectItem>
-                    <SelectItem value="tarefasPendentes">Tarefas abertas</SelectItem>
-                    <SelectItem value="tarefasConcluidas">Tarefas concluídas</SelectItem>
-                    <SelectItem value="audiencias">Audiências</SelectItem>
-                    <SelectItem value="atendimentos">Atendimentos</SelectItem>
-                    <SelectItem value="horasTimesheet">Horas timesheet</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {canSeeAllMembers && (
+                <div className="flex items-center gap-2">
+                  <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+                  <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
+                    <SelectTrigger className="h-8 w-44 rounded-xl text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="processos">Processos</SelectItem>
+                      <SelectItem value="tarefasPendentes">Tarefas abertas</SelectItem>
+                      <SelectItem value="tarefasConcluidas">Tarefas concluídas</SelectItem>
+                      <SelectItem value="audiencias">Audiências</SelectItem>
+                      <SelectItem value="atendimentos">Atendimentos</SelectItem>
+                      <SelectItem value="horasTimesheet">Horas timesheet</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {sortedMembers.map((m, i) => <MemberCard key={m.user_id} member={m} rank={i + 1} onAssign={canAssign ? () => { setAssignMember(m.user_id); setAssignOpen(true); } : undefined} />)}
+              {visibleMembers.map((m, i) => <MemberCard key={m.user_id} member={m} rank={canSeeAllMembers ? i + 1 : 99} onAssign={canAssign ? () => { setAssignMember(m.user_id); setAssignOpen(true); } : undefined} />)}
             </div>
           </div>
         </>
