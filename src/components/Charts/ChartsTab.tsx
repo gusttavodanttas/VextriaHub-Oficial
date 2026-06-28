@@ -1,220 +1,201 @@
-
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
+import { useChartsData, type ChartsPeriod } from "@/hooks/useChartsData";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, Legend,
 } from "recharts";
+import {
+  FileText, Users, MessageSquare, TrendingUp, TrendingDown, BarChart3,
+} from "lucide-react";
 
-const processosData = [
-  { mes: "Jan", processos: 45, concluidos: 32 },
-  { mes: "Fev", processos: 52, concluidos: 38 },
-  { mes: "Mar", processos: 48, concluidos: 42 },
-  { mes: "Abr", processos: 61, concluidos: 45 },
-  { mes: "Mai", processos: 55, concluidos: 48 },
-  { mes: "Jun", processos: 67, concluidos: 52 },
-];
+const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
 
-const clientesData = [
-  { nome: "Pessoa Física", valor: 65, cor: "#8884d8" },
-  { nome: "Pessoa Jurídica", valor: 35, cor: "#82ca9d" },
-];
+function KpiMini({ icon: Icon, label, value, color, bg }: { icon: any; label: string; value: string | number; color: string; bg: string }) {
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4">
+      <div className={cn("p-2.5 rounded-xl shrink-0", bg)}><Icon className={cn("h-5 w-5", color)} /></div>
+      <div className="min-w-0">
+        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">{label}</p>
+        <p className="text-xl font-black tracking-tight truncate">{value}</p>
+      </div>
+    </div>
+  );
+}
 
-const atendimentosData = [
-  { dia: "Seg", atendimentos: 12 },
-  { dia: "Ter", atendimentos: 15 },
-  { dia: "Qua", atendimentos: 18 },
-  { dia: "Qui", atendimentos: 22 },
-  { dia: "Sex", atendimentos: 16 },
-  { dia: "Sáb", atendimentos: 8 },
-  { dia: "Dom", atendimentos: 4 },
-];
+const tooltipStyle = {
+  contentStyle: { borderRadius: 12, border: "1px solid hsl(var(--border))", background: "hsl(var(--card))", fontSize: 12 },
+  labelStyle: { fontWeight: 700 },
+};
+
+function ChartCard({ title, children, empty }: { title: string; children: React.ReactNode; empty?: boolean }) {
+  return (
+    <Card className="rounded-2xl border-black/5 dark:border-border">
+      <CardHeader className="pb-2"><CardTitle className="text-sm font-black">{title}</CardTitle></CardHeader>
+      <CardContent>
+        {empty ? (
+          <div className="h-[280px] flex flex-col items-center justify-center gap-2 text-center">
+            <BarChart3 className="h-10 w-10 text-muted-foreground/20" />
+            <p className="text-sm text-muted-foreground">Sem dados no período.</p>
+          </div>
+        ) : children}
+      </CardContent>
+    </Card>
+  );
+}
 
 export function ChartsTab() {
+  const [period, setPeriod] = useState<ChartsPeriod>(6);
+  const d = useChartsData(period);
+
+  if (d.loading) {
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          {[...Array(2)].map((_, i) => <Skeleton key={i} className="h-80 rounded-2xl" />)}
+        </div>
+      </div>
+    );
+  }
+
+  const saldo = d.totals.receita - d.totals.despesa;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      {/* Período */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span>Visão geral dos</span>
+          <Select value={String(period)} onValueChange={(v) => setPeriod(Number(v) as ChartsPeriod)}>
+            <SelectTrigger className="h-8 w-40 rounded-xl text-xs font-bold"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="6">últimos 6 meses</SelectItem>
+              <SelectItem value="12">últimos 12 meses</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* KPIs */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <KpiMini icon={FileText} label="Processos ativos" value={d.totals.processos} color="text-blue-500" bg="bg-blue-500/10" />
+        <KpiMini icon={Users} label="Clientes ativos" value={d.totals.clientes} color="text-emerald-500" bg="bg-emerald-500/10" />
+        <KpiMini icon={MessageSquare} label="Atendimentos" value={d.totals.atendimentos} color="text-rose-500" bg="bg-rose-500/10" />
+        <KpiMini icon={saldo >= 0 ? TrendingUp : TrendingDown} label="Saldo do período" value={brl(saldo)} color={saldo >= 0 ? "text-emerald-500" : "text-rose-500"} bg={saldo >= 0 ? "bg-emerald-500/10" : "bg-rose-500/10"} />
+      </div>
+
       <Tabs defaultValue="processos" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="processos">Processos</TabsTrigger>
-          <TabsTrigger value="clientes">Clientes</TabsTrigger>
-          <TabsTrigger value="atendimentos">Atendimentos</TabsTrigger>
-          <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-4 rounded-xl">
+          <TabsTrigger value="processos" className="rounded-lg text-xs font-bold">Processos</TabsTrigger>
+          <TabsTrigger value="clientes" className="rounded-lg text-xs font-bold">Clientes</TabsTrigger>
+          <TabsTrigger value="atendimentos" className="rounded-lg text-xs font-bold">Atendimentos</TabsTrigger>
+          <TabsTrigger value="financeiro" className="rounded-lg text-xs font-bold">Financeiro</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="processos" className="space-y-4">
+        {/* PROCESSOS */}
+        <TabsContent value="processos" className="space-y-4 mt-4">
           <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Processos por Mês</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={processosData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="mes" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="processos" fill="#8884d8" name="Total" />
-                    <Bar dataKey="concluidos" fill="#82ca9d" name="Concluídos" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Status dos Processos</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={[
-                        { name: "Em Andamento", value: 45, fill: "#8884d8" },
-                        { name: "Concluídos", value: 32, fill: "#82ca9d" },
-                        { name: "Pendentes", value: 18, fill: "#ffc658" },
-                        { name: "Arquivados", value: 12, fill: "#ff7300" },
-                      ]}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      dataKey="value"
-                      label
-                    />
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="clientes" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Tipos de Cliente</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={clientesData}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      dataKey="valor"
-                      label
-                    >
-                      {clientesData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.cor} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Novos Clientes por Mês</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={processosData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="mes" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="processos" stroke="#8884d8" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="atendimentos" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Atendimentos por Dia da Semana</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={400}>
-                <BarChart data={atendimentosData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="dia" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="atendimentos" fill="#8884d8" />
+            <ChartCard title="Processos por mês" empty={d.processosPorMes.every(x => !x.novos && !x.encerrados)}>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={d.processosPorMes}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="mes" fontSize={11} /><YAxis fontSize={11} allowDecimals={false} />
+                  <Tooltip {...tooltipStyle} /><Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Bar dataKey="novos" fill="#6366f1" name="Novos" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="encerrados" fill="#10b981" name="Encerrados" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
-            </CardContent>
-          </Card>
+            </ChartCard>
+            <ChartCard title="Status dos processos" empty={d.statusProcessos.length === 0}>
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie data={d.statusProcessos} cx="50%" cy="50%" outerRadius={90} dataKey="value" nameKey="name" label={(e: any) => `${e.name}: ${e.value}`} labelLine={false} fontSize={11}>
+                    {d.statusProcessos.map((e, i) => <Cell key={i} fill={e.fill} />)}
+                  </Pie>
+                  <Tooltip {...tooltipStyle} />
+                </PieChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          </div>
         </TabsContent>
 
-        <TabsContent value="financeiro" className="space-y-4">
+        {/* CLIENTES */}
+        <TabsContent value="clientes" className="space-y-4 mt-4">
           <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Receita Mensal</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={[
-                    { mes: "Jan", receita: 15000 },
-                    { mes: "Fev", receita: 18000 },
-                    { mes: "Mar", receita: 22000 },
-                    { mes: "Abr", receita: 19000 },
-                    { mes: "Mai", receita: 25000 },
-                    { mes: "Jun", receita: 28000 },
-                  ]}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="mes" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="receita" stroke="#82ca9d" strokeWidth={3} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+            <ChartCard title="Tipos de cliente" empty={d.clientesPorTipo.length === 0}>
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie data={d.clientesPorTipo} cx="50%" cy="50%" outerRadius={90} dataKey="value" nameKey="name" label={(e: any) => `${e.name}: ${e.value}`} labelLine={false} fontSize={11}>
+                    {d.clientesPorTipo.map((e, i) => <Cell key={i} fill={e.fill} />)}
+                  </Pie>
+                  <Tooltip {...tooltipStyle} />
+                </PieChart>
+              </ResponsiveContainer>
+            </ChartCard>
+            <ChartCard title="Novos clientes por mês" empty={d.novosClientesPorMes.every(x => !x.novos)}>
+              <ResponsiveContainer width="100%" height={280}>
+                <AreaChart data={d.novosClientesPorMes}>
+                  <defs>
+                    <linearGradient id="cli" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="mes" fontSize={11} /><YAxis fontSize={11} allowDecimals={false} />
+                  <Tooltip {...tooltipStyle} />
+                  <Area type="monotone" dataKey="novos" stroke="#10b981" strokeWidth={2} fill="url(#cli)" name="Novos clientes" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          </div>
+        </TabsContent>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Honorários por Área</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={[
-                        { name: "Trabalhista", value: 35, fill: "#8884d8" },
-                        { name: "Civil", value: 28, fill: "#82ca9d" },
-                        { name: "Criminal", value: 20, fill: "#ffc658" },
-                        { name: "Família", value: 17, fill: "#ff7300" },
-                      ]}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      dataKey="value"
-                      label
-                    />
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+        {/* ATENDIMENTOS */}
+        <TabsContent value="atendimentos" className="space-y-4 mt-4">
+          <ChartCard title="Atendimentos por mês" empty={d.atendimentosPorMes.every(x => !x.total)}>
+            <ResponsiveContainer width="100%" height={360}>
+              <BarChart data={d.atendimentosPorMes}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="mes" fontSize={11} /><YAxis fontSize={11} allowDecimals={false} />
+                <Tooltip {...tooltipStyle} />
+                <Bar dataKey="total" fill="#f43f5e" name="Atendimentos" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+        </TabsContent>
+
+        {/* FINANCEIRO */}
+        <TabsContent value="financeiro" className="space-y-4 mt-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <ChartCard title="Receita x Despesa por mês" empty={d.financeiroPorMes.every(x => !x.receita && !x.despesa)}>
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart data={d.financeiroPorMes}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="mes" fontSize={11} /><YAxis fontSize={11} tickFormatter={(v) => `${(v / 1000)}k`} />
+                  <Tooltip {...tooltipStyle} formatter={(v: any) => brl(Number(v))} /><Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Line type="monotone" dataKey="receita" stroke="#10b981" strokeWidth={2.5} name="Receita" dot={false} />
+                  <Line type="monotone" dataKey="despesa" stroke="#ef4444" strokeWidth={2.5} name="Despesa" dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartCard>
+            <ChartCard title="Receita por categoria" empty={d.honorariosPorCategoria.length === 0}>
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie data={d.honorariosPorCategoria} cx="50%" cy="50%" outerRadius={90} dataKey="value" nameKey="name" label={(e: any) => e.name} labelLine={false} fontSize={11}>
+                    {d.honorariosPorCategoria.map((e, i) => <Cell key={i} fill={e.fill} />)}
+                  </Pie>
+                  <Tooltip {...tooltipStyle} formatter={(v: any) => brl(Number(v))} />
+                </PieChart>
+              </ResponsiveContainer>
+            </ChartCard>
           </div>
         </TabsContent>
       </Tabs>
