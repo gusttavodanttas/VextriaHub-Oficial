@@ -338,10 +338,11 @@ function ClientesView({ officeId }: { officeId: string }) {
     const fetch = async () => {
       const { data } = await supabase
         .from("clientes")
-        .select("id, nome, email, telefone, tipo_pessoa")
+        .select("id, nome, email, telefone, tipo_pessoa, status")
         .eq("office_id", officeId)
         .eq("deletado", false)
-        .eq("ativo", true)
+        .eq("deletado_pendente", false)
+        .in("status", ["ativo", "convertido"])
         .order("nome", { ascending: true })
         .limit(20);
       setItems(data || []);
@@ -357,7 +358,7 @@ function ClientesView({ officeId }: { officeId: string }) {
     <div className="space-y-2">
       {items.map((c) => (
         <div key={c.id}
-          onClick={() => navigate("/clientes")}
+          onClick={() => navigate(`/clientes?openId=${c.id}`)}
           className="flex items-center gap-3 p-3 rounded-xl border border-black/5 dark:border-border bg-card/50 hover:bg-muted/20 transition-all cursor-pointer"
         >
           <div className="h-9 w-9 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
