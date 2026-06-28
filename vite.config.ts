@@ -25,6 +25,10 @@ export default defineConfig(({ mode }) => ({
   define: {
     __WS_TOKEN__: JSON.stringify(process.env.WS_TOKEN || ''),
   },
+  // Remove console.log/info/debug no build de produção (mantém warn/error e os logs no dev)
+  esbuild: {
+    pure: mode === 'production' ? ['console.log', 'console.info', 'console.debug'] : [],
+  },
   build: {
     rollupOptions: {
       output: {
