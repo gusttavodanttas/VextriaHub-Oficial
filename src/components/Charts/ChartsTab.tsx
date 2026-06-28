@@ -118,33 +118,27 @@ export function ChartsTab() {
   return (
     <div className="space-y-5">
       {/* Período + Equipe */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span>Visão geral dos</span>
-          <Select value={String(period)} onValueChange={(v) => setPeriod(Number(v) as ChartsPeriod)}>
-            <SelectTrigger className="h-8 w-40 rounded-xl text-xs font-bold"><SelectValue /></SelectTrigger>
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <Select value={String(period)} onValueChange={(v) => setPeriod(Number(v) as ChartsPeriod)}>
+          <SelectTrigger className="h-9 w-full sm:w-44 rounded-xl text-xs font-bold"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="6">Últimos 6 meses</SelectItem>
+            <SelectItem value="12">Últimos 12 meses</SelectItem>
+          </SelectContent>
+        </Select>
+        {canSeeTeams && teamOptions.length > 0 && (
+          <Select value={teamId ?? "all"} onValueChange={(v) => setTeamId(v === "all" ? null : v)}>
+            <SelectTrigger className="h-9 w-full sm:w-52 rounded-xl text-xs font-bold"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="6">últimos 6 meses</SelectItem>
-              <SelectItem value="12">últimos 12 meses</SelectItem>
+              <SelectItem value="all">{isOfficeAdmin ? "Todo o escritório" : "Minhas equipes"}</SelectItem>
+              {teamOptions.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
             </SelectContent>
           </Select>
-        </div>
-        {canSeeTeams && teamOptions.length > 0 && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span>·</span>
-            <Select value={teamId ?? "all"} onValueChange={(v) => setTeamId(v === "all" ? null : v)}>
-              <SelectTrigger className="h-8 w-48 rounded-xl text-xs font-bold"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{isOfficeAdmin ? "Todo o escritório" : "Minhas equipes"}</SelectItem>
-                {teamOptions.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
         )}
         {isOfficeAdmin && (
           <Button variant="outline" size="sm" onClick={() => setConfigOpen(true)}
-            className="h-8 rounded-xl gap-1.5 text-xs font-bold ml-auto">
-            <Settings2 className="h-3.5 w-3.5" /> Configurar
+            className="h-9 rounded-xl gap-1.5 text-xs font-bold w-full sm:w-auto sm:ml-auto">
+            <Settings2 className="h-3.5 w-3.5" /> Configurar pontuação
           </Button>
         )}
       </div>
@@ -162,17 +156,17 @@ export function ChartsTab() {
       </div>
 
       <Tabs defaultValue="processos" className="w-full">
-        <TabsList className="flex flex-wrap h-auto w-full rounded-xl gap-1 p-1">
-          <TabsTrigger value="processos" className="rounded-lg text-xs font-bold flex-1 min-w-[90px]">Processos</TabsTrigger>
-          <TabsTrigger value="prazos" className="rounded-lg text-xs font-bold flex-1 min-w-[90px]">Prazos</TabsTrigger>
-          <TabsTrigger value="tarefas" className="rounded-lg text-xs font-bold flex-1 min-w-[90px]">Tarefas</TabsTrigger>
-          <TabsTrigger value="audiencias" className="rounded-lg text-xs font-bold flex-1 min-w-[90px]">Audiências</TabsTrigger>
-          <TabsTrigger value="atendimentos" className="rounded-lg text-xs font-bold flex-1 min-w-[90px]">Atendimentos</TabsTrigger>
-          <TabsTrigger value="consultivo" className="rounded-lg text-xs font-bold flex-1 min-w-[90px]">Consultivo</TabsTrigger>
-          <TabsTrigger value="clientes" className="rounded-lg text-xs font-bold flex-1 min-w-[90px]">Clientes</TabsTrigger>
-          <TabsTrigger value="timesheet" className="rounded-lg text-xs font-bold flex-1 min-w-[90px]">Timesheet</TabsTrigger>
-          {canSeeFinanceiro && <TabsTrigger value="financeiro" className="rounded-lg text-xs font-bold flex-1 min-w-[90px]">Financeiro</TabsTrigger>}
-          {canSeeTeams && <TabsTrigger value="membros" className="rounded-lg text-xs font-bold flex-1 min-w-[90px]">Por Membro</TabsTrigger>}
+        <TabsList className="flex w-full overflow-x-auto rounded-xl gap-1 p-1 justify-start sm:flex-wrap">
+          <TabsTrigger value="processos" className="rounded-lg text-xs font-bold shrink-0 sm:flex-1 sm:min-w-[90px]">Processos</TabsTrigger>
+          <TabsTrigger value="prazos" className="rounded-lg text-xs font-bold shrink-0 sm:flex-1 sm:min-w-[90px]">Prazos</TabsTrigger>
+          <TabsTrigger value="tarefas" className="rounded-lg text-xs font-bold shrink-0 sm:flex-1 sm:min-w-[90px]">Tarefas</TabsTrigger>
+          <TabsTrigger value="audiencias" className="rounded-lg text-xs font-bold shrink-0 sm:flex-1 sm:min-w-[90px]">Audiências</TabsTrigger>
+          <TabsTrigger value="atendimentos" className="rounded-lg text-xs font-bold shrink-0 sm:flex-1 sm:min-w-[90px]">Atendimentos</TabsTrigger>
+          <TabsTrigger value="consultivo" className="rounded-lg text-xs font-bold shrink-0 sm:flex-1 sm:min-w-[90px]">Consultivo</TabsTrigger>
+          <TabsTrigger value="clientes" className="rounded-lg text-xs font-bold shrink-0 sm:flex-1 sm:min-w-[90px]">Clientes</TabsTrigger>
+          <TabsTrigger value="timesheet" className="rounded-lg text-xs font-bold shrink-0 sm:flex-1 sm:min-w-[90px]">Timesheet</TabsTrigger>
+          {canSeeFinanceiro && <TabsTrigger value="financeiro" className="rounded-lg text-xs font-bold shrink-0 sm:flex-1 sm:min-w-[90px]">Financeiro</TabsTrigger>}
+          {canSeeTeams && <TabsTrigger value="membros" className="rounded-lg text-xs font-bold shrink-0 sm:flex-1 sm:min-w-[90px]">Por Membro</TabsTrigger>}
         </TabsList>
 
         {/* PROCESSOS */}

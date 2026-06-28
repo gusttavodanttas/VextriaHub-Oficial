@@ -25,20 +25,36 @@ export function ChartsConfigDialog({
   const [penalidade, setPenalidade] = useState(pontos.penalidadeAtraso);
   const [prazoMap, setPrazoMap] = useState<Record<string, number>>(pontos.prazo);
   const [audMap, setAudMap] = useState<Record<string, number>>(pontos.audiencia);
+  const [allPrazoTipos, setAllPrazoTipos] = useState<string[]>(tiposPrazo);
+  const [allAudTipos, setAllAudTipos] = useState<string[]>(tiposAudiencia);
   const [saving, setSaving] = useState(false);
+
+  // Busca os tipos cadastrados no escritório (aparecem mesmo sem item criado)
+  useEffect(() => {
+    if (!open || !officeId) return;
+    (async () => {
+      const [pz, au] = await Promise.all([
+        supabase.from("tipos_ato_prazo").select("label").eq("office_id", officeId),
+        supabase.from("audiencia_tipos").select("nome").eq("office_id", officeId),
+      ]);
+      const pzTipos = (pz.data || []).map((r: any) => String(r.label).trim()).filter(Boolean);
+      const auTipos = (au.data || []).map((r: any) => String(r.nome).trim()).filter(Boolean);
+      setAllPrazoTipos([...new Set([...tiposPrazo, ...pzTipos])].sort());
+      setAllAudTipos([...new Set([...tiposAudiencia, ...auTipos])].sort());
+    })();
+  }, [open, officeId, tiposPrazo, tiposAudiencia]);
 
   useEffect(() => {
     if (open) {
       setTarefa(pontos.tarefa); setProcesso(pontos.processo); setPenalidade(pontos.penalidadeAtraso);
-      // Garante uma entrada para cada tipo existente (default herdado)
       const pm: Record<string, number> = { _default: pontos.prazo._default, ...pontos.prazo };
-      tiposPrazo.forEach(t => { if (pm[t] === undefined) pm[t] = pontos.prazo._default; });
+      allPrazoTipos.forEach(t => { if (pm[t] === undefined) pm[t] = pontos.prazo._default; });
       setPrazoMap(pm);
       const am: Record<string, number> = { _default: pontos.audiencia._default, ...pontos.audiencia };
-      tiposAudiencia.forEach(t => { if (am[t] === undefined) am[t] = pontos.audiencia._default; });
+      allAudTipos.forEach(t => { if (am[t] === undefined) am[t] = pontos.audiencia._default; });
       setAudMap(am);
     }
-  }, [open, pontos, tiposPrazo, tiposAudiencia]);
+  }, [open, pontos, allPrazoTipos, allAudTipos]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -107,12 +123,12 @@ export function ChartsConfigDialog({
 
           <div className="space-y-2 pt-2 border-t border-border">
             <p className="text-xs font-black uppercase tracking-widest text-muted-foreground/60">Prazos (por tipo)</p>
-            <TipoRows map={prazoMap} setMap={setPrazoMap} tipos={tiposPrazo} />
+            <TipoRows map={prazoMap} setMap={setPrazoMap} tipos={allPrazoTipos} />
           </div>
 
           <div className="space-y-2 pt-2 border-t border-border">
             <p className="text-xs font-black uppercase tracking-widest text-muted-foreground/60">Audiências (por tipo)</p>
-            <TipoRows map={audMap} setMap={setAudMap} tipos={tiposAudiencia} />
+            <TipoRows map={audMap} setMap={setAudMap} tipos={allAudTipos} />
           </div>
 
           <div className="space-y-1 pt-2 border-t border-border">
