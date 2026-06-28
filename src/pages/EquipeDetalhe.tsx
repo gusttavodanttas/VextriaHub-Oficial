@@ -249,30 +249,21 @@ export default function EquipeDetalhe() {
     const profileMap: Record<string, { full_name: string | null; email: string | null }> = {};
     (profilesData || []).forEach(p => { profileMap[p.user_id] = p; });
 
-    // 2. Buscar todas as métricas em paralelo filtradas pelo período
+    // 2. Processos da equipe (por team_id OU user_id dos membros — sem filtro de data, são ativos)
+    const [processosByTeam, processosByMember] = await Promise.all([
+      supabase.from("processos").select("user_id").eq("office_id", user.office_id)
+        .eq("deletado", false).neq("status", "encerrado").eq("team_id", teamId),
+      supabase.from("processos").select("user_id").eq("office_id", user.office_id)
+        .eq("deletado", false).neq("status", "encerrado").in("user_id", userIds),
+    ]);
+    // Mescla evitando contar o mesmo processo duas vezes (processo pode ter team_id E user_id de membro)
+    const processosData = [...(processosByTeam.data || []), ...(processosByMember.data || [])];
+
+    // 3. Buscar demais métricas em paralelo filtradas pelo período
     const [
-      processosRes, tarefasRes, audienciasRes,
+      tarefasRes, audienciasRes,
       prazosRes, atendimentosRes, consultivosRes, timesheetRes
     ] = await Promise.all([
-      // processos: filtra por team_id OU por user_id dos membros
-      (async () => {
-        const [byTeam, byMember] = await Promise.all([
-          supabase.from("processos").select("user_id").eq("office_id", user.office_id)
-            .eq("deletado", false).neq("status", "encerrado").eq("team_id", teamId)
-            .gte("created_at", start).lte("created_at", end),
-          supabase.from("processos").select("user_id").eq("office_id", user.office_id)
-            .eq("deletado", false).neq("status", "encerrado").in("user_id", userIds)
-            .gte("created_at", start).lte("created_at", end),
-        ]);
-        const seen = new Set<string>();
-        const merged: { user_id: string }[] = [];
-        for (const r of [...(byTeam.data || []), ...(byMember.data || [])]) {
-          const key = r.user_id;
-          if (!seen.has(key)) { seen.add(key); merged.push(r); }
-          else merged.push(r); // conta duplicatas para ranking correto
-        }
-        return { data: merged, error: null };
-      })(),
       supabase.from("tarefas").select("user_id, concluida").eq("office_id", user.office_id)
         .eq("deletado", false).in("user_id", userIds)
         .gte("created_at", start).lte("created_at", end),
@@ -289,14 +280,14 @@ export default function EquipeDetalhe() {
         .gte("created_at", start).lte("created_at", end).in("user_id", userIds),
     ]);
 
-    // 3. Agrupar por user_id
+    // 4. Agrupar por user_id
     const countBy = (arr: any[] | null) => {
       const map: Record<string, number> = {};
       (arr || []).forEach(r => { map[r.user_id] = (map[r.user_id] || 0) + 1; });
       return map;
     };
 
-    const processosMap = countBy(processosRes.data);
+    const processosMap = countBy(processosData);
     const audienciasMap = countBy(audienciasRes.data);
     const prazosMap = countBy(prazosRes.data);
     const atendimentosMap = countBy(atendimentosRes.data);
@@ -340,7 +331,7 @@ export default function EquipeDetalhe() {
 
     // 5. Resumo da equipe
     setSummary({
-      processos: memberStats.reduce((s, m) => s + m.processos, 0),
+      processos: processosData.length,
       tarefasPendentes: memberStats.reduce((s, m) => s + m.tarefasPendentes, 0),
       tarefasConcluidas: memberStats.reduce((s, m) => s + m.tarefasConcluidas, 0),
       audiencias: memberStats.reduce((s, m) => s + m.audiencias, 0),
