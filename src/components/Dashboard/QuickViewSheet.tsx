@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
-} from "@/components/ui/sheet";
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -97,7 +97,8 @@ function PrazosView({ officeId }: { officeId: string }) {
         const pc = prioColor[p.prioridade] || prioColor.media;
         return (
           <div key={p.id}
-            className="flex items-center gap-3 p-3 rounded-xl border border-black/5 dark:border-border bg-card/50 hover:bg-muted/20 transition-all"
+            onClick={() => navigate(`/prazos?openId=${p.id}`)}
+            className="flex items-center gap-3 p-3 rounded-xl border border-black/5 dark:border-border bg-card/50 hover:bg-muted/20 transition-all cursor-pointer"
           >
             <div className={cn("p-1.5 rounded-lg shrink-0", pc.split(" ")[1])}>
               <Flag className={cn("h-3.5 w-3.5", pc.split(" ")[0])} />
@@ -154,7 +155,8 @@ function AudienciasView({ officeId }: { officeId: string }) {
         const dt = parseISO(a.data_audiencia);
         return (
           <div key={a.id}
-            className="flex items-center gap-3 p-3 rounded-xl border border-black/5 dark:border-border bg-card/50 hover:bg-muted/20 transition-all"
+            onClick={() => navigate(`/audiencias?openId=${a.id}`)}
+            className="flex items-center gap-3 p-3 rounded-xl border border-black/5 dark:border-border bg-card/50 hover:bg-muted/20 transition-all cursor-pointer"
           >
             <div className="text-center bg-orange-500/10 rounded-xl px-2.5 py-1.5 shrink-0 min-w-[44px]">
               <p className="text-[9px] font-black text-orange-500 uppercase leading-none">
@@ -220,7 +222,7 @@ function ProcessosView({ officeId }: { officeId: string }) {
     <div className="space-y-2">
       {items.map((p) => (
         <div key={p.id}
-          onClick={() => navigate("/processos")}
+          onClick={() => navigate(`/processos?openId=${p.id}`)}
           className="flex items-start gap-3 p-3 rounded-xl border border-black/5 dark:border-border bg-card/50 hover:bg-muted/20 transition-all cursor-pointer"
         >
           <div className="p-1.5 rounded-lg bg-blue-500/10 shrink-0 mt-0.5">
@@ -291,10 +293,11 @@ function TarefasView({ officeId }: { officeId: string }) {
         const pc = prioColor[t.prioridade] || prioColor.media;
         return (
           <div key={t.id}
-            className="flex items-center gap-3 p-3 rounded-xl border border-black/5 dark:border-border bg-card/50 hover:bg-muted/20 transition-all"
+            onClick={() => navigate(`/tarefas?openId=${t.id}`)}
+            className="flex items-center gap-3 p-3 rounded-xl border border-black/5 dark:border-border bg-card/50 hover:bg-muted/20 transition-all cursor-pointer"
           >
             <button
-              onClick={() => concluir(t.id)}
+              onClick={(e) => { e.stopPropagation(); concluir(t.id); }}
               disabled={concluindo === t.id}
               className="shrink-0 h-5 w-5 rounded border border-muted-foreground/30 hover:border-emerald-500 hover:bg-emerald-500/10 transition-all flex items-center justify-center"
             >
@@ -432,25 +435,22 @@ export function QuickViewSheet({ view, onClose }: Props) {
   const cfg = view ? viewConfig[view] : null;
 
   return (
-    <Sheet open={!!view} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <SheetContent
-        side="right"
-        className="w-full sm:max-w-md flex flex-col p-0 gap-0"
-      >
+    <Dialog open={!!view} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-md rounded-2xl p-0 overflow-hidden max-h-[82vh] flex flex-col gap-0">
         {cfg && (
           <>
             {/* Header */}
-            <SheetHeader className="px-5 pt-6 pb-4 border-b border-black/5 dark:border-border shrink-0">
+            <DialogHeader className="px-5 pt-5 pb-4 border-b border-black/5 dark:border-border shrink-0">
               <div className="flex items-center gap-3">
                 <div className={cn("p-2.5 rounded-xl", cfg.iconBg)}>
                   <cfg.icon className={cn("h-5 w-5", cfg.iconColor)} />
                 </div>
-                <div>
-                  <SheetTitle className="text-base font-black">{cfg.title}</SheetTitle>
-                  <SheetDescription className="text-xs mt-0.5">{cfg.description}</SheetDescription>
+                <div className="text-left">
+                  <DialogTitle className="text-base font-black">{cfg.title}</DialogTitle>
+                  <DialogDescription className="text-xs mt-0.5">{cfg.description}</DialogDescription>
                 </div>
               </div>
-            </SheetHeader>
+            </DialogHeader>
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto px-5 py-4">
@@ -466,7 +466,7 @@ export function QuickViewSheet({ view, onClose }: Props) {
             </div>
           </>
         )}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }
