@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { useChartsData, type ChartsPeriod } from "@/hooks/useChartsData";
+import { useChartsData, type ChartsPeriod, PONTOS } from "@/hooks/useChartsData";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOfficeTeams } from "@/hooks/useOfficeTeams";
 import { useMyTeams } from "@/hooks/useMyTeams";
@@ -13,7 +13,7 @@ import {
   PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, Legend,
 } from "recharts";
 import {
-  FileText, Users, MessageSquare, TrendingUp, TrendingDown, BarChart3,
+  FileText, Users, MessageSquare, TrendingUp, TrendingDown, BarChart3, Trophy,
 } from "lucide-react";
 
 const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
@@ -109,6 +109,7 @@ export function ChartsTab() {
   }
 
   const saldo = d.totals.receita - d.totals.despesa;
+  const ranking = [...d.porMembro].filter(m => m.pontos > 0).sort((a, b) => b.pontos - a.pontos);
 
   return (
     <div className="space-y-5">
@@ -275,6 +276,52 @@ export function ChartsTab() {
         {/* POR MEMBRO */}
         {canSeeTeams && (
           <TabsContent value="membros" className="space-y-4 mt-4">
+            {/* Ranking de produtividade por pontos */}
+            <Card className="rounded-2xl border-black/5 dark:border-border overflow-hidden">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-black flex items-center gap-2">
+                  <Trophy className="h-4 w-4 text-amber-500" /> Ranking de Produtividade
+                </CardTitle>
+                <p className="text-[11px] text-muted-foreground">
+                  Pontos por finalização — tarefa {PONTOS.tarefa} · prazo {PONTOS.prazo} · audiência {PONTOS.audiencia} · processo {PONTOS.processo}
+                </p>
+              </CardHeader>
+              <CardContent>
+                {ranking.length === 0 ? (
+                  <div className="h-32 flex flex-col items-center justify-center gap-2 text-center">
+                    <Trophy className="h-10 w-10 text-muted-foreground/20" />
+                    <p className="text-sm text-muted-foreground">Nenhuma finalização registrada ainda.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {ranking.map((m, i) => {
+                      const max = ranking[0].pontos || 1;
+                      const medal = ["bg-amber-400/20 text-amber-600", "bg-slate-300/30 text-slate-500", "bg-orange-700/20 text-orange-700"][i];
+                      return (
+                        <div key={m.name + i} className="flex items-center gap-3">
+                          <div className={cn("h-8 w-8 rounded-xl flex items-center justify-center text-xs font-black shrink-0", medal || "bg-muted text-muted-foreground")}>
+                            {i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between items-baseline gap-2">
+                              <span className="text-sm font-bold truncate">{m.name}</span>
+                              <span className="text-sm font-black text-primary shrink-0">{m.pontos} pts</span>
+                            </div>
+                            <div className="h-2 bg-muted rounded-full overflow-hidden mt-1">
+                              <div className="h-full bg-gradient-to-r from-primary/60 to-primary rounded-full transition-all" style={{ width: `${Math.round((m.pontos / max) * 100)}%` }} />
+                            </div>
+                            <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+                              {m.tarefasConcluidas} tarefas · {m.prazosConcluidos} prazos · {m.audienciasRealizadas} audiências · {m.processosEncerrados} processos
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             <ChartCard title="Carga de trabalho por membro" empty={d.porMembro.length === 0}>
               <ResponsiveContainer width="100%" height={Math.max(320, d.porMembro.length * 48)}>
                 <BarChart data={d.porMembro} layout="vertical" margin={{ left: 24 }}>

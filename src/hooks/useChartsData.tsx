@@ -19,7 +19,15 @@ function lastMonths(n: number): MonthBucket[] {
 
 const monthKey = (iso: string | null | undefined) => (iso ? iso.slice(0, 7) : "");
 
-export interface MemberBreakdown { name: string; processos: number; prazos: number; tarefas: number; audiencias: number; tarefasConcluidas: number; }
+export interface MemberBreakdown {
+  name: string;
+  processos: number; prazos: number; tarefas: number; audiencias: number;
+  tarefasConcluidas: number; prazosConcluidos: number; audienciasRealizadas: number; processosEncerrados: number;
+  pontos: number;
+}
+
+// Pontuação por item finalizado
+export const PONTOS = { tarefa: 10, prazo: 25, audiencia: 15, processo: 40 };
 
 export interface ChartsData {
   loading: boolean;
@@ -75,7 +83,7 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
               .eq("office_id", officeId).eq("deletado", false).in("responsavel_id", teamMemberIds)
           : supabase.from("processos").select("status, tipo_processo, created_at, updated_at, responsavel_id, user_id")
               .eq("office_id", officeId).eq("deletado", false),
-        inMembers(supabase.from("prazos").select("responsavel_id, data_fim_prazo, created_at")
+        inMembers(supabase.from("prazos").select("responsavel_id, data_fim_prazo, created_at, status")
           .eq("office_id", officeId), "responsavel_id"),
         supabase.from("clientes").select("tipo_pessoa, status, created_at")
           .eq("office_id", officeId).eq("deletado", false).eq("deletado_pendente", false),
@@ -155,20 +163,27 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
       // Quebra por membro (processos, prazos, tarefas, audiências)
       const bump = (map: Record<string, MemberBreakdown>, uid: string | null, field: keyof Omit<MemberBreakdown, "name">) => {
         if (!uid) return;
-        if (!map[uid]) map[uid] = { name: uid, processos: 0, prazos: 0, tarefas: 0, audiencias: 0, tarefasConcluidas: 0 };
+        if (!map[uid]) map[uid] = { name: uid, processos: 0, prazos: 0, tarefas: 0, audiencias: 0, tarefasConcluidas: 0, prazosConcluidos: 0, audienciasRealizadas: 0, processosEncerrados: 0, pontos: 0 };
         map[uid][field] += 1;
       };
       const memberMap: Record<string, MemberBreakdown> = {};
-      procRows.forEach((p: any) => bump(memberMap, p.responsavel_id || p.user_id, "processos"));
-      przRows.forEach((p: any) => bump(memberMap, p.responsavel_id, "prazos"));
+      procRows.forEach((p: any) => {
+        const uid = p.responsavel_id || p.user_id;
+        bump(memberMap, uid, "processos");
+        if (p.status === "encerrado" && uid && memberMap[uid]) memberMap[uid].processosEncerrados += 1;
+      });
+      przRows.forEach((p: any) => {
+        bump(memberMap, p.responsavel_id, "prazos");
+        if (p.status === "concluido" && p.responsavel_id && memberMap[p.responsavel_id]) memberMap[p.responsavel_id].prazosConcluidos += 1;
+      });
       // tarefas e audiências (todo o histórico, não só o período)
       const [tarRes, audRes] = await Promise.all([
         teamMemberIds
           ? supabase.from("tarefas").select("responsavel_id, user_id, concluida").eq("office_id", officeId).eq("deletado", false).in("responsavel_id", teamMemberIds)
           : supabase.from("tarefas").select("responsavel_id, user_id, concluida").eq("office_id", officeId).eq("deletado", false),
         teamMemberIds
-          ? supabase.from("audiencias").select("responsavel_id, user_id").eq("office_id", officeId).eq("deletado", false).in("responsavel_id", teamMemberIds)
-          : supabase.from("audiencias").select("responsavel_id, user_id").eq("office_id", officeId).eq("deletado", false),
+          ? supabase.from("audiencias").select("responsavel_id, user_id, status").eq("office_id", officeId).eq("deletado", false).in("responsavel_id", teamMemberIds)
+          : supabase.from("audiencias").select("responsavel_id, user_id, status").eq("office_id", officeId).eq("deletado", false),
       ]);
       if (cancel) return;
       (tarRes.data || []).forEach((t: any) => {
@@ -176,7 +191,19 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
         bump(memberMap, uid, "tarefas");
         if (t.concluida && uid && memberMap[uid]) memberMap[uid].tarefasConcluidas += 1;
       });
-      (audRes.data || []).forEach((a: any) => bump(memberMap, a.responsavel_id || a.user_id, "audiencias"));
+      (audRes.data || []).forEach((a: any) => {
+        const uid = a.responsavel_id || a.user_id;
+        bump(memberMap, uid, "audiencias");
+        if (a.status === "realizada" && uid && memberMap[uid]) memberMap[uid].audienciasRealizadas += 1;
+      });
+
+      // Pontuação de produtividade (itens finalizados)
+      Object.values(memberMap).forEach(m => {
+        m.pontos = m.tarefasConcluidas * PONTOS.tarefa
+          + m.prazosConcluidos * PONTOS.prazo
+          + m.audienciasRealizadas * PONTOS.audiencia
+          + m.processosEncerrados * PONTOS.processo;
+      });
 
       // Processos por área (tipo_processo)
       const areaCount: Record<string, number> = {};
