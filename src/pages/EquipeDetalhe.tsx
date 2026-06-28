@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOfficeTeams } from "@/hooks/useOfficeTeams";
+import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 import {
   ArrowLeft, Users, FileText, CheckSquare, Calendar,
   Clock, MessageSquare, BookOpen, TrendingUp, AlertCircle,
@@ -382,12 +383,13 @@ function TeamDetailDialog({
 interface AssignProc { id: string; titulo: string; numero: string; responsavel_id: string | null; status: string | null; }
 
 function AssignProcessosDialog({
-  open, teamId, officeId, members, defaultMemberId, onClose, onChanged,
+  open, teamId, officeId, members, teamMemberIds, defaultMemberId, onClose, onChanged,
 }: {
   open: boolean;
   teamId: string;
   officeId: string;
   members: { user_id: string; full_name: string | null; email: string | null }[];
+  teamMemberIds: string[];
   defaultMemberId?: string | null;
   onClose: () => void;
   onChanged: () => void;
@@ -402,7 +404,7 @@ function AssignProcessosDialog({
     let cancel = false;
     (async () => {
       setLoading(true);
-      const ids = members.map(m => m.user_id);
+      const ids = teamMemberIds.length ? teamMemberIds : ["00000000-0000-0000-0000-000000000000"];
       const sel = "id, titulo, numero_processo, responsavel_id, status";
       const [a, b, c] = await Promise.all([
         supabase.from("processos").select(sel).eq("office_id", officeId).eq("deletado", false).neq("status", "encerrado").eq("team_id", teamId),
@@ -416,10 +418,14 @@ function AssignProcessosDialog({
       if (!cancel) { setProcs(merged); setLoading(false); }
     })();
     return () => { cancel = true; };
-  }, [open, teamId, officeId, members]);
+  }, [open, teamId, officeId, teamMemberIds.join(",")]);
 
   const assign = async (procId: string, userId: string) => {
     setSavingId(procId);
+    // Se o membro ainda não está na equipe, adiciona (senão o trigger devolve ao coordenador)
+    if (!teamMemberIds.includes(userId)) {
+      await supabase.from("office_team_members").insert({ team_id: teamId, user_id: userId, office_id: officeId, role: "member" });
+    }
     const { error } = await supabase.from("processos").update({ responsavel_id: userId }).eq("id", procId);
     setSavingId(null);
     if (!error) {
@@ -503,6 +509,7 @@ export default function EquipeDetalhe() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { teams } = useOfficeTeams();
+  const { users: officeUsers } = useOfficeUsers();
 
   const team = teams.find(t => t.id === teamId);
 
@@ -805,7 +812,8 @@ export default function EquipeDetalhe() {
         open={assignOpen}
         teamId={teamId || ""}
         officeId={user?.office_id || ""}
-        members={members.map(m => ({ user_id: m.user_id, full_name: m.full_name, email: m.email }))}
+        members={officeUsers.map(u => ({ user_id: u.user_id, full_name: u.profile?.full_name ?? null, email: u.profile?.email ?? null }))}
+        teamMemberIds={memberIds}
         defaultMemberId={assignMember}
         onClose={() => setAssignOpen(false)}
         onChanged={fetchData}

@@ -700,7 +700,8 @@ function StatCard({ label, value, Icon, color, bg }: {
 
 export default function Equipe() {
   const navigate = useNavigate();
-  const { user: me, office } = useAuth();
+  const { user: me, office, isAdmin, isOfficeAdmin } = useAuth();
+  const canManageTeams = isAdmin || isOfficeAdmin;
   const { toast } = useToast();
   const { users, loading: usersLoading, removeUser, updateUser, refresh: refreshUsers } = useOfficeUsers();
   const { invitations, loading: invLoading, createInvitation, resendInvitation, cancelInvitation, pendingInvitations } = useInvitations();
@@ -963,21 +964,27 @@ export default function Equipe() {
 
           {/* ── equipes ── */}
           <TabsContent value="equipes" className="mt-4">
-            <div className="flex justify-end mb-3">
-              <Button onClick={() => { setEditingTeam(null); setTeamDialogOpen(true); }} className="rounded-xl font-black gap-2">
-                <Plus className="h-4 w-4" />Nova Equipe
-              </Button>
-            </div>
+            {canManageTeams && (
+              <div className="flex justify-end mb-3">
+                <Button onClick={() => { setEditingTeam(null); setTeamDialogOpen(true); }} className="rounded-xl font-black gap-2">
+                  <Plus className="h-4 w-4" />Nova Equipe
+                </Button>
+              </div>
+            )}
             {teamsLoading ? (
               <div className="space-y-3">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-2xl" />)}</div>
             ) : teams.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
                 <div className="p-4 rounded-2xl bg-muted/40"><FolderOpen className="h-8 w-8 text-muted-foreground/40" /></div>
                 <p className="font-bold">Nenhuma equipe criada</p>
-                <p className="text-sm text-muted-foreground">Crie equipes para organizar os membros por área de atuação.</p>
-                <Button onClick={() => { setEditingTeam(null); setTeamDialogOpen(true); }} className="rounded-xl font-black gap-2 mt-1">
-                  <Plus className="h-4 w-4" />Criar primeira equipe
-                </Button>
+                <p className="text-sm text-muted-foreground">
+                  {canManageTeams ? "Crie equipes para organizar os membros por área de atuação." : "Nenhuma equipe foi criada pelo administrador ainda."}
+                </p>
+                {canManageTeams && (
+                  <Button onClick={() => { setEditingTeam(null); setTeamDialogOpen(true); }} className="rounded-xl font-black gap-2 mt-1">
+                    <Plus className="h-4 w-4" />Criar primeira equipe
+                  </Button>
+                )}
               </div>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2">
@@ -1002,10 +1009,13 @@ export default function Equipe() {
                           onClick={() => navigate(`/equipe/${team.id}`)}>
                           <BarChart2 className="h-3.5 w-3.5" />
                         </Button>
+                        {canManageTeams && (
                         <Button size="sm" variant="ghost" className="h-7 w-7 rounded-lg hover:bg-muted/60"
                           onClick={() => { setEditingTeam(team); setTeamDialogOpen(true); }}>
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
+                        )}
+                        {canManageTeams && (
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button size="sm" variant="ghost" className="h-7 w-7 rounded-lg text-muted-foreground/50 hover:text-rose-500 hover:bg-rose-500/10">
@@ -1024,6 +1034,7 @@ export default function Equipe() {
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
+                        )}
                       </div>
                     </div>
                   </div>
