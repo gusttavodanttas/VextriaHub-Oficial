@@ -19,6 +19,8 @@ function lastMonths(n: number): MonthBucket[] {
 
 const monthKey = (iso: string | null | undefined) => (iso ? iso.slice(0, 7) : "");
 
+export interface MemberBreakdown { name: string; processos: number; prazos: number; tarefas: number; audiencias: number; }
+
 export interface ChartsData {
   loading: boolean;
   totals: { processos: number; clientes: number; atendimentos: number; receita: number; despesa: number };
@@ -29,6 +31,7 @@ export interface ChartsData {
   atendimentosPorMes: { mes: string; total: number }[];
   financeiroPorMes: { mes: string; receita: number; despesa: number }[];
   honorariosPorCategoria: { name: string; value: number; fill: string }[];
+  porMembro: MemberBreakdown[];
   isEmpty: boolean;
 }
 
@@ -38,14 +41,14 @@ const STATUS_LABEL: Record<string, string> = {
   arquivado: "Arquivados", pendente: "Pendentes",
 };
 
-export function useChartsData(period: ChartsPeriod = 6): ChartsData {
+export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = null): ChartsData {
   const { user } = useAuth();
   const [data, setData] = useState<ChartsData>({
     loading: true,
     totals: { processos: 0, clientes: 0, atendimentos: 0, receita: 0, despesa: 0 },
     processosPorMes: [], statusProcessos: [], clientesPorTipo: [],
     novosClientesPorMes: [], atendimentosPorMes: [], financeiroPorMes: [],
-    honorariosPorCategoria: [], isEmpty: true,
+    honorariosPorCategoria: [], porMembro: [], isEmpty: true,
   });
 
   useEffect(() => {
@@ -56,20 +59,35 @@ export function useChartsData(period: ChartsPeriod = 6): ChartsData {
       const months = lastMonths(period);
       const since = `${months[0].key}-01T00:00:00`;
 
-      const [proc, cli, at, fin] = await Promise.all([
-        supabase.from("processos").select("status, tipo_processo, created_at, updated_at")
-          .eq("office_id", officeId).eq("deletado", false),
+      // Se uma equipe foi selecionada, restringe aos membros dela
+      let teamMemberIds: string[] | null = null;
+      if (teamId) {
+        const { data: tm } = await supabase.from("office_team_members").select("user_id").eq("team_id", teamId);
+        teamMemberIds = (tm || []).map((m: any) => m.user_id);
+        if (!teamMemberIds.length) teamMemberIds = ["00000000-0000-0000-0000-000000000000"];
+      }
+      const inMembers = (q: any, col: string) => (teamMemberIds ? q.in(col, teamMemberIds) : q);
+
+      const [proc, prz, cli, at, fin] = await Promise.all([
+        teamMemberIds
+          ? supabase.from("processos").select("status, tipo_processo, created_at, updated_at, responsavel_id, user_id")
+              .eq("office_id", officeId).eq("deletado", false).in("responsavel_id", teamMemberIds)
+          : supabase.from("processos").select("status, tipo_processo, created_at, updated_at, responsavel_id, user_id")
+              .eq("office_id", officeId).eq("deletado", false),
+        inMembers(supabase.from("prazos").select("responsavel_id, data_fim_prazo, created_at")
+          .eq("office_id", officeId), "responsavel_id"),
         supabase.from("clientes").select("tipo_pessoa, status, created_at")
           .eq("office_id", officeId).eq("deletado", false).eq("deletado_pendente", false),
-        supabase.from("atendimentos").select("created_at")
-          .eq("office_id", officeId).eq("deletado", false).gte("created_at", since),
-        supabase.from("financeiro").select("tipo, valor, categoria, created_at")
-          .eq("office_id", officeId).eq("deletado", false).gte("created_at", since),
+        inMembers(supabase.from("atendimentos").select("created_at, responsavel_id, user_id")
+          .eq("office_id", officeId).eq("deletado", false).gte("created_at", since), "responsavel_id"),
+        inMembers(supabase.from("financeiro").select("tipo, valor, categoria, created_at, user_id")
+          .eq("office_id", officeId).eq("deletado", false).gte("created_at", since), "user_id"),
       ]);
 
       if (cancel) return;
 
       const procRows = proc.data || [];
+      const przRows = prz.data || [];
       const cliRows = cli.data || [];
       const atRows = at.data || [];
       const finRows = fin.data || [];
@@ -133,6 +151,40 @@ export function useChartsData(period: ChartsPeriod = 6): ChartsData {
         .sort((a, b) => b[1] - a[1]).slice(0, 6)
         .map(([k, v], i) => ({ name: k, value: v, fill: PALETTE[i % PALETTE.length] }));
 
+      // Quebra por membro (processos, prazos, tarefas, audiências)
+      const bump = (map: Record<string, MemberBreakdown>, uid: string | null, field: keyof Omit<MemberBreakdown, "name">) => {
+        if (!uid) return;
+        if (!map[uid]) map[uid] = { name: uid, processos: 0, prazos: 0, tarefas: 0, audiencias: 0 };
+        map[uid][field] += 1;
+      };
+      const memberMap: Record<string, MemberBreakdown> = {};
+      procRows.forEach((p: any) => bump(memberMap, p.responsavel_id || p.user_id, "processos"));
+      przRows.forEach((p: any) => bump(memberMap, p.responsavel_id, "prazos"));
+      // tarefas e audiências (todo o histórico, não só o período)
+      const [tarRes, audRes] = await Promise.all([
+        teamMemberIds
+          ? supabase.from("tarefas").select("responsavel_id, user_id").eq("office_id", officeId).eq("deletado", false).in("responsavel_id", teamMemberIds)
+          : supabase.from("tarefas").select("responsavel_id, user_id").eq("office_id", officeId).eq("deletado", false),
+        teamMemberIds
+          ? supabase.from("audiencias").select("responsavel_id, user_id").eq("office_id", officeId).eq("deletado", false).in("responsavel_id", teamMemberIds)
+          : supabase.from("audiencias").select("responsavel_id, user_id").eq("office_id", officeId).eq("deletado", false),
+      ]);
+      if (cancel) return;
+      (tarRes.data || []).forEach((t: any) => bump(memberMap, t.responsavel_id || t.user_id, "tarefas"));
+      (audRes.data || []).forEach((a: any) => bump(memberMap, a.responsavel_id || a.user_id, "audiencias"));
+
+      // Resolve nomes
+      const ids = Object.keys(memberMap);
+      if (ids.length) {
+        const { data: profs } = await supabase.from("profiles").select("user_id, full_name, email").in("user_id", ids);
+        const nameMap: Record<string, string> = {};
+        (profs || []).forEach((p: any) => { nameMap[p.user_id] = p.full_name || p.email || "Membro"; });
+        ids.forEach(id => { memberMap[id].name = nameMap[id] || "Membro"; });
+      }
+      const porMembro = Object.values(memberMap)
+        .sort((a, b) => (b.processos + b.prazos + b.tarefas + b.audiencias) - (a.processos + a.prazos + a.tarefas + a.audiencias))
+        .slice(0, 12);
+
       const totals = {
         processos: procRows.filter((p: any) => p.status !== "encerrado").length,
         clientes: cliRows.filter((c: any) => ["ativo", "convertido"].includes(c.status)).length,
@@ -141,14 +193,15 @@ export function useChartsData(period: ChartsPeriod = 6): ChartsData {
         despesa: totDespesa,
       };
 
+      if (cancel) return;
       setData({
         loading: false, totals, processosPorMes, statusProcessos, clientesPorTipo,
-        novosClientesPorMes, atendimentosPorMes, financeiroPorMes, honorariosPorCategoria,
+        novosClientesPorMes, atendimentosPorMes, financeiroPorMes, honorariosPorCategoria, porMembro,
         isEmpty: procRows.length === 0 && cliRows.length === 0 && atRows.length === 0 && finRows.length === 0,
       });
     })();
     return () => { cancel = true; };
-  }, [user?.office_id, period]);
+  }, [user?.office_id, period, teamId]);
 
   return data;
 }
