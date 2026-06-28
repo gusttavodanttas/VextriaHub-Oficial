@@ -781,11 +781,13 @@ export default function Equipe() {
           </div>
 
           {/* add menu */}
-          <div className="flex gap-2">
-            <Button onClick={() => setCreateOpen(true)} className="rounded-xl font-black gap-2">
-              <KeyRound className="h-4 w-4" />Criar com senha
-            </Button>
-          </div>
+          {canManageTeams && (
+            <div className="flex gap-2">
+              <Button onClick={() => setCreateOpen(true)} className="rounded-xl font-black gap-2">
+                <KeyRound className="h-4 w-4" />Criar com senha
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* stat cards */}
@@ -827,9 +829,11 @@ export default function Equipe() {
               <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
                 <div className="p-4 rounded-2xl bg-muted/40"><Users className="h-8 w-8 text-muted-foreground/40" /></div>
                 <p className="font-bold">Nenhum membro encontrado</p>
-                <Button onClick={() => setCreateOpen(true)} className="rounded-xl font-black gap-2 mt-1">
-                  <Plus className="h-4 w-4" />Adicionar Membro
-                </Button>
+                {canManageTeams && (
+                  <Button onClick={() => setCreateOpen(true)} className="rounded-xl font-black gap-2 mt-1">
+                    <Plus className="h-4 w-4" />Adicionar Membro
+                  </Button>
+                )}
               </div>
             ) : (
               <div className="space-y-2">
@@ -858,7 +862,7 @@ export default function Equipe() {
                         {u.role === "admin" ? <Crown className="h-3 w-3 mr-1 inline" /> : <User className="h-3 w-3 mr-1 inline" />}
                         {ROLE_LABEL[u.role] ?? u.role}
                       </Badge>
-                      {!isMe && (
+                      {!isMe && canManageTeams && (
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                           <Button size="sm" variant="ghost"
                             className="h-8 px-2.5 text-[10px] font-black rounded-xl hover:bg-primary/10 hover:text-primary"

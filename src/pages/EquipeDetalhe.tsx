@@ -501,7 +501,7 @@ function AssignProcessosDialog({
 export default function EquipeDetalhe() {
   const { teamId } = useParams<{ teamId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isOfficeAdmin } = useAuth();
   const { teams } = useOfficeTeams();
 
   const team = teams.find(t => t.id === teamId);
@@ -661,6 +661,10 @@ export default function EquipeDetalhe() {
 
   const sortedMembers = [...members].sort((a, b) => b[sortKey] - a[sortKey]);
 
+  // Só admin do escritório ou coordenador desta equipe pode atribuir processos
+  const myRole = members.find(m => m.user_id === user?.id)?.role;
+  const canAssign = isOfficeAdmin || myRole === "coordinator";
+
   const periodLabel: Record<Period, string> = {
     week: "Esta semana", month: "Este mês", quarter: "Últimos 3 meses", year: "Este ano"
   };
@@ -760,13 +764,15 @@ export default function EquipeDetalhe() {
                 <Users className="h-4 w-4 text-primary" />
                 <h2 className="font-black text-base">Produtividade por Membro</h2>
               </div>
-              <Button
-                size="sm" variant="outline"
-                onClick={() => { setAssignMember(null); setAssignOpen(true); }}
-                className="h-8 rounded-xl gap-1.5 text-xs font-bold ml-auto"
-              >
-                <FolderPlus className="h-3.5 w-3.5" /> Atribuir processos
-              </Button>
+              {canAssign && (
+                <Button
+                  size="sm" variant="outline"
+                  onClick={() => { setAssignMember(null); setAssignOpen(true); }}
+                  className="h-8 rounded-xl gap-1.5 text-xs font-bold ml-auto"
+                >
+                  <FolderPlus className="h-3.5 w-3.5" /> Atribuir processos
+                </Button>
+              )}
               <div className="flex items-center gap-2">
                 <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
                 <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
@@ -785,7 +791,7 @@ export default function EquipeDetalhe() {
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {sortedMembers.map((m, i) => <MemberCard key={m.user_id} member={m} rank={i + 1} onAssign={() => { setAssignMember(m.user_id); setAssignOpen(true); }} />)}
+              {sortedMembers.map((m, i) => <MemberCard key={m.user_id} member={m} rank={i + 1} onAssign={canAssign ? () => { setAssignMember(m.user_id); setAssignOpen(true); } : undefined} />)}
             </div>
           </div>
         </>
