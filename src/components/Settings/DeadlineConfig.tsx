@@ -3,19 +3,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Trash2, Plus, Clock } from "lucide-react";
+import { Trash2, Plus, Clock, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { useOfficeSettingList } from "@/hooks/useOfficeSettingList";
+
+interface TipoPrazo { id: number; nome: string; diasPadrao: number; categoria: string; }
+
+const PRAZOS_DEFAULT: TipoPrazo[] = [
+  { id: 1, nome: "Contestação", diasPadrao: 15, categoria: "Defesa" },
+  { id: 2, nome: "Recurso Ordinário", diasPadrao: 30, categoria: "Recurso" },
+  { id: 3, nome: "Recurso Especial", diasPadrao: 15, categoria: "Recurso" },
+  { id: 4, nome: "Recurso Extraordinário", diasPadrao: 15, categoria: "Recurso" },
+  { id: 5, nome: "Contrarrazões", diasPadrao: 15, categoria: "Defesa" },
+  { id: 6, nome: "Manifestação sobre Laudo", diasPadrao: 10, categoria: "Perícia" },
+  { id: 7, nome: "Alegações Finais", diasPadrao: 15, categoria: "Defesa" },
+];
 
 export function DeadlineConfig() {
-  const [prazos, setPrazos] = useState([
-    { id: 1, nome: "Contestação", diasPadrao: 15, categoria: "Defesa" },
-    { id: 2, nome: "Recurso Ordinário", diasPadrao: 30, categoria: "Recurso" },
-    { id: 3, nome: "Recurso Especial", diasPadrao: 15, categoria: "Recurso" },
-    { id: 4, nome: "Recurso Extraordinário", diasPadrao: 15, categoria: "Recurso" },
-    { id: 5, nome: "Contrarrazões", diasPadrao: 15, categoria: "Defesa" },
-    { id: 6, nome: "Manifestação sobre Laudo", diasPadrao: 10, categoria: "Perícia" },
-    { id: 7, nome: "Alegações Finais", diasPadrao: 15, categoria: "Defesa" }
-  ]);
+  const { items: prazos, loading, saving, persist } = useOfficeSettingList<TipoPrazo>("tipos_prazo", PRAZOS_DEFAULT);
 
   const [novoPrazo, setNovoPrazo] = useState({
     nome: "",
@@ -25,19 +30,13 @@ export function DeadlineConfig() {
 
   const adicionarPrazo = () => {
     if (novoPrazo.nome.trim()) {
-      setPrazos([
-        ...prazos,
-        {
-          id: prazos.length + 1,
-          ...novoPrazo
-        }
-      ]);
+      persist([...prazos, { id: Date.now(), ...novoPrazo }]);
       setNovoPrazo({ nome: "", diasPadrao: 15, categoria: "Defesa" });
     }
   };
 
   const removerPrazo = (id: number) => {
-    setPrazos(prazos.filter(prazo => prazo.id !== id));
+    persist(prazos.filter(prazo => prazo.id !== id));
   };
 
   const getCategoriaColor = (categoria: string) => {
@@ -55,6 +54,7 @@ export function DeadlineConfig() {
         <CardTitle className="flex items-center space-x-2">
           <Clock className="h-5 w-5" />
           <span>Configuração de Prazos</span>
+          {(loading || saving) && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -120,7 +120,7 @@ export function DeadlineConfig() {
               </select>
             </div>
             <div className="flex items-end">
-              <Button onClick={adicionarPrazo} className="w-full">
+              <Button onClick={adicionarPrazo} className="w-full" disabled={saving || !novoPrazo.nome.trim()}>
                 <Plus className="h-4 w-4 mr-2" />
                 Adicionar
               </Button>

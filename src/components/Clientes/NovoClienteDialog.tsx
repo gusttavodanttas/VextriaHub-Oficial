@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useOfficeSettingList } from "@/hooks/useOfficeSettingList";
 
 interface Client {
   id: number;
@@ -29,7 +30,7 @@ interface NovoClienteDialogProps {
   onSave: (client: Client) => void;
 }
 
-const origensCliente = [
+const ORIGENS_DEFAULT = [
   "Indicação",
   "Marketing Digital",
   "Redes Sociais",
@@ -41,6 +42,7 @@ const origensCliente = [
 
 export const NovoClienteDialog = ({ open, onOpenChange, onSave }: NovoClienteDialogProps) => {
   const { toast } = useToast();
+  const { items: origensCliente } = useOfficeSettingList<string>("origens_cliente", ORIGENS_DEFAULT);
   const [formData, setFormData] = useState({
     name: "",
     email: "",

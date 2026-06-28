@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useOfficeSettingList } from "@/hooks/useOfficeSettingList";
 
 interface Client {
   id: string;
@@ -34,7 +35,7 @@ interface EditClientDialogProps {
   onDelete?: (clientId: string) => void;
 }
 
-const origensCliente = [
+const ORIGENS_DEFAULT = [
   "Indicação",
   "Marketing Digital",
   "Redes Sociais",
@@ -54,6 +55,7 @@ const calcularProcessos = (clienteId: number) => {
 };
 
 export const EditClientDialog = ({ client, open, onOpenChange, onSave, onDelete }: EditClientDialogProps) => {
+  const { items: origensCliente } = useOfficeSettingList<string>("origens_cliente", ORIGENS_DEFAULT);
   const [formData, setFormData] = useState<Client | null>(client);
 
   useEffect(() => {

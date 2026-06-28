@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { X } from "lucide-react";
+import { X, Loader2 } from "lucide-react";
+import { useOfficeSettingList } from "@/hooks/useOfficeSettingList";
 
 const origensClienteBase = [
   "Indicação",
@@ -18,27 +19,27 @@ const origensClienteBase = [
 ];
 
 export const ClientOriginConfig = () => {
-  const [origensCliente, setOrigensCliente] = useState<string[]>(origensClienteBase);
+  const { items: origensCliente, loading, saving, persist } = useOfficeSettingList<string>("origens_cliente", origensClienteBase);
   const [novaOrigem, setNovaOrigem] = useState("");
 
   const adicionarNovaOrigem = () => {
     if (novaOrigem.trim() && !origensCliente.includes(novaOrigem.trim())) {
-      const novasOrigens = [...origensCliente, novaOrigem.trim()];
-      setOrigensCliente(novasOrigens);
+      persist([...origensCliente, novaOrigem.trim()]);
       setNovaOrigem("");
     }
   };
 
   const removerOrigem = (origem: string) => {
-    if (!origensClienteBase.includes(origem)) {
-      setOrigensCliente(prev => prev.filter(o => o !== origem));
-    }
+    persist(origensCliente.filter(o => o !== origem));
   };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Origens de Cliente</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          Origens de Cliente
+          {(loading || saving) && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+        </CardTitle>
         <CardDescription>
           Gerencie as opções de origem disponíveis para os clientes
         </CardDescription>
@@ -50,14 +51,14 @@ export const ClientOriginConfig = () => {
             {origensCliente.map((origem) => (
               <Badge key={origem} variant="secondary" className="flex items-center gap-1">
                 {origem}
-                {!origensClienteBase.includes(origem) && (
-                  <button
-                    onClick={() => removerOrigem(origem)}
-                    className="ml-1 hover:text-destructive"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
+                <button
+                  onClick={() => removerOrigem(origem)}
+                  disabled={saving}
+                  className="ml-1 hover:text-destructive disabled:opacity-50"
+                  aria-label={`Remover ${origem}`}
+                >
+                  <X className="h-3 w-3" />
+                </button>
               </Badge>
             ))}
           </div>

@@ -4,36 +4,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Trash2, Plus, FileText } from "lucide-react";
+import { Trash2, Plus, FileText, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { useOfficeSettingList } from "@/hooks/useOfficeSettingList";
+
+interface TipoProcesso { id: number; nome: string; descricao: string; area: string; }
+
+const TIPOS_PROCESSO_DEFAULT: TipoProcesso[] = [
+  { id: 1, nome: "BPC (Benefício de Prestação Continuada)", descricao: "Auxílio assistencial para pessoas com deficiência ou idosos em situação de vulnerabilidade", area: "Previdenciário" },
+  { id: 2, nome: "Aposentadoria por Idade", descricao: "Benefício previdenciário por idade mínima e tempo de contribuição", area: "Previdenciário" },
+  { id: 3, nome: "Planejamento Previdenciário", descricao: "Consultoria e estratégia para otimização de benefícios previdenciários", area: "Consultivo" },
+  { id: 4, nome: "Assessoria Preventiva para Dentistas", descricao: "Consultoria jurídica preventiva especializada para profissionais da odontologia", area: "Consultivo" },
+];
 
 export function ProcessTypeSimple() {
-  const [tiposProcesso, setTiposProcesso] = useState([
-    { 
-      id: 1, 
-      nome: "BPC (Benefício de Prestação Continuada)", 
-      descricao: "Auxílio assistencial para pessoas com deficiência ou idosos em situação de vulnerabilidade",
-      area: "Previdenciário"
-    },
-    { 
-      id: 2, 
-      nome: "Aposentadoria por Idade", 
-      descricao: "Benefício previdenciário por idade mínima e tempo de contribuição",
-      area: "Previdenciário"
-    },
-    { 
-      id: 3, 
-      nome: "Planejamento Previdenciário", 
-      descricao: "Consultoria e estratégia para otimização de benefícios previdenciários",
-      area: "Consultivo"
-    },
-    { 
-      id: 4, 
-      nome: "Assessoria Preventiva para Dentistas", 
-      descricao: "Consultoria jurídica preventiva especializada para profissionais da odontologia",
-      area: "Consultivo"
-    }
-  ]);
+  const { items: tiposProcesso, loading, saving, persist } = useOfficeSettingList<TipoProcesso>("tipos_processo", TIPOS_PROCESSO_DEFAULT);
 
   const [novoTipo, setNovoTipo] = useState({
     nome: "",
@@ -43,19 +28,13 @@ export function ProcessTypeSimple() {
 
   const adicionarTipo = () => {
     if (novoTipo.nome.trim()) {
-      setTiposProcesso([
-        ...tiposProcesso,
-        {
-          id: tiposProcesso.length + 1,
-          ...novoTipo
-        }
-      ]);
+      persist([...tiposProcesso, { id: Date.now(), ...novoTipo }]);
       setNovoTipo({ nome: "", descricao: "", area: "Previdenciário" });
     }
   };
 
   const removerTipo = (id: number) => {
-    setTiposProcesso(tiposProcesso.filter(tipo => tipo.id !== id));
+    persist(tiposProcesso.filter(tipo => tipo.id !== id));
   };
 
   const getAreaColor = (area: string) => {
@@ -74,6 +53,7 @@ export function ProcessTypeSimple() {
         <CardTitle className="flex items-center space-x-2">
           <FileText className="h-5 w-5" />
           <span>Tipos de Processo</span>
+          {(loading || saving) && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -140,7 +120,7 @@ export function ProcessTypeSimple() {
                 rows={2}
               />
             </div>
-            <Button onClick={adicionarTipo} className="w-full">
+            <Button onClick={adicionarTipo} className="w-full" disabled={saving || !novoTipo.nome.trim()}>
               <Plus className="h-4 w-4 mr-2" />
               Adicionar Tipo
             </Button>
