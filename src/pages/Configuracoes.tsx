@@ -14,7 +14,7 @@ import { ProcessTypeSimple } from "@/components/Settings/ProcessTypeSimple";
 import { DeadlineConfig } from "@/components/Settings/DeadlineConfig";
 import { ClientOriginConfig } from "@/components/Settings/ClientOriginConfig";
 import { OfficeSettings } from "@/components/Office/OfficeSettings";
-import { GoogleCalendarIntegration } from "@/components/Integrations/GoogleCalendarIntegration";
+import { IntegrationsPanel } from "@/components/Integrations/IntegrationsPanel";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -77,7 +77,7 @@ const Configuracoes = () => {
       case "prazos": return <DeadlineConfig />;
       case "equipes": return <TeamManagement />;
       case "escritorio": return canManageOffice ? <OfficeSettings /> : null;
-      case "integracao": return <GoogleCalendarIntegration />;
+      case "integracao": return <IntegrationsPanel />;
       default: return <GeralSection {...{ displayName, displayEmail, theme, setTheme, navigate }} />;
     }
   };
@@ -164,9 +164,14 @@ function GeralSection({
     <>
       {/* Conta */}
       <Card className="glass-card rounded-[2rem] border-black/5 dark:border-border overflow-hidden shadow-premium">
-        <CardHeader className="border-b border-black/5 dark:border-border pb-4">
-          <CardTitle className="text-lg font-black">Sua Conta</CardTitle>
-          <CardDescription className="text-xs font-medium">Dados da sua conta — edite no seu Perfil.</CardDescription>
+        <CardHeader className="border-b border-black/5 dark:border-border pb-4 flex flex-row items-center gap-3">
+          <div className="h-11 w-11 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+            <UserCircle className="h-5 w-5" />
+          </div>
+          <div>
+            <CardTitle className="text-lg font-black">Sua Conta</CardTitle>
+            <CardDescription className="text-xs font-medium">Dados da sua conta — edite no seu Perfil.</CardDescription>
+          </div>
         </CardHeader>
         <CardContent className="p-6 space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
@@ -193,9 +198,14 @@ function GeralSection({
 
       {/* Aparência com preview real */}
       <Card className="glass-card rounded-[2rem] border-black/5 dark:border-border overflow-hidden shadow-premium">
-        <CardHeader className="border-b border-black/5 dark:border-border pb-4">
-          <CardTitle className="text-lg font-black">Aparência</CardTitle>
-          <CardDescription className="text-xs font-medium">Escolha o tema. Aplica na hora.</CardDescription>
+        <CardHeader className="border-b border-black/5 dark:border-border pb-4 flex flex-row items-center gap-3">
+          <div className="h-11 w-11 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+            <Palette className="h-5 w-5" />
+          </div>
+          <div>
+            <CardTitle className="text-lg font-black">Aparência</CardTitle>
+            <CardDescription className="text-xs font-medium">Escolha o tema. Aplica na hora.</CardDescription>
+          </div>
         </CardHeader>
         <CardContent className="p-6">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
