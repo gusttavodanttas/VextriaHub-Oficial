@@ -254,9 +254,25 @@ export default function EquipeDetalhe() {
       processosRes, tarefasRes, audienciasRes,
       prazosRes, atendimentosRes, consultivosRes, timesheetRes
     ] = await Promise.all([
-      supabase.from("processos").select("user_id").eq("office_id", user.office_id)
-        .eq("deletado", false).neq("status", "encerrado").in("user_id", userIds)
-        .gte("created_at", start).lte("created_at", end),
+      // processos: filtra por team_id OU por user_id dos membros
+      (async () => {
+        const [byTeam, byMember] = await Promise.all([
+          supabase.from("processos").select("user_id").eq("office_id", user.office_id)
+            .eq("deletado", false).neq("status", "encerrado").eq("team_id", teamId)
+            .gte("created_at", start).lte("created_at", end),
+          supabase.from("processos").select("user_id").eq("office_id", user.office_id)
+            .eq("deletado", false).neq("status", "encerrado").in("user_id", userIds)
+            .gte("created_at", start).lte("created_at", end),
+        ]);
+        const seen = new Set<string>();
+        const merged: { user_id: string }[] = [];
+        for (const r of [...(byTeam.data || []), ...(byMember.data || [])]) {
+          const key = r.user_id;
+          if (!seen.has(key)) { seen.add(key); merged.push(r); }
+          else merged.push(r); // conta duplicatas para ranking correto
+        }
+        return { data: merged, error: null };
+      })(),
       supabase.from("tarefas").select("user_id, concluida").eq("office_id", user.office_id)
         .eq("deletado", false).in("user_id", userIds)
         .gte("created_at", start).lte("created_at", end),
