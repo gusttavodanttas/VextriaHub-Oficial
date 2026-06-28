@@ -18,27 +18,30 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const [actualTheme, setActualTheme] = useState<'light' | 'dark' | 'blue'>('blue');
 
-  useEffect(() => {
+  // Define as classes no <html>. O tema "blue" usa .dark (para ativar os
+  // utilitários dark: do Tailwind) + .blue (que sobrescreve as cores p/ navy).
+  const applyTheme = (resolved: 'light' | 'dark' | 'blue') => {
     const root = window.document.documentElement;
-    
-    // Remove todas as classes de tema
     root.classList.remove('light', 'dark', 'blue');
-    
+    if (resolved === 'blue') {
+      root.classList.add('dark', 'blue');
+    } else {
+      root.classList.add(resolved);
+    }
+    setActualTheme(resolved);
+  };
+
+  useEffect(() => {
     let resolvedTheme: 'light' | 'dark' | 'blue';
 
     if (theme === 'auto') {
-      // Detecção automática baseada na preferência do sistema
       const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       resolvedTheme = systemPrefersDark ? 'dark' : 'light';
     } else {
       resolvedTheme = theme as 'light' | 'dark' | 'blue';
     }
-    
-    // Aplica o tema
-    root.classList.add(resolvedTheme);
-    setActualTheme(resolvedTheme);
-    
-    // Salva no localStorage
+
+    applyTheme(resolvedTheme);
     localStorage.setItem('theme', theme);
   }, [theme]);
 
@@ -46,14 +49,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (theme === 'auto') {
       const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      const handleChange = () => {
-        const root = window.document.documentElement;
-        root.classList.remove('light', 'dark', 'blue');
-        const resolvedTheme = mediaQuery.matches ? 'dark' : 'light';
-        root.classList.add(resolvedTheme);
-        setActualTheme(resolvedTheme);
-      };
-      
+      const handleChange = () => applyTheme(mediaQuery.matches ? 'dark' : 'light');
       mediaQuery.addEventListener('change', handleChange);
       return () => mediaQuery.removeEventListener('change', handleChange);
     }
