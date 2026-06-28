@@ -17,6 +17,7 @@ import {
   Zap, CalendarIcon, Pencil, Trash2, Plus, Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 
 // ─────────────────────────────────────────────
 // Tipos
@@ -177,16 +178,18 @@ type FormState = {
   dataPrazoInterno: string;
   dataPrazoFatal: string;
   prioridade: string;
+  responsavel_id: string;
 };
 
-function emptyForm(tituloSugerido?: string, numeroProcesso?: string): FormState {
+function emptyForm(tituloSugerido?: string, numeroProcesso?: string, userId = ""): FormState {
   return {
     titulo: tituloSugerido || "",
     descricao: numeroProcesso ? `Prazo vinculado à publicação do processo ${numeroProcesso}` : "",
     dataPublicacao: "", dataPrazoInterno: "", dataPrazoFatal: "", prioridade: "media",
+    responsavel_id: userId,
   };
 }
-function prazoToForm(p: PrazoFormData): FormState {
+function prazoToForm(p: PrazoFormData, userId = ""): FormState {
   return {
     titulo: p.titulo,
     descricao: p.descricao || "",
@@ -194,6 +197,7 @@ function prazoToForm(p: PrazoFormData): FormState {
     dataPrazoInterno: p.data_prazo_interno || "",
     dataPrazoFatal: p.data_fim_prazo || "",
     prioridade: p.prioridade || "media",
+    responsavel_id: (p as any).responsavel_id || userId,
   };
 }
 
@@ -401,8 +405,13 @@ export const NovoPrazoStandaloneDialog = ({
 }: NovoPrazoStandaloneDialogProps) => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { users: officeUsers } = useOfficeUsers();
+  const membros = officeUsers.map(u => ({
+    id: u.user_id,
+    label: u.profile?.full_name || u.profile?.email || "Membro",
+  }));
   const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState<FormState>(emptyForm(tituloSugerido, numeroProcesso));
+  const [formData, setFormData] = useState<FormState>(emptyForm(tituloSugerido, numeroProcesso, user?.id));
   const [tipoAto, setTipoAto] = useState('');
   const [calculoAplicado, setCalculoAplicado] = useState(false);
   const [gerenciarOpen, setGerenciarOpen] = useState(false);
@@ -443,7 +452,7 @@ export const NovoPrazoStandaloneDialog = ({
 
   useEffect(() => {
     if (open) {
-      setFormData(prazoParaEditar ? prazoToForm(prazoParaEditar) : emptyForm(tituloSugerido, numeroProcesso));
+      setFormData(prazoParaEditar ? prazoToForm(prazoParaEditar, user?.id) : emptyForm(tituloSugerido, numeroProcesso, user?.id));
       setProcessoSearch(''); setSelectedProcesso(null); setProcessoOptions([]);
       setTipoAto(''); setCalculoAplicado(false);
       fetchTipos();
@@ -514,6 +523,7 @@ export const NovoPrazoStandaloneDialog = ({
           data_fim_prazo: formData.dataPrazoFatal, prioridade: formData.prioridade,
           data_publicacao: formData.dataPublicacao || null,
           data_prazo_interno: formData.dataPrazoInterno || null,
+          responsavel_id: formData.responsavel_id || user?.id || null,
         };
         const { error } = await supabase.from('prazos').update(updates).eq('id', prazoParaEditar!.id!);
         if (error) throw error;
@@ -530,6 +540,7 @@ export const NovoPrazoStandaloneDialog = ({
           publicacao_id: publicacaoId || null, titulo: formData.titulo,
           descricao: formData.descricao || null, data_fim_prazo: formData.dataPrazoFatal,
           prioridade: formData.prioridade, status: 'pendente',
+          responsavel_id: formData.responsavel_id || user.id,
         };
         if (formData.dataPublicacao) payload.data_publicacao = formData.dataPublicacao;
         if (formData.dataPrazoInterno) payload.data_prazo_interno = formData.dataPrazoInterno;
@@ -722,6 +733,19 @@ export const NovoPrazoStandaloneDialog = ({
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Responsável */}
+            {membros.length > 0 && (
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Responsável</Label>
+                <Select value={formData.responsavel_id} onValueChange={v => setFormData(p => ({ ...p, responsavel_id: v }))}>
+                  <SelectTrigger className="rounded-xl h-10"><SelectValue placeholder="Selecionar responsável" /></SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    {membros.map(m => <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Observações */}
             <div className="space-y-1.5">
