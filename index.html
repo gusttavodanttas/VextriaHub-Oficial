@@ -20,9 +20,23 @@
     <meta property="og:type" content="website" />
 
     <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Aplica o tema salvo no <html> antes do React montar (evita flash) -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('theme') || 'auto';
+          var resolved = t === 'auto'
+            ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+            : t;
+          var classes = resolved === 'blue' ? ['dark', 'blue'] : [resolved];
+          document.documentElement.classList.add.apply(document.documentElement.classList, classes);
+        } catch (e) {}
+      })();
+    </script>
   </head>
 
-  <body class="blue">
+  <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
