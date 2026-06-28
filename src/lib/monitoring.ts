@@ -1,13 +1,20 @@
 import * as Sentry from "@sentry/react";
 
 /**
- * Inicializa o monitoramento de erros (Sentry).
- * Só ativa quando há DSN configurado (VITE_SENTRY_DSN) — ou seja, em produção.
- * Em desenvolvimento/sem DSN, não faz nada (no-op), sem quebrar nada.
+ * Monitoramento de erros (Sentry).
+ * Ativa em produção com o DSN padrão (ou VITE_SENTRY_DSN se definido).
+ * Em desenvolvimento, fica desativado a menos que VITE_SENTRY_DSN seja informado.
  */
+
+// DSN do projeto Sentry (chave pública, segura no client).
+const DEFAULT_DSN = "https://0fb3ff25a1385243709b7bae44fa4b65@o4511643111522304.ingest.us.sentry.io/4511643132297216";
+
+let enabled = false;
+
 export function initMonitoring() {
-  const dsn = import.meta.env.VITE_SENTRY_DSN as string | undefined;
-  if (!dsn) return; // sem DSN → desativado
+  const dsn = (import.meta.env.VITE_SENTRY_DSN as string | undefined)
+    || (import.meta.env.PROD ? DEFAULT_DSN : undefined);
+  if (!dsn) return; // sem DSN → desativado (ex.: localhost)
 
   Sentry.init({
     dsn,
@@ -30,18 +37,19 @@ export function initMonitoring() {
       "AbortError",
     ],
   });
+  enabled = true;
 }
 
 /** Identifica o usuário logado nos eventos (ajuda a rastrear quem teve o erro). */
 export function setMonitoringUser(user: { id?: string; email?: string } | null) {
-  if (!import.meta.env.VITE_SENTRY_DSN) return;
+  if (!enabled) return;
   if (user?.id) Sentry.setUser({ id: user.id, email: user.email });
   else Sentry.setUser(null);
 }
 
 /** Captura um erro manualmente (ex.: dentro de catch). */
 export function captureError(error: unknown, context?: Record<string, unknown>) {
-  if (!import.meta.env.VITE_SENTRY_DSN) {
+  if (!enabled) {
     console.error("[erro]", error, context);
     return;
   }
