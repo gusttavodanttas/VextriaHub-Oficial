@@ -27,7 +27,8 @@ import {
   Lock,
   Eye,
   EyeOff,
-  Loader2
+  Loader2,
+  CalendarDays
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -78,6 +79,11 @@ const Perfil = () => {
   }, [user, profile]);
 
   const myStats = useMyStats();
+
+  const createdAt = (profile as any)?.created_at || (user as any)?.created_at;
+  const memberSince = createdAt
+    ? new Date(createdAt).toLocaleDateString("pt-BR", { month: "short", year: "numeric" })
+    : null;
 
   const handleSave = async () => {
     try {
@@ -172,50 +178,72 @@ const Perfil = () => {
 
       <div className="grid gap-6 md:gap-10 grid-cols-1 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-8">
-          <div className="glass-card p-8 md:p-10 rounded-[2.5rem] border-border bg-card/40 shadow-premium space-y-10 relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
-              <UserCircle className="h-40 w-40" />
+          <div className="glass-card rounded-[2.5rem] border-border bg-card/40 shadow-premium relative overflow-hidden">
+            {/* Cover */}
+            <div className="h-28 md:h-32 bg-gradient-to-br from-primary via-primary/70 to-primary/30 relative">
+              <div
+                className="absolute inset-0 opacity-20 mix-blend-overlay"
+                style={{ backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)", backgroundSize: "22px 22px" }}
+              />
+              <Scale className="absolute right-6 bottom-3 h-16 w-16 text-white/20 pointer-events-none" />
             </div>
 
-            <div className="flex flex-col md:flex-row items-center md:items-start gap-8 relative z-10">
-              <div className="avatar-premium-wrapper p-1.5 rounded-[2rem] bg-gradient-to-br from-primary to-primary/30 shadow-premium">
-                <Avatar className="h-24 w-24 md:h-32 md:w-32 rounded-[1.8rem] border-4 border-background">
-                  <AvatarImage src="/placeholder.svg" className="object-cover" />
-                  <AvatarFallback className="text-3xl font-black bg-muted text-primary">
-                    {userInfo.nome?.substring(0, 2).toUpperCase() || "US"}
-                  </AvatarFallback>
-                </Avatar>
-              </div>
-              
-              <div className="text-center md:text-left space-y-4">
-                <div className="space-y-1">
+            {/* Identidade */}
+            <div className="px-6 md:px-10 -mt-14 md:-mt-16 relative z-10">
+              <div className="flex flex-col md:flex-row md:items-end gap-5">
+                <div className="p-1.5 rounded-[2rem] bg-background shadow-premium w-fit mx-auto md:mx-0">
+                  <Avatar className="h-24 w-24 md:h-28 md:w-28 rounded-[1.6rem] border-4 border-background">
+                    <AvatarImage src="/placeholder.svg" className="object-cover" />
+                    <AvatarFallback className="text-3xl font-black bg-gradient-to-br from-primary/20 to-primary/5 text-primary">
+                      {userInfo.nome?.substring(0, 2).toUpperCase() || "US"}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
+
+                <div className="flex-1 text-center md:text-left space-y-2 md:pb-2">
                   {editMode ? (
                     <Input
-                      className="text-2xl md:text-3xl font-black bg-background/50 border-border rounded-xl px-4 py-6 h-auto md:w-[400px]"
+                      className="text-2xl font-black bg-background/50 border-border rounded-xl px-4 h-12 md:w-[360px]"
                       value={userInfo.nome}
-                      onChange={(e) => setUserInfo({...userInfo, nome: e.target.value})}
+                      onChange={(e) => setUserInfo({ ...userInfo, nome: e.target.value })}
                       placeholder="Nome Completo"
                     />
                   ) : (
-                    <h2 className="text-3xl md:text-4xl font-black tracking-tighter text-foreground">{userInfo.nome}</h2>
+                    <h2 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">{userInfo.nome}</h2>
                   )}
-                  <p className="text-primary font-black tracking-[0.2em] uppercase text-[10px] opacity-80">{userInfo.cargo}</p>
-                </div>
-                
-                <div className="flex flex-wrap justify-center md:justify-start gap-3">
-                  {userInfo.oab && (
-                    <Badge variant="outline" className="bg-background text-muted-foreground/60 border-border font-black px-4 py-1.5 rounded-xl uppercase text-[10px] tracking-widest shadow-sm">
-                      OAB {userInfo.oab} / {userInfo.oab_uf}
+                  <div className="flex flex-wrap justify-center md:justify-start items-center gap-2">
+                    <Badge className="bg-primary/10 text-primary border-primary/20 font-black px-3 py-1 rounded-lg uppercase text-[10px] tracking-widest">
+                      {profile?.role === 'super_admin' ? 'Super Admin' : profile?.role === 'admin' ? 'Administrador' : 'Membro'}
                     </Badge>
-                  )}
-                  <Badge className="bg-primary/10 text-primary border-primary/20 font-black px-4 py-1.5 rounded-xl uppercase text-[10px] tracking-widest">
-                    {profile?.role === 'super_admin' ? 'Super Admin' : profile?.role === 'admin' ? 'Administrador' : 'Membro'}
-                  </Badge>
+                    {userInfo.oab && (
+                      <Badge variant="outline" className="bg-background text-muted-foreground/70 border-border font-black px-3 py-1 rounded-lg uppercase text-[10px] tracking-widest">
+                        OAB {userInfo.oab}/{userInfo.oab_uf}
+                      </Badge>
+                    )}
+                    {userInfo.cargo && userInfo.cargo !== "Não informado" && (
+                      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">{userInfo.cargo}</span>
+                    )}
+                  </div>
                 </div>
+              </div>
+
+              {/* Linha de informações rápidas */}
+              <div className="mt-5 flex flex-wrap justify-center md:justify-start gap-x-6 gap-y-2 text-xs">
+                <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                  <Mail className="h-3.5 w-3.5 text-primary/70" /><span className="font-bold text-foreground/70 truncate max-w-[220px]">{userInfo.email}</span>
+                </span>
+                {memberSince && (
+                  <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                    <CalendarDays className="h-3.5 w-3.5 text-primary/70" /> Membro desde <span className="font-bold text-foreground/70 capitalize">{memberSince}</span>
+                  </span>
+                )}
+                <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                  <Award className="h-3.5 w-3.5 text-primary/70" /><span className="font-bold text-foreground/70">{myStats.loading ? "…" : `${myStats.pontos} pts`}</span>
+                </span>
               </div>
             </div>
 
-            <div className="grid gap-8 md:grid-cols-2 relative z-10">
+            <div className="grid gap-6 md:grid-cols-2 px-6 md:px-10 py-8 mt-6 border-t border-border/50 relative z-10">
               <div className="space-y-3">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50 px-1">Endereço de E-mail</Label>
                 <div className="flex items-center gap-4 p-4 rounded-2xl bg-background/50 border border-border group hover:border-primary/20 transition-all shadow-sm">
