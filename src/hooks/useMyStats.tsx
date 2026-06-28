@@ -34,9 +34,9 @@ export function useMyStats(): MyStats {
         myProc(supabase.from("processos").select("id", { count: "exact", head: true })).neq("status", "encerrado"),
         myProc(supabase.from("processos").select("id", { count: "exact", head: true })).eq("status", "encerrado"),
         supabase.from("clientes").select("id", { count: "exact", head: true }).eq("office_id", office).eq("deletado", false).eq("user_id", uid),
-        supabase.from("tarefas").select("id", { count: "exact", head: true }).eq("office_id", office).eq("deletado", false).eq("concluida", true).or(`responsavel_id.eq.${uid},user_id.eq.${uid}`),
+        supabase.from("tarefas").select("id", { count: "exact", head: true }).eq("office_id", office).eq("deletado", false).eq("concluida", true).eq("user_id", uid),
         supabase.from("prazos").select("id", { count: "exact", head: true }).eq("office_id", office).eq("status", "concluido").eq("responsavel_id", uid),
-        supabase.from("audiencias").select("id", { count: "exact", head: true }).eq("office_id", office).eq("deletado", false).eq("status", "realizada").or(`responsavel_id.eq.${uid},user_id.eq.${uid}`),
+        supabase.from("audiencias").select("id", { count: "exact", head: true }).eq("office_id", office).eq("deletado", false).eq("status", "realizada").eq("user_id", uid),
       ]);
 
       if (cancel) return;
