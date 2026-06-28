@@ -25,12 +25,7 @@ import { CrmPipelineVendas } from "@/components/Crm/CrmPipelineVendas";
 import { CrmFunilVendas } from "@/components/Crm/CrmFunilVendas";
 import { CrmOportunidades } from "@/components/Crm/CrmOportunidades";
 import { CrmOportunidadeDetail } from "@/components/Crm/CrmOportunidadeDetail";
-import { 
-  CrmRelatorios, 
-  CrmMetas, 
-  CrmEmailMarketing, 
-  CrmFollowUp 
-} from "@/components/Crm/CrmDashboards";
+import { CrmRelatorios, CrmMetas } from "@/components/Crm/CrmDashboards";
 
 export default function Crm() {
   const { data: allClientes = [], loading, refresh } = useClientes();
@@ -108,10 +103,6 @@ export default function Crm() {
         return <CrmRelatorios onBack={handleBackToMain} data={allClientes} loading={loading} />;
       case "metas":
         return <CrmMetas onBack={handleBackToMain} data={allClientes} loading={loading} />;
-      case "email-marketing":
-        return <CrmEmailMarketing onBack={handleBackToMain} />;
-      case "follow-up":
-        return <CrmFollowUp onBack={handleBackToMain} />;
       default:
         return null;
     }

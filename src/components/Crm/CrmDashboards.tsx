@@ -7,6 +7,7 @@ import { ClienteComProcessos } from "@/types/database";
 import { cn } from "@/lib/utils";
 import { format, isSameMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useResponseTime } from "@/hooks/useResponseTime";
 
 interface BaseProps {
   onBack: () => void;
@@ -15,9 +16,10 @@ interface BaseProps {
 }
 
 export function CrmRelatorios({ onBack, data = [], loading = false }: BaseProps) {
+  const { label: tempoResposta, horas: tempoHoras } = useResponseTime();
   const leadsStatuses = ["lead", "quente", "morno", "frio"];
   const conversionStatuses = ["convertido"];
-  
+
   const leads = data.filter(c => leadsStatuses.includes((c.status || "").toLowerCase()));
   const clients = data.filter(c => conversionStatuses.includes((c.status || "").toLowerCase()));
 
@@ -85,14 +87,14 @@ export function CrmRelatorios({ onBack, data = [], loading = false }: BaseProps)
 
         <Card className="glass-card border-black/5 dark:border-border rounded-[2rem] overflow-hidden">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-black uppercase tracking-widest text-muted-foreground opacity-60">Receita Convertida</CardTitle>
+            <CardTitle className="text-sm font-black uppercase tracking-widest text-muted-foreground opacity-60">Tempo de Resposta</CardTitle>
           </CardHeader>
           <CardContent>
-             <div className="text-3xl font-black text-blue-500 truncate">{loading ? <Loader2 className="h-8 w-8 animate-spin" /> : brl(convertedValue)}</div>
-             <p className="text-xs font-bold text-muted-foreground mt-1">Valor dos contratos fechados</p>
+             <div className="text-4xl font-black text-blue-500">{tempoResposta}</div>
+             <p className="text-xs font-bold text-muted-foreground mt-1">Até o 1º atendimento do lead</p>
              <div className="mt-4 flex items-center gap-2 pt-4 border-t border-black/5 dark:border-border">
                <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-               <span className="text-[10px] font-bold text-blue-500 uppercase">{clients.length} clientes convertidos</span>
+               <span className="text-[10px] font-bold text-blue-500 uppercase">{tempoHoras === null ? "Sem atendimentos ainda" : "Média real"}</span>
              </div>
           </CardContent>
         </Card>
@@ -233,89 +235,6 @@ export function CrmMetas({ onBack, data = [], loading = false }: BaseProps) {
                   <TrendingUp className="h-12 w-12" />
                 </div>
              </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-
-export function CrmEmailMarketing({ onBack }: BaseProps) {
-  return (
-    <div className="space-y-4 md:space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-        <Button variant="outline" onClick={onBack} className="w-full sm:w-auto">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Voltar ao CRM
-        </Button>
-        <div className="w-full sm:w-auto">
-          <h2 className="text-xl md:text-2xl font-bold">E-mail Marketing</h2>
-          <p className="text-sm md:text-base text-muted-foreground">Campanhas automatizadas</p>
-        </div>
-      </div>
-      
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg md:text-xl">Campanhas Ativas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg gap-3">
-              <div className="flex-1">
-                <div className="font-medium text-sm md:text-base">Campanha de Nutrição</div>
-                <div className="text-xs md:text-sm text-muted-foreground">Taxa de abertura: 24%</div>
-              </div>
-              <Badge className="bg-green-100 text-green-800 w-fit">Ativo</Badge>
-            </div>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg gap-3">
-              <div className="flex-1">
-                <div className="font-medium text-sm md:text-base">Newsletter Semanal</div>
-                <div className="text-xs md:text-sm text-muted-foreground">Taxa de abertura: 18%</div>
-              </div>
-              <Badge className="bg-blue-100 text-blue-800 w-fit">Agendado</Badge>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-export function CrmFollowUp({ onBack }: BaseProps) {
-  return (
-    <div className="space-y-4 md:space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-        <Button variant="outline" onClick={onBack} className="w-full sm:w-auto">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Voltar ao CRM
-        </Button>
-        <div className="w-full sm:w-auto">
-          <h2 className="text-xl md:text-2xl font-bold">Follow-up</h2>
-          <p className="text-sm md:text-base text-muted-foreground">Lembretes automáticos</p>
-        </div>
-      </div>
-      
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg md:text-xl">Próximos Follow-ups</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg gap-3">
-              <div className="flex-1">
-                <div className="font-medium text-sm md:text-base">João Silva - Tech Corp</div>
-                <div className="text-xs md:text-sm text-muted-foreground">Agendar reunião de apresentação</div>
-              </div>
-              <div className="text-xs md:text-sm text-muted-foreground">Hoje, 14:00</div>
-            </div>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg gap-3">
-              <div className="flex-1">
-                <div className="font-medium text-sm md:text-base">Maria Santos - Legal Firm</div>
-                <div className="text-xs md:text-sm text-muted-foreground">Enviar proposta comercial</div>
-              </div>
-              <div className="text-xs md:text-sm text-muted-foreground">Amanhã, 09:00</div>
-            </div>
           </div>
         </CardContent>
       </Card>
