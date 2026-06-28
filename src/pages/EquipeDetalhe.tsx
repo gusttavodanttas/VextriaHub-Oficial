@@ -249,7 +249,7 @@ function TeamDetailDialog({
   officeId: string;
   period: Period;
   onClose: () => void;
-  onNavigate: (route: string) => void;
+  onNavigate: (route: string, id?: string) => void;
 }) {
   const [items, setItems] = useState<DetailItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -336,20 +336,30 @@ function TeamDetailDialog({
             </div>
           ) : (
             items.map(item => (
-              <div key={item.id} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/20 hover:bg-muted/40 transition-colors">
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onNavigate(cfg.route, item.id)}
+                className="group w-full flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/20 hover:bg-primary/5 hover:border-primary/40 transition-all text-left"
+              >
+                <span className={cn("h-8 w-8 rounded-lg flex items-center justify-center shrink-0 bg-background border border-border", cfg.color)}>
+                  <Icon className="h-3.5 w-3.5" />
+                </span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold truncate">{item.primary}</p>
+                  <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{item.primary}</p>
                   {item.secondary && <p className="text-xs text-muted-foreground truncate">{item.secondary}</p>}
                 </div>
                 {item.badge && <Badge variant="outline" className="shrink-0 text-[10px] capitalize">{item.badge}</Badge>}
-              </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
+              </button>
             ))
           )}
         </div>
 
-        <div className="px-5 py-3 border-t border-border flex justify-end">
-          <Button size="sm" onClick={() => onNavigate(cfg.route)} className="rounded-xl gap-2 text-xs font-black">
-            <ExternalLink className="h-3.5 w-3.5" /> Abrir {cfg.title.split(" ")[0]}
+        <div className="px-5 py-3 border-t border-border flex items-center justify-between gap-2">
+          <p className="text-[11px] text-muted-foreground">Clique num item para abri-lo</p>
+          <Button size="sm" variant="outline" onClick={() => onNavigate(cfg.route)} className="rounded-xl gap-2 text-xs font-black">
+            <ExternalLink className="h-3.5 w-3.5" /> Ver todos
           </Button>
         </div>
       </DialogContent>
@@ -650,7 +660,7 @@ export default function EquipeDetalhe() {
         officeId={user?.office_id || ""}
         period={period}
         onClose={() => setDetailType(null)}
-        onNavigate={(route) => { setDetailType(null); navigate(route); }}
+        onNavigate={(route, id) => { setDetailType(null); navigate(id ? `${route}?openId=${id}` : route); }}
       />
     </div>
   );
