@@ -55,12 +55,12 @@ const Perfil = () => {
   const [userInfo, setUserInfo] = useState({
     nome: "Carregando...",
     email: "Carregando...",
-    telefone: "(xx) xxxxx-xxxx",
-    endereco: "Não informado",
+    telefone: "",
+    endereco: "",
     cargo: "Não informado",
-    oab: "Não informado",
+    oab: "",
     oab_uf: "DF",
-    especializacao: "Não informado",
+    especializacao: "",
   });
 
   // Preenche dados reais da Sessão Pessoal logada assim que carregar
@@ -246,7 +246,7 @@ const Perfil = () => {
                       placeholder="(11) 91234-5678"
                     />
                   ) : (
-                    <span className="font-bold text-foreground/80">{userInfo.telefone}</span>
+                    <span className="font-bold text-foreground/80">{userInfo.telefone || "Não informado"}</span>
                   )}
                 </div>
               </div>
@@ -266,7 +266,7 @@ const Perfil = () => {
                         placeholder="Número da OAB"
                       />
                     ) : (
-                      <span className="font-bold text-foreground/80">{userInfo.oab}</span>
+                      <span className="font-bold text-foreground/80">{userInfo.oab || "Não informado"}</span>
                     )}
                   </div>
                   {editMode && (
@@ -302,7 +302,7 @@ const Perfil = () => {
                       onChange={(e) => setUserInfo({...userInfo, endereco: e.target.value})}
                     />
                   ) : (
-                    <span className="font-bold truncate text-foreground/80">{userInfo.endereco}</span>
+                    <span className="font-bold truncate text-foreground/80">{userInfo.endereco || "Não informado"}</span>
                   )}
                 </div>
               </div>
@@ -320,7 +320,7 @@ const Perfil = () => {
                       onChange={(e) => setUserInfo({...userInfo, especializacao: e.target.value})}
                     />
                   ) : (
-                    <span className="font-bold truncate text-foreground/80">{userInfo.especializacao}</span>
+                    <span className="font-bold truncate text-foreground/80">{userInfo.especializacao || "Não informado"}</span>
                   )}
                 </div>
               </div>
