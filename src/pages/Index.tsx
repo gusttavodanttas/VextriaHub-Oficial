@@ -66,7 +66,7 @@ function KpiCard({ icon: Icon, label, value, sub, color, bg, onClick, urgent, lo
 }
 
 const Index = () => {
-  const { isSuperAdmin, validatePayment } = useAuth();
+  const { isSuperAdmin, isOfficeAdmin, validatePayment } = useAuth();
   const navigate = useNavigate();
   const { stats, loading: statsLoading } = useStats();
   const [sheetView, setSheetView] = useState<SheetView>(null);
@@ -137,9 +137,11 @@ const Index = () => {
           <KpiCard icon={UserCheck} label="Clientes ativos" value={stats.clientes}
             sub="cadastrados" color="text-emerald-500" bg="bg-emerald-500/10"
             onClick={() => setSheetView("clientes")} loading={statsLoading} />
-          <KpiCard icon={Users2} label="Equipe" value={stats.colaboradores}
-            sub="colaboradores" color="text-sky-500" bg="bg-sky-500/10"
-            onClick={() => navigate("/equipe")} loading={statsLoading} />
+          {isOfficeAdmin && (
+            <KpiCard icon={Users2} label="Equipe" value={stats.colaboradores}
+              sub="colaboradores" color="text-sky-500" bg="bg-sky-500/10"
+              onClick={() => navigate("/equipe")} loading={statsLoading} />
+          )}
         </div>
       </section>
 
