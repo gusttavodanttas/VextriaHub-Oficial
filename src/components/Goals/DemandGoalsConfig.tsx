@@ -92,54 +92,78 @@ export function DemandGoalsConfig() {
   };
 
   const calc = (atual: number, meta: number) => (meta > 0 ? Math.round((atual / meta) * 100) : 0);
+  const barColor = (pct: number) => (pct >= 100 ? "bg-emerald-500" : pct >= 60 ? "bg-blue-500" : "bg-amber-500");
+  const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+
+  const totais = metasDemanda.reduce((acc, m) => ({
+    procAtual: acc.procAtual + m.processosAtuais,
+    procMeta: acc.procMeta + m.metaProcessos,
+    fatAtual: acc.fatAtual + m.faturamentoAtual,
+    fatMeta: acc.fatMeta + m.metaFaturamento,
+  }), { procAtual: 0, procMeta: 0, fatAtual: 0, fatMeta: 0 });
 
   if (loading) {
     return <div className="space-y-4">{[...Array(2)].map((_, i) => <Skeleton key={i} className="h-40 rounded-[2rem]" />)}</div>;
   }
 
   return (
-    <div className="space-y-8">
-      {/* Resumo */}
-      <Card className="border-black/5 dark:border-border bg-card/40 rounded-[2rem] overflow-hidden shadow-premium">
-        <CardHeader className="p-6 pb-2">
-          <CardTitle className="flex items-center gap-3 text-lg font-black tracking-tight">
-            <div className="p-2 rounded-xl bg-primary/10"><Target className="h-5 w-5 text-primary" /></div>
-            <span>Metas por Demanda — Resumo</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-6">
-          {metasDemanda.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-6 text-center">Nenhuma meta por demanda. Adicione abaixo.</p>
-          ) : (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-              {metasDemanda.map((meta) => (
-                <div key={meta.id} className="p-5 border border-black/5 dark:border-border rounded-2xl bg-black/[0.01] dark:bg-white/[0.01] space-y-4 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-black text-xs uppercase tracking-widest text-muted-foreground/80">{meta.tipo}</h4>
-                    <div className={`w-3 h-3 rounded-full ${meta.cor}`}></div>
+    <div className="space-y-6">
+      {/* Faixa de totais */}
+      {metasDemanda.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div className="flex items-center gap-3 rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4">
+            <div className="p-2.5 rounded-xl bg-primary/10 shrink-0"><Target className="h-5 w-5 text-primary" /></div>
+            <div><p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">Demandas</p><p className="text-xl font-black">{metasDemanda.length}</p></div>
+          </div>
+          <div className="flex items-center gap-3 rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4">
+            <div className="p-2.5 rounded-xl bg-blue-500/10 shrink-0"><Target className="h-5 w-5 text-blue-500" /></div>
+            <div><p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">Processos</p><p className="text-xl font-black">{totais.procAtual}<span className="text-sm text-muted-foreground font-bold">/{totais.procMeta}</span></p></div>
+          </div>
+          <div className="flex items-center gap-3 rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 col-span-2 md:col-span-1">
+            <div className="p-2.5 rounded-xl bg-emerald-500/10 shrink-0"><TrendingUp className="h-5 w-5 text-emerald-500" /></div>
+            <div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">Faturamento</p><p className="text-lg font-black truncate">{brl(totais.fatAtual)}<span className="text-xs text-muted-foreground font-bold"> / {brl(totais.fatMeta)}</span></p></div>
+          </div>
+        </div>
+      )}
+
+      {/* Cards de demanda (premium) */}
+      {metasDemanda.length === 0 ? (
+        <div className="py-12 text-center rounded-3xl border border-black/5 dark:border-border bg-card/40">
+          <Target className="h-12 w-12 mx-auto mb-3 text-muted-foreground/20" />
+          <p className="text-sm text-muted-foreground">Nenhuma meta por demanda. Adicione na seção abaixo.</p>
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {metasDemanda.map((meta) => {
+            const pProc = calc(meta.processosAtuais, meta.metaProcessos);
+            const pFat = calc(meta.faturamentoAtual, meta.metaFaturamento);
+            return (
+              <div key={meta.id} className="relative overflow-hidden rounded-3xl border border-black/5 dark:border-border bg-card/50 p-5 shadow-premium transition-all hover:shadow-lg hover:-translate-y-0.5">
+                <div className={`absolute top-0 left-0 h-1 w-full ${meta.cor}`} />
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="font-black text-base tracking-tight truncate">{meta.tipo}</h4>
+                  <span className={`h-3 w-3 rounded-full shrink-0 ${meta.cor}`} />
+                </div>
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-xs"><span className="font-bold text-muted-foreground">Processos</span><span className="font-black">{meta.processosAtuais}/{meta.metaProcessos} · {pProc}%</span></div>
+                    <div className="w-full bg-muted/40 h-2 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all duration-700 ${barColor(pProc)}`} style={{ width: `${Math.min(pProc, 100)}%` }} />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-[10px] font-black uppercase tracking-widest opacity-60">
-                      <span>Processos</span><span>{meta.processosAtuais}/{meta.metaProcessos}</span>
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-xs"><span className="font-bold text-muted-foreground">Faturamento</span><span className="font-black">{pFat}%</span></div>
+                    <div className="w-full bg-muted/40 h-2 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all duration-700 ${barColor(pFat)}`} style={{ width: `${Math.min(pFat, 100)}%` }} />
                     </div>
-                    <div className="w-full bg-black/5 dark:bg-muted/40 h-1.5 rounded-full overflow-hidden">
-                      <div className={`h-full ${meta.cor} transition-all duration-700`} style={{ width: `${Math.min(calc(meta.processosAtuais, meta.metaProcessos), 100)}%` }} />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-[10px] font-black uppercase tracking-widest opacity-60">
-                      <span>Faturamento</span><span className="text-primary">R$ {meta.faturamentoAtual.toLocaleString()}</span>
-                    </div>
-                    <div className="w-full bg-black/5 dark:bg-muted/40 h-1.5 rounded-full overflow-hidden">
-                      <div className={`h-full ${meta.cor} transition-all duration-700`} style={{ width: `${Math.min(calc(meta.faturamentoAtual, meta.metaFaturamento), 100)}%` }} />
-                    </div>
+                    <p className="text-[11px] text-muted-foreground">{brl(meta.faturamentoAtual)} de {brl(meta.metaFaturamento)}</p>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Configuração */}
       <Card className="border-black/5 dark:border-border bg-card/40 rounded-[2rem] overflow-hidden shadow-premium">
