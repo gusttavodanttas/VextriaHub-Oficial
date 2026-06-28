@@ -145,6 +145,19 @@ export function useMetas() {
     return true;
   };
 
+  const update = async (id: string, input: NovaMetaInput): Promise<boolean> => {
+    const { inicio, fim } = periodToRange(input.periodo, input.dataInicio, input.dataFim);
+    const { error } = await supabase.from("metas").update({
+      titulo: input.titulo, tipo: input.tipo, periodo: input.periodo,
+      valor_meta: input.valorMeta, data_inicio: inicio, data_fim: fim,
+      updated_at: new Date().toISOString(),
+    }).eq("id", id);
+    if (error) { toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" }); return false; }
+    toast({ title: "Meta atualizada" });
+    await fetch();
+    return true;
+  };
+
   const remove = async (id: string): Promise<boolean> => {
     const { error } = await supabase.from("metas").update({ deletado: true }).eq("id", id);
     if (error) { toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" }); return false; }
@@ -153,5 +166,5 @@ export function useMetas() {
     return true;
   };
 
-  return { metas, loading, create, remove, refetch: fetch };
+  return { metas, loading, create, update, remove, refetch: fetch };
 }

@@ -1,5 +1,5 @@
 ﻿
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,22 +15,37 @@ import { useMetas } from "@/hooks/useMetas";
 const Metas = () => {
   const [activeTab, setActiveTab] = useState("individuais");
   const [createGoalOpen, setCreateGoalOpen] = useState(false);
-  const { metas, loading, create, remove } = useMetas();
+  const [editGoal, setEditGoal] = useState<any | null>(null);
+  const { metas, loading, create, update, remove } = useMetas();
 
-  const handleCreateGoal = (novaMeta: any) => {
-    create({
-      titulo: novaMeta.titulo,
-      tipo: novaMeta.tipo,
-      periodo: novaMeta.periodo,
-      valorMeta: novaMeta.valorMeta,
-      dataInicio: novaMeta.dataInicio,
-      dataFim: novaMeta.dataFim,
-    });
+  const handleSaveGoal = (m: any) => {
+    const payload = { titulo: m.titulo, tipo: m.tipo, periodo: m.periodo, valorMeta: m.valorMeta, dataInicio: m.dataInicio, dataFim: m.dataFim };
+    if (editGoal?.id) update(editGoal.id, payload);
+    else create(payload);
+    setEditGoal(null);
   };
 
   const handleDeleteGoal = (goalId: string) => {
     remove(goalId);
   };
+
+  const openEdit = (meta: any) => { setEditGoal(meta); setCreateGoalOpen(true); };
+
+  // Consolidação por tipo (visão do escritório) — usa as metas reais (RLS define o escopo)
+  const TIPO_LABEL: Record<string, string> = {
+    receita: "Receita", clientes: "Novos Clientes", processos: "Processos Finalizados",
+    audiencias: "Audiências", atendimentos: "Atendimentos", prazos: "Prazos Cumpridos",
+  };
+  const consolidado = useMemo(() => {
+    const map: Record<string, { meta: number; atual: number; qtd: number }> = {};
+    metas.forEach(m => {
+      if (!map[m.tipo]) map[m.tipo] = { meta: 0, atual: 0, qtd: 0 };
+      map[m.tipo].meta += m.valorMeta;
+      map[m.tipo].atual += m.valorAtual;
+      map[m.tipo].qtd += 1;
+    });
+    return Object.entries(map).map(([tipo, v]) => ({ tipo, ...v, pct: v.meta > 0 ? Math.round((v.atual / v.meta) * 100) : 0 }));
+  }, [metas]);
 
   const getProgressColor = (percentage: number) => {
     if (percentage >= 90) return "text-green-600";
@@ -69,7 +84,7 @@ const Metas = () => {
         
         <div className="flex items-center gap-3 glass-morphism p-2 rounded-2xl border border-black/5 dark:border-border bg-black/[0.02] dark:bg-muted/30 shadow-premium">
           <Button 
-            onClick={() => setCreateGoalOpen(true)}
+            onClick={() => { setEditGoal(null); setCreateGoalOpen(true); }}
             size="lg"
             className="rounded-xl h-12 shadow-premium bg-primary hover:bg-primary/90 font-black uppercase text-xs tracking-widest px-8"
           >
@@ -128,7 +143,7 @@ const Metas = () => {
                           </div>
                         </div>
                         <div className="flex gap-2">
-                          <Button size="icon" variant="ghost" className="h-10 w-10 rounded-xl hover:bg-primary/10">
+                          <Button size="icon" variant="ghost" onClick={() => openEdit(meta)} className="h-10 w-10 rounded-xl hover:bg-primary/10">
                             <Edit className="h-5 w-5" />
                           </Button>
                           <Button 
@@ -198,7 +213,7 @@ const Metas = () => {
                       Comece a transformar sua produtividade criando sua primeira meta estratégica hoje.
                     </p>
                   </div>
-                  <Button onClick={() => setCreateGoalOpen(true)} size="lg" className="rounded-2xl h-14 px-10 font-bold shadow-premium">
+                  <Button onClick={() => { setEditGoal(null); setCreateGoalOpen(true); }} size="lg" className="rounded-2xl h-14 px-10 font-bold shadow-premium">
                     <Plus className="h-6 w-6 mr-2" />
                     Criar Primeira Meta
                   </Button>
@@ -216,53 +231,37 @@ const Metas = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <TrendingUp className="h-5 w-5" />
-                  Metas do Escritório
+                  Metas do Escritório (consolidado)
                 </CardTitle>
                 <CardDescription>
-                  Objetivos gerais e indicadores de desempenho
+                  Soma de todas as metas por tipo. Progresso calculado automaticamente.
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-6 md:grid-cols-2">
-                  <div className="space-y-4">
-                    <h4 className="font-medium">Indicadores Financeiros</h4>
-                    <div className="space-y-3">
-                      <div>
-                        <div className="flex justify-between text-sm">
-                          <span>Faturamento Mensal</span>
-                          <span>R$ 180.000 / R$ 200.000</span>
-                        </div>
-                        <Progress value={90} className="mt-1" />
-                      </div>
-                      <div>
-                        <div className="flex justify-between text-sm">
-                          <span>Margem de Lucro</span>
-                          <span>68% / 70%</span>
-                        </div>
-                        <Progress value={97} className="mt-1" />
-                      </div>
-                    </div>
+                {consolidado.length === 0 ? (
+                  <div className="py-12 text-center text-muted-foreground">
+                    <Target className="h-10 w-10 mx-auto mb-2 opacity-20" />
+                    <p className="text-sm">Nenhuma meta cadastrada ainda. Crie metas na aba "Individuais".</p>
                   </div>
-                  <div className="space-y-4">
-                    <h4 className="font-medium">Indicadores Operacionais</h4>
-                    <div className="space-y-3">
-                      <div>
+                ) : (
+                  <div className="grid gap-6 md:grid-cols-2">
+                    {consolidado.map((c) => (
+                      <div key={c.tipo} className="space-y-2">
                         <div className="flex justify-between text-sm">
-                          <span>Novos Processos</span>
-                          <span>45 / 50</span>
+                          <span className="font-bold">{TIPO_LABEL[c.tipo] || c.tipo}</span>
+                          <span className="text-muted-foreground">
+                            {c.tipo === "receita" ? formatValue(c.atual, "receita") : c.atual}
+                            {" / "}
+                            {c.tipo === "receita" ? formatValue(c.meta, "receita") : c.meta}
+                            <span className="ml-2 font-bold text-foreground">{c.pct}%</span>
+                          </span>
                         </div>
-                        <Progress value={90} className="mt-1" />
+                        <Progress value={Math.min(c.pct, 100)} className="mt-1" />
+                        <p className="text-[10px] text-muted-foreground/60">{c.qtd} meta{c.qtd > 1 ? "s" : ""} deste tipo</p>
                       </div>
-                      <div>
-                        <div className="flex justify-between text-sm">
-                          <span>Satisfação Clientes</span>
-                          <span>92% / 95%</span>
-                        </div>
-                        <Progress value={97} className="mt-1" />
-                      </div>
-                    </div>
+                    ))}
                   </div>
-                </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -270,8 +269,9 @@ const Metas = () => {
 
         <CreateGoalDialog
           open={createGoalOpen}
-          onOpenChange={setCreateGoalOpen}
-          onSave={handleCreateGoal}
+          onOpenChange={(o) => { setCreateGoalOpen(o); if (!o) setEditGoal(null); }}
+          onSave={handleSaveGoal}
+          initial={editGoal}
         />
       </div>
     </PermissionGuard>

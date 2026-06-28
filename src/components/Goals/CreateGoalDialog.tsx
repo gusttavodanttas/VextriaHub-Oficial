@@ -18,10 +18,12 @@ interface CreateGoalDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (goal: any) => void;
+  initial?: any | null;
 }
 
-export const CreateGoalDialog = ({ open, onOpenChange, onSave }: CreateGoalDialogProps) => {
+export const CreateGoalDialog = ({ open, onOpenChange, onSave, initial }: CreateGoalDialogProps) => {
   const { toast } = useToast();
+  const isEdit = !!initial;
   const [formData, setFormData] = useState({
     titulo: "",
     tipo: "",
@@ -31,6 +33,22 @@ export const CreateGoalDialog = ({ open, onOpenChange, onSave }: CreateGoalDialo
     valorMeta: "",
     descricao: ""
   });
+
+  React.useEffect(() => {
+    if (open && initial) {
+      setFormData({
+        titulo: initial.titulo || "",
+        tipo: initial.tipo || "",
+        periodo: initial.periodo || "",
+        dataInicio: initial.dataInicio ? new Date(initial.dataInicio) : undefined,
+        dataFim: initial.dataFim ? new Date(initial.dataFim) : undefined,
+        valorMeta: initial.valorMeta != null ? String(initial.valorMeta) : "",
+        descricao: initial.descricao || "",
+      });
+    } else if (open && !initial) {
+      setFormData({ titulo: "", tipo: "", periodo: "", dataInicio: undefined, dataFim: undefined, valorMeta: "", descricao: "" });
+    }
+  }, [open, initial]);
 
   const tiposMeta = [
     { value: "processos", label: "Processos Finalizados" },
@@ -62,7 +80,7 @@ export const CreateGoalDialog = ({ open, onOpenChange, onSave }: CreateGoalDialo
     }
 
     const novaMeta = {
-      id: Date.now(),
+      id: initial?.id,
       titulo: formData.titulo,
       tipo: formData.tipo,
       periodo: formData.periodo,
@@ -72,15 +90,9 @@ export const CreateGoalDialog = ({ open, onOpenChange, onSave }: CreateGoalDialo
       valorAtual: 0,
       descricao: formData.descricao,
       status: "ativa",
-      createdAt: new Date()
     };
 
     onSave(novaMeta);
-    
-    toast({
-      title: "Meta criada",
-      description: "A meta foi criada com sucesso.",
-    });
 
     // Reset form
     setFormData({
@@ -102,7 +114,7 @@ export const CreateGoalDialog = ({ open, onOpenChange, onSave }: CreateGoalDialo
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Target className="h-5 w-5" />
-            Nova Meta
+            {isEdit ? "Editar Meta" : "Nova Meta"}
           </DialogTitle>
         </DialogHeader>
 
@@ -243,7 +255,7 @@ export const CreateGoalDialog = ({ open, onOpenChange, onSave }: CreateGoalDialo
               Cancelar
             </Button>
             <Button type="submit" className="flex-1">
-              Criar Meta
+              {isEdit ? "Salvar" : "Criar Meta"}
             </Button>
           </div>
         </form>
