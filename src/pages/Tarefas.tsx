@@ -15,6 +15,7 @@ import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
 import { NovaTarefaDialog } from "@/components/Tarefas/NovaTarefaDialog";
 import { useMultiSelect } from "@/hooks/useMultiSelect";
 import { useTarefas, type Tarefa, type TarefaInput } from "@/hooks/useTarefas";
+import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 import { useClientes } from "@/hooks/useClientes";
 import { useProcessosV2 } from "@/hooks/useProcessosV2";
 import { useOpenItemFromSearch } from "@/hooks/useOpenItemFromSearch";
@@ -48,6 +49,7 @@ const Tarefas = () => {
   const { tarefas, isLoading, create, createMany, update, toggle, remove } = useTarefas();
   const { data: clientesData } = useClientes();
   const { data: processosData } = useProcessosV2();
+  const { users: officeUsers } = useOfficeUsers();
   const { user } = useAuth();
 
   const { data: atendimentosData } = useQuery({
@@ -64,6 +66,7 @@ const Tarefas = () => {
   });
 
   const clientes = useMemo(() => (clientesData || []).map((c: any) => ({ id: c.id, label: c.nome })), [clientesData]);
+  const membros = useMemo(() => officeUsers.map(u => ({ id: u.user_id, label: u.profile?.full_name || u.profile?.email || "Membro" })), [officeUsers]);
   const processos = useMemo(() => (processosData || []).map((p: any) => ({ id: p.id, label: p.numeroProcesso ? `${p.titulo} · ${p.numeroProcesso}` : p.titulo })), [processosData]);
   const atendimentos = useMemo(() => (atendimentosData || []).map((a: any) => ({ id: a.id, label: `${a.tipo_atendimento}${a.data_atendimento ? " · " + format(parseISO(a.data_atendimento), "dd/MM/yy") : ""}` })), [atendimentosData]);
   const processoMap = useMemo(() => Object.fromEntries(processos.map(p => [p.id, p.label])), [processos]);
@@ -419,6 +422,7 @@ const Tarefas = () => {
 
       <NovaTarefaDialog open={dialogOpen} onOpenChange={setDialogOpen}
         clientes={clientes} processos={processos} atendimentos={atendimentos}
+        membros={membros}
         tarefa={editTarget} onSubmit={handleSubmit} onSubmitMany={handleSubmitMany} />
 
       <DeleteConfirmDialog

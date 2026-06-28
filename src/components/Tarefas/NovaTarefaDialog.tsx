@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { RECORRENCIAS, generateOccurrences, type RecRule } from "@/lib/recorrencia";
 import type { Tarefa, TarefaInput } from "@/hooks/useTarefas";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Option { id: string; label: string; }
 
@@ -19,6 +20,7 @@ interface NovaTarefaDialogProps {
   clientes: Option[];
   processos: Option[];
   atendimentos: Option[];
+  membros?: Option[];
   tarefa?: Tarefa | null;
   onSubmit: (input: TarefaInput, id?: string) => Promise<void>;
   onSubmitMany: (inputs: TarefaInput[]) => Promise<void>;
@@ -31,12 +33,13 @@ const prioridades = [
 ];
 
 const NONE = "__none__";
-const empty = { titulo: "", descricao: "", data_vencimento: "", prioridade: "media", cliente_id: NONE, processo_id: NONE, atendimento_id: NONE, recorrencia: "nenhuma", ocorrencias: "4" };
+const empty = { titulo: "", descricao: "", data_vencimento: "", prioridade: "media", cliente_id: NONE, processo_id: NONE, atendimento_id: NONE, recorrencia: "nenhuma", ocorrencias: "4", responsavel_id: NONE };
 
-export const NovaTarefaDialog = ({ open, onOpenChange, clientes, processos, atendimentos, tarefa, onSubmit, onSubmitMany }: NovaTarefaDialogProps) => {
+export const NovaTarefaDialog = ({ open, onOpenChange, clientes, processos, atendimentos, membros = [], tarefa, onSubmit, onSubmitMany }: NovaTarefaDialogProps) => {
+  const { user } = useAuth();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
-  const [formData, setFormData] = useState(empty);
+  const [formData, setFormData] = useState({ ...empty, responsavel_id: user?.id || NONE });
   const isEdit = !!tarefa;
 
   useEffect(() => {
@@ -52,9 +55,10 @@ export const NovaTarefaDialog = ({ open, onOpenChange, clientes, processos, aten
         atendimento_id: tarefa.atendimento_id || NONE,
         recorrencia: "nenhuma",
         ocorrencias: "4",
+        responsavel_id: tarefa.responsavel_id || user?.id || NONE,
       });
     } else {
-      setFormData(empty);
+      setFormData({ ...empty, responsavel_id: user?.id || NONE });
     }
   }, [open, tarefa]);
 
@@ -78,6 +82,7 @@ export const NovaTarefaDialog = ({ open, onOpenChange, clientes, processos, aten
       cliente_id: formData.cliente_id === NONE ? null : formData.cliente_id,
       processo_id: formData.processo_id === NONE ? null : formData.processo_id,
       atendimento_id: formData.atendimento_id === NONE ? null : formData.atendimento_id,
+      responsavel_id: formData.responsavel_id === NONE ? (user?.id || null) : formData.responsavel_id,
     };
 
     setSaving(true);
@@ -140,6 +145,19 @@ export const NovaTarefaDialog = ({ open, onOpenChange, clientes, processos, aten
               </Select>
             </div>
           </div>
+
+          {/* Responsável */}
+          {membros.length > 0 && (
+            <div className="space-y-2">
+              <Label>Responsável</Label>
+              <Select value={formData.responsavel_id} onValueChange={(v) => setFormData({ ...formData, responsavel_id: v })}>
+                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Selecionar responsável" /></SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  {membros.map((m) => <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Vínculos */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

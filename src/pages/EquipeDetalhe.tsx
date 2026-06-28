@@ -6,12 +6,33 @@ import { useOfficeTeams } from "@/hooks/useOfficeTeams";
 import {
   ArrowLeft, Users, FileText, CheckSquare, Calendar,
   Clock, MessageSquare, BookOpen, TrendingUp, AlertCircle,
-  ChevronDown, ChevronUp, Crown
+  ChevronDown, ChevronUp, Crown, ArrowUpDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+
+type Period = "week" | "month" | "quarter" | "year";
+type SortKey = "processos" | "tarefasPendentes" | "tarefasConcluidas" | "audiencias" | "atendimentos" | "horasTimesheet";
+
+function getPeriodDates(period: Period) {
+  const now = new Date();
+  const end = new Date(now);
+  let start: Date;
+  switch (period) {
+    case "week":
+      start = new Date(now); start.setDate(now.getDate() - 7); break;
+    case "month":
+      start = new Date(now.getFullYear(), now.getMonth(), 1); break;
+    case "quarter":
+      start = new Date(now); start.setMonth(now.getMonth() - 3); break;
+    case "year":
+      start = new Date(now.getFullYear(), 0, 1); break;
+  }
+  return { start: start.toISOString(), end: end.toISOString(), startDate: start.toISOString().split("T")[0], endDate: end.toISOString().split("T")[0] };
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -81,7 +102,9 @@ function StatCard({ icon: Icon, label, value, color }: {
 
 // ─── MemberCard ───────────────────────────────────────────────────────────────
 
-function MemberCard({ member }: { member: MemberStats }) {
+const rankColors = ["text-amber-500", "text-slate-400", "text-orange-700"];
+
+function MemberCard({ member, rank }: { member: MemberStats; rank: number }) {
   const [expanded, setExpanded] = useState(false);
   const name = member.full_name || member.email || "Membro";
   const totalTarefas = member.tarefasPendentes + member.tarefasConcluidas;
@@ -93,8 +116,15 @@ function MemberCard({ member }: { member: MemberStats }) {
     <div className="border border-border rounded-2xl overflow-hidden bg-card transition-shadow hover:shadow-md">
       {/* Header */}
       <div className="flex items-center gap-4 p-5">
-        <div className={cn("h-11 w-11 rounded-xl flex items-center justify-center text-sm font-black text-white shrink-0", avatarColor(member.user_id))}>
-          {getInitials(name)}
+        <div className="relative shrink-0">
+          <div className={cn("h-11 w-11 rounded-xl flex items-center justify-center text-sm font-black text-white", avatarColor(member.user_id))}>
+            {getInitials(name)}
+          </div>
+          {rank <= 3 && (
+            <span className={cn("absolute -top-1.5 -right-1.5 text-xs font-black", rankColors[rank - 1])}>
+              #{rank}
+            </span>
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
@@ -188,10 +218,18 @@ export default function EquipeDetalhe() {
     audiencias: 0, prazos: 0, atendimentos: 0, consultivos: 0, horasTimesheet: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState<Period>("month");
+  const [sortKey, setSortKey] = useState<SortKey>("processos");
 
   const fetchData = useCallback(async () => {
     if (!teamId || !user?.office_id) return;
     setLoading(true);
+
+    const { start, end, startDate, endDate } = getPeriodDates(period);
+    const now = new Date();
+    const in7days = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const in3days = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const today = now.toISOString().split("T")[0];
 
     // 1. Buscar membros da equipe com perfis
     const { data: membersData } = await supabase
@@ -211,32 +249,28 @@ export default function EquipeDetalhe() {
     const profileMap: Record<string, { full_name: string | null; email: string | null }> = {};
     (profilesData || []).forEach(p => { profileMap[p.user_id] = p; });
 
-    // 2. Buscar todas as métricas em paralelo por user_ids
-    const now = new Date();
-    const in7days = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-    const in3days = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-    const today = now.toISOString().split("T")[0];
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-
+    // 2. Buscar todas as métricas em paralelo filtradas pelo período
     const [
       processosRes, tarefasRes, audienciasRes,
       prazosRes, atendimentosRes, consultivosRes, timesheetRes
     ] = await Promise.all([
       supabase.from("processos").select("user_id").eq("office_id", user.office_id)
-        .eq("deletado", false).neq("status", "encerrado").in("user_id", userIds),
+        .eq("deletado", false).neq("status", "encerrado").in("user_id", userIds)
+        .gte("created_at", start).lte("created_at", end),
       supabase.from("tarefas").select("user_id, concluida").eq("office_id", user.office_id)
-        .eq("deletado", false).in("user_id", userIds),
+        .eq("deletado", false).in("user_id", userIds)
+        .gte("created_at", start).lte("created_at", end),
       supabase.from("audiencias").select("user_id").eq("office_id", user.office_id)
         .eq("deletado", false).gte("data_audiencia", now.toISOString())
         .lte("data_audiencia", in7days).in("user_id", userIds),
       supabase.from("prazos").select("user_id").eq("office_id", user.office_id)
         .gte("data_fim_prazo", today).lte("data_fim_prazo", in3days).in("user_id", userIds),
       supabase.from("atendimentos").select("user_id").eq("office_id", user.office_id)
-        .eq("deletado", false).gte("created_at", monthStart).in("user_id", userIds),
+        .eq("deletado", false).gte("created_at", start).lte("created_at", end).in("user_id", userIds),
       supabase.from("consultivos").select("user_id").eq("office_id", user.office_id)
-        .eq("deletado", false).in("user_id", userIds),
+        .eq("deletado", false).gte("created_at", start).lte("created_at", end).in("user_id", userIds),
       supabase.from("timesheets").select("user_id, duracao_minutos")
-        .gte("created_at", monthStart).in("user_id", userIds),
+        .gte("created_at", start).lte("created_at", end).in("user_id", userIds),
     ]);
 
     // 3. Agrupar por user_id
@@ -301,7 +335,7 @@ export default function EquipeDetalhe() {
     });
 
     setLoading(false);
-  }, [teamId, user?.office_id]);
+  }, [teamId, user?.office_id, period]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -309,6 +343,12 @@ export default function EquipeDetalhe() {
   const progressPct = totalTarefas > 0
     ? Math.round((summary.tarefasConcluidas / totalTarefas) * 100)
     : 0;
+
+  const sortedMembers = [...members].sort((a, b) => b[sortKey] - a[sortKey]);
+
+  const periodLabel: Record<Period, string> = {
+    week: "Esta semana", month: "Este mês", quarter: "Últimos 3 meses", year: "Este ano"
+  };
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-8">
@@ -354,6 +394,22 @@ export default function EquipeDetalhe() {
         </div>
       ) : (
         <>
+          {/* Controles de período */}
+          <div className="flex flex-wrap items-center gap-3">
+            <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
+              <SelectTrigger className="h-9 w-44 rounded-xl text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="week">Esta semana</SelectItem>
+                <SelectItem value="month">Este mês</SelectItem>
+                <SelectItem value="quarter">Últimos 3 meses</SelectItem>
+                <SelectItem value="year">Este ano</SelectItem>
+              </SelectContent>
+            </Select>
+            <span className="text-xs text-muted-foreground">· Dados de {periodLabel[period].toLowerCase()}</span>
+          </div>
+
           {/* Resumo da equipe */}
           <div>
             <div className="flex items-center gap-2 mb-4">
@@ -384,13 +440,30 @@ export default function EquipeDetalhe() {
 
           {/* Produtividade por membro */}
           <div>
-            <div className="flex items-center gap-2 mb-4">
-              <Users className="h-4 w-4 text-primary" />
-              <h2 className="font-black text-base">Produtividade por Membro</h2>
-              <span className="text-xs text-muted-foreground ml-1">Clique no membro para expandir detalhes</span>
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-primary" />
+                <h2 className="font-black text-base">Produtividade por Membro</h2>
+              </div>
+              <div className="flex items-center gap-2 ml-auto">
+                <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+                <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
+                  <SelectTrigger className="h-8 w-44 rounded-xl text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="processos">Processos</SelectItem>
+                    <SelectItem value="tarefasPendentes">Tarefas abertas</SelectItem>
+                    <SelectItem value="tarefasConcluidas">Tarefas concluídas</SelectItem>
+                    <SelectItem value="audiencias">Audiências</SelectItem>
+                    <SelectItem value="atendimentos">Atendimentos</SelectItem>
+                    <SelectItem value="horasTimesheet">Horas timesheet</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {members.map(m => <MemberCard key={m.user_id} member={m} />)}
+              {sortedMembers.map((m, i) => <MemberCard key={m.user_id} member={m} rank={i + 1} />)}
             </div>
           </div>
         </>

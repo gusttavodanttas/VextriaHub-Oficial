@@ -75,5 +75,8 @@ export function useMyTeams() {
     ),
   ];
 
-  return { teams, loading, isCoordinatorOf, isAnyCoordinator, coordinatedMemberIds, refetch: fetch };
+  // Todos os user_ids de todas as equipes do usuário (para filtro de conteúdo)
+  const allTeamMemberIds = [...new Set(teams.flatMap(t => t.memberIds))];
+
+  return { teams, loading, isCoordinatorOf, isAnyCoordinator, coordinatedMemberIds, allTeamMemberIds, refetch: fetch };
 }

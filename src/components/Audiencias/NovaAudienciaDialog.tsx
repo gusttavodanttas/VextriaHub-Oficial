@@ -8,14 +8,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CalendarPlus, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Audiencia, AudienciaInput } from "@/hooks/useAudiencias";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface ClienteOption { id: string; nome: string; }
+interface MembroOption { id: string; label: string; }
 
 interface NovaAudienciaDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   clientes: ClienteOption[];
   tipos: string[];
+  membros?: MembroOption[];
   audiencia?: Audiencia | null;
   onSubmit: (input: AudienciaInput, id?: string) => Promise<void>;
   onManageTipos?: () => void;
@@ -29,12 +32,13 @@ const statusOptions = [
   { value: "cancelada", label: "Cancelada" },
 ];
 
-const empty = { titulo: "", cliente_id: "", data: "", hora: "", tipo: "", local: "", observacao: "", status: "agendada" };
+const empty = { titulo: "", cliente_id: "", data: "", hora: "", tipo: "", local: "", observacao: "", status: "agendada", responsavel_id: "" };
 
-export const NovaAudienciaDialog = ({ open, onOpenChange, clientes, tipos, audiencia, onSubmit, onManageTipos }: NovaAudienciaDialogProps) => {
+export const NovaAudienciaDialog = ({ open, onOpenChange, clientes, tipos, membros = [], audiencia, onSubmit, onManageTipos }: NovaAudienciaDialogProps) => {
+  const { user } = useAuth();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
-  const [formData, setFormData] = useState(empty);
+  const [formData, setFormData] = useState({ ...empty, responsavel_id: user?.id || "" });
 
   const isEdit = !!audiencia;
 
@@ -53,9 +57,9 @@ export const NovaAudienciaDialog = ({ open, onOpenChange, clientes, tipos, audie
         status: audiencia.status || "agendada",
       });
     } else {
-      setFormData(empty);
+      setFormData({ ...empty, responsavel_id: user?.id || "" });
     }
-  }, [open, audiencia]);
+  }, [open, audiencia, user?.id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,6 +76,7 @@ export const NovaAudienciaDialog = ({ open, onOpenChange, clientes, tipos, audie
       status: formData.status,
       observacoes: formData.observacao || null,
       cliente_id: formData.cliente_id || null,
+      responsavel_id: formData.responsavel_id || user?.id || null,
     };
     setSaving(true);
     try {
@@ -114,6 +119,18 @@ export const NovaAudienciaDialog = ({ open, onOpenChange, clientes, tipos, audie
               </Select>
             </div>
           </div>
+
+          {membros.length > 0 && (
+            <div className="space-y-2">
+              <Label>Responsável</Label>
+              <Select value={formData.responsavel_id} onValueChange={(v) => setFormData({ ...formData, responsavel_id: v })}>
+                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Selecionar responsável" /></SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  {membros.map((m) => <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">

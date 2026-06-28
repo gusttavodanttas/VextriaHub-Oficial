@@ -21,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useMultiSelect } from "@/hooks/useMultiSelect";
 import { useAudiencias, type Audiencia, type AudienciaInput } from "@/hooks/useAudiencias";
 import { useClientes } from "@/hooks/useClientes";
+import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 import { cn } from "@/lib/utils";
 import { format, isToday, isTomorrow, isThisWeek, isPast, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -49,7 +50,9 @@ const Audiencias = () => {
   const { audiencias, isLoading, create, update, updateStatus, remove } = useAudiencias();
   const { data: clientesData } = useClientes();
   const { tipos: tiposCadastrados } = useAudienciaTipos();
+  const { users: officeUsers } = useOfficeUsers();
   const clientes = useMemo(() => (clientesData || []).map((c: any) => ({ id: c.id, nome: c.nome })), [clientesData]);
+  const membros = useMemo(() => officeUsers.map(u => ({ id: u.user_id, label: u.profile?.full_name || u.profile?.email || "Membro" })), [officeUsers]);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("todas");
@@ -317,7 +320,8 @@ const Audiencias = () => {
         </TabsContent>
       </Tabs>
 
-      <NovaAudienciaDialog open={dialogOpen} onOpenChange={setDialogOpen} clientes={clientes} tipos={tiposCadastrados} audiencia={editTarget} onSubmit={handleSubmit}
+      <NovaAudienciaDialog open={dialogOpen} onOpenChange={setDialogOpen} clientes={clientes} tipos={tiposCadastrados}
+        membros={membros} audiencia={editTarget} onSubmit={handleSubmit}
         onManageTipos={() => { setDialogOpen(false); setTiposDialogOpen(true); }} />
 
       <GerenciarTiposDialog open={tiposDialogOpen} onOpenChange={setTiposDialogOpen} />

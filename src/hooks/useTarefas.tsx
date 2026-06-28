@@ -18,6 +18,7 @@ export interface Tarefa {
   recorrencia_regra: string | null;
   cliente_nome?: string | null;
   updated_at?: string | null;
+  responsavel_id?: string | null;
 }
 
 export interface TarefaInput {
@@ -30,6 +31,7 @@ export interface TarefaInput {
   atendimento_id?: string | null;
   recorrencia_grupo?: string | null;
   recorrencia_regra?: string | null;
+  responsavel_id?: string | null;
 }
 
 // Monta o payload de insert/update incluindo atendimento_id só quando há valor
@@ -45,6 +47,7 @@ function buildPayload(input: Partial<TarefaInput>) {
   if (input.atendimento_id) p.atendimento_id = input.atendimento_id;
   if (input.recorrencia_grupo) p.recorrencia_grupo = input.recorrencia_grupo;
   if (input.recorrencia_regra) p.recorrencia_regra = input.recorrencia_regra;
+  if (input.responsavel_id !== undefined) p.responsavel_id = input.responsavel_id;
   return p;
 }
 
