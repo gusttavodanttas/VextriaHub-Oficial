@@ -20,10 +20,14 @@ export function CrmRelatorios({ onBack, data = [], loading = false }: BaseProps)
   
   const leads = data.filter(c => leadsStatuses.includes((c.status || "").toLowerCase()));
   const clients = data.filter(c => conversionStatuses.includes((c.status || "").toLowerCase()));
-  
+
   const crmTotal = leads.length + clients.length;
   const conversionRate = crmTotal > 0 ? Math.round((clients.length / crmTotal) * 100) : 0;
-  
+  const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+  const val = (c: any) => Number(c.valor_estimado) || 0;
+  const pipelineValue = leads.reduce((s, c) => s + val(c), 0);
+  const convertedValue = clients.reduce((s, c) => s + val(c), 0);
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -68,11 +72,11 @@ export function CrmRelatorios({ onBack, data = [], loading = false }: BaseProps)
           <CardContent>
              {loading ? <Loader2 className="h-8 w-8 animate-spin text-primary/20" /> : (
               <>
-                <div className="text-4xl font-black text-primary">R$ {leads.length * 1.5}k</div>
-                <p className="text-xs font-bold text-muted-foreground mt-1">Ticket médio estimado</p>
+                <div className="text-3xl font-black text-primary truncate">{brl(pipelineValue)}</div>
+                <p className="text-xs font-bold text-muted-foreground mt-1">Valor estimado dos leads ativos</p>
                 <div className="mt-4 flex items-center gap-2 pt-4 border-t border-black/5 dark:border-border">
                   <TrendingUp className="h-3 w-3 text-emerald-500" />
-                  <span className="text-[10px] font-bold text-emerald-500 uppercase">Crescimento constante</span>
+                  <span className="text-[10px] font-bold text-emerald-500 uppercase">{leads.length} negócios em aberto</span>
                 </div>
               </>
             )}
@@ -81,14 +85,14 @@ export function CrmRelatorios({ onBack, data = [], loading = false }: BaseProps)
 
         <Card className="glass-card border-black/5 dark:border-border rounded-[2rem] overflow-hidden">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-black uppercase tracking-widest text-muted-foreground opacity-60">Tempo de Resposta</CardTitle>
+            <CardTitle className="text-sm font-black uppercase tracking-widest text-muted-foreground opacity-60">Receita Convertida</CardTitle>
           </CardHeader>
           <CardContent>
-             <div className="text-4xl font-black text-blue-500">2.4h</div>
-             <p className="text-xs font-bold text-muted-foreground mt-1">Média de atendimento</p>
+             <div className="text-3xl font-black text-blue-500 truncate">{loading ? <Loader2 className="h-8 w-8 animate-spin" /> : brl(convertedValue)}</div>
+             <p className="text-xs font-bold text-muted-foreground mt-1">Valor dos contratos fechados</p>
              <div className="mt-4 flex items-center gap-2 pt-4 border-t border-black/5 dark:border-border">
-               <div className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
-               <span className="text-[10px] font-bold text-blue-500 uppercase">Benchmark setado</span>
+               <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+               <span className="text-[10px] font-bold text-blue-500 uppercase">{clients.length} clientes convertidos</span>
              </div>
           </CardContent>
         </Card>
@@ -153,9 +157,14 @@ export function CrmMetas({ onBack, data = [], loading = false }: BaseProps) {
   
   const leadTarget = 20;
   const convTarget = 10;
-  
+
   const leadProgress = Math.min(100, Math.round((leadsThisMonth / leadTarget) * 100));
   const convProgress = Math.min(100, Math.round((conversionsThisMonth / convTarget) * 100));
+
+  const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+  const val = (c: any) => Number(c.valor_estimado) || 0;
+  const pipelineValue = data.filter(c => ["lead", "quente", "morno", "frio"].includes((c.status || "").toLowerCase())).reduce((s, c) => s + val(c), 0);
+  const convertedValue = data.filter(c => (c.status || "").toLowerCase() === "convertido").reduce((s, c) => s + val(c), 0);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -211,15 +220,15 @@ export function CrmMetas({ onBack, data = [], loading = false }: BaseProps) {
 
           <div className="pt-6 border-t border-black/5 dark:border-border grid grid-cols-1 sm:grid-cols-2 gap-4">
              <div className="p-4 rounded-2xl bg-primary/5 border border-primary/10 relative overflow-hidden group">
-                <p className="text-[10px] font-black uppercase tracking-widest text-primary/60">ROI Projetado (Volume x 1.2)</p>
-                <p className="text-2xl font-black">{(leadsThisMonth * 1.2).toFixed(1)}x</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-primary/60">Valor do Pipeline</p>
+                <p className="text-2xl font-black truncate">{brl(pipelineValue)}</p>
                 <div className="absolute -right-2 -bottom-2 opacity-5 group-hover:opacity-10 transition-opacity">
                   <TrendingUp className="h-12 w-12" />
                 </div>
              </div>
-             <div className="p-4 rounded-2xl bg-blue-500/5 border border-blue-500/10 relative overflow-hidden group">
-                <p className="text-[10px] font-black uppercase tracking-widest text-blue-500/60">Tempo Médio Resposta</p>
-                <p className="text-2xl font-black">2.4h</p>
+             <div className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 relative overflow-hidden group">
+                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600/60">Receita Convertida</p>
+                <p className="text-2xl font-black truncate">{brl(convertedValue)}</p>
                 <div className="absolute -right-2 -bottom-2 opacity-5 group-hover:opacity-10 transition-opacity">
                   <TrendingUp className="h-12 w-12" />
                 </div>
