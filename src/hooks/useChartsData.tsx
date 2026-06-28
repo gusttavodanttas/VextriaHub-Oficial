@@ -52,6 +52,8 @@ export interface ChartsData {
   financeiroPorMes: { mes: string; receita: number; despesa: number }[];
   honorariosPorCategoria: { name: string; value: number; fill: string }[];
   processosPorArea: { name: string; value: number; fill: string }[];
+  duracaoMediaDias: number;
+  resultadoProcessos: { name: string; value: number; fill: string }[];
   // Novos módulos
   prazosPorMes: { mes: string; novos: number; cumpridos: number }[];
   prazosPorStatus: { name: string; value: number; fill: string }[];
@@ -84,7 +86,7 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
     totals: { processos: 0, clientes: 0, atendimentos: 0, receita: 0, despesa: 0 },
     processosPorMes: [], statusProcessos: [], clientesPorTipo: [],
     novosClientesPorMes: [], atendimentosPorMes: [], financeiroPorMes: [],
-    honorariosPorCategoria: [], processosPorArea: [],
+    honorariosPorCategoria: [], processosPorArea: [], duracaoMediaDias: 0, resultadoProcessos: [],
     prazosPorMes: [], prazosPorStatus: [], tarefasPorMes: [], audienciasPorMes: [],
     audienciasPorStatus: [], consultivoPorMes: [], consultivoPorStatus: [], timesheetPorMes: [],
     porMembro: [], pontosConfig: PONTOS_DEFAULT, tiposPrazo: [], tiposAudiencia: [], isEmpty: true,
@@ -110,9 +112,9 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
 
       const [proc, prz, cli, at, fin, cons, ts, off] = await Promise.all([
         teamMemberIds
-          ? supabase.from("processos").select("status, tipo_processo, created_at, updated_at, responsavel_id, user_id")
+          ? supabase.from("processos").select("status, tipo_processo, created_at, updated_at, responsavel_id, user_id, data_distribuicao, data_inicio, data_ultima_atualizacao, resultado")
               .eq("office_id", officeId).eq("deletado", false).in("responsavel_id", teamMemberIds)
-          : supabase.from("processos").select("status, tipo_processo, created_at, updated_at, responsavel_id, user_id")
+          : supabase.from("processos").select("status, tipo_processo, created_at, updated_at, responsavel_id, user_id, data_distribuicao, data_inicio, data_ultima_atualizacao, resultado")
               .eq("office_id", officeId).eq("deletado", false),
         inMembers(supabase.from("prazos").select("responsavel_id, data_fim_prazo, created_at, status, tipo_prazo")
           .eq("office_id", officeId), "responsavel_id"),
@@ -281,6 +283,30 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
         .sort((a, b) => b[1] - a[1]).slice(0, 8)
         .map(([k, v], i) => ({ name: k, value: v, fill: PALETTE[i % PALETTE.length] }));
 
+      // Duração média (dias) dos processos encerrados
+      let somaDias = 0, qtdEnc = 0;
+      procRows.forEach((p: any) => {
+        if (p.status !== "encerrado") return;
+        const start = p.data_distribuicao || p.data_inicio || p.created_at;
+        const end = p.data_ultima_atualizacao || p.updated_at;
+        if (!start || !end) return;
+        const dias = Math.round((new Date(end).getTime() - new Date(start).getTime()) / 86_400_000);
+        if (dias >= 0) { somaDias += dias; qtdEnc += 1; }
+      });
+      const duracaoMediaDias = qtdEnc > 0 ? Math.round(somaDias / qtdEnc) : 0;
+
+      // Resultado / desfecho dos processos
+      const RESULTADO_LABEL: Record<string, string> = {
+        ganho: "Ganho", parcial: "Parcial", acordo: "Acordo", perda: "Perda", extinto: "Extinto",
+      };
+      const RESULTADO_FILL: Record<string, string> = {
+        ganho: "#10b981", parcial: "#06b6d4", acordo: "#6366f1", perda: "#ef4444", extinto: "#94a3b8",
+      };
+      const resCount: Record<string, number> = {};
+      procRows.forEach((p: any) => { if (p.resultado) resCount[p.resultado] = (resCount[p.resultado] || 0) + 1; });
+      const resultadoProcessos = Object.entries(resCount)
+        .map(([k, v]) => ({ name: RESULTADO_LABEL[k] || k, value: v, fill: RESULTADO_FILL[k] || "#8b5cf6" }));
+
       const monthlySum = (rows: any[], dateField: string, valFn?: (r: any) => number) => {
         const map: Record<string, number> = {};
         rows.forEach(r => { const mk = monthKey(r[dateField]); if (mk) map[mk] = (map[mk] || 0) + (valFn ? valFn(r) : 1); });
@@ -346,6 +372,7 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
       setData({
         loading: false, totals, processosPorMes, statusProcessos, clientesPorTipo,
         novosClientesPorMes, atendimentosPorMes, financeiroPorMes, honorariosPorCategoria, processosPorArea,
+        duracaoMediaDias, resultadoProcessos,
         prazosPorMes, prazosPorStatus, tarefasPorMes, audienciasPorMes, audienciasPorStatus,
         consultivoPorMes, consultivoPorStatus, timesheetPorMes,
         porMembro, pontosConfig, tiposPrazo, tiposAudiencia,

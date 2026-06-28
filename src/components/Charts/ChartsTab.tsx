@@ -15,7 +15,7 @@ import {
   PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, Legend,
 } from "recharts";
 import {
-  FileText, Users, MessageSquare, TrendingUp, TrendingDown, BarChart3, Trophy, Settings2,
+  FileText, Users, MessageSquare, TrendingUp, TrendingDown, BarChart3, Trophy, Settings2, Clock,
 } from "lucide-react";
 
 const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
@@ -194,6 +194,25 @@ export function ChartsTab() {
               </ResponsiveContainer>
             </ChartCard>
           </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <ChartCard title="Resultado dos processos" empty={d.resultadoProcessos.length === 0}>
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie data={d.resultadoProcessos} cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2} dataKey="value" nameKey="name" label={(e: any) => `${e.name}: ${e.value}`} labelLine={false} fontSize={11}>
+                    {d.resultadoProcessos.map((e, i) => <Cell key={i} fill={e.fill} />)}
+                  </Pie>
+                  <Tooltip {...tooltipStyle} />
+                </PieChart>
+              </ResponsiveContainer>
+            </ChartCard>
+            <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-5 flex flex-col justify-center items-center text-center gap-2">
+              <div className="p-3 rounded-2xl bg-indigo-500/10"><Clock className="h-6 w-6 text-indigo-500" /></div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">Duração média (encerrados)</p>
+              <p className="text-4xl font-black tracking-tight">{d.duracaoMediaDias}<span className="text-lg text-muted-foreground"> dias</span></p>
+              <p className="text-xs text-muted-foreground max-w-[220px]">Tempo médio entre a distribuição e o encerramento dos processos.</p>
+            </div>
+          </div>
+
           <ChartCard title="Processos por área de atuação" empty={d.processosPorArea.length === 0}>
             <ResponsiveContainer width="100%" height={Math.max(240, d.processosPorArea.length * 40)}>
               <BarChart data={d.processosPorArea} layout="vertical" margin={{ left: 16 }}>

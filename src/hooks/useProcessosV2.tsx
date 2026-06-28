@@ -48,6 +48,7 @@ export function useProcessosV2() {
       sincronizadoEm: dbRecord.sincronizado_em || undefined,
       team_id: dbRecord.team_id || null,
       responsavel_id: dbRecord.responsavel_id || dbRecord.user_id || null,
+      resultado: dbRecord.resultado || null,
     } as any;
   };
 
@@ -352,6 +353,7 @@ export function useProcessosV2() {
       }
       if ((updates as any).team_id !== undefined) updatePayload.team_id = (updates as any).team_id;
       if ((updates as any).responsavel_id !== undefined) updatePayload.responsavel_id = (updates as any).responsavel_id;
+      if ((updates as any).resultado !== undefined) updatePayload.resultado = (updates as any).resultado;
 
       const { data: result, error } = await supabase
         .from('processos')

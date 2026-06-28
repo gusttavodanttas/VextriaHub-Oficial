@@ -121,6 +121,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
     valor_causa: 0,
     team_id: '' as string,
     responsavel_id: '' as string,
+    resultado: '' as string,
   });
 
   useEffect(() => {
@@ -139,6 +140,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
         valor_causa: processo.valorCausa || 0,
         team_id: (processo as any).team_id || '',
         responsavel_id: (processo as any).responsavel_id || (processo as any).responsavelId || '',
+        resultado: (processo as any).resultado || '',
       });
       setEditing(false);
       setActiveTab("resumo");
@@ -186,6 +188,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
         valorCausa: editData.valor_causa,
         team_id: editData.team_id || null,
         responsavel_id: editData.responsavel_id || null,
+        resultado: editData.resultado || null,
       } as any);
       setEditing(false);
     } catch (e: any) {
@@ -792,6 +795,34 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                         )}
                       </div>
                     )}
+
+                    {/* Resultado / Desfecho */}
+                    <div className="space-y-1.5">
+                      <p className="text-[10px] text-muted-foreground/60 uppercase font-black tracking-widest">Resultado</p>
+                      {editing ? (
+                        <Select value={editData.resultado || 'none'} onValueChange={(v) => setEditData({ ...editData, resultado: v === 'none' ? '' : v })}>
+                          <SelectTrigger className="h-10 text-sm rounded-xl bg-background border-border">
+                            <SelectValue placeholder="Sem desfecho" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Sem desfecho</SelectItem>
+                            <SelectItem value="ganho">Ganho (procedente)</SelectItem>
+                            <SelectItem value="parcial">Parcialmente procedente</SelectItem>
+                            <SelectItem value="acordo">Acordo</SelectItem>
+                            <SelectItem value="perda">Perda (improcedente)</SelectItem>
+                            <SelectItem value="extinto">Extinto sem mérito</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <div className="flex items-center gap-2 min-h-[40px] px-3 py-2 rounded-xl bg-muted/20 border border-transparent">
+                          {(() => {
+                            const labels: Record<string, string> = { ganho: "Ganho", parcial: "Parcialmente procedente", acordo: "Acordo", perda: "Perda", extinto: "Extinto sem mérito" };
+                            const v = labels[editData.resultado];
+                            return <p className={cn("text-sm font-semibold", !v && "text-foreground/40")}>{v || "—"}</p>;
+                          })()}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
