@@ -1,168 +1,155 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, Plus, Edit, Trash2, UserPlus } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Users, Plus, Trash2, Settings2, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useNavigate } from "react-router-dom";
+import { cn } from "@/lib/utils";
+import { useOfficeTeams } from "@/hooks/useOfficeTeams";
+import { useToast } from "@/hooks/use-toast";
 
-const mockEquipes: any[] = [];
+const CORES = ["#3b82f6", "#10b981", "#a855f7", "#f59e0b", "#ef4444", "#ec4899", "#14b8a6", "#6366f1"];
 
 export function TeamManagement() {
-  const [equipes, setEquipes] = useState(mockEquipes);
-  const [novaEquipe, setNovaEquipe] = useState({ nome: "", area: "" });
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { teams, loading, create, remove } = useOfficeTeams();
+  const { toast } = useToast();
+  const navigate = useNavigate();
 
-  const adicionarEquipe = () => {
-    if (novaEquipe.nome && novaEquipe.area) {
-      const cores = ["bg-red-500", "bg-yellow-500", "bg-indigo-500", "bg-pink-500", "bg-teal-500"];
-      const corAleatoria = cores[Math.floor(Math.random() * cores.length)];
-      
-      const novaEquipeCompleta = {
-        id: equipes.length + 1,
-        nome: novaEquipe.nome,
-        area: novaEquipe.area,
-        membros: [],
-        cor: corAleatoria
-      };
-      
-      setEquipes([...equipes, novaEquipeCompleta]);
-      setNovaEquipe({ nome: "", area: "" });
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [nova, setNova] = useState({ nome: "", descricao: "", cor: CORES[0] });
+
+  const criar = async () => {
+    if (!nova.nome.trim()) return;
+    setSaving(true);
+    const res = await create(nova.nome.trim(), nova.cor, nova.descricao.trim() || undefined);
+    setSaving(false);
+    if (res) {
+      toast({ title: "Equipe criada", description: `"${nova.nome}" foi adicionada.` });
+      setNova({ nome: "", descricao: "", cor: CORES[0] });
       setIsDialogOpen(false);
+    } else {
+      toast({ variant: "destructive", title: "Erro", description: "Não foi possível criar a equipe." });
     }
   };
 
+  const excluir = async (id: string, nome: string) => {
+    if (!confirm(`Excluir a equipe "${nome}"? Os membros serão desvinculados.`)) return;
+    const ok = await remove(id);
+    toast(ok ? { title: "Equipe excluída" } : { variant: "destructive", title: "Erro ao excluir" });
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h3 className="text-lg font-semibold">Gestão de Equipes</h3>
-          <p className="text-sm text-muted-foreground">
-            Organize seus advogados em equipes especializadas
-          </p>
+    <Card className="glass-card rounded-[2rem] border-black/5 dark:border-border overflow-hidden shadow-premium">
+      <CardHeader className="border-b border-black/5 dark:border-border pb-4 flex flex-row items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="h-11 w-11 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+            <Users className="h-5 w-5" />
+          </div>
+          <div>
+            <CardTitle className="text-lg font-black flex items-center gap-2">
+              Equipes
+              {loading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+            </CardTitle>
+            <CardDescription className="text-xs font-medium">Times do escritório e seus coordenadores</CardDescription>
+          </div>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Nova Equipe
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="bg-background border border-border p-6 rounded-[2rem] shadow-2xl">
-            <DialogHeader className="pb-3 border-b border-border">
-              <DialogTitle className="text-xl font-black text-foreground">Criar Nova Equipe</DialogTitle>
-              <DialogDescription className="text-muted-foreground mt-1">
-                Adicione uma nova equipe especializada ao seu escritório
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="nome-equipe">Nome da Equipe</Label>
-                <Input
-                  id="nome-equipe"
-                  placeholder="Ex: Equipe Tributário"
-                  value={novaEquipe.nome}
-                  onChange={(e) => setNovaEquipe({...novaEquipe, nome: e.target.value})}
-                />
+        <div className="flex items-center gap-2 shrink-0">
+          <Badge variant="secondary" className="rounded-full font-black hidden sm:inline-flex">{teams.length}</Badge>
+          <Button onClick={() => setIsDialogOpen(true)} className="rounded-xl font-bold gap-1.5">
+            <Plus className="h-4 w-4" /> Nova
+          </Button>
+        </div>
+      </CardHeader>
+
+      <CardContent className="p-5 md:p-6">
+        {!loading && teams.length === 0 && (
+          <div className="text-center py-12">
+            <div className="h-14 w-14 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-3">
+              <Users className="h-7 w-7 text-muted-foreground/50" />
+            </div>
+            <p className="font-bold">Nenhuma equipe ainda</p>
+            <p className="text-sm text-muted-foreground mt-1">Crie a primeira equipe para organizar seu time.</p>
+          </div>
+        )}
+
+        <div className="grid gap-2.5">
+          {teams.map((t) => (
+            <div
+              key={t.id}
+              className="group flex items-center justify-between gap-3 p-4 rounded-2xl border border-black/5 dark:border-border bg-black/[0.01] dark:bg-white/[0.01] hover:border-primary/30 transition-all"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 text-white font-black text-sm" style={{ backgroundColor: t.color || "#3b82f6" }}>
+                  {t.name?.[0]?.toUpperCase() || "E"}
+                </span>
+                <div className="min-w-0">
+                  <p className="font-bold text-sm truncate">{t.name}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {t.description || "Sem descrição"} · {t.member_count} {t.member_count === 1 ? "membro" : "membros"}
+                  </p>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="area-equipe">Área de Atuação</Label>
-                <Select value={novaEquipe.area} onValueChange={(value) => setNovaEquipe({...novaEquipe, area: value})}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione a área" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Trabalhista">Trabalhista</SelectItem>
-                    <SelectItem value="Direito de Família">Direito de Família</SelectItem>
-                    <SelectItem value="Direito Previdenciário">Direito Previdenciário</SelectItem>
-                    <SelectItem value="Direito Tributário">Direito Tributário</SelectItem>
-                    <SelectItem value="Direito Civil">Direito Civil</SelectItem>
-                    <SelectItem value="Direito Criminal">Direito Criminal</SelectItem>
-                    <SelectItem value="Direito Empresarial">Direito Empresarial</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex gap-2">
-                <Button onClick={adicionarEquipe} className="flex-1">Criar Equipe</Button>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
+              <div className="flex items-center gap-1 shrink-0">
+                <Button variant="outline" size="sm" className="rounded-xl font-bold gap-1.5" onClick={() => navigate(`/equipe/${t.id}`)}>
+                  <Settings2 className="h-4 w-4" /> <span className="hidden sm:inline">Gerenciar</span>
+                </Button>
+                <Button
+                  variant="ghost" size="icon"
+                  onClick={() => excluir(t.id, t.name)}
+                  aria-label={`Excluir ${t.name}`}
+                  className="h-9 w-9 rounded-xl text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-all"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               </div>
             </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+          ))}
+        </div>
+      </CardContent>
 
-      <div className="grid gap-6">
-        {equipes.map((equipe) => (
-          <Card key={equipe.id}>
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`w-4 h-4 rounded-full ${equipe.cor}`} />
-                  <div>
-                    <CardTitle className="text-lg">{equipe.nome}</CardTitle>
-                    <CardDescription>{equipe.area}</CardDescription>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm">
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Adicionar Membro
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                </div>
+      {/* Criar equipe */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="bg-background border border-border p-6 rounded-[2rem] shadow-2xl">
+          <DialogHeader className="pb-3 border-b border-border">
+            <DialogTitle className="text-xl font-black">Criar Nova Equipe</DialogTitle>
+            <DialogDescription className="text-muted-foreground mt-1">Adicione uma equipe ao seu escritório</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Nome da Equipe</Label>
+              <Input placeholder="Ex: Equipe Trabalhista" value={nova.nome} onChange={(e) => setNova({ ...nova, nome: e.target.value })} className="h-11 rounded-xl" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Descrição (opcional)</Label>
+              <Textarea placeholder="Área de atuação ou foco da equipe…" value={nova.descricao} onChange={(e) => setNova({ ...nova, descricao: e.target.value })} rows={2} className="rounded-xl resize-none" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Cor</Label>
+              <div className="flex flex-wrap gap-2">
+                {CORES.map((c) => (
+                  <button
+                    key={c} type="button" onClick={() => setNova({ ...nova, cor: c })}
+                    className={cn("h-8 w-8 rounded-full transition-all", nova.cor === c ? "ring-2 ring-offset-2 ring-offset-background ring-foreground scale-110" : "hover:scale-105")}
+                    style={{ backgroundColor: c }}
+                    aria-label={`Cor ${c}`}
+                  />
+                ))}
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-medium flex items-center gap-2">
-                    <Users className="h-4 w-4" />
-                    Membros da Equipe ({equipe.membros.length})
-                  </h4>
-                </div>
-                
-                <div className="grid gap-3">
-                  {equipe.membros.map((membro, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 bg-primary/10 rounded-full flex items-center justify-center">
-                          <span className="text-xs font-medium">
-                            {membro.nome.split(' ').map(n => n[0]).join('').substring(0, 2)}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="font-medium text-sm">{membro.nome}</p>
-                          <p className="text-xs text-muted-foreground">{membro.cargo}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">
-                          {membro.cargo}
-                        </Badge>
-                        <Button variant="ghost" size="sm">
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {equipe.membros.length === 0 && (
-                    <div className="text-center py-4 text-muted-foreground">
-                      <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">Nenhum membro adicionado ainda</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </div>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button onClick={criar} disabled={saving || !nova.nome.trim()} className="flex-1 rounded-xl font-bold">
+                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />} Criar Equipe
+              </Button>
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="rounded-xl">Cancelar</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </Card>
   );
 }

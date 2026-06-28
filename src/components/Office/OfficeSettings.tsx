@@ -10,6 +10,7 @@ import { useOfficeManagement } from '@/hooks/useOfficeManagement';
 import { useToast } from '@/hooks/use-toast';
 import { Building2, Save, BarChart3, CreditCard, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatPhone, isValidPhone } from '@/lib/phone';
 import { PermissionGuard } from '@/components/Auth/PermissionGuard';
 
 export const OfficeSettings: React.FC = () => {
@@ -20,13 +21,17 @@ export const OfficeSettings: React.FC = () => {
   const [formData, setFormData] = useState({
     name: office?.name || '',
     email: office?.email || '',
-    phone: office?.phone || '',
+    phone: formatPhone(office?.phone || ''),
     address: office?.address || '',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!office?.id) return;
+    if (!isValidPhone(formData.phone)) {
+      toast({ title: "Telefone inválido", description: "Use o formato (XX) XXXXX-XXXX.", variant: "destructive" });
+      return;
+    }
     setIsLoading(true);
     try {
       const result = await updateOffice(office.id, formData);
@@ -81,7 +86,17 @@ export const OfficeSettings: React.FC = () => {
                 </div>
                 <div className="space-y-1.5 md:col-span-2">
                   <Label htmlFor="phone" className="text-xs font-bold">Telefone</Label>
-                  <Input id="phone" value={formData.phone} onChange={(e) => setFormData((p) => ({ ...p, phone: e.target.value }))} placeholder="(11) 99999-9999" className="h-11 rounded-xl" />
+                  <Input
+                    id="phone"
+                    inputMode="numeric"
+                    value={formData.phone}
+                    onChange={(e) => setFormData((p) => ({ ...p, phone: formatPhone(e.target.value) }))}
+                    placeholder="(11) 99999-9999"
+                    className={cn("h-11 rounded-xl", formData.phone && !isValidPhone(formData.phone) && "border-destructive focus-visible:ring-destructive")}
+                  />
+                  {formData.phone && !isValidPhone(formData.phone) && (
+                    <p className="text-[11px] font-bold text-destructive">Telefone incompleto ou inválido.</p>
+                  )}
                 </div>
               </div>
               <div className="space-y-1.5">

@@ -3,11 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Trash2, Plus, Clock, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useOfficeSettingList } from "@/hooks/useOfficeSettingList";
+import { CreatableSelect } from "@/components/Settings/CreatableSelect";
 
 interface TipoPrazo { id: number; nome: string; diasPadrao: number; categoria: string; }
 
@@ -21,7 +21,7 @@ const PRAZOS_DEFAULT: TipoPrazo[] = [
   { id: 7, nome: "Alegações Finais", diasPadrao: 15, categoria: "Defesa" },
 ];
 
-const CATEGORIAS = ["Defesa", "Recurso", "Perícia", "Outros"];
+const CATEGORIAS_DEFAULT = ["Defesa", "Recurso", "Perícia", "Outros"];
 
 const catColor = (c: string) => {
   switch (c) {
@@ -34,6 +34,7 @@ const catColor = (c: string) => {
 
 export function DeadlineConfig() {
   const { items: prazos, loading, saving, persist } = useOfficeSettingList<TipoPrazo>("tipos_prazo", PRAZOS_DEFAULT);
+  const { items: categorias, persist: persistCategorias } = useOfficeSettingList<string>("categorias_prazo", CATEGORIAS_DEFAULT);
   const [novoPrazo, setNovoPrazo] = useState({ nome: "", diasPadrao: 15, categoria: "Defesa" });
 
   const adicionarPrazo = () => {
@@ -125,12 +126,13 @@ export function DeadlineConfig() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-bold">Categoria</Label>
-              <Select value={novoPrazo.categoria} onValueChange={(v) => setNovoPrazo({ ...novoPrazo, categoria: v })}>
-                <SelectTrigger className="h-11 rounded-xl font-medium"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {CATEGORIAS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <CreatableSelect
+                value={novoPrazo.categoria}
+                onChange={(v) => setNovoPrazo({ ...novoPrazo, categoria: v })}
+                options={categorias}
+                onCreate={(v) => persistCategorias([...categorias, v])}
+                placeholder="Selecione a categoria"
+              />
             </div>
           </div>
           <Button onClick={adicionarPrazo} disabled={saving || !novoPrazo.nome.trim()} className="w-full rounded-xl font-bold">

@@ -4,11 +4,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Trash2, Plus, FileText, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useOfficeSettingList } from "@/hooks/useOfficeSettingList";
+import { CreatableSelect } from "@/components/Settings/CreatableSelect";
 
 interface TipoProcesso { id: number; nome: string; descricao: string; area: string; }
 
@@ -19,7 +19,7 @@ const TIPOS_PROCESSO_DEFAULT: TipoProcesso[] = [
   { id: 4, nome: "Assessoria Preventiva para Dentistas", descricao: "Consultoria jurídica preventiva especializada para profissionais da odontologia", area: "Consultivo" },
 ];
 
-const AREAS = ["Previdenciário", "Trabalhista", "Civil", "Consultivo", "Outros"];
+const AREAS_DEFAULT = ["Previdenciário", "Trabalhista", "Civil", "Consultivo", "Outros"];
 
 const areaColor = (area: string) => {
   switch (area) {
@@ -33,6 +33,7 @@ const areaColor = (area: string) => {
 
 export function ProcessTypeSimple() {
   const { items: tiposProcesso, loading, saving, persist } = useOfficeSettingList<TipoProcesso>("tipos_processo", TIPOS_PROCESSO_DEFAULT);
+  const { items: areas, persist: persistAreas } = useOfficeSettingList<string>("areas_processo", AREAS_DEFAULT);
   const [novoTipo, setNovoTipo] = useState({ nome: "", descricao: "", area: "Previdenciário" });
 
   const adicionarTipo = () => {
@@ -113,12 +114,13 @@ export function ProcessTypeSimple() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-bold">Área</Label>
-              <Select value={novoTipo.area} onValueChange={(v) => setNovoTipo({ ...novoTipo, area: v })}>
-                <SelectTrigger className="h-11 rounded-xl font-medium"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {AREAS.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <CreatableSelect
+                value={novoTipo.area}
+                onChange={(v) => setNovoTipo({ ...novoTipo, area: v })}
+                options={areas}
+                onCreate={(v) => persistAreas([...areas, v])}
+                placeholder="Selecione a área"
+              />
             </div>
           </div>
           <div className="space-y-1.5">
