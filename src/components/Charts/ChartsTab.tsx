@@ -4,16 +4,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { useChartsData, type ChartsPeriod, PONTOS } from "@/hooks/useChartsData";
+import { useChartsData, type ChartsPeriod } from "@/hooks/useChartsData";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOfficeTeams } from "@/hooks/useOfficeTeams";
 import { useMyTeams } from "@/hooks/useMyTeams";
+import { ChartsConfigDialog } from "./ChartsConfigDialog";
+import { Button } from "@/components/ui/button";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, Legend,
 } from "recharts";
 import {
-  FileText, Users, MessageSquare, TrendingUp, TrendingDown, BarChart3, Trophy,
+  FileText, Users, MessageSquare, TrendingUp, TrendingDown, BarChart3, Trophy, Settings2, Target,
 } from "lucide-react";
 
 const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
@@ -82,7 +84,8 @@ function ChartCard({ title, children, empty }: { title: string; children: React.
 export function ChartsTab() {
   const [period, setPeriod] = useState<ChartsPeriod>(6);
   const [teamId, setTeamId] = useState<string | null>(null);
-  const { isOfficeAdmin } = useAuth();
+  const [configOpen, setConfigOpen] = useState(false);
+  const { isOfficeAdmin, user } = useAuth();
   const { teams: allTeams } = useOfficeTeams();
   const { teams: myTeams, isAnyCoordinator } = useMyTeams();
 
@@ -93,6 +96,7 @@ export function ChartsTab() {
   }, [isOfficeAdmin, allTeams, myTeams]);
 
   const canSeeTeams = isOfficeAdmin || isAnyCoordinator;
+  const canSeeFinanceiro = isOfficeAdmin;
   const d = useChartsData(period, teamId);
 
   if (d.loading) {
@@ -137,7 +141,37 @@ export function ChartsTab() {
             </Select>
           </div>
         )}
+        {isOfficeAdmin && (
+          <Button variant="outline" size="sm" onClick={() => setConfigOpen(true)}
+            className="h-8 rounded-xl gap-1.5 text-xs font-bold ml-auto">
+            <Settings2 className="h-3.5 w-3.5" /> Configurar
+          </Button>
+        )}
       </div>
+
+      {/* Meta de contratos */}
+      {isOfficeAdmin && d.meta && (
+        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <div className="flex items-center gap-2">
+              <span className="p-2 rounded-xl bg-primary/10 text-primary"><Target className="h-4 w-4" /></span>
+              <div>
+                <p className="text-sm font-black">{d.meta.label || d.meta.area}</p>
+                <p className="text-[11px] text-muted-foreground">Meta de contratos — {d.meta.area} · {period} meses</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-black tracking-tight">{d.metaAtual}<span className="text-sm text-muted-foreground font-bold">/{d.meta.alvo}</span></p>
+              <p className="text-[11px] font-bold text-primary">{Math.min(100, Math.round((d.metaAtual / (d.meta.alvo || 1)) * 100))}% da meta</p>
+            </div>
+          </div>
+          <div className="h-3 bg-muted rounded-full overflow-hidden">
+            <div className={cn("h-full rounded-full transition-all", d.metaAtual >= d.meta.alvo ? "bg-emerald-500" : "bg-gradient-to-r from-primary/60 to-primary")}
+              style={{ width: `${Math.min(100, Math.round((d.metaAtual / (d.meta.alvo || 1)) * 100))}%` }} />
+          </div>
+          {d.metaAtual >= d.meta.alvo && <p className="text-[11px] font-bold text-emerald-600 mt-2">🎉 Meta atingida!</p>}
+        </div>
+      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -152,12 +186,17 @@ export function ChartsTab() {
       </div>
 
       <Tabs defaultValue="processos" className="w-full">
-        <TabsList className={cn("grid w-full rounded-xl", canSeeTeams ? "grid-cols-5" : "grid-cols-4")}>
-          <TabsTrigger value="processos" className="rounded-lg text-xs font-bold">Processos</TabsTrigger>
-          <TabsTrigger value="clientes" className="rounded-lg text-xs font-bold">Clientes</TabsTrigger>
-          <TabsTrigger value="atendimentos" className="rounded-lg text-xs font-bold">Atendimentos</TabsTrigger>
-          <TabsTrigger value="financeiro" className="rounded-lg text-xs font-bold">Financeiro</TabsTrigger>
-          {canSeeTeams && <TabsTrigger value="membros" className="rounded-lg text-xs font-bold">Por Membro</TabsTrigger>}
+        <TabsList className="flex flex-wrap h-auto w-full rounded-xl gap-1 p-1">
+          <TabsTrigger value="processos" className="rounded-lg text-xs font-bold flex-1 min-w-[90px]">Processos</TabsTrigger>
+          <TabsTrigger value="prazos" className="rounded-lg text-xs font-bold flex-1 min-w-[90px]">Prazos</TabsTrigger>
+          <TabsTrigger value="tarefas" className="rounded-lg text-xs font-bold flex-1 min-w-[90px]">Tarefas</TabsTrigger>
+          <TabsTrigger value="audiencias" className="rounded-lg text-xs font-bold flex-1 min-w-[90px]">Audiências</TabsTrigger>
+          <TabsTrigger value="atendimentos" className="rounded-lg text-xs font-bold flex-1 min-w-[90px]">Atendimentos</TabsTrigger>
+          <TabsTrigger value="consultivo" className="rounded-lg text-xs font-bold flex-1 min-w-[90px]">Consultivo</TabsTrigger>
+          <TabsTrigger value="clientes" className="rounded-lg text-xs font-bold flex-1 min-w-[90px]">Clientes</TabsTrigger>
+          <TabsTrigger value="timesheet" className="rounded-lg text-xs font-bold flex-1 min-w-[90px]">Timesheet</TabsTrigger>
+          {canSeeFinanceiro && <TabsTrigger value="financeiro" className="rounded-lg text-xs font-bold flex-1 min-w-[90px]">Financeiro</TabsTrigger>}
+          {canSeeTeams && <TabsTrigger value="membros" className="rounded-lg text-xs font-bold flex-1 min-w-[90px]">Por Membro</TabsTrigger>}
         </TabsList>
 
         {/* PROCESSOS */}
@@ -196,6 +235,126 @@ export function ChartsTab() {
                   {d.processosPorArea.map((e, i) => <Cell key={i} fill={e.fill} />)}
                 </Bar>
               </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+        </TabsContent>
+
+        {/* PRAZOS */}
+        <TabsContent value="prazos" className="space-y-4 mt-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <ChartCard title="Prazos por mês" empty={d.prazosPorMes.every(x => !x.novos && !x.cumpridos)}>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={d.prazosPorMes}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="mes" fontSize={11} /><YAxis fontSize={11} allowDecimals={false} />
+                  <Tooltip {...tooltipStyle} /><Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Bar dataKey="novos" fill="#f59e0b" name="Novos" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="cumpridos" fill="#10b981" name="Cumpridos" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+            <ChartCard title="Prazos por status" empty={d.prazosPorStatus.length === 0}>
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie data={d.prazosPorStatus} cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2} dataKey="value" nameKey="name" label={(e: any) => `${e.name}: ${e.value}`} labelLine={false} fontSize={11}>
+                    {d.prazosPorStatus.map((e, i) => <Cell key={i} fill={e.fill} />)}
+                  </Pie>
+                  <Tooltip {...tooltipStyle} />
+                </PieChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          </div>
+        </TabsContent>
+
+        {/* TAREFAS */}
+        <TabsContent value="tarefas" className="space-y-4 mt-4">
+          <ChartCard title="Tarefas por mês (criadas x concluídas)" empty={d.tarefasPorMes.every(x => !x.criadas && !x.concluidas)}>
+            <ResponsiveContainer width="100%" height={340}>
+              <BarChart data={d.tarefasPorMes}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="mes" fontSize={11} /><YAxis fontSize={11} allowDecimals={false} />
+                <Tooltip {...tooltipStyle} /><Legend wrapperStyle={{ fontSize: 11 }} />
+                <Bar dataKey="criadas" fill="#8b5cf6" name="Criadas" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="concluidas" fill="#10b981" name="Concluídas" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+        </TabsContent>
+
+        {/* AUDIÊNCIAS */}
+        <TabsContent value="audiencias" className="space-y-4 mt-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <ChartCard title="Audiências por mês" empty={d.audienciasPorMes.every(x => !x.total)}>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={d.audienciasPorMes}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="mes" fontSize={11} /><YAxis fontSize={11} allowDecimals={false} />
+                  <Tooltip {...tooltipStyle} />
+                  <Bar dataKey="total" fill="#06b6d4" name="Audiências" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+            <ChartCard title="Audiências por status" empty={d.audienciasPorStatus.length === 0}>
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie data={d.audienciasPorStatus} cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2} dataKey="value" nameKey="name" label={(e: any) => `${e.name}: ${e.value}`} labelLine={false} fontSize={11}>
+                    {d.audienciasPorStatus.map((e, i) => <Cell key={i} fill={e.fill} />)}
+                  </Pie>
+                  <Tooltip {...tooltipStyle} />
+                </PieChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          </div>
+        </TabsContent>
+
+        {/* CONSULTIVO */}
+        <TabsContent value="consultivo" className="space-y-4 mt-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <ChartCard title="Consultivos por mês" empty={d.consultivoPorMes.every(x => !x.total)}>
+              <ResponsiveContainer width="100%" height={280}>
+                <AreaChart data={d.consultivoPorMes}>
+                  <defs>
+                    <linearGradient id="cons" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="mes" fontSize={11} /><YAxis fontSize={11} allowDecimals={false} />
+                  <Tooltip {...tooltipStyle} />
+                  <Area type="monotone" dataKey="total" stroke="#6366f1" strokeWidth={2} fill="url(#cons)" name="Consultivos" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </ChartCard>
+            <ChartCard title="Consultivos por status" empty={d.consultivoPorStatus.length === 0}>
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie data={d.consultivoPorStatus} cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2} dataKey="value" nameKey="name" label={(e: any) => `${e.name}: ${e.value}`} labelLine={false} fontSize={11}>
+                    {d.consultivoPorStatus.map((e, i) => <Cell key={i} fill={e.fill} />)}
+                  </Pie>
+                  <Tooltip {...tooltipStyle} />
+                </PieChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          </div>
+        </TabsContent>
+
+        {/* TIMESHEET */}
+        <TabsContent value="timesheet" className="space-y-4 mt-4">
+          <ChartCard title="Horas registradas por mês" empty={d.timesheetPorMes.every(x => !x.horas)}>
+            <ResponsiveContainer width="100%" height={340}>
+              <AreaChart data={d.timesheetPorMes}>
+                <defs>
+                  <linearGradient id="ts" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#ec4899" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#ec4899" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="mes" fontSize={11} /><YAxis fontSize={11} tickFormatter={(v) => `${v}h`} />
+                <Tooltip {...tooltipStyle} formatter={(v: any) => `${v}h`} />
+                <Area type="monotone" dataKey="horas" stroke="#ec4899" strokeWidth={2} fill="url(#ts)" name="Horas" />
+              </AreaChart>
             </ResponsiveContainer>
           </ChartCard>
         </TabsContent>
@@ -247,6 +406,7 @@ export function ChartsTab() {
         </TabsContent>
 
         {/* FINANCEIRO */}
+        {canSeeFinanceiro && (
         <TabsContent value="financeiro" className="space-y-4 mt-4">
           <div className="grid gap-4 md:grid-cols-2">
             <ChartCard title="Receita x Despesa por mês" empty={d.financeiroPorMes.every(x => !x.receita && !x.despesa)}>
@@ -272,6 +432,7 @@ export function ChartsTab() {
             </ChartCard>
           </div>
         </TabsContent>
+        )}
 
         {/* POR MEMBRO */}
         {canSeeTeams && (
@@ -283,7 +444,7 @@ export function ChartsTab() {
                   <Trophy className="h-4 w-4 text-amber-500" /> Ranking de Produtividade
                 </CardTitle>
                 <p className="text-[11px] text-muted-foreground">
-                  Pontos por finalização — tarefa {PONTOS.tarefa} · prazo {PONTOS.prazo} · audiência {PONTOS.audiencia} · processo {PONTOS.processo}
+                  Pontos por finalização — tarefa {d.pontosConfig.tarefa} · prazo {d.pontosConfig.prazo} · audiência {d.pontosConfig.audiencia} · processo {d.pontosConfig.processo}
                 </p>
               </CardHeader>
               <CardContent>
@@ -371,6 +532,17 @@ export function ChartsTab() {
           </TabsContent>
         )}
       </Tabs>
+
+      {isOfficeAdmin && (
+        <ChartsConfigDialog
+          open={configOpen}
+          onClose={() => setConfigOpen(false)}
+          officeId={user?.office_id || ""}
+          pontos={d.pontosConfig}
+          meta={d.meta}
+          onSaved={d.refetch}
+        />
+      )}
     </div>
   );
 }
