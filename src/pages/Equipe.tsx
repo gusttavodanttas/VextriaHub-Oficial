@@ -700,8 +700,9 @@ function StatCard({ label, value, Icon, color, bg }: {
 
 export default function Equipe() {
   const navigate = useNavigate();
-  const { user: me, office, isAdmin, isOfficeAdmin } = useAuth();
-  const canManageTeams = isAdmin || isOfficeAdmin;
+  const { user: me, office, isOfficeAdmin } = useAuth();
+  // Só admin/dono DO ESCRITÓRIO gerencia equipes (papel global de app não conta)
+  const canManageTeams = isOfficeAdmin;
   const { toast } = useToast();
   const { users, loading: usersLoading, removeUser, updateUser, refresh: refreshUsers } = useOfficeUsers();
   const { invitations, loading: invLoading, createInvitation, resendInvitation, cancelInvitation, pendingInvitations } = useInvitations();
