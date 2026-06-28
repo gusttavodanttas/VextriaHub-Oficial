@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -98,12 +99,13 @@ interface FormState {
   status: StatusType;
   cliente_id: string;
   processo_id: string;
+  responsavel_id: string;
 }
 
 const toNull = (v: string | null | undefined) =>
   !v || v === NONE || v.trim() === "" ? null : v;
 
-const defaultForm = (): FormState => ({
+const defaultForm = (userId = ""): FormState => ({
   tipo_atendimento: NONE,
   data_atendimento: format(new Date(), "yyyy-MM-dd"),
   hora_atendimento: format(new Date(), "HH:mm"),
@@ -111,6 +113,7 @@ const defaultForm = (): FormState => ({
   status: "agendado",
   cliente_id: NONE,
   processo_id: NONE,
+  responsavel_id: userId,
 });
 
 const tipoInfo = (tipo: string, extras: string[] = []) => {
@@ -293,6 +296,8 @@ const useAtendimentos = (officeId: string | null | undefined) => {
 
 // ─── Form Dialog ─────────────────────────────────────────────────────────────
 
+interface MembroOpt { id: string; label: string; }
+
 const FormDialog: React.FC<{
   open: boolean;
   onClose: () => void;
@@ -301,10 +306,11 @@ const FormDialog: React.FC<{
   officeId: string;
   userId: string;
   extras: string[];
+  membros?: MembroOpt[];
   onSave: (data: any) => void;
   onUpdate: (data: any) => void;
   loading: boolean;
-}> = ({ open, onClose, initial, editId, officeId, userId, extras, onSave, onUpdate, loading }) => {
+}> = ({ open, onClose, initial, editId, officeId, userId, extras, membros = [], onSave, onUpdate, loading }) => {
   const [form, setForm] = useState<FormState>(initial);
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((prev) => ({ ...prev, [k]: v }));
@@ -353,6 +359,7 @@ const FormDialog: React.FC<{
       user_id: userId,
       office_id: officeId,
       deletado: false,
+      responsavel_id: form.responsavel_id || userId || null,
     };
     if (editId) onUpdate({ id: editId, ...payload });
     else onSave(payload);
@@ -467,6 +474,19 @@ const FormDialog: React.FC<{
                       {p.titulo}{p.numero && p.numero !== p.titulo ? ` — ${p.numero}` : ""}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Responsável */}
+          {membros.length > 0 && (
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Responsável</Label>
+              <Select value={form.responsavel_id} onValueChange={(v) => set("responsavel_id", v)}>
+                <SelectTrigger className="rounded-xl h-9 text-sm"><SelectValue placeholder="Selecionar responsável" /></SelectTrigger>
+                <SelectContent>
+                  {membros.map((m) => <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -599,6 +619,11 @@ const Atendimentos = () => {
 
   const { query, create, update, remove, markRealizado } = useAtendimentos(officeId);
   const { extras, save: saveExtras } = useAtendimentoTipos(officeId);
+  const { users: officeUsers } = useOfficeUsers();
+  const membros = useMemo(() => officeUsers.map(u => ({
+    id: u.user_id,
+    label: u.profile?.full_name || u.profile?.email || "Membro",
+  })), [officeUsers]);
   const items = query.data ?? [];
 
   const [busca, setBusca] = useState("");
@@ -659,8 +684,9 @@ const Atendimentos = () => {
         status: editItem.status,
         cliente_id: editItem.cliente_id ?? NONE,
         processo_id: editItem.processo_id ?? NONE,
+        responsavel_id: (editItem as any).responsavel_id ?? user?.id ?? "",
       }
-    : defaultForm();
+    : defaultForm(user?.id ?? "");
 
   return (
     <div className="flex-1 p-4 md:p-8 space-y-8 overflow-x-hidden entry-animate">
@@ -789,6 +815,7 @@ const Atendimentos = () => {
           officeId={officeId}
           userId={user?.id ?? ""}
           extras={extras}
+          membros={membros}
           onSave={handleSave}
           onUpdate={handleUpdate}
           loading={create.isPending || update.isPending}

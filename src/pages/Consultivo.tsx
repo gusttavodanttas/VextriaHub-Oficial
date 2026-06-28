@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useConsultivos, Consultivo } from "@/hooks/useConsultivos";
+import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 import { useConsultivoCategorias, ConsultivoCategoria } from "@/hooks/useConsultivoCategorias";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -349,7 +350,7 @@ function CatFormInline({ form, setForm, saving, onSave, onCancel, isNew }: {
 
 const BLANK_FORM = {
   titulo: "", descricao: "", categoria: "", prioridade: "media",
-  status: "pendente", tags: "", observacoes: "", cliente_id: "",
+  status: "pendente", tags: "", observacoes: "", cliente_id: "", responsavel_id: "",
 };
 
 export default function ConsultivoPage() {
@@ -357,6 +358,11 @@ export default function ConsultivoPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data, loading, create, update, remove } = useConsultivos();
+  const { users: officeUsers } = useOfficeUsers();
+  const membros = useMemo(() => officeUsers.map(u => ({
+    id: u.user_id,
+    label: u.profile?.full_name || u.profile?.email || "Membro",
+  })), [officeUsers]);
   const {
     data: categorias, loading: catLoading,
     create: createCat, update: updateCat, remove: removeCat,
@@ -418,7 +424,7 @@ export default function ConsultivoPage() {
 
   const openCreate = () => {
     setEditItem(null);
-    setForm({ ...BLANK_FORM, cliente_id: filtroClienteId || "", categoria: defaultCatVal });
+    setForm({ ...BLANK_FORM, cliente_id: filtroClienteId || "", categoria: defaultCatVal, responsavel_id: user?.id || "" });
     setDialogOpen(true);
   };
 
@@ -433,6 +439,7 @@ export default function ConsultivoPage() {
       tags: (item.tags || []).join(", "),
       observacoes: item.observacoes || "",
       cliente_id: item.cliente_id || "",
+      responsavel_id: (item as any).responsavel_id || user?.id || "",
     });
     setDialogOpen(true);
   };
@@ -449,8 +456,9 @@ export default function ConsultivoPage() {
       tags: form.tags ? form.tags.split(",").map(t => t.trim()).filter(Boolean) : [],
       observacoes: form.observacoes || null,
       cliente_id: form.cliente_id || null,
+      responsavel_id: form.responsavel_id || user?.id || null,
     };
-    const ok = editItem ? await update(editItem.id, payload) : await create(payload);
+    const ok = editItem ? await update(editItem.id, payload as any) : await create(payload as any);
     setSaving(false);
     if (ok) setDialogOpen(false);
   };
@@ -688,17 +696,32 @@ export default function ConsultivoPage() {
                 className="rounded-xl border-black/8 dark:border-border" />
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground">Cliente</Label>
-              <Select value={form.cliente_id || "__none__"} onValueChange={v => setForm(f => ({ ...f, cliente_id: v === "__none__" ? "" : v }))}>
-                <SelectTrigger className="rounded-xl border-black/8 dark:border-border">
-                  <SelectValue placeholder="Selecionar cliente..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">Sem cliente</SelectItem>
-                  {clientes.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground">Cliente</Label>
+                <Select value={form.cliente_id || "__none__"} onValueChange={v => setForm(f => ({ ...f, cliente_id: v === "__none__" ? "" : v }))}>
+                  <SelectTrigger className="rounded-xl border-black/8 dark:border-border">
+                    <SelectValue placeholder="Selecionar cliente..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Sem cliente</SelectItem>
+                    {clientes.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              {membros.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground">Responsável</Label>
+                  <Select value={form.responsavel_id} onValueChange={v => setForm(f => ({ ...f, responsavel_id: v }))}>
+                    <SelectTrigger className="rounded-xl border-black/8 dark:border-border">
+                      <SelectValue placeholder="Selecionar..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {membros.map(m => <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
 
             <div className="space-y-1.5">
