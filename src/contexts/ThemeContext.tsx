@@ -30,11 +30,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       // Detecção automática baseada na preferência do sistema
       const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       resolvedTheme = systemPrefersDark ? 'dark' : 'light';
-    } else if (theme === 'blue') {
-      // 'blue' legado: sem paleta dedicada → usa o tema escuro neutro
-      resolvedTheme = 'dark';
     } else {
-      resolvedTheme = theme as 'light' | 'dark';
+      resolvedTheme = theme as 'light' | 'dark' | 'blue';
     }
     
     // Aplica o tema

@@ -1,4 +1,4 @@
-import { Monitor, Moon, Sun } from "lucide-react";
+import { Monitor, Moon, Sun, Palette } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -16,7 +16,8 @@ export function ThemeSelector() {
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="icon">
           {theme === 'light' && <Sun className="h-[1.2rem] w-[1.2rem]" />}
-          {(theme === 'dark' || theme === 'blue') && <Moon className="h-[1.2rem] w-[1.2rem]" />}
+          {theme === 'dark' && <Moon className="h-[1.2rem] w-[1.2rem]" />}
+          {theme === 'blue' && <Palette className="h-[1.2rem] w-[1.2rem]" />}
           {theme === 'auto' && <Monitor className="h-[1.2rem] w-[1.2rem]" />}
           <span className="sr-only">Alternar tema</span>
         </Button>
@@ -29,6 +30,10 @@ export function ThemeSelector() {
         <DropdownMenuItem onClick={() => setTheme('dark')}>
           <Moon className="mr-2 h-4 w-4" />
           Escuro
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme('blue')}>
+          <Palette className="mr-2 h-4 w-4" />
+          Azul
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme('auto')}>
           <Monitor className="mr-2 h-4 w-4" />
