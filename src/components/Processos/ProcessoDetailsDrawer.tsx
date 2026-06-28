@@ -39,6 +39,8 @@ import { useProcessosV2 } from '@/hooks/useProcessosV2';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useOfficeTeams } from '@/hooks/useOfficeTeams';
 
 interface Movimentacao {
   id: string;
@@ -75,6 +77,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
   const { persistAndamentos, update } = useProcessosV2();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { teams: officeTeams } = useOfficeTeams();
 
   const [movements, setMovements] = useState<Movimentacao[]>([]);
   const [loadingMovements, setLoadingMovements] = useState(false);
@@ -114,6 +117,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
     vara: '',
     comarca: '',
     valor_causa: 0,
+    team_id: '' as string,
   });
 
   useEffect(() => {
@@ -130,6 +134,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
         vara: processo.vara || '',
         comarca: processo.comarca || '',
         valor_causa: processo.valorCausa || 0,
+        team_id: (processo as any).team_id || '',
       });
       setEditing(false);
       setActiveTab("resumo");
@@ -175,6 +180,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
         vara: editData.vara,
         comarca: editData.comarca,
         valorCausa: editData.valor_causa,
+        team_id: editData.team_id || null,
       } as any);
       setEditing(false);
     } catch (e: any) {
@@ -713,6 +719,42 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                     <Field label="Tribunal" field="tribunal" icon={<Building2 className="h-3.5 w-3.5 text-primary/60" />} />
                     <Field label="Vara" field="vara" icon={<MapPin className="h-3.5 w-3.5 text-primary/60" />} />
                     <Field label="Comarca / UF" field="comarca" />
+
+                    {officeTeams.length > 0 && (
+                      <div className="space-y-1.5">
+                        <p className="text-[10px] text-muted-foreground/60 uppercase font-black tracking-widest">Equipe Responsável</p>
+                        {editing ? (
+                          <Select
+                            value={editData.team_id || 'none'}
+                            onValueChange={(v) => setEditData({ ...editData, team_id: v === 'none' ? '' : v })}
+                          >
+                            <SelectTrigger className="h-10 text-sm rounded-xl bg-background border-border">
+                              <SelectValue placeholder="Sem equipe específica" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Sem equipe específica</SelectItem>
+                              {officeTeams.map(t => (
+                                <SelectItem key={t.id} value={t.id}>
+                                  <span className="flex items-center gap-2">
+                                    <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ background: t.color }} />
+                                    {t.name}
+                                  </span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <div className="flex items-center gap-2 min-h-[40px] px-3 py-2 rounded-xl bg-muted/20 border border-transparent">
+                            {(() => {
+                              const team = officeTeams.find(t => t.id === editData.team_id);
+                              return team
+                                ? <><span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ background: team.color }} /><p className="text-sm font-semibold">{team.name}</p></>
+                                : <p className="text-sm font-semibold text-foreground/40">—</p>;
+                            })()}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 

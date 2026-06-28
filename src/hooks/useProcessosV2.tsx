@@ -345,6 +345,7 @@ export function useProcessosV2() {
       if (updates.descricao !== undefined || (updates as any).observacoes !== undefined) {
         updatePayload.observacoes = updates.descricao || (updates as any).observacoes;
       }
+      if ((updates as any).team_id !== undefined) updatePayload.team_id = (updates as any).team_id;
 
       const { data: result, error } = await supabase
         .from('processos')
