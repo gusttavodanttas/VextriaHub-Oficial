@@ -52,12 +52,18 @@ export function CreatableSelect({ value, onChange, options, onCreate, placeholde
     );
   }
 
+  // "Outros" sempre por último
+  const sorted = [
+    ...options.filter((o) => o.toLowerCase() !== "outros"),
+    ...options.filter((o) => o.toLowerCase() === "outros"),
+  ];
+
   return (
     <div className="flex gap-1.5">
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger className="h-11 rounded-xl font-medium flex-1"><SelectValue placeholder={placeholder} /></SelectTrigger>
         <SelectContent>
-          {options.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+          {sorted.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
         </SelectContent>
       </Select>
       <Button type="button" size="icon" variant="outline" onClick={() => setAdding(true)} className="h-11 w-11 rounded-xl shrink-0" aria-label="Adicionar nova opção">

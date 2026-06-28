@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { X, Loader2, Plus, Megaphone } from "lucide-react";
+import { Trash2, Loader2, Plus, Megaphone } from "lucide-react";
 import { useOfficeSettingList } from "@/hooks/useOfficeSettingList";
 
 const ORIGENS_DEFAULT = [
@@ -51,28 +51,36 @@ export const ClientOriginConfig = () => {
       </CardHeader>
 
       <CardContent className="p-5 md:p-6 space-y-5">
-        <div className="flex flex-wrap gap-2">
+        <div className="grid gap-2.5">
           {!loading && origensCliente.length === 0 && (
-            <p className="text-sm text-muted-foreground font-medium py-4">Nenhuma origem cadastrada.</p>
+            <div className="text-center py-10 text-sm text-muted-foreground font-medium">
+              Nenhuma origem cadastrada. Adicione a primeira abaixo.
+            </div>
           )}
           {origensCliente.map((origem) => (
-            <span
+            <div
               key={origem}
-              className="group inline-flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 rounded-full border border-black/5 dark:border-border bg-black/[0.02] dark:bg-white/[0.03] text-sm font-bold hover:border-primary/30 transition-all"
+              className="group flex items-center justify-between gap-3 p-4 rounded-2xl border border-black/5 dark:border-border bg-black/[0.01] dark:bg-white/[0.01] hover:border-primary/30 hover:bg-primary/[0.02] transition-all"
             >
-              {origem}
-              <button
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="h-2 w-2 rounded-full bg-primary/60 shrink-0" />
+                <span className="font-bold text-sm truncate">{origem}</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => removerOrigem(origem)}
                 disabled={saving}
                 aria-label={`Remover ${origem}`}
-                className="flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 transition-colors"
+                className="h-8 w-8 shrink-0 rounded-xl text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-all"
               >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </span>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
           ))}
         </div>
 
+        {/* Adicionar */}
         <div className="rounded-2xl border border-dashed border-black/10 dark:border-border bg-black/[0.01] dark:bg-white/[0.01] p-4 space-y-2">
           <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground/60">Adicionar origem</Label>
           <div className="flex gap-2">

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +25,27 @@ export const OfficeSettings: React.FC = () => {
     phone: formatPhone(office?.phone || ''),
     address: office?.address || '',
   });
+
+  // Busca dados frescos do banco ao montar (o office do contexto pode estar desatualizado)
+  useEffect(() => {
+    if (!office?.id) return;
+    let cancel = false;
+    (async () => {
+      const { data } = await supabase
+        .from('offices')
+        .select('name, email, phone, address')
+        .eq('id', office.id)
+        .maybeSingle();
+      if (cancel || !data) return;
+      setFormData({
+        name: data.name || '',
+        email: data.email || '',
+        phone: formatPhone(data.phone || ''),
+        address: data.address || '',
+      });
+    })();
+    return () => { cancel = true; };
+  }, [office?.id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
