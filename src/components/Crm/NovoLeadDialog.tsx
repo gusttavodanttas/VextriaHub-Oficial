@@ -24,6 +24,7 @@ interface Lead {
   observacoes?: string;
   status: "lead" | "quente" | "morno" | "frio";
   interesse?: string;
+  valor_estimado?: string;
 }
 
 interface NovoLeadDialogProps {
@@ -95,7 +96,8 @@ export const NovoLeadDialog = ({ open, onOpenChange, onSave }: NovoLeadDialogPro
       endereco: "",
       observacoes: "",
       status: "lead",
-      interesse: ""
+      interesse: "",
+      valor_estimado: ""
     });
   };
 
@@ -162,7 +164,8 @@ export const NovoLeadDialog = ({ open, onOpenChange, onSave }: NovoLeadDialogPro
           tipo_pessoa: formData.tipo_pessoa,
           origem: formData.origem || null,
           endereco: formData.endereco?.trim() || null,
-          status: formData.status
+          status: formData.status,
+          valor_estimado: Number(formData.valor_estimado) || 0
         }])
         .select()
         .single();
@@ -377,6 +380,20 @@ export const NovoLeadDialog = ({ open, onOpenChange, onSave }: NovoLeadDialogPro
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="valor_estimado" className="text-muted-foreground ml-1">Valor estimado do negócio (R$)</Label>
+                <Input
+                  id="valor_estimado"
+                  type="number"
+                  min="0"
+                  step="100"
+                  value={formData.valor_estimado || ""}
+                  onChange={(e) => handleInputChange("valor_estimado", e.target.value)}
+                  placeholder="Ex: 5000"
+                  className="h-12 bg-muted/30 border-border rounded-xl font-bold"
+                />
               </div>
 
               <div className="space-y-2 md:col-span-2">

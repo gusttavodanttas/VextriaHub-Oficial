@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+﻿import { useState, useMemo } from "react";
 import { UserCheck, Phone, Mail, Building2, Calendar, Filter, Search, Plus, Target, TrendingUp, BarChart3, Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,33 +39,34 @@ export default function Crm() {
   const [selectedOpportunity, setSelectedOpportunity] = useState(null);
   const [showNovoLeadDialog, setShowNovoLeadDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("todos");
+
+  const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
 
   const leadsStatuses = ["lead", "quente", "morno", "frio"];
-  const conversionStatuses = ["convertido"];
-  
-  // Apenas leads reais (não convertidos e não clientes diretos)
-  const leads = allClientes.filter(c => leadsStatuses.includes(c.status || ""));
-  
-  // Apenas leads que foram convertidos pelo CRM (exclui clientes cadastrados diretamente)
-  const convertedClients = allClientes.filter(c => conversionStatuses.includes(c.status || ""));
 
-  const hotLeadsCount = leads.filter(l => l.status === "quente").length;
-  
-  // Taxa baseada apenas no universo do CRM
-  const crmTotal = leads.length + convertedClients.length;
-  const conversionRate = crmTotal > 0 
-    ? Math.round((convertedClients.length / crmTotal) * 100) 
-    : 0;
+  // Derivações memoizadas (evita recalcular a cada render)
+  const { leads, convertedClients, hotLeadsCount, conversionRate, pipelineValue, valorGanho } = useMemo(() => {
+    const leads = allClientes.filter(c => leadsStatuses.includes(c.status || ""));
+    const convertedClients = allClientes.filter(c => (c.status || "") === "convertido");
+    const hotLeadsCount = leads.filter(l => l.status === "quente").length;
+    const crmTotal = leads.length + convertedClients.length;
+    const conversionRate = crmTotal > 0 ? Math.round((convertedClients.length / crmTotal) * 100) : 0;
+    const val = (c: any) => Number(c.valor_estimado) || 0;
+    const pipelineValue = leads.reduce((s, l) => s + val(l), 0);
+    const valorGanho = convertedClients.reduce((s, c) => s + val(c), 0);
+    return { leads, convertedClients, hotLeadsCount, conversionRate, pipelineValue, valorGanho };
+  }, [allClientes]);
 
-  const filteredLeads = leads.filter(l => 
-    l.nome.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    (l.email && l.email.toLowerCase().includes(searchQuery.toLowerCase()))
+  const matchSearch = (c: any) =>
+    c.nome.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (c.email && c.email.toLowerCase().includes(searchQuery.toLowerCase()));
+
+  const filteredLeads = useMemo(
+    () => leads.filter(l => matchSearch(l) && (statusFilter === "todos" || l.status === statusFilter)),
+    [leads, searchQuery, statusFilter]
   );
-
-  const filteredClients = convertedClients.filter(c => 
-    c.nome.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    (c.email && c.email.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredClients = useMemo(() => convertedClients.filter(matchSearch), [convertedClients, searchQuery]);
 
   const handleMenuClick = (view: string) => {
     setCurrentView(view);
@@ -259,8 +260,8 @@ export default function Crm() {
               <BarChart3 className="h-5 w-5 text-primary" />
             </div>
           </div>
-          <p className="text-4xl font-black text-gradient">{loading ? <Loader2 className="h-8 w-8 animate-spin" /> : `R$ ${leads.length * 1.5}k`}</p>
-          <p className="text-xs font-bold text-muted-foreground/40 mt-2 uppercase tracking-tighter">Estimativa baseada em volume</p>
+          <p className="text-3xl font-black text-gradient truncate">{loading ? <Loader2 className="h-8 w-8 animate-spin" /> : brl(pipelineValue)}</p>
+          <p className="text-xs font-bold text-muted-foreground/40 mt-2 uppercase tracking-tighter">Soma do valor estimado dos leads</p>
         </div>
       </div>
 
@@ -295,9 +296,27 @@ export default function Crm() {
 
         <TabsContent value="leads">
             <Card className="glass-card border-black/5 dark:border-border overflow-hidden rounded-[2rem]">
-              <CardHeader className="p-8 pb-4">
-                <CardTitle className="text-xl md:text-2xl font-black">Leads Ativos ({leads.length})</CardTitle>
-                <CardDescription className="text-sm font-medium">Gerencie seus leads e oportunidades de negócio</CardDescription>
+              <CardHeader className="p-6 md:p-8 pb-4 space-y-4">
+                <div>
+                  <CardTitle className="text-xl md:text-2xl font-black">Leads Ativos ({filteredLeads.length})</CardTitle>
+                  <CardDescription className="text-sm font-medium">Gerencie seus leads e oportunidades de negócio</CardDescription>
+                </div>
+                {/* Filtro por temperatura */}
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { v: "todos", label: "Todos", n: leads.length },
+                    { v: "quente", label: "Quentes", n: leads.filter(l => l.status === "quente").length },
+                    { v: "morno", label: "Mornos", n: leads.filter(l => l.status === "morno").length },
+                    { v: "frio", label: "Frios", n: leads.filter(l => l.status === "frio").length },
+                    { v: "lead", label: "Novos", n: leads.filter(l => l.status === "lead").length },
+                  ].map(f => (
+                    <button key={f.v} type="button" onClick={() => setStatusFilter(f.v)}
+                      className={cn("px-3 py-1.5 rounded-xl text-xs font-bold transition-all",
+                        statusFilter === f.v ? "bg-primary text-primary-foreground shadow" : "bg-muted/50 text-muted-foreground hover:bg-muted")}>
+                      {f.label} <span className="opacity-60">({f.n})</span>
+                    </button>
+                  ))}
+                </div>
               </CardHeader>
               <CardContent className="p-8 pt-0">
                 {loading ? (
@@ -335,6 +354,9 @@ export default function Crm() {
                             )}
                           </div>
                           <div className="flex items-center gap-3">
+                            {Number((lead as any).valor_estimado) > 0 && (
+                              <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">{brl(Number((lead as any).valor_estimado))}</span>
+                            )}
                             <Badge variant="outline" className={cn("px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-lg", getStatusColor(lead.status))}>
                               {lead.status}
                             </Badge>

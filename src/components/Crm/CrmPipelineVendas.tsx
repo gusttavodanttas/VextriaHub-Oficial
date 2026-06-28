@@ -12,9 +12,12 @@ interface Props {
 
 export function CrmPipelineVendas({ onBack, data = [], loading = false }: Props) {
   const leads = data.filter(c => ["lead", "quente", "morno", "frio"].includes((c.status || "").toLowerCase()));
-  const confirmedValue = data.filter(c => (c.status || "").toLowerCase() === "convertido").length * 2.5; // Mock value per converted lead
-  const potentialValue = leads.length * 1.5; // Mock value per lead
-  
+  const val = (c: any) => Number(c.valor_estimado) || 0;
+  // Valores reais (R$) com base no valor estimado de cada negócio
+  const confirmedValue = data.filter(c => (c.status || "").toLowerCase() === "convertido").reduce((s, c) => s + val(c), 0);
+  const potentialValue = leads.reduce((s, c) => s + val(c), 0);
+  const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -76,7 +79,7 @@ export function CrmPipelineVendas({ onBack, data = [], loading = false }: Props)
                    <div className="p-2 bg-emerald-500/20 rounded-lg"><DollarSign className="h-4 w-4 text-emerald-600" /></div>
                    <span className="text-xs font-black uppercase tracking-widest text-emerald-600/80">Receita Confirmada</span>
                 </div>
-                <span className="text-xl font-black text-emerald-600">R$ {confirmedValue.toFixed(1)}k</span>
+                <span className="text-xl font-black text-emerald-600">{brl(confirmedValue)}</span>
               </div>
 
               <div className="flex items-center justify-between p-4 rounded-2xl bg-blue-500/5 border border-blue-500/10">
@@ -84,14 +87,14 @@ export function CrmPipelineVendas({ onBack, data = [], loading = false }: Props)
                    <div className="p-2 bg-blue-500/20 rounded-lg"><TrendingUp className="h-4 w-4 text-blue-600" /></div>
                    <span className="text-xs font-black uppercase tracking-widest text-blue-600/80">Receita Potencial</span>
                 </div>
-                <span className="text-xl font-black text-blue-600">R$ {potentialValue.toFixed(1)}k</span>
+                <span className="text-xl font-black text-blue-600">{brl(potentialValue)}</span>
               </div>
             </div>
 
             <div className="pt-8 border-t border-black/5 dark:border-border">
               <div className="flex justify-between items-center px-2">
                 <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">Total Pipeline</span>
-                <span className="text-4xl font-black text-gradient">R$ {(confirmedValue + potentialValue).toFixed(1)}k</span>
+                <span className="text-3xl font-black text-gradient">{brl(confirmedValue + potentialValue)}</span>
               </div>
             </div>
           </CardContent>
