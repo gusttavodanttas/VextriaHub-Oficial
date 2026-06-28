@@ -25,13 +25,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     root.classList.remove('light', 'dark', 'blue');
     
     let resolvedTheme: 'light' | 'dark' | 'blue';
-    
+
     if (theme === 'auto') {
       // Detecção automática baseada na preferência do sistema
       const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      resolvedTheme = systemPrefersDark ? 'blue' : 'light';
+      resolvedTheme = systemPrefersDark ? 'dark' : 'light';
+    } else if (theme === 'blue') {
+      // 'blue' legado: sem paleta dedicada → usa o tema escuro neutro
+      resolvedTheme = 'dark';
     } else {
-      resolvedTheme = theme as 'light' | 'dark' | 'blue';
+      resolvedTheme = theme as 'light' | 'dark';
     }
     
     // Aplica o tema
@@ -49,7 +52,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       const handleChange = () => {
         const root = window.document.documentElement;
         root.classList.remove('light', 'dark', 'blue');
-        const resolvedTheme = mediaQuery.matches ? 'blue' : 'light';
+        const resolvedTheme = mediaQuery.matches ? 'dark' : 'light';
         root.classList.add(resolvedTheme);
         setActualTheme(resolvedTheme);
       };

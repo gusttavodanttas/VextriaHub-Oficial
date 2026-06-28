@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { Settings, Sun, Moon, Palette, Monitor, UserCircle, Mail, ExternalLink } from "lucide-react";
+import { Settings, Sun, Moon, Monitor, UserCircle, Mail, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { TeamManagement } from "@/components/Settings/TeamManagement";
@@ -27,7 +27,6 @@ import { useTheme } from "@/contexts/ThemeContext";
 const THEME_OPTIONS = [
   { value: "light", label: "Claro", icon: Sun },
   { value: "dark", label: "Escuro", icon: Moon },
-  { value: "blue", label: "Azul", icon: Palette },
   { value: "auto", label: "Automático", icon: Monitor },
 ] as const;
 
@@ -120,7 +119,7 @@ const Configuracoes = () => {
                     <CardDescription className="text-xs font-medium">Escolha o tema da plataforma. Aplica na hora.</CardDescription>
                   </CardHeader>
                   <CardContent className="p-6">
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-3 gap-3">
                       {THEME_OPTIONS.map((t) => {
                         const Icon = t.icon;
                         const active = theme === t.value;

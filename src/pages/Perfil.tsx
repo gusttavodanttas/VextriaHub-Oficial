@@ -37,6 +37,15 @@ const ESTADOS_BRASIL = [
   "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"
 ];
 
+// Máscara de celular brasileiro: (XX) XXXXX-XXXX (aceita também fixo (XX) XXXX-XXXX)
+function formatPhone(value: string): string {
+  const d = (value || "").replace(/\D/g, "").slice(0, 11);
+  if (d.length <= 2) return d.length ? `(${d}` : "";
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
+
 const Perfil = () => {
   const { user, profile, session, isLoading, refreshProfile } = useAuth();
   const { toast } = useToast();
@@ -61,7 +70,7 @@ const Perfil = () => {
         ...prev,
         nome: profile?.full_name || user?.name || "Usuário",
         email: profile?.email || user?.email || "email@exemplo.com",
-        telefone: profile?.phone || prev.telefone,
+        telefone: profile?.phone ? formatPhone(profile.phone) : prev.telefone,
         endereco: profile?.address || prev.endereco,
         cargo: profile?.position || (profile?.role === 'super_admin' ? 'CEO / Super Admin' : 
                profile?.role === 'admin' ? 'Administrador' : 'Membro Comum'),
@@ -232,7 +241,9 @@ const Perfil = () => {
                     <Input
                       className="bg-transparent border-none p-0 h-auto font-black shadow-none focus-visible:ring-0 text-foreground"
                       value={userInfo.telefone}
-                      onChange={(e) => setUserInfo({...userInfo, telefone: e.target.value})}
+                      onChange={(e) => setUserInfo({...userInfo, telefone: formatPhone(e.target.value)})}
+                      inputMode="numeric"
+                      placeholder="(11) 91234-5678"
                     />
                   ) : (
                     <span className="font-bold text-foreground/80">{userInfo.telefone}</span>
