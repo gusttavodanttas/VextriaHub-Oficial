@@ -8,59 +8,28 @@ import { Progress } from "@/components/ui/progress";
 import { Target, TrendingUp, Plus, Edit, Trash2 } from "lucide-react";
 import { DemandGoalsConfig } from "@/components/Goals/DemandGoalsConfig";
 import { CreateGoalDialog } from "@/components/Goals/CreateGoalDialog";
-import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 import { PermissionGuard } from "@/components/Auth/PermissionGuard";
+import { useMetas } from "@/hooks/useMetas";
 
 const Metas = () => {
-  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("individuais");
   const [createGoalOpen, setCreateGoalOpen] = useState(false);
-  const [metas, setMetas] = useState([
-    {
-      id: 1,
-      titulo: "Meta de Receita Mensal",
-      tipo: "receita",
-      periodo: "mensal",
-      valorMeta: 15000,
-      valorAtual: 8500,
-      status: "ativa",
-      dataInicio: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-      dataFim: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0)
-    },
-    {
-      id: 2,
-      titulo: "Novos Clientes",
-      tipo: "clientes",
-      periodo: "mensal",
-      valorMeta: 10,
-      valorAtual: 6,
-      status: "ativa",
-      dataInicio: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-      dataFim: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0)
-    },
-    {
-      id: 3,
-      titulo: "Processos Finalizados",
-      tipo: "processos",
-      periodo: "mensal",
-      valorMeta: 15,
-      valorAtual: 12,
-      status: "ativa",
-      dataInicio: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-      dataFim: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0)
-    }
-  ]);
+  const { metas, loading, create, remove } = useMetas();
 
   const handleCreateGoal = (novaMeta: any) => {
-    setMetas([...metas, novaMeta]);
+    create({
+      titulo: novaMeta.titulo,
+      tipo: novaMeta.tipo,
+      periodo: novaMeta.periodo,
+      valorMeta: novaMeta.valorMeta,
+      dataInicio: novaMeta.dataInicio,
+      dataFim: novaMeta.dataFim,
+    });
   };
 
-  const handleDeleteGoal = (goalId: number) => {
-    setMetas(metas.filter(m => m.id !== goalId));
-    toast({
-      title: "Meta excluída",
-      description: "A meta foi excluída com sucesso.",
-    });
+  const handleDeleteGoal = (goalId: string) => {
+    remove(goalId);
   };
 
   const getProgressColor = (percentage: number) => {
@@ -131,8 +100,11 @@ const Metas = () => {
             </div>
 
             <div className="grid gap-8 grid-cols-1 lg:grid-cols-2">
+              {loading && metas.length === 0 && (
+                [...Array(2)].map((_, i) => <Skeleton key={i} className="h-72 rounded-[2.5rem]" />)
+              )}
               {metas.map((meta) => {
-                const percentage = Math.round((meta.valorAtual / meta.valorMeta) * 100);
+                const percentage = meta.valorMeta > 0 ? Math.round((meta.valorAtual / meta.valorMeta) * 100) : 0;
                 
                 return (
                   <div key={meta.id} className="glass-card hover-lift p-8 rounded-[2.5rem] border border-black/5 dark:border-border bg-card/40 shadow-premium group relative overflow-hidden">
@@ -215,7 +187,7 @@ const Metas = () => {
                 );
               })}
 
-              {metas.length === 0 && (
+              {!loading && metas.length === 0 && (
                 <div className="col-span-full py-20 text-center glass-card rounded-[3rem] space-y-6">
                   <div className="p-8 bg-muted/30 rounded-full inline-block">
                     <Target className="h-16 w-16 text-muted-foreground/20" />
