@@ -6,7 +6,8 @@ import { useOfficeTeams } from "@/hooks/useOfficeTeams";
 import {
   ArrowLeft, Users, FileText, CheckSquare, Calendar,
   Clock, MessageSquare, BookOpen, TrendingUp, AlertCircle,
-  ChevronDown, ChevronUp, Crown, ArrowUpDown, ChevronRight, ExternalLink
+  ChevronDown, ChevronUp, Crown, ArrowUpDown, ChevronRight, ExternalLink,
+  FolderPlus, Loader2, Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -133,7 +134,7 @@ function StatCard({ icon: Icon, label, value, color, onClick }: {
 
 const rankColors = ["text-amber-500", "text-slate-400", "text-orange-700"];
 
-function MemberCard({ member, rank }: { member: MemberStats; rank: number }) {
+function MemberCard({ member, rank, onAssign }: { member: MemberStats; rank: number; onAssign?: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const name = member.full_name || member.email || "Membro";
   const totalTarefas = member.tarefasPendentes + member.tarefasConcluidas;
@@ -164,6 +165,15 @@ function MemberCard({ member, rank }: { member: MemberStats; rank: number }) {
           </div>
           <p className="text-xs text-muted-foreground truncate">{member.email}</p>
         </div>
+        {onAssign && (
+          <Button
+            size="sm" variant="outline"
+            onClick={onAssign}
+            className="h-8 rounded-lg shrink-0 gap-1.5 text-xs font-bold"
+          >
+            <FolderPlus className="h-3.5 w-3.5" /> Atribuir
+          </Button>
+        )}
         <Button
           size="sm" variant="ghost"
           onClick={() => setExpanded(v => !v)}
@@ -367,6 +377,125 @@ function TeamDetailDialog({
   );
 }
 
+// ─── AssignProcessosDialog (atribuir responsável) ───────────────────────────────
+
+interface AssignProc { id: string; titulo: string; numero: string; responsavel_id: string | null; status: string | null; }
+
+function AssignProcessosDialog({
+  open, teamId, officeId, members, defaultMemberId, onClose, onChanged,
+}: {
+  open: boolean;
+  teamId: string;
+  officeId: string;
+  members: { user_id: string; full_name: string | null; email: string | null }[];
+  defaultMemberId?: string | null;
+  onClose: () => void;
+  onChanged: () => void;
+}) {
+  const [procs, setProcs] = useState<AssignProc[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [justSaved, setJustSaved] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancel = false;
+    (async () => {
+      setLoading(true);
+      const ids = members.map(m => m.user_id);
+      const sel = "id, titulo, numero_processo, responsavel_id, status";
+      const [a, b, c] = await Promise.all([
+        supabase.from("processos").select(sel).eq("office_id", officeId).eq("deletado", false).neq("status", "encerrado").eq("team_id", teamId),
+        supabase.from("processos").select(sel).eq("office_id", officeId).eq("deletado", false).neq("status", "encerrado").in("responsavel_id", ids),
+        supabase.from("processos").select(sel).eq("office_id", officeId).eq("deletado", false).neq("status", "encerrado").in("user_id", ids),
+      ]);
+      const seen = new Set<string>();
+      const merged = [...(a.data || []), ...(b.data || []), ...(c.data || [])]
+        .filter((p: any) => { if (seen.has(p.id)) return false; seen.add(p.id); return true; })
+        .map((p: any) => ({ id: p.id, titulo: p.titulo || "Processo", numero: p.numero_processo || "", responsavel_id: p.responsavel_id, status: p.status }));
+      if (!cancel) { setProcs(merged); setLoading(false); }
+    })();
+    return () => { cancel = true; };
+  }, [open, teamId, officeId, members]);
+
+  const assign = async (procId: string, userId: string) => {
+    setSavingId(procId);
+    const { error } = await supabase.from("processos").update({ responsavel_id: userId }).eq("id", procId);
+    setSavingId(null);
+    if (!error) {
+      setProcs(prev => prev.map(p => p.id === procId ? { ...p, responsavel_id: userId } : p));
+      setJustSaved(procId);
+      setTimeout(() => setJustSaved(s => s === procId ? null : s), 1500);
+      onChanged();
+    }
+  };
+
+  const nameOf = (uid: string | null) => {
+    const m = members.find(x => x.user_id === uid);
+    return m ? (m.full_name || m.email || "Membro") : null;
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-lg rounded-2xl p-0 overflow-hidden max-h-[82vh] flex flex-col">
+        <DialogHeader className="px-5 pt-5 pb-3 border-b border-border">
+          <DialogTitle className="flex items-center gap-2.5 text-base font-black">
+            <span className="p-1.5 rounded-lg bg-blue-500/10 text-blue-500"><FolderPlus className="h-4 w-4" /></span>
+            Atribuir Processos
+            {defaultMemberId && (
+              <span className="text-xs font-bold text-muted-foreground">→ {nameOf(defaultMemberId)}</span>
+            )}
+          </DialogTitle>
+          <p className="text-[11px] text-muted-foreground mt-1">Defina o responsável de cada processo da equipe.</p>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2">
+          {loading ? (
+            [...Array(4)].map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-xl" />)
+          ) : procs.length === 0 ? (
+            <div className="py-12 text-center">
+              <FolderPlus className="h-10 w-10 mx-auto mb-2 opacity-20 text-blue-500" />
+              <p className="text-sm text-muted-foreground">Nenhum processo na equipe ainda.</p>
+            </div>
+          ) : (
+            procs.map(p => (
+              <div key={p.id} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/20">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold truncate">{p.titulo}</p>
+                  {p.numero && <p className="text-xs text-muted-foreground truncate">{p.numero}</p>}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {justSaved === p.id && <Check className="h-4 w-4 text-emerald-500" />}
+                  {savingId === p.id && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                  <Select
+                    value={p.responsavel_id || ""}
+                    onValueChange={(v) => assign(p.id, v)}
+                  >
+                    <SelectTrigger className="h-9 w-40 rounded-lg text-xs">
+                      <SelectValue placeholder="Responsável" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {members.map(m => (
+                        <SelectItem key={m.user_id} value={m.user_id}>
+                          {m.full_name || m.email || "Membro"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="px-5 py-3 border-t border-border flex justify-end">
+          <Button size="sm" onClick={onClose} className="rounded-xl text-xs font-black">Concluído</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function EquipeDetalhe() {
@@ -387,6 +516,8 @@ export default function EquipeDetalhe() {
   const [sortKey, setSortKey] = useState<SortKey>("processos");
   const [memberIds, setMemberIds] = useState<string[]>([]);
   const [detailType, setDetailType] = useState<DetailType | null>(null);
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assignMember, setAssignMember] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!teamId || !user?.office_id) return;
@@ -629,7 +760,14 @@ export default function EquipeDetalhe() {
                 <Users className="h-4 w-4 text-primary" />
                 <h2 className="font-black text-base">Produtividade por Membro</h2>
               </div>
-              <div className="flex items-center gap-2 ml-auto">
+              <Button
+                size="sm" variant="outline"
+                onClick={() => { setAssignMember(null); setAssignOpen(true); }}
+                className="h-8 rounded-xl gap-1.5 text-xs font-bold ml-auto"
+              >
+                <FolderPlus className="h-3.5 w-3.5" /> Atribuir processos
+              </Button>
+              <div className="flex items-center gap-2">
                 <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
                 <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
                   <SelectTrigger className="h-8 w-44 rounded-xl text-xs">
@@ -647,7 +785,7 @@ export default function EquipeDetalhe() {
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {sortedMembers.map((m, i) => <MemberCard key={m.user_id} member={m} rank={i + 1} />)}
+              {sortedMembers.map((m, i) => <MemberCard key={m.user_id} member={m} rank={i + 1} onAssign={() => { setAssignMember(m.user_id); setAssignOpen(true); }} />)}
             </div>
           </div>
         </>
@@ -661,6 +799,16 @@ export default function EquipeDetalhe() {
         period={period}
         onClose={() => setDetailType(null)}
         onNavigate={(route, id) => { setDetailType(null); navigate(id ? `${route}?openId=${id}` : route); }}
+      />
+
+      <AssignProcessosDialog
+        open={assignOpen}
+        teamId={teamId || ""}
+        officeId={user?.office_id || ""}
+        members={members.map(m => ({ user_id: m.user_id, full_name: m.full_name, email: m.email }))}
+        defaultMemberId={assignMember}
+        onClose={() => setAssignOpen(false)}
+        onChanged={fetchData}
       />
     </div>
   );
