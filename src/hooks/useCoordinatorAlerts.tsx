@@ -36,11 +36,11 @@ export function useCoordinatorAlerts() {
 
         // Prazos vencendo em 2 dias para membros coordenados
         supabase.from("prazos")
-          .select("id, tipo_prazo, data_fim_prazo, user_id")
+          .select("id, tipo_prazo, data_fim_prazo, responsavel_id")
           .eq("office_id", user.office_id)
           .gte("data_fim_prazo", today)
           .lte("data_fim_prazo", in2days)
-          .in("user_id", coordinatedMemberIds),
+          .in("responsavel_id", coordinatedMemberIds),
       ]);
 
       const notifications: any[] = [];

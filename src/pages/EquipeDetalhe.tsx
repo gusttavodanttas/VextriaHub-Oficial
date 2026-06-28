@@ -270,8 +270,8 @@ export default function EquipeDetalhe() {
       supabase.from("audiencias").select("user_id").eq("office_id", user.office_id)
         .eq("deletado", false).gte("data_audiencia", now.toISOString())
         .lte("data_audiencia", in7days).in("user_id", userIds),
-      supabase.from("prazos").select("user_id").eq("office_id", user.office_id)
-        .gte("data_fim_prazo", today).lte("data_fim_prazo", in3days).in("user_id", userIds),
+      supabase.from("prazos").select("responsavel_id").eq("office_id", user.office_id)
+        .gte("data_fim_prazo", today).lte("data_fim_prazo", in3days).in("responsavel_id", userIds),
       supabase.from("atendimentos").select("user_id").eq("office_id", user.office_id)
         .eq("deletado", false).gte("created_at", start).lte("created_at", end).in("user_id", userIds),
       supabase.from("consultivos").select("user_id").eq("office_id", user.office_id)
@@ -280,16 +280,16 @@ export default function EquipeDetalhe() {
         .gte("created_at", start).lte("created_at", end).in("user_id", userIds),
     ]);
 
-    // 4. Agrupar por user_id
-    const countBy = (arr: any[] | null) => {
+    // 4. Agrupar por user_id (key = campo que identifica o membro)
+    const countBy = (arr: any[] | null, key = "user_id") => {
       const map: Record<string, number> = {};
-      (arr || []).forEach(r => { map[r.user_id] = (map[r.user_id] || 0) + 1; });
+      (arr || []).forEach(r => { const k = r[key]; if (k) map[k] = (map[k] || 0) + 1; });
       return map;
     };
 
     const processosMap = countBy(processosData);
     const audienciasMap = countBy(audienciasRes.data);
-    const prazosMap = countBy(prazosRes.data);
+    const prazosMap = countBy(prazosRes.data, "responsavel_id");
     const atendimentosMap = countBy(atendimentosRes.data);
     const consultivosMap = countBy(consultivosRes.data);
 

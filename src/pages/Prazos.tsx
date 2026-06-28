@@ -136,7 +136,7 @@ export default function Prazos() {
       if (user.office_id) {
         query.eq('office_id', user.office_id);
       } else {
-        query.eq('user_id', user.id);
+        query.eq('responsavel_id', user.id);
       }
       const { data, error } = await query;
       if (error) throw error;

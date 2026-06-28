@@ -46,7 +46,8 @@ export function useProcessosV2() {
       observacoes: dbRecord.observacoes,
       fonteSincronizacao: dbRecord.fonte_sincronizacao || undefined,
       sincronizadoEm: dbRecord.sincronizado_em || undefined,
-    };
+      team_id: dbRecord.team_id || null,
+    } as any;
   };
 
   const { data = [], isLoading: loading, error, refetch: refresh } = useQuery({
