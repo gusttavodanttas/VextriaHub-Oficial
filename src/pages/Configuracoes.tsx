@@ -3,9 +3,6 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -13,16 +10,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Settings } from "lucide-react";
+import { Settings, Sun, Moon, Palette, Monitor, UserCircle, Mail, ExternalLink } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 import { TeamManagement } from "@/components/Settings/TeamManagement";
 import { ProcessTypeSimple } from "@/components/Settings/ProcessTypeSimple";
@@ -31,57 +21,25 @@ import { ClientOriginConfig } from "@/components/Settings/ClientOriginConfig";
 import { OfficeSettings } from "@/components/Office/OfficeSettings";
 import { GoogleCalendarIntegration } from "@/components/Integrations/GoogleCalendarIntegration";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
 
-interface SettingsFormValues {
-  name: string;
-  email: string;
-  notifications: boolean;
-  theme: string;
-  language: string;
-  timezone: string;
-  dateFormat: Date | undefined;
-  timeFormat: string;
-  privacy: string;
-  security: string;
-  accessibility: string;
-  advanced: string;
-}
+const THEME_OPTIONS = [
+  { value: "light", label: "Claro", icon: Sun },
+  { value: "dark", label: "Escuro", icon: Moon },
+  { value: "blue", label: "Azul", icon: Palette },
+  { value: "auto", label: "Automático", icon: Monitor },
+] as const;
 
 const Configuracoes = () => {
   const [activeTab, setActiveTab] = useState("geral");
-  const { canManageOffice, isSuperAdmin } = useUserRole();
-  const [formValues, setFormValues] = useState<SettingsFormValues>({
-    name: "Usuário",
-    email: "usuario@exemplo.com",
-    notifications: true,
-    theme: "light",
-    language: "pt-BR",
-    timezone: "America/Sao_Paulo",
-    dateFormat: undefined,
-    timeFormat: "12h",
-    privacy: "public",
-    security: "strong",
-    accessibility: "enhanced",
-    advanced: "enabled",
-  });
+  const { canManageOffice } = useUserRole();
+  const { profile, user } = useAuth();
+  const { theme, setTheme } = useTheme();
+  const navigate = useNavigate();
 
-  const handleInputChange = (
-    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value, type } = event.target;
-    const checked = (event.target as HTMLInputElement).checked;
-    setFormValues({
-      ...formValues,
-      [name]: type === "checkbox" ? checked : value,
-    });
-  };
-
-  const handleDateChange = (date: Date | undefined) => {
-    setFormValues({
-      ...formValues,
-      dateFormat: date,
-    });
-  };
+  const displayName = profile?.full_name || user?.name || "—";
+  const displayEmail = profile?.email || user?.email || "—";
 
   return (
     <div className="flex-1 p-4 md:p-8 space-y-8 md:space-y-12 overflow-x-hidden entry-animate">
@@ -107,8 +65,6 @@ const Configuracoes = () => {
           <TabsList className="bg-transparent h-auto p-0 flex flex-nowrap gap-1 min-w-max">
             {[
               { id: "geral", label: "Geral" },
-              { id: "usuarios", label: "Usuários" },
-              { id: "permissoes", label: "Permissões" },
               { id: "clientes", label: "Clientes" },
               { id: "processos", label: "Processos" },
               { id: "prazos", label: "Prazos" },
@@ -128,194 +84,58 @@ const Configuracoes = () => {
         </div>
 
               <TabsContent value="geral" className="space-y-6">
+                {/* Conta */}
                 <Card className="glass-card rounded-[2rem] border-black/5 dark:border-border overflow-hidden shadow-premium">
                   <CardHeader className="border-b border-black/5 dark:border-border pb-4">
-                    <CardTitle className="text-xl font-black">Informações Gerais</CardTitle>
-                    <CardDescription className="text-xs font-medium">
-                      Gerencie suas informações pessoais e preferências
-                    </CardDescription>
+                    <CardTitle className="text-xl font-black">Sua Conta</CardTitle>
+                    <CardDescription className="text-xs font-medium">Dados da sua conta. Edite no seu Perfil.</CardDescription>
                   </CardHeader>
                   <CardContent className="p-6 space-y-4">
-                    <div className="grid gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="name" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nome</Label>
-                        <Input
-                          id="name"
-                          name="name"
-                          value={formValues.name}
-                          onChange={handleInputChange}
-                          className="h-12 rounded-2xl bg-black/[0.02] dark:bg-muted/30 border-black/5 dark:border-border"
-                        />
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="flex items-center gap-3 p-4 rounded-2xl bg-black/[0.02] dark:bg-muted/30 border border-black/5 dark:border-border">
+                        <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0"><UserCircle className="h-5 w-5" /></div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">Nome</p>
+                          <p className="font-bold truncate">{displayName}</p>
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Email</Label>
-                        <Input
-                          id="email"
-                          name="email"
-                          type="email"
-                          value={formValues.email}
-                          onChange={handleInputChange}
-                          className="h-12 rounded-2xl bg-black/[0.02] dark:bg-muted/30 border-black/5 dark:border-border"
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="notifications">Notificações</Label>
-                        <Switch
-                          id="notifications"
-                          name="notifications"
-                          checked={formValues.notifications}
-                          onCheckedChange={(checked) =>
-                            setFormValues({ ...formValues, notifications: checked })
-                          }
-                        />
+                      <div className="flex items-center gap-3 p-4 rounded-2xl bg-black/[0.02] dark:bg-muted/30 border border-black/5 dark:border-border">
+                        <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0"><Mail className="h-5 w-5" /></div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">E-mail</p>
+                          <p className="font-bold truncate">{displayEmail}</p>
+                        </div>
                       </div>
                     </div>
+                    <Button variant="outline" className="rounded-xl gap-2 font-bold" onClick={() => navigate("/perfil")}>
+                      <ExternalLink className="h-4 w-4" /> Editar no Perfil
+                    </Button>
                   </CardContent>
                 </Card>
 
+                {/* Aparência (tema real) */}
                 <Card className="glass-card rounded-[2rem] border-black/5 dark:border-border overflow-hidden shadow-premium">
                   <CardHeader className="border-b border-black/5 dark:border-border pb-4">
-                    <CardTitle className="text-xl font-black">Preferências</CardTitle>
-                    <CardDescription className="text-xs font-medium">
-                      Personalize a aparência e o comportamento do sistema
-                    </CardDescription>
+                    <CardTitle className="text-xl font-black">Aparência</CardTitle>
+                    <CardDescription className="text-xs font-medium">Escolha o tema da plataforma. Aplica na hora.</CardDescription>
                   </CardHeader>
-                  <CardContent className="p-6 space-y-4">
-                    <div className="grid gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="theme" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Tema</Label>
-                        <Select
-                          value={formValues.theme}
-                          onValueChange={(value) =>
-                            setFormValues({ ...formValues, theme: value })
-                          }
-                        >
-                          <SelectTrigger className="h-12 rounded-2xl bg-black/[0.02] dark:bg-muted/30 border-black/5 dark:border-border font-bold">
-                            <SelectValue placeholder="Selecione o tema" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="light">Claro</SelectItem>
-                            <SelectItem value="dark">Escuro</SelectItem>
-                            <SelectItem value="system">Sistema</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="language" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Idioma</Label>
-                        <Select
-                          value={formValues.language}
-                          onValueChange={(value) =>
-                            setFormValues({ ...formValues, language: value })
-                          }
-                        >
-                          <SelectTrigger className="h-12 rounded-2xl bg-black/[0.02] dark:bg-muted/30 border-black/5 dark:border-border font-bold">
-                            <SelectValue placeholder="Selecione o idioma" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pt-BR">Português (Brasil)</SelectItem>
-                            <SelectItem value="en-US">Inglês (Estados Unidos)</SelectItem>
-                            <SelectItem value="es-ES">Espanhol (Espanha)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="timezone" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Fuso Horário</Label>
-                        <Select
-                          value={formValues.timezone}
-                          onValueChange={(value) =>
-                            setFormValues({ ...formValues, timezone: value })
-                          }
-                        >
-                          <SelectTrigger className="h-12 rounded-2xl bg-black/[0.02] dark:bg-muted/30 border-black/5 dark:border-border font-bold">
-                            <SelectValue placeholder="Selecione o fuso horário" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="America/Sao_Paulo">
-                              America/Sao_Paulo
-                            </SelectItem>
-                            <SelectItem value="America/New_York">America/New_York</SelectItem>
-                            <SelectItem value="Europe/London">Europe/London</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Formato de Data</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant={"outline"}
-                              className={cn(
-                                "w-full h-12 rounded-2xl bg-black/[0.02] dark:bg-muted/30 border-black/5 dark:border-border justify-start text-left font-bold",
-                                !formValues.dateFormat && "text-muted-foreground"
-                              )}
-                            >
-                              {formValues.dateFormat ? (
-                                format(formValues.dateFormat, "PPP", { locale: ptBR })
-                              ) : (
-                                <span>Selecione a data</span>
-                              )}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={formValues.dateFormat}
-                              onSelect={handleDateChange}
-                              className="rounded-md border"
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="timeFormat" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Formato de Hora</Label>
-                        <Select
-                          value={formValues.timeFormat}
-                          onValueChange={(value) =>
-                            setFormValues({ ...formValues, timeFormat: value })
-                          }
-                        >
-                          <SelectTrigger className="h-12 rounded-2xl bg-black/[0.02] dark:bg-muted/30 border-black/5 dark:border-border font-bold">
-                            <SelectValue placeholder="Selecione o formato" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="12h">12h</SelectItem>
-                            <SelectItem value="24h">24h</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                  <CardContent className="p-6">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {THEME_OPTIONS.map((t) => {
+                        const Icon = t.icon;
+                        const active = theme === t.value;
+                        return (
+                          <button key={t.value} type="button" onClick={() => setTheme(t.value)}
+                            className={cn(
+                              "flex flex-col items-center gap-2 p-5 rounded-2xl border-2 transition-all",
+                              active ? "border-primary bg-primary/5 shadow-md" : "border-black/5 dark:border-border hover:bg-muted/40"
+                            )}>
+                            <Icon className={cn("h-6 w-6", active ? "text-primary" : "text-muted-foreground")} />
+                            <span className={cn("text-xs font-black", active && "text-primary")}>{t.label}</span>
+                          </button>
+                        );
+                      })}
                     </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="usuarios" className="space-y-6">
-                <Card className="glass-card rounded-[2rem] border-black/5 dark:border-border overflow-hidden shadow-premium">
-                  <CardHeader className="border-b border-black/5 dark:border-border pb-4">
-                    <CardTitle className="text-xl font-black">Gerenciamento de Usuários</CardTitle>
-                    <CardDescription className="text-xs font-medium uppercase tracking-widest opacity-60">
-                      Adicione, edite e remova usuários do sistema
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-12 text-center">
-                    <div className="p-8 rounded-full bg-primary/5 border border-primary/10 w-fit mx-auto mb-4">
-                      <Users className="h-12 w-12 text-primary/30" />
-                    </div>
-                    <p className="text-muted-foreground font-black uppercase tracking-widest text-[10px]">Módulo em calibração</p>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="permissoes" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Gerenciamento de Permissões</CardTitle>
-                    <CardDescription>
-                      Defina as permissões de acesso para cada usuário
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p>Em desenvolvimento</p>
                   </CardContent>
                 </Card>
               </TabsContent>

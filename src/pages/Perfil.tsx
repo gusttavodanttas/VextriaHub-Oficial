@@ -29,6 +29,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useMyStats } from "@/hooks/useMyStats";
 import { cn } from "@/lib/utils";
 
 const ESTADOS_BRASIL = [
@@ -71,13 +72,7 @@ const Perfil = () => {
     }
   }, [user, profile]);
 
-  const estatisticas = {
-    processosAtivos: 0,
-    processosFinalizados: 0,
-    clientesAtendidos: 0,
-    pontuacaoTotal: 0,
-    ranking: "--"
-  };
+  const myStats = useMyStats();
 
   const handleSave = async () => {
     try {
@@ -87,9 +82,8 @@ const Perfil = () => {
       }
       
       setIsSaving(true);
-      console.log('Tentando atualizar perfil do usuário:', user?.id || profile?.id);
 
-      const updatePayload = { 
+      const updatePayload = {
         full_name: userInfo.nome,
         phone: userInfo.telefone,
         address: userInfo.endereco,
@@ -110,13 +104,8 @@ const Perfil = () => {
         .select()
         .single();
 
-      if (error) {
-        console.error("Erro do supabase:", error);
-        throw error;
-      }
+      if (error) throw error;
 
-      console.log("Sucesso ao atualizar:", data);
-      
       // Atualizar o estado global imediatamente para mudar o menu lateral
       if (refreshProfile) await refreshProfile();
 
@@ -339,28 +328,28 @@ const Perfil = () => {
 
             <div className="grid grid-cols-1 gap-4">
               <div className="p-6 rounded-3xl bg-primary/5 border border-primary/10 hover:bg-primary/10 transition-all text-center shadow-inner">
-                <p className="text-4xl font-black text-primary mb-1">{estatisticas.pontuacaoTotal}</p>
+                <p className="text-4xl font-black text-primary mb-1">{myStats.loading ? "…" : myStats.pontos}</p>
                 <p className="text-[10px] font-black uppercase tracking-widest text-primary/60">Pontuação Meritocrática</p>
               </div>
 
               <div className="p-6 rounded-3xl bg-background/50 border border-border hover:bg-card transition-all text-center shadow-inner">
-                <p className="text-4xl font-black mb-1 text-foreground">#{estatisticas.ranking}</p>
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-60">Ranking Global Hub</p>
+                <p className="text-4xl font-black mb-1 text-foreground">{myStats.loading ? "…" : myStats.tarefasConcluidas}</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-60">Tarefas Concluídas</p>
               </div>
             </div>
 
             <div className="space-y-4 pt-4 border-t border-border/50">
               <div className="flex justify-between items-center px-2">
                 <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Processos Ativos</span>
-                <span className="text-lg font-black text-foreground">{estatisticas.processosAtivos}</span>
+                <span className="text-lg font-black text-foreground">{myStats.processosAtivos}</span>
               </div>
               <div className="flex justify-between items-center px-2">
-                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Concluídos (MTD)</span>
-                <span className="text-lg font-black text-foreground">{estatisticas.processosFinalizados}</span>
+                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Processos Finalizados</span>
+                <span className="text-lg font-black text-foreground">{myStats.processosFinalizados}</span>
               </div>
               <div className="flex justify-between items-center px-2">
-                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Clientes Geridos</span>
-                <span className="text-lg font-black text-foreground">{estatisticas.clientesAtendidos}</span>
+                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Clientes Cadastrados</span>
+                <span className="text-lg font-black text-foreground">{myStats.clientesAtendidos}</span>
               </div>
             </div>
           </div>

@@ -4,9 +4,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PermissionGuard } from "@/components/Auth/PermissionGuard";
 import { OfficeSettings } from "@/components/Office/OfficeSettings";
 import { UserManagement } from "@/components/Office/UserManagement";
-import { Building2, Users, Settings } from "lucide-react";
+import { Building2, Users, Settings, FileText, UserCheck } from "lucide-react";
+import { useStats } from "@/hooks/useStats";
+import { cn } from "@/lib/utils";
 
 const Escritorio = () => {
+  const { stats, loading } = useStats();
+  const kpis = [
+    { label: "Colaboradores", value: stats.colaboradores, icon: Users, color: "text-primary", bg: "bg-primary/10" },
+    { label: "Processos ativos", value: stats.processosAtivos, icon: FileText, color: "text-blue-500", bg: "bg-blue-500/10" },
+    { label: "Clientes", value: stats.clientes, icon: UserCheck, color: "text-emerald-500", bg: "bg-emerald-500/10" },
+  ];
   return (
     <PermissionGuard permission="canManageOffice">
       <div className="flex-1 p-4 md:p-8 space-y-8 md:space-y-10 overflow-x-hidden entry-animate">
@@ -24,6 +32,19 @@ const Escritorio = () => {
               Ajuste as configurações globais e controle o acesso de usuários.
             </p>
           </div>
+        </div>
+
+        {/* KPIs do escritório */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {kpis.map((k) => (
+            <div key={k.label} className="flex items-center gap-3 rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4">
+              <div className={cn("p-2.5 rounded-xl shrink-0", k.bg)}><k.icon className={cn("h-5 w-5", k.color)} /></div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">{k.label}</p>
+                <p className="text-2xl font-black tracking-tight">{loading ? "…" : k.value}</p>
+              </div>
+            </div>
+          ))}
         </div>
 
         <Tabs defaultValue="configuracoes" className="space-y-8">
