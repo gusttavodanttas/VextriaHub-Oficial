@@ -1,13 +1,11 @@
 import { useState, useMemo } from "react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
-  Settings, Sun, Moon, Palette, Monitor, UserCircle, Mail, ExternalLink,
+  Settings, Sun, Moon, Palette, Monitor,
   Users, FileText, Clock, Users2, Plug, Check, ChevronRight,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 
 import { TeamManagement } from "@/components/Settings/TeamManagement";
 import { ProcessTypeSimple } from "@/components/Settings/ProcessTypeSimple";
@@ -15,7 +13,6 @@ import { DeadlineConfig } from "@/components/Settings/DeadlineConfig";
 import { ClientOriginConfig } from "@/components/Settings/ClientOriginConfig";
 import { IntegrationsPanel } from "@/components/Integrations/IntegrationsPanel";
 import { useUserRole } from "@/hooks/useUserRole";
-import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 
 // Pré-visualização das cores reais de cada tema
@@ -36,7 +33,7 @@ interface Section {
 }
 
 const SECTIONS: Section[] = [
-  { id: "geral", label: "Geral", desc: "Conta e aparência", icon: UserCircle, group: "Conta" },
+  { id: "geral", label: "Aparência", desc: "Tema da plataforma", icon: Palette, group: "Preferências" },
   { id: "clientes", label: "Clientes", desc: "Origens de captação", icon: Users, group: "Operação" },
   { id: "processos", label: "Processos", desc: "Tipos de processo", icon: FileText, group: "Operação" },
   { id: "prazos", label: "Prazos", desc: "Tipos de prazo e atos", icon: Clock, group: "Operação" },
@@ -44,17 +41,12 @@ const SECTIONS: Section[] = [
   { id: "integracao", label: "Integração", desc: "Apps conectados", icon: Plug, group: "Integrações" },
 ];
 
-const GROUP_ORDER = ["Conta", "Operação", "Integrações"];
+const GROUP_ORDER = ["Preferências", "Operação", "Integrações"];
 
 const Configuracoes = () => {
   const [activeTab, setActiveTab] = useState("geral");
   const { canManageOffice } = useUserRole();
-  const { profile, user } = useAuth();
   const { theme, setTheme } = useTheme();
-  const navigate = useNavigate();
-
-  const displayName = profile?.full_name || user?.name || "—";
-  const displayEmail = profile?.email || user?.email || "—";
 
   const sections = useMemo(
     () => SECTIONS.filter((s) => !s.adminOnly || canManageOffice),
@@ -75,7 +67,7 @@ const Configuracoes = () => {
       case "prazos": return <DeadlineConfig />;
       case "equipes": return <TeamManagement />;
       case "integracao": return <IntegrationsPanel />;
-      default: return <GeralSection {...{ displayName, displayEmail, theme, setTheme, navigate }} />;
+      default: return <AparenciaSection theme={theme} setTheme={setTheme} />;
     }
   };
 
@@ -89,7 +81,7 @@ const Configuracoes = () => {
         <div>
           <h1 className="text-2xl md:text-4xl font-black tracking-tight">Configurações</h1>
           <p className="text-xs md:text-sm text-muted-foreground font-medium">
-            Preferências da conta e do escritório
+            Aparência e configurações operacionais
           </p>
         </div>
       </div>
@@ -147,52 +139,10 @@ const Configuracoes = () => {
   );
 };
 
-/* ---------- Seção "Geral" ---------- */
-function GeralSection({
-  displayName, displayEmail, theme, setTheme, navigate,
-}: {
-  displayName: string;
-  displayEmail: string;
-  theme: string;
-  setTheme: (t: any) => void;
-  navigate: (p: string) => void;
-}) {
+/* ---------- Seção "Aparência" ---------- */
+function AparenciaSection({ theme, setTheme }: { theme: string; setTheme: (t: any) => void }) {
   return (
     <>
-      {/* Conta */}
-      <Card className="glass-card rounded-[2rem] border-black/5 dark:border-border overflow-hidden shadow-premium">
-        <CardHeader className="border-b border-black/5 dark:border-border pb-4 flex flex-row items-center gap-3">
-          <div className="h-11 w-11 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
-            <UserCircle className="h-5 w-5" />
-          </div>
-          <div>
-            <CardTitle className="text-lg font-black">Sua Conta</CardTitle>
-            <CardDescription className="text-xs font-medium">Dados da sua conta — edite no seu Perfil.</CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent className="p-6 space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="flex items-center gap-3 p-4 rounded-2xl bg-black/[0.02] dark:bg-muted/30 border border-black/5 dark:border-border">
-              <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0"><UserCircle className="h-5 w-5" /></div>
-              <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">Nome</p>
-                <p className="font-bold truncate">{displayName}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 p-4 rounded-2xl bg-black/[0.02] dark:bg-muted/30 border border-black/5 dark:border-border">
-              <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0"><Mail className="h-5 w-5" /></div>
-              <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">E-mail</p>
-                <p className="font-bold truncate">{displayEmail}</p>
-              </div>
-            </div>
-          </div>
-          <Button variant="outline" className="rounded-xl gap-2 font-bold" onClick={() => navigate("/perfil")}>
-            <ExternalLink className="h-4 w-4" /> Editar no Perfil
-          </Button>
-        </CardContent>
-      </Card>
-
       {/* Aparência com preview real */}
       <Card className="glass-card rounded-[2rem] border-black/5 dark:border-border overflow-hidden shadow-premium">
         <CardHeader className="border-b border-black/5 dark:border-border pb-4 flex flex-row items-center gap-3">

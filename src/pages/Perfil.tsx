@@ -14,16 +14,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
-  UserCircle, 
-  Mail, 
-  Phone, 
-  MapPin, 
+import {
+  UserCircle,
+  Mail,
+  Phone,
+  MapPin,
   Award,
   Briefcase,
   Edit,
   Save,
-  Scale
+  Scale,
+  Lock,
+  Eye,
+  EyeOff,
+  Loader2
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -366,11 +370,89 @@ const Perfil = () => {
               </div>
             </div>
           </div>
+
+          <SecurityCard />
         </div>
       </div>
 
     </div>
   );
 };
+
+/* ---------- Segurança (alterar senha) ---------- */
+function SecurityCard() {
+  const { toast } = useToast();
+  const [novaSenha, setNovaSenha] = useState("");
+  const [confirmar, setConfirmar] = useState("");
+  const [mostrar, setMostrar] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+
+  const curta = novaSenha.length > 0 && novaSenha.length < 6;
+  const diverge = confirmar.length > 0 && confirmar !== novaSenha;
+  const podeSalvar = novaSenha.length >= 6 && confirmar === novaSenha && !salvando;
+
+  const alterar = async () => {
+    if (!podeSalvar) return;
+    setSalvando(true);
+    const { error } = await supabase.auth.updateUser({ password: novaSenha });
+    setSalvando(false);
+    if (error) {
+      toast({ variant: "destructive", title: "Erro ao alterar senha", description: error.message });
+      return;
+    }
+    toast({ title: "Senha alterada", description: "Sua nova senha já está ativa." });
+    setNovaSenha(""); setConfirmar("");
+  };
+
+  return (
+    <div className="glass-card p-8 rounded-[2.5rem] border-border bg-card/40 shadow-premium space-y-6">
+      <h3 className="text-xl font-black flex items-center gap-3 text-foreground">
+        <Lock className="h-6 w-6 text-primary" />
+        Segurança
+      </h3>
+
+      <div className="space-y-4">
+        <div className="space-y-1.5">
+          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50">Nova senha</Label>
+          <div className="relative">
+            <Input
+              type={mostrar ? "text" : "password"}
+              value={novaSenha}
+              onChange={(e) => setNovaSenha(e.target.value)}
+              placeholder="Mínimo 6 caracteres"
+              className={cn("h-12 rounded-2xl pr-11 bg-background/50", curta && "border-destructive focus-visible:ring-destructive")}
+            />
+            <button
+              type="button"
+              onClick={() => setMostrar((s) => !s)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground"
+              aria-label={mostrar ? "Ocultar senha" : "Mostrar senha"}
+            >
+              {mostrar ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          {curta && <p className="text-[11px] font-bold text-destructive px-1">Use ao menos 6 caracteres.</p>}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50">Confirmar nova senha</Label>
+          <Input
+            type={mostrar ? "text" : "password"}
+            value={confirmar}
+            onChange={(e) => setConfirmar(e.target.value)}
+            placeholder="Repita a nova senha"
+            className={cn("h-12 rounded-2xl bg-background/50", diverge && "border-destructive focus-visible:ring-destructive")}
+          />
+          {diverge && <p className="text-[11px] font-bold text-destructive px-1">As senhas não coincidem.</p>}
+        </div>
+
+        <Button onClick={alterar} disabled={!podeSalvar} className="w-full h-12 rounded-2xl font-black uppercase text-xs tracking-widest gap-2">
+          {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
+          {salvando ? "Alterando…" : "Alterar Senha"}
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export default Perfil;
