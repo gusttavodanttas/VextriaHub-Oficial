@@ -5,12 +5,116 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Target, TrendingUp, Plus, Edit, Trash2 } from "lucide-react";
+import { Target, TrendingUp, Plus, Edit, Trash2, CheckCircle2, AlertTriangle, Clock, Flame } from "lucide-react";
 import { DemandGoalsConfig } from "@/components/Goals/DemandGoalsConfig";
 import { CreateGoalDialog } from "@/components/Goals/CreateGoalDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PermissionGuard } from "@/components/Auth/PermissionGuard";
-import { useMetas } from "@/hooks/useMetas";
+import { useMetas, type Meta } from "@/hooks/useMetas";
+import { cn } from "@/lib/utils";
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+const fmtMeta = (value: number, tipo: string) =>
+  tipo === "receita"
+    ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(value)
+    : String(value);
+
+type MetaStatus = {
+  pct: number; expectedPct: number; daysLeft: number; totalDays: number;
+  kind: "achieved" | "ontrack" | "behind";
+  label: string; color: string; ring: string; bg: string;
+};
+
+function computeStatus(m: Meta): MetaStatus {
+  const pct = m.valorMeta > 0 ? Math.round((m.valorAtual / m.valorMeta) * 100) : 0;
+  const start = new Date(m.dataInicio).getTime();
+  const end = new Date(m.dataFim).getTime();
+  const now = Date.now();
+  const total = Math.max(end - start, 1);
+  const elapsed = Math.min(Math.max(now - start, 0), total);
+  const expectedPct = Math.round((elapsed / total) * 100);
+  const daysLeft = Math.max(0, Math.ceil((end - now) / 86_400_000));
+  const totalDays = Math.max(1, Math.ceil(total / 86_400_000));
+
+  let kind: MetaStatus["kind"] = "behind";
+  if (pct >= 100) kind = "achieved";
+  else if (pct >= expectedPct) kind = "ontrack";
+
+  const map = {
+    achieved: { label: "Atingida", color: "text-emerald-500", ring: "stroke-emerald-500", bg: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" },
+    ontrack: { label: "No ritmo", color: "text-blue-500", ring: "stroke-blue-500", bg: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
+    behind: { label: "Atrasada", color: "text-amber-500", ring: "stroke-amber-500", bg: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
+  }[kind];
+
+  return { pct, expectedPct, daysLeft, totalDays, kind, ...map };
+}
+
+// Anel de progresso (SVG) com marcador do ritmo esperado
+function MetaRing({ pct, expectedPct, ringClass }: { pct: number; expectedPct: number; ringClass: string }) {
+  const r = 36, c = 2 * Math.PI * r;
+  const off = c * (1 - Math.min(pct, 100) / 100);
+  const expAngle = (Math.min(expectedPct, 100) / 100) * 360 - 90;
+  const ex = 50 + r * Math.cos((expAngle * Math.PI) / 180);
+  const ey = 50 + r * Math.sin((expAngle * Math.PI) / 180);
+  return (
+    <svg viewBox="0 0 100 100" className="h-24 w-24 shrink-0 -rotate-90">
+      <circle cx="50" cy="50" r={r} className="fill-none stroke-muted/40" strokeWidth="9" />
+      <circle cx="50" cy="50" r={r} className={cn("fill-none transition-all duration-700", ringClass)}
+        strokeWidth="9" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={off} />
+      {/* marcador do ritmo esperado */}
+      <circle cx={ex} cy={ey} r="3.5" className="fill-foreground/40" />
+    </svg>
+  );
+}
+
+const STATUS_ICON = { achieved: CheckCircle2, ontrack: Flame, behind: AlertTriangle };
+
+function MetaCard({ meta, onEdit, onDelete }: { meta: Meta; onEdit: (m: Meta) => void; onDelete: (id: string) => void }) {
+  const s = computeStatus(meta);
+  const Icon = STATUS_ICON[s.kind];
+  return (
+    <div className="group relative overflow-hidden rounded-3xl border border-black/5 dark:border-border bg-card/50 p-5 md:p-6 shadow-premium transition-all hover:shadow-lg hover:-translate-y-0.5">
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div className="min-w-0">
+          <h4 className="text-lg font-black tracking-tight truncate">{meta.titulo}</h4>
+          <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+            <span className={cn("inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-md border uppercase tracking-wider", s.bg)}>
+              <Icon className="h-3 w-3" /> {s.label}
+            </span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-muted/50 text-muted-foreground uppercase tracking-wider">{meta.periodo}</span>
+          </div>
+        </div>
+        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+          <Button size="icon" variant="ghost" onClick={() => onEdit(meta)} className="h-8 w-8 rounded-lg hover:bg-primary/10"><Edit className="h-4 w-4" /></Button>
+          <Button size="icon" variant="ghost" onClick={() => onDelete(meta.id)} className="h-8 w-8 rounded-lg hover:bg-red-500/10 hover:text-red-500"><Trash2 className="h-4 w-4" /></Button>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-5">
+        <div className="relative shrink-0">
+          <MetaRing pct={s.pct} expectedPct={s.expectedPct} ringClass={s.ring} />
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className={cn("text-xl font-black leading-none", s.color)}>{s.pct}%</span>
+          </div>
+        </div>
+        <div className="flex-1 min-w-0 space-y-2">
+          <div>
+            <p className="text-2xl font-black tracking-tight leading-none">{fmtMeta(meta.valorAtual, meta.tipo)}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">de {fmtMeta(meta.valorMeta, meta.tipo)}</p>
+          </div>
+          <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+            <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {s.daysLeft}d restantes</span>
+            <span>·</span>
+            <span>ritmo esperado {s.expectedPct}%</span>
+          </div>
+          <p className="text-[11px] font-bold">
+            Faltam <span className={s.color}>{fmtMeta(Math.max(meta.valorMeta - meta.valorAtual, 0), meta.tipo)}</span>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const Metas = () => {
   const [activeTab, setActiveTab] = useState("individuais");
@@ -36,6 +140,19 @@ const Metas = () => {
     receita: "Receita", clientes: "Novos Clientes", processos: "Processos Finalizados",
     audiencias: "Audiências", atendimentos: "Atendimentos", prazos: "Prazos Cumpridos",
   };
+  const resumo = useMemo(() => {
+    const total = metas.length;
+    let soma = 0, ontrack = 0, achieved = 0, behind = 0;
+    metas.forEach(m => {
+      const s = computeStatus(m);
+      soma += Math.min(s.pct, 100);
+      if (s.kind === "achieved") achieved++;
+      else if (s.kind === "ontrack") ontrack++;
+      else behind++;
+    });
+    return { total, media: total > 0 ? Math.round(soma / total) : 0, ontrack, achieved, behind };
+  }, [metas]);
+
   const consolidado = useMemo(() => {
     const map: Record<string, { meta: number; atual: number; qtd: number }> = {};
     metas.forEach(m => {
@@ -46,12 +163,6 @@ const Metas = () => {
     });
     return Object.entries(map).map(([tipo, v]) => ({ tipo, ...v, pct: v.meta > 0 ? Math.round((v.atual / v.meta) * 100) : 0 }));
   }, [metas]);
-
-  const getProgressColor = (percentage: number) => {
-    if (percentage >= 90) return "text-green-600";
-    if (percentage >= 70) return "text-yellow-600";
-    return "text-red-600";
-  };
 
   const formatValue = (value: number, tipo: string) => {
     if (tipo === "receita") {
@@ -109,98 +220,34 @@ const Metas = () => {
           </TabsList>
         </div>
 
-          <TabsContent value="individuais" className="space-y-8 entry-animate slide-in-from-bottom-4 duration-500">
-            <div className="flex justify-between items-center px-4">
-              <h3 className="text-2xl font-black tracking-tight">Suas Metas Pessoais</h3>
-            </div>
-
-            <div className="grid gap-8 grid-cols-1 lg:grid-cols-2">
-              {loading && metas.length === 0 && (
-                [...Array(2)].map((_, i) => <Skeleton key={i} className="h-72 rounded-[2.5rem]" />)
-              )}
-              {metas.map((meta) => {
-                const percentage = meta.valorMeta > 0 ? Math.round((meta.valorAtual / meta.valorMeta) * 100) : 0;
-                
-                return (
-                  <div key={meta.id} className="glass-card hover-lift p-8 rounded-[2.5rem] border border-black/5 dark:border-border bg-card/40 shadow-premium group relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
-                      <Target className="h-24 w-24" />
-                    </div>
-                    
-                    <div className="relative z-10 space-y-8">
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-2">
-                          <h4 className="text-2xl font-black group-hover:text-primary transition-colors duration-500 leading-tight">
-                            {meta.titulo}
-                          </h4>
-                          <div className="flex items-center gap-2">
-                            <Badge className="bg-primary/10 text-primary border-primary/20 font-black px-3 py-1 rounded-lg uppercase text-[10px] tracking-widest shadow-sm">
-                              {meta.periodo}
-                            </Badge>
-                            <Badge className="bg-black/[0.03] dark:bg-muted/30 text-muted-foreground border-black/5 dark:border-border font-black px-3 py-1 rounded-lg uppercase text-[10px] tracking-widest shadow-sm">
-                              {meta.tipo}
-                            </Badge>
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button size="icon" variant="ghost" onClick={() => openEdit(meta)} className="h-10 w-10 rounded-xl hover:bg-primary/10">
-                            <Edit className="h-5 w-5" />
-                          </Button>
-                          <Button 
-                            size="icon" 
-                            variant="ghost"
-                            onClick={() => handleDeleteGoal(meta.id)}
-                            className="h-10 w-10 rounded-xl hover:bg-red-500/10 hover:text-red-500"
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="space-y-4">
-                        <div className="flex justify-between items-end">
-                          <div className="space-y-1">
-                            <p className="text-5xl font-black tracking-tighter">
-                              {formatValue(meta.valorAtual, meta.tipo)}
-                            </p>
-                            <p className="text-sm font-medium text-muted-foreground opacity-60">
-                              Objetivo Final: {formatValue(meta.valorMeta, meta.tipo)}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <span className={`text-2xl font-black ${getProgressColor(percentage)}`}>
-                              {percentage}%
-                            </span>
-                            <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Proporção</p>
-                          </div>
-                        </div>
-
-                        <div className="w-full bg-black/5 dark:bg-muted/30 rounded-2xl h-4 p-1 border border-black/5 dark:border-border shadow-inner">
-                          <div 
-                            className="bg-gradient-to-r from-primary to-primary/60 h-full rounded-xl transition-all duration-1000 ease-out shadow-premium relative group-hover:shadow-[0_0_20px_rgba(var(--primary),0.3)]"
-                            style={{ width: `${Math.min(percentage, 100)}%` }}
-                          >
-                            <div className="absolute top-0 right-0 h-full w-2 bg-muted blur-sm rounded-full" />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="pt-6 border-t border-black/5 dark:border-border flex justify-between items-center">
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-                          <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest opacity-60">Meta Ativa</span>
-                        </div>
-                        <div className="bg-primary/5 dark:bg-primary/10 px-4 py-2 rounded-2xl border border-primary/10 dark:border-primary/20">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-primary/70 mb-0.5">Falta para concluir</p>
-                          <p className="font-black text-primary text-lg leading-none">
-                            {formatValue(Math.max(meta.valorMeta - meta.valorAtual, 0), meta.tipo)}
-                          </p>
-                        </div>
-                      </div>
+          <TabsContent value="individuais" className="space-y-6 entry-animate slide-in-from-bottom-4 duration-500">
+            {/* Resumo */}
+            {!loading && metas.length > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  { label: "Metas ativas", value: resumo.total, icon: Target, color: "text-primary", bg: "bg-primary/10" },
+                  { label: "Progresso médio", value: `${resumo.media}%`, icon: TrendingUp, color: "text-violet-500", bg: "bg-violet-500/10" },
+                  { label: "No ritmo", value: resumo.ontrack + resumo.achieved, icon: Flame, color: "text-blue-500", bg: "bg-blue-500/10" },
+                  { label: "Atrasadas", value: resumo.behind, icon: AlertTriangle, color: "text-amber-500", bg: "bg-amber-500/10" },
+                ].map((s) => (
+                  <div key={s.label} className="flex items-center gap-3 rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4">
+                    <div className={cn("p-2.5 rounded-xl shrink-0", s.bg)}><s.icon className={cn("h-5 w-5", s.color)} /></div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">{s.label}</p>
+                      <p className="text-xl font-black tracking-tight">{s.value}</p>
                     </div>
                   </div>
-                );
-              })}
+                ))}
+              </div>
+            )}
+
+            <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+              {loading && metas.length === 0 && (
+                [...Array(2)].map((_, i) => <Skeleton key={i} className="h-48 rounded-3xl" />)
+              )}
+              {metas.map((meta) => (
+                <MetaCard key={meta.id} meta={meta} onEdit={openEdit} onDelete={handleDeleteGoal} />
+              ))}
 
               {!loading && metas.length === 0 && (
                 <div className="col-span-full py-20 text-center glass-card rounded-[3rem] space-y-6">
