@@ -6,13 +6,32 @@ import { useOfficeTeams } from "@/hooks/useOfficeTeams";
 import {
   ArrowLeft, Users, FileText, CheckSquare, Calendar,
   Clock, MessageSquare, BookOpen, TrendingUp, AlertCircle,
-  ChevronDown, ChevronUp, Crown, ArrowUpDown
+  ChevronDown, ChevronUp, Crown, ArrowUpDown, ChevronRight, ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+
+// ─── Drill-down ─────────────────────────────────────────────────────────────
+type DetailType = "processos" | "tarefas" | "audiencias" | "prazos" | "atendimentos" | "consultivos";
+
+const DETAIL_CONFIG: Record<DetailType, { title: string; route: string; icon: any; color: string }> = {
+  processos:    { title: "Processos ativos",   route: "/processos",  icon: FileText,      color: "text-blue-500" },
+  tarefas:      { title: "Tarefas abertas",    route: "/tarefas",    icon: CheckSquare,   color: "text-violet-500" },
+  audiencias:   { title: "Audiências (7 dias)", route: "/audiencias", icon: Calendar,      color: "text-emerald-500" },
+  prazos:       { title: "Prazos (3 dias)",    route: "/prazos",     icon: AlertCircle,   color: "text-amber-500" },
+  atendimentos: { title: "Atendimentos",       route: "/atendimentos", icon: MessageSquare, color: "text-rose-500" },
+  consultivos:  { title: "Consultivos",        route: "/consultivo", icon: BookOpen,      color: "text-cyan-500" },
+};
+
+function fmtDate(d: string | null | undefined) {
+  if (!d) return "";
+  try { return new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }); }
+  catch { return ""; }
+}
 
 type Period = "week" | "month" | "quarter" | "year";
 type SortKey = "processos" | "tarefasPendentes" | "tarefasConcluidas" | "audiencias" | "atendimentos" | "horasTimesheet";
@@ -84,19 +103,29 @@ function getInitials(name: string | null) {
 
 // ─── StatCard ─────────────────────────────────────────────────────────────────
 
-function StatCard({ icon: Icon, label, value, color }: {
-  icon: any; label: string; value: number; color: string;
+function StatCard({ icon: Icon, label, value, color, onClick }: {
+  icon: any; label: string; value: number; color: string; onClick?: () => void;
 }) {
+  const clickable = !!onClick && value > 0;
   return (
-    <div className="flex items-center gap-3 bg-muted/30 border border-border rounded-xl p-4">
+    <button
+      type="button"
+      onClick={clickable ? onClick : undefined}
+      disabled={!clickable}
+      className={cn(
+        "flex items-center gap-3 bg-muted/30 border border-border rounded-xl p-4 text-left w-full transition-all",
+        clickable ? "hover:border-primary/40 hover:bg-muted/50 cursor-pointer" : "cursor-default"
+      )}
+    >
       <div className={cn("p-2 rounded-lg shrink-0", color)}>
         <Icon className="h-4 w-4" />
       </div>
-      <div>
+      <div className="min-w-0">
         <p className="text-2xl font-black leading-none">{value}</p>
-        <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
+        <p className="text-xs text-muted-foreground mt-0.5 truncate">{label}</p>
       </div>
-    </div>
+      {clickable && <ChevronRight className="h-4 w-4 text-muted-foreground/40 ml-auto shrink-0" />}
+    </button>
   );
 }
 
@@ -202,6 +231,129 @@ function MemberCard({ member, rank }: { member: MemberStats; rank: number }) {
   );
 }
 
+// ─── TeamDetailDialog (drill-down) ──────────────────────────────────────────────
+
+interface DetailItem {
+  id: string;
+  primary: string;
+  secondary?: string;
+  badge?: string;
+}
+
+function TeamDetailDialog({
+  type, teamId, memberIds, officeId, period, onClose, onNavigate,
+}: {
+  type: DetailType | null;
+  teamId: string;
+  memberIds: string[];
+  officeId: string;
+  period: Period;
+  onClose: () => void;
+  onNavigate: (route: string) => void;
+}) {
+  const [items, setItems] = useState<DetailItem[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!type) return;
+    let cancel = false;
+    (async () => {
+      setLoading(true);
+      const { start, end } = getPeriodDates(period);
+      const now = new Date();
+      const in7days = new Date(Date.now() + 7 * 864e5).toISOString();
+      const in3days = new Date(Date.now() + 3 * 864e5).toISOString().split("T")[0];
+      const today = now.toISOString().split("T")[0];
+      let result: DetailItem[] = [];
+
+      if (type === "processos") {
+        const [byTeam, byMember] = await Promise.all([
+          supabase.from("processos").select("id, titulo, numero_processo, status")
+            .eq("office_id", officeId).eq("deletado", false).neq("status", "encerrado").eq("team_id", teamId),
+          supabase.from("processos").select("id, titulo, numero_processo, status")
+            .eq("office_id", officeId).eq("deletado", false).neq("status", "encerrado").in("user_id", memberIds),
+        ]);
+        const seen = new Set<string>();
+        result = [...(byTeam.data || []), ...(byMember.data || [])]
+          .filter(p => { if (seen.has(p.id)) return false; seen.add(p.id); return true; })
+          .map(p => ({ id: p.id, primary: p.titulo || "Processo", secondary: p.numero_processo || "", badge: p.status }));
+      } else if (type === "tarefas") {
+        const { data } = await supabase.from("tarefas").select("id, titulo, data_vencimento")
+          .eq("office_id", officeId).eq("deletado", false).eq("concluida", false)
+          .in("user_id", memberIds).gte("created_at", start).lte("created_at", end);
+        result = (data || []).map(t => ({ id: t.id, primary: t.titulo || "Tarefa", secondary: t.data_vencimento ? `Vence ${fmtDate(t.data_vencimento)}` : "" }));
+      } else if (type === "audiencias") {
+        const { data } = await supabase.from("audiencias").select("id, titulo, data_audiencia, local")
+          .eq("office_id", officeId).eq("deletado", false)
+          .gte("data_audiencia", now.toISOString()).lte("data_audiencia", in7days).in("user_id", memberIds);
+        result = (data || []).map(a => ({ id: a.id, primary: a.titulo || "Audiência", secondary: `${fmtDate(a.data_audiencia)}${a.local ? ` · ${a.local}` : ""}` }));
+      } else if (type === "prazos") {
+        const { data } = await supabase.from("prazos").select("id, tipo_prazo, data_fim_prazo")
+          .eq("office_id", officeId).gte("data_fim_prazo", today).lte("data_fim_prazo", in3days).in("responsavel_id", memberIds);
+        result = (data || []).map(p => ({ id: p.id, primary: p.tipo_prazo || "Prazo", secondary: p.data_fim_prazo ? `Fatal ${fmtDate(p.data_fim_prazo)}` : "" }));
+      } else if (type === "atendimentos") {
+        const { data } = await supabase.from("atendimentos").select("id, tipo_atendimento, data_atendimento")
+          .eq("office_id", officeId).eq("deletado", false)
+          .gte("created_at", start).lte("created_at", end).in("user_id", memberIds);
+        result = (data || []).map(a => ({ id: a.id, primary: a.tipo_atendimento || "Atendimento", secondary: fmtDate(a.data_atendimento) }));
+      } else if (type === "consultivos") {
+        const { data } = await supabase.from("consultivos").select("id, titulo, status")
+          .eq("office_id", officeId).eq("deletado", false)
+          .gte("created_at", start).lte("created_at", end).in("user_id", memberIds);
+        result = (data || []).map(c => ({ id: c.id, primary: c.titulo || "Consultivo", badge: c.status || undefined }));
+      }
+
+      if (!cancel) { setItems(result); setLoading(false); }
+    })();
+    return () => { cancel = true; };
+  }, [type, teamId, officeId, period, memberIds.join(",")]);
+
+  if (!type) return null;
+  const cfg = DETAIL_CONFIG[type];
+  const Icon = cfg.icon;
+
+  return (
+    <Dialog open={!!type} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-lg rounded-2xl p-0 overflow-hidden max-h-[80vh] flex flex-col">
+        <DialogHeader className="px-5 pt-5 pb-3 border-b border-border">
+          <DialogTitle className="flex items-center gap-2.5 text-base font-black">
+            <span className={cn("p-1.5 rounded-lg bg-muted/50", cfg.color)}><Icon className="h-4 w-4" /></span>
+            {cfg.title}
+            {!loading && <Badge variant="secondary" className="ml-1">{items.length}</Badge>}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2">
+          {loading ? (
+            [...Array(4)].map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-xl" />)
+          ) : items.length === 0 ? (
+            <div className="py-12 text-center">
+              <Icon className={cn("h-10 w-10 mx-auto mb-2 opacity-20", cfg.color)} />
+              <p className="text-sm text-muted-foreground">Nenhum item encontrado neste período.</p>
+            </div>
+          ) : (
+            items.map(item => (
+              <div key={item.id} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/20 hover:bg-muted/40 transition-colors">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold truncate">{item.primary}</p>
+                  {item.secondary && <p className="text-xs text-muted-foreground truncate">{item.secondary}</p>}
+                </div>
+                {item.badge && <Badge variant="outline" className="shrink-0 text-[10px] capitalize">{item.badge}</Badge>}
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="px-5 py-3 border-t border-border flex justify-end">
+          <Button size="sm" onClick={() => onNavigate(cfg.route)} className="rounded-xl gap-2 text-xs font-black">
+            <ExternalLink className="h-3.5 w-3.5" /> Abrir {cfg.title.split(" ")[0]}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function EquipeDetalhe() {
@@ -220,6 +372,8 @@ export default function EquipeDetalhe() {
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<Period>("month");
   const [sortKey, setSortKey] = useState<SortKey>("processos");
+  const [memberIds, setMemberIds] = useState<string[]>([]);
+  const [detailType, setDetailType] = useState<DetailType | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!teamId || !user?.office_id) return;
@@ -240,6 +394,7 @@ export default function EquipeDetalhe() {
     if (!membersData?.length) { setLoading(false); return; }
 
     const userIds = membersData.map(m => m.user_id);
+    setMemberIds(userIds);
 
     const { data: profilesData } = await supabase
       .from("profiles")
@@ -425,12 +580,12 @@ export default function EquipeDetalhe() {
               <Badge variant="secondary" className="ml-1">{members.length} membros</Badge>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <StatCard icon={FileText} label="Processos ativos" value={summary.processos} color="bg-blue-500/10 text-blue-500" />
-              <StatCard icon={CheckSquare} label="Tarefas abertas" value={summary.tarefasPendentes} color="bg-violet-500/10 text-violet-500" />
-              <StatCard icon={Calendar} label="Audiências (7 dias)" value={summary.audiencias} color="bg-emerald-500/10 text-emerald-500" />
-              <StatCard icon={AlertCircle} label="Prazos (3 dias)" value={summary.prazos} color="bg-amber-500/10 text-amber-500" />
-              <StatCard icon={MessageSquare} label="Atendimentos (mês)" value={summary.atendimentos} color="bg-rose-500/10 text-rose-500" />
-              <StatCard icon={BookOpen} label="Consultivos" value={summary.consultivos} color="bg-cyan-500/10 text-cyan-500" />
+              <StatCard icon={FileText} label="Processos ativos" value={summary.processos} color="bg-blue-500/10 text-blue-500" onClick={() => setDetailType("processos")} />
+              <StatCard icon={CheckSquare} label="Tarefas abertas" value={summary.tarefasPendentes} color="bg-violet-500/10 text-violet-500" onClick={() => setDetailType("tarefas")} />
+              <StatCard icon={Calendar} label="Audiências (7 dias)" value={summary.audiencias} color="bg-emerald-500/10 text-emerald-500" onClick={() => setDetailType("audiencias")} />
+              <StatCard icon={AlertCircle} label="Prazos (3 dias)" value={summary.prazos} color="bg-amber-500/10 text-amber-500" onClick={() => setDetailType("prazos")} />
+              <StatCard icon={MessageSquare} label="Atendimentos (mês)" value={summary.atendimentos} color="bg-rose-500/10 text-rose-500" onClick={() => setDetailType("atendimentos")} />
+              <StatCard icon={BookOpen} label="Consultivos" value={summary.consultivos} color="bg-cyan-500/10 text-cyan-500" onClick={() => setDetailType("consultivos")} />
               <StatCard icon={Clock} label="Horas timesheet (mês)" value={summary.horasTimesheet} color="bg-fuchsia-500/10 text-fuchsia-500" />
               <div className="flex flex-col justify-center bg-muted/30 border border-border rounded-xl p-4 gap-1.5">
                 <div className="flex justify-between text-xs">
@@ -475,6 +630,16 @@ export default function EquipeDetalhe() {
           </div>
         </>
       )}
+
+      <TeamDetailDialog
+        type={detailType}
+        teamId={teamId || ""}
+        memberIds={memberIds}
+        officeId={user?.office_id || ""}
+        period={period}
+        onClose={() => setDetailType(null)}
+        onNavigate={(route) => { setDetailType(null); navigate(route); }}
+      />
     </div>
   );
 }
