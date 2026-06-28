@@ -19,7 +19,7 @@ function lastMonths(n: number): MonthBucket[] {
 
 const monthKey = (iso: string | null | undefined) => (iso ? iso.slice(0, 7) : "");
 
-export interface MemberBreakdown { name: string; processos: number; prazos: number; tarefas: number; audiencias: number; }
+export interface MemberBreakdown { name: string; processos: number; prazos: number; tarefas: number; audiencias: number; tarefasConcluidas: number; }
 
 export interface ChartsData {
   loading: boolean;
@@ -31,6 +31,7 @@ export interface ChartsData {
   atendimentosPorMes: { mes: string; total: number }[];
   financeiroPorMes: { mes: string; receita: number; despesa: number }[];
   honorariosPorCategoria: { name: string; value: number; fill: string }[];
+  processosPorArea: { name: string; value: number; fill: string }[];
   porMembro: MemberBreakdown[];
   isEmpty: boolean;
 }
@@ -48,7 +49,7 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
     totals: { processos: 0, clientes: 0, atendimentos: 0, receita: 0, despesa: 0 },
     processosPorMes: [], statusProcessos: [], clientesPorTipo: [],
     novosClientesPorMes: [], atendimentosPorMes: [], financeiroPorMes: [],
-    honorariosPorCategoria: [], porMembro: [], isEmpty: true,
+    honorariosPorCategoria: [], processosPorArea: [], porMembro: [], isEmpty: true,
   });
 
   useEffect(() => {
@@ -154,7 +155,7 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
       // Quebra por membro (processos, prazos, tarefas, audiências)
       const bump = (map: Record<string, MemberBreakdown>, uid: string | null, field: keyof Omit<MemberBreakdown, "name">) => {
         if (!uid) return;
-        if (!map[uid]) map[uid] = { name: uid, processos: 0, prazos: 0, tarefas: 0, audiencias: 0 };
+        if (!map[uid]) map[uid] = { name: uid, processos: 0, prazos: 0, tarefas: 0, audiencias: 0, tarefasConcluidas: 0 };
         map[uid][field] += 1;
       };
       const memberMap: Record<string, MemberBreakdown> = {};
@@ -163,15 +164,26 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
       // tarefas e audiências (todo o histórico, não só o período)
       const [tarRes, audRes] = await Promise.all([
         teamMemberIds
-          ? supabase.from("tarefas").select("responsavel_id, user_id").eq("office_id", officeId).eq("deletado", false).in("responsavel_id", teamMemberIds)
-          : supabase.from("tarefas").select("responsavel_id, user_id").eq("office_id", officeId).eq("deletado", false),
+          ? supabase.from("tarefas").select("responsavel_id, user_id, concluida").eq("office_id", officeId).eq("deletado", false).in("responsavel_id", teamMemberIds)
+          : supabase.from("tarefas").select("responsavel_id, user_id, concluida").eq("office_id", officeId).eq("deletado", false),
         teamMemberIds
           ? supabase.from("audiencias").select("responsavel_id, user_id").eq("office_id", officeId).eq("deletado", false).in("responsavel_id", teamMemberIds)
           : supabase.from("audiencias").select("responsavel_id, user_id").eq("office_id", officeId).eq("deletado", false),
       ]);
       if (cancel) return;
-      (tarRes.data || []).forEach((t: any) => bump(memberMap, t.responsavel_id || t.user_id, "tarefas"));
+      (tarRes.data || []).forEach((t: any) => {
+        const uid = t.responsavel_id || t.user_id;
+        bump(memberMap, uid, "tarefas");
+        if (t.concluida && uid && memberMap[uid]) memberMap[uid].tarefasConcluidas += 1;
+      });
       (audRes.data || []).forEach((a: any) => bump(memberMap, a.responsavel_id || a.user_id, "audiencias"));
+
+      // Processos por área (tipo_processo)
+      const areaCount: Record<string, number> = {};
+      procRows.forEach((p: any) => { const a = (p.tipo_processo || "Sem área").trim() || "Sem área"; areaCount[a] = (areaCount[a] || 0) + 1; });
+      const processosPorArea = Object.entries(areaCount)
+        .sort((a, b) => b[1] - a[1]).slice(0, 8)
+        .map(([k, v], i) => ({ name: k, value: v, fill: PALETTE[i % PALETTE.length] }));
 
       // Resolve nomes
       const ids = Object.keys(memberMap);
@@ -196,7 +208,7 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
       if (cancel) return;
       setData({
         loading: false, totals, processosPorMes, statusProcessos, clientesPorTipo,
-        novosClientesPorMes, atendimentosPorMes, financeiroPorMes, honorariosPorCategoria, porMembro,
+        novosClientesPorMes, atendimentosPorMes, financeiroPorMes, honorariosPorCategoria, processosPorArea, porMembro,
         isEmpty: procRows.length === 0 && cliRows.length === 0 && atRows.length === 0 && finRows.length === 0,
       });
     })();

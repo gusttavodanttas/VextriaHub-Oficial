@@ -18,17 +18,45 @@ import {
 
 const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
 
-function KpiMini({ icon: Icon, label, value, color, bg }: { icon: any; label: string; value: string | number; color: string; bg: string }) {
+function TrendBadge({ delta }: { delta: number | null }) {
+  if (delta === null || delta === 0) return null;
+  const up = delta > 0;
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4">
-      <div className={cn("p-2.5 rounded-xl shrink-0", bg)}><Icon className={cn("h-5 w-5", color)} /></div>
+    <span className={cn(
+      "inline-flex items-center gap-0.5 text-[10px] font-black px-1.5 py-0.5 rounded-md",
+      up ? "text-emerald-600 bg-emerald-500/10" : "text-rose-600 bg-rose-500/10"
+    )}>
+      {up ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
+      {Math.abs(delta)}%
+    </span>
+  );
+}
+
+function KpiMini({ icon: Icon, label, value, color, bg, trend, sub }: {
+  icon: any; label: string; value: string | number; color: string; bg: string; trend?: number | null; sub?: string;
+}) {
+  return (
+    <div className="group flex items-center gap-3 rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 transition-all hover:shadow-md hover:-translate-y-0.5">
+      <div className={cn("p-2.5 rounded-xl shrink-0 transition-transform group-hover:scale-110", bg)}><Icon className={cn("h-5 w-5", color)} /></div>
       <div className="min-w-0">
         <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">{label}</p>
-        <p className="text-xl font-black tracking-tight truncate">{value}</p>
+        <div className="flex items-baseline gap-1.5">
+          <p className="text-xl font-black tracking-tight truncate">{value}</p>
+          {trend !== undefined && <TrendBadge delta={trend ?? null} />}
+        </div>
+        {sub && <p className="text-[10px] text-muted-foreground/50 mt-0.5">{sub}</p>}
       </div>
     </div>
   );
 }
+
+const pctDelta = (arr: any[], key: string): number | null => {
+  if (!arr || arr.length < 2) return null;
+  const a = Number(arr[arr.length - 1][key]) || 0;
+  const b = Number(arr[arr.length - 2][key]) || 0;
+  if (b === 0) return a > 0 ? 100 : null;
+  return Math.round(((a - b) / b) * 100);
+};
 
 const tooltipStyle = {
   contentStyle: { borderRadius: 12, border: "1px solid hsl(var(--border))", background: "hsl(var(--card))", fontSize: 12 },
@@ -112,10 +140,14 @@ export function ChartsTab() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiMini icon={FileText} label="Processos ativos" value={d.totals.processos} color="text-blue-500" bg="bg-blue-500/10" />
-        <KpiMini icon={Users} label="Clientes ativos" value={d.totals.clientes} color="text-emerald-500" bg="bg-emerald-500/10" />
-        <KpiMini icon={MessageSquare} label="Atendimentos" value={d.totals.atendimentos} color="text-rose-500" bg="bg-rose-500/10" />
-        <KpiMini icon={saldo >= 0 ? TrendingUp : TrendingDown} label="Saldo do período" value={brl(saldo)} color={saldo >= 0 ? "text-emerald-500" : "text-rose-500"} bg={saldo >= 0 ? "bg-emerald-500/10" : "bg-rose-500/10"} />
+        <KpiMini icon={FileText} label="Processos ativos" value={d.totals.processos} color="text-blue-500" bg="bg-blue-500/10"
+          trend={pctDelta(d.processosPorMes, "novos")} sub="novos vs. mês anterior" />
+        <KpiMini icon={Users} label="Clientes ativos" value={d.totals.clientes} color="text-emerald-500" bg="bg-emerald-500/10"
+          trend={pctDelta(d.novosClientesPorMes, "novos")} sub="novos vs. mês anterior" />
+        <KpiMini icon={MessageSquare} label="Atendimentos" value={d.totals.atendimentos} color="text-rose-500" bg="bg-rose-500/10"
+          trend={pctDelta(d.atendimentosPorMes, "total")} sub="vs. mês anterior" />
+        <KpiMini icon={saldo >= 0 ? TrendingUp : TrendingDown} label="Saldo do período" value={brl(saldo)} color={saldo >= 0 ? "text-emerald-500" : "text-rose-500"} bg={saldo >= 0 ? "bg-emerald-500/10" : "bg-rose-500/10"}
+          trend={pctDelta(d.financeiroPorMes, "receita")} sub="receita vs. mês anterior" />
       </div>
 
       <Tabs defaultValue="processos" className="w-full">
@@ -144,7 +176,7 @@ export function ChartsTab() {
             <ChartCard title="Status dos processos" empty={d.statusProcessos.length === 0}>
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
-                  <Pie data={d.statusProcessos} cx="50%" cy="50%" outerRadius={90} dataKey="value" nameKey="name" label={(e: any) => `${e.name}: ${e.value}`} labelLine={false} fontSize={11}>
+                  <Pie data={d.statusProcessos} cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2} dataKey="value" nameKey="name" label={(e: any) => `${e.name}: ${e.value}`} labelLine={false} fontSize={11}>
                     {d.statusProcessos.map((e, i) => <Cell key={i} fill={e.fill} />)}
                   </Pie>
                   <Tooltip {...tooltipStyle} />
@@ -152,6 +184,19 @@ export function ChartsTab() {
               </ResponsiveContainer>
             </ChartCard>
           </div>
+          <ChartCard title="Processos por área de atuação" empty={d.processosPorArea.length === 0}>
+            <ResponsiveContainer width="100%" height={Math.max(240, d.processosPorArea.length * 40)}>
+              <BarChart data={d.processosPorArea} layout="vertical" margin={{ left: 16 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+                <XAxis type="number" fontSize={11} allowDecimals={false} />
+                <YAxis type="category" dataKey="name" fontSize={11} width={120} />
+                <Tooltip {...tooltipStyle} />
+                <Bar dataKey="value" name="Processos" radius={[0, 4, 4, 0]}>
+                  {d.processosPorArea.map((e, i) => <Cell key={i} fill={e.fill} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
         </TabsContent>
 
         {/* CLIENTES */}
@@ -244,6 +289,38 @@ export function ChartsTab() {
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
+
+            {/* Taxa de conclusão de tarefas por membro */}
+            <div className="grid gap-4 md:grid-cols-2">
+              <ChartCard title="Taxa de conclusão de tarefas" empty={d.porMembro.every(m => m.tarefas === 0)}>
+                <div className="space-y-3 py-2">
+                  {d.porMembro.filter(m => m.tarefas > 0).map((m, i) => {
+                    const pct = Math.round((m.tarefasConcluidas / m.tarefas) * 100);
+                    return (
+                      <div key={i} className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="font-bold truncate">{m.name}</span>
+                          <span className="text-muted-foreground">{m.tarefasConcluidas}/{m.tarefas} · {pct}%</span>
+                        </div>
+                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                          <div className={cn("h-full rounded-full transition-all", pct >= 70 ? "bg-emerald-500" : pct >= 40 ? "bg-amber-500" : "bg-rose-500")} style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </ChartCard>
+              <ChartCard title="Distribuição de processos" empty={d.porMembro.every(m => m.processos === 0)}>
+                <ResponsiveContainer width="100%" height={280}>
+                  <PieChart>
+                    <Pie data={d.porMembro.filter(m => m.processos > 0)} cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2} dataKey="processos" nameKey="name" label={(e: any) => `${e.name}: ${e.processos}`} labelLine={false} fontSize={11}>
+                      {d.porMembro.map((_, i) => <Cell key={i} fill={["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#06b6d4", "#ec4899", "#8b5cf6", "#f97316"][i % 8]} />)}
+                    </Pie>
+                    <Tooltip {...tooltipStyle} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </ChartCard>
+            </div>
           </TabsContent>
         )}
       </Tabs>
