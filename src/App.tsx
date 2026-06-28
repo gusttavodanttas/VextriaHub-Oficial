@@ -41,6 +41,7 @@ import Subscriptions from "./pages/Subscriptions";
 import NotFound from "./pages/NotFound";
 import Audiencias from "./pages/Audiencias";
 import Equipe from "./pages/Equipe";
+import EquipeDetalhe from "./pages/EquipeDetalhe";
 import Escritorio from "./pages/Escritorio";
 import Timesheet from "./pages/Timesheet";
 import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
@@ -177,6 +178,16 @@ const AppWithRouter = () => {
             <PrivateRoute>
               <AppLayout>
                 <Equipe />
+              </AppLayout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/equipe/:teamId"
+          element={
+            <PrivateRoute>
+              <AppLayout>
+                <EquipeDetalhe />
               </AppLayout>
             </PrivateRoute>
           }

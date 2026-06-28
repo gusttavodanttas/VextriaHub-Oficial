@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 import { useInvitations } from "@/hooks/useInvitations";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
@@ -24,7 +25,7 @@ import {
   Users, Plus, Search, Mail, Clock, ShieldCheck, User,
   Trash2, Send, RefreshCw, XCircle, CheckCircle2, Crown,
   Settings2, RotateCcw, KeyRound, Eye, EyeOff, Copy, ChevronRight, ChevronLeft,
-  FolderOpen, Pencil, UserPlus, UserMinus,
+  FolderOpen, Pencil, UserPlus, UserMinus, BarChart2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -698,6 +699,7 @@ function StatCard({ label, value, Icon, color, bg }: {
 // ─── main page ───────────────────────────────────────────────────────────────
 
 export default function Equipe() {
+  const navigate = useNavigate();
   const { user: me, office } = useAuth();
   const { toast } = useToast();
   const { users, loading: usersLoading, removeUser, updateUser, refresh: refreshUsers } = useOfficeUsers();
@@ -995,6 +997,11 @@ export default function Equipe() {
                         </div>
                       </div>
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" onClick={e => e.stopPropagation()}>
+                        <Button size="sm" variant="ghost" className="h-7 w-7 rounded-lg hover:bg-primary/10 text-muted-foreground/50 hover:text-primary"
+                          title="Ver produtividade"
+                          onClick={() => navigate(`/equipe/${team.id}`)}>
+                          <BarChart2 className="h-3.5 w-3.5" />
+                        </Button>
                         <Button size="sm" variant="ghost" className="h-7 w-7 rounded-lg hover:bg-muted/60"
                           onClick={() => { setEditingTeam(team); setTeamDialogOpen(true); }}>
                           <Pencil className="h-3.5 w-3.5" />
