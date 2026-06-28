@@ -15,7 +15,7 @@ import {
   PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, Legend,
 } from "recharts";
 import {
-  FileText, Users, MessageSquare, TrendingUp, TrendingDown, BarChart3, Trophy, Settings2, Target,
+  FileText, Users, MessageSquare, TrendingUp, TrendingDown, BarChart3, Trophy, Settings2,
 } from "lucide-react";
 
 const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
@@ -148,30 +148,6 @@ export function ChartsTab() {
           </Button>
         )}
       </div>
-
-      {/* Meta de contratos */}
-      {isOfficeAdmin && d.meta && (
-        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5">
-          <div className="flex items-center justify-between gap-3 mb-3">
-            <div className="flex items-center gap-2">
-              <span className="p-2 rounded-xl bg-primary/10 text-primary"><Target className="h-4 w-4" /></span>
-              <div>
-                <p className="text-sm font-black">{d.meta.label || d.meta.area}</p>
-                <p className="text-[11px] text-muted-foreground">Meta de contratos — {d.meta.area} · {period} meses</p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-2xl font-black tracking-tight">{d.metaAtual}<span className="text-sm text-muted-foreground font-bold">/{d.meta.alvo}</span></p>
-              <p className="text-[11px] font-bold text-primary">{Math.min(100, Math.round((d.metaAtual / (d.meta.alvo || 1)) * 100))}% da meta</p>
-            </div>
-          </div>
-          <div className="h-3 bg-muted rounded-full overflow-hidden">
-            <div className={cn("h-full rounded-full transition-all", d.metaAtual >= d.meta.alvo ? "bg-emerald-500" : "bg-gradient-to-r from-primary/60 to-primary")}
-              style={{ width: `${Math.min(100, Math.round((d.metaAtual / (d.meta.alvo || 1)) * 100))}%` }} />
-          </div>
-          {d.metaAtual >= d.meta.alvo && <p className="text-[11px] font-bold text-emerald-600 mt-2">🎉 Meta atingida!</p>}
-        </div>
-      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -444,7 +420,7 @@ export function ChartsTab() {
                   <Trophy className="h-4 w-4 text-amber-500" /> Ranking de Produtividade
                 </CardTitle>
                 <p className="text-[11px] text-muted-foreground">
-                  Pontos por finalização — tarefa {d.pontosConfig.tarefa} · prazo {d.pontosConfig.prazo} · audiência {d.pontosConfig.audiencia} · processo {d.pontosConfig.processo}
+                  Pontos: tarefa {d.pontosConfig.tarefa} · processo {d.pontosConfig.processo} · prazo/audiência por tipo · atraso −{d.pontosConfig.penalidadeAtraso}
                 </p>
               </CardHeader>
               <CardContent>
@@ -473,6 +449,7 @@ export function ChartsTab() {
                             </div>
                             <p className="text-[10px] text-muted-foreground/60 mt-0.5">
                               {m.tarefasConcluidas} tarefas · {m.prazosConcluidos} prazos · {m.audienciasRealizadas} audiências · {m.processosEncerrados} processos
+                              {m.atrasos > 0 && <span className="text-rose-500 font-bold"> · {m.atrasos} em atraso</span>}
                             </p>
                           </div>
                         </div>
@@ -539,7 +516,8 @@ export function ChartsTab() {
           onClose={() => setConfigOpen(false)}
           officeId={user?.office_id || ""}
           pontos={d.pontosConfig}
-          meta={d.meta}
+          tiposPrazo={d.tiposPrazo}
+          tiposAudiencia={d.tiposAudiencia}
           onSaved={d.refetch}
         />
       )}

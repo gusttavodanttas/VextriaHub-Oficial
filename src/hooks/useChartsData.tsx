@@ -23,13 +23,23 @@ export interface MemberBreakdown {
   name: string;
   processos: number; prazos: number; tarefas: number; audiencias: number;
   tarefasConcluidas: number; prazosConcluidos: number; audienciasRealizadas: number; processosEncerrados: number;
+  atrasos: number;
   pontos: number;
 }
 
-// Pontuação por item finalizado (padrão; admin pode configurar)
-export const PONTOS = { tarefa: 10, prazo: 25, audiencia: 15, processo: 40 };
-export type PontosConfig = { tarefa: number; prazo: number; audiencia: number; processo: number };
-export type MetaConfig = { area: string; alvo: number; label: string } | null;
+// Pontuação configurável pelo admin.
+// prazo/audiencia são mapas por tipo, com "_default" como fallback.
+export type PontosConfig = {
+  tarefa: number;
+  processo: number;
+  penalidadeAtraso: number;
+  prazo: Record<string, number>;
+  audiencia: Record<string, number>;
+};
+export const PONTOS_DEFAULT: PontosConfig = {
+  tarefa: 10, processo: 40, penalidadeAtraso: 5,
+  prazo: { _default: 25 }, audiencia: { _default: 15 },
+};
 
 export interface ChartsData {
   loading: boolean;
@@ -53,8 +63,8 @@ export interface ChartsData {
   timesheetPorMes: { mes: string; horas: number }[];
   porMembro: MemberBreakdown[];
   pontosConfig: PontosConfig;
-  meta: MetaConfig;
-  metaAtual: number;
+  tiposPrazo: string[];
+  tiposAudiencia: string[];
   isEmpty: boolean;
   refetch: () => void;
 }
@@ -77,7 +87,7 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
     honorariosPorCategoria: [], processosPorArea: [],
     prazosPorMes: [], prazosPorStatus: [], tarefasPorMes: [], audienciasPorMes: [],
     audienciasPorStatus: [], consultivoPorMes: [], consultivoPorStatus: [], timesheetPorMes: [],
-    porMembro: [], pontosConfig: PONTOS, meta: null, metaAtual: 0, isEmpty: true,
+    porMembro: [], pontosConfig: PONTOS_DEFAULT, tiposPrazo: [], tiposAudiencia: [], isEmpty: true,
     refetch,
   });
 
@@ -104,7 +114,7 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
               .eq("office_id", officeId).eq("deletado", false).in("responsavel_id", teamMemberIds)
           : supabase.from("processos").select("status, tipo_processo, created_at, updated_at, responsavel_id, user_id")
               .eq("office_id", officeId).eq("deletado", false),
-        inMembers(supabase.from("prazos").select("responsavel_id, data_fim_prazo, created_at, status")
+        inMembers(supabase.from("prazos").select("responsavel_id, data_fim_prazo, created_at, status, tipo_prazo")
           .eq("office_id", officeId), "responsavel_id"),
         supabase.from("clientes").select("tipo_pessoa, status, created_at")
           .eq("office_id", officeId).eq("deletado", false).eq("deletado_pendente", false),
@@ -129,8 +139,14 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
       const consRows = cons.data || [];
       const tsRows = ts.data || [];
       const settings = (off.data as any)?.settings || {};
-      const pontosConfig: PontosConfig = { ...PONTOS, ...(settings.chart_pontos || {}) };
-      const meta: MetaConfig = settings.chart_meta && settings.chart_meta.area ? settings.chart_meta : null;
+      const sp = settings.chart_pontos || {};
+      const pontosConfig: PontosConfig = {
+        tarefa: sp.tarefa ?? PONTOS_DEFAULT.tarefa,
+        processo: sp.processo ?? PONTOS_DEFAULT.processo,
+        penalidadeAtraso: sp.penalidadeAtraso ?? PONTOS_DEFAULT.penalidadeAtraso,
+        prazo: { _default: PONTOS_DEFAULT.prazo._default, ...(sp.prazo || {}) },
+        audiencia: { _default: PONTOS_DEFAULT.audiencia._default, ...(sp.audiencia || {}) },
+      };
 
       // Processos por mês (novos x encerrados)
       const novosMap: Record<string, number> = {};
@@ -191,50 +207,72 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
         .sort((a, b) => b[1] - a[1]).slice(0, 6)
         .map(([k, v], i) => ({ name: k, value: v, fill: PALETTE[i % PALETTE.length] }));
 
-      // Quebra por membro (processos, prazos, tarefas, audiências)
-      const bump = (map: Record<string, MemberBreakdown>, uid: string | null, field: keyof Omit<MemberBreakdown, "name">) => {
-        if (!uid) return;
-        if (!map[uid]) map[uid] = { name: uid, processos: 0, prazos: 0, tarefas: 0, audiencias: 0, tarefasConcluidas: 0, prazosConcluidos: 0, audienciasRealizadas: 0, processosEncerrados: 0, pontos: 0 };
-        map[uid][field] += 1;
-      };
-      const memberMap: Record<string, MemberBreakdown> = {};
-      procRows.forEach((p: any) => {
-        const uid = p.responsavel_id || p.user_id;
-        bump(memberMap, uid, "processos");
-        if (p.status === "encerrado" && uid && memberMap[uid]) memberMap[uid].processosEncerrados += 1;
-      });
-      przRows.forEach((p: any) => {
-        bump(memberMap, p.responsavel_id, "prazos");
-        if (p.status === "concluido" && p.responsavel_id && memberMap[p.responsavel_id]) memberMap[p.responsavel_id].prazosConcluidos += 1;
-      });
-      // tarefas e audiências (todo o histórico, não só o período)
+      // tarefas e audiências (todo o histórico)
       const [tarRes, audRes] = await Promise.all([
         teamMemberIds
-          ? supabase.from("tarefas").select("responsavel_id, user_id, concluida, created_at").eq("office_id", officeId).eq("deletado", false).in("responsavel_id", teamMemberIds)
-          : supabase.from("tarefas").select("responsavel_id, user_id, concluida, created_at").eq("office_id", officeId).eq("deletado", false),
+          ? supabase.from("tarefas").select("responsavel_id, user_id, concluida, created_at, data_vencimento").eq("office_id", officeId).eq("deletado", false).in("responsavel_id", teamMemberIds)
+          : supabase.from("tarefas").select("responsavel_id, user_id, concluida, created_at, data_vencimento").eq("office_id", officeId).eq("deletado", false),
         teamMemberIds
-          ? supabase.from("audiencias").select("responsavel_id, user_id, status, data_audiencia").eq("office_id", officeId).eq("deletado", false).in("responsavel_id", teamMemberIds)
-          : supabase.from("audiencias").select("responsavel_id, user_id, status, data_audiencia").eq("office_id", officeId).eq("deletado", false),
+          ? supabase.from("audiencias").select("responsavel_id, user_id, status, data_audiencia, tipo").eq("office_id", officeId).eq("deletado", false).in("responsavel_id", teamMemberIds)
+          : supabase.from("audiencias").select("responsavel_id, user_id, status, data_audiencia, tipo").eq("office_id", officeId).eq("deletado", false),
       ]);
       if (cancel) return;
+
+      const todayStr = new Date().toISOString().split("T")[0];
+      const nowIso = new Date().toISOString();
+      const tiposPrazoSet = new Set<string>();
+      const tiposAudSet = new Set<string>();
+
+      // Quebra por membro + pontuação por tipo + atrasos
+      const ensure = (map: Record<string, MemberBreakdown>, uid: string | null) => {
+        if (!uid) return null;
+        if (!map[uid]) map[uid] = { name: uid, processos: 0, prazos: 0, tarefas: 0, audiencias: 0, tarefasConcluidas: 0, prazosConcluidos: 0, audienciasRealizadas: 0, processosEncerrados: 0, atrasos: 0, pontos: 0 };
+        return map[uid];
+      };
+      const memberMap: Record<string, MemberBreakdown> = {};
+
+      procRows.forEach((p: any) => {
+        const m = ensure(memberMap, p.responsavel_id || p.user_id);
+        if (!m) return;
+        m.processos += 1;
+        if (p.status === "encerrado") { m.processosEncerrados += 1; m.pontos += pontosConfig.processo; }
+      });
+      przRows.forEach((p: any) => {
+        const tipo = (p.tipo_prazo || "").trim();
+        if (tipo) tiposPrazoSet.add(tipo);
+        const m = ensure(memberMap, p.responsavel_id);
+        if (!m) return;
+        m.prazos += 1;
+        if (p.status === "concluido") {
+          m.prazosConcluidos += 1;
+          m.pontos += pontosConfig.prazo[tipo] ?? pontosConfig.prazo._default;
+        } else if (p.data_fim_prazo && p.data_fim_prazo < todayStr) {
+          m.atrasos += 1; m.pontos -= pontosConfig.penalidadeAtraso;
+        }
+      });
       (tarRes.data || []).forEach((t: any) => {
-        const uid = t.responsavel_id || t.user_id;
-        bump(memberMap, uid, "tarefas");
-        if (t.concluida && uid && memberMap[uid]) memberMap[uid].tarefasConcluidas += 1;
+        const m = ensure(memberMap, t.responsavel_id || t.user_id);
+        if (!m) return;
+        m.tarefas += 1;
+        if (t.concluida) { m.tarefasConcluidas += 1; m.pontos += pontosConfig.tarefa; }
+        else if (t.data_vencimento && t.data_vencimento < todayStr) { m.atrasos += 1; m.pontos -= pontosConfig.penalidadeAtraso; }
       });
       (audRes.data || []).forEach((a: any) => {
-        const uid = a.responsavel_id || a.user_id;
-        bump(memberMap, uid, "audiencias");
-        if (a.status === "realizada" && uid && memberMap[uid]) memberMap[uid].audienciasRealizadas += 1;
+        const tipo = (a.tipo || "").trim();
+        if (tipo) tiposAudSet.add(tipo);
+        const m = ensure(memberMap, a.responsavel_id || a.user_id);
+        if (!m) return;
+        m.audiencias += 1;
+        if (a.status === "realizada") {
+          m.audienciasRealizadas += 1;
+          m.pontos += pontosConfig.audiencia[tipo] ?? pontosConfig.audiencia._default;
+        } else if (a.status !== "cancelada" && a.data_audiencia && a.data_audiencia < nowIso) {
+          m.atrasos += 1; m.pontos -= pontosConfig.penalidadeAtraso;
+        }
       });
-
-      // Pontuação de produtividade (itens finalizados) — usa config do admin
-      Object.values(memberMap).forEach(m => {
-        m.pontos = m.tarefasConcluidas * pontosConfig.tarefa
-          + m.prazosConcluidos * pontosConfig.prazo
-          + m.audienciasRealizadas * pontosConfig.audiencia
-          + m.processosEncerrados * pontosConfig.processo;
-      });
+      Object.values(memberMap).forEach(m => { if (m.pontos < 0) m.pontos = 0; });
+      const tiposPrazo = [...tiposPrazoSet].sort();
+      const tiposAudiencia = [...tiposAudSet].sort();
 
       // Processos por área (tipo_processo)
       const areaCount: Record<string, number> = {};
@@ -283,15 +321,6 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
       const tsMin = monthlySum(tsRows, "created_at", (r) => Number(r.duracao_minutos) || 0);
       const timesheetPorMes = months.map(m => ({ mes: m.label, horas: Math.round((tsMin[m.key] || 0) / 60 * 10) / 10 }));
 
-      // META de contratos (processos do período cujo tipo bate com a área-foco)
-      let metaAtual = 0;
-      if (meta?.area) {
-        const alvoArea = meta.area.toLowerCase().trim();
-        metaAtual = procRows.filter((p: any) =>
-          monthKey(p.created_at) >= months[0].key &&
-          (p.tipo_processo || "").toLowerCase().trim() === alvoArea
-        ).length;
-      }
 
       // Resolve nomes
       const ids = Object.keys(memberMap);
@@ -319,7 +348,7 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
         novosClientesPorMes, atendimentosPorMes, financeiroPorMes, honorariosPorCategoria, processosPorArea,
         prazosPorMes, prazosPorStatus, tarefasPorMes, audienciasPorMes, audienciasPorStatus,
         consultivoPorMes, consultivoPorStatus, timesheetPorMes,
-        porMembro, pontosConfig, meta, metaAtual,
+        porMembro, pontosConfig, tiposPrazo, tiposAudiencia,
         isEmpty: procRows.length === 0 && cliRows.length === 0 && atRows.length === 0 && finRows.length === 0,
         refetch,
       });
