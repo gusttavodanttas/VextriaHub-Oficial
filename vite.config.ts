@@ -35,6 +35,7 @@ export default defineConfig(({ mode }) => ({
           "supabase": ["@supabase/supabase-js"],
           "data": ["@tanstack/react-query"],
           "datefns": ["date-fns"],
+          "sentry": ["@sentry/react"],
         },
       },
     },

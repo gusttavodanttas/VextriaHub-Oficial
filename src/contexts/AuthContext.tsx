@@ -7,6 +7,7 @@ import { Profile, OfficeUser, Office } from '@/types/database';
 import { useStripe } from '@/hooks/useStripe';
 import { usePaymentValidation, type PaymentValidationResult } from '@/hooks/usePaymentValidation';
 import { officeService } from '@/services/officeService';
+import { setMonitoringUser } from '@/lib/monitoring';
 
 export const SUPER_ADMIN_EMAILS = (
   import.meta.env.VITE_SUPER_ADMIN_EMAILS || 'contato@vextriahub.com.br'
@@ -74,6 +75,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const initializingRef = useRef(false);
   const loginInProgressRef = useRef(false);
   const { checkSubscription } = useStripe();
+
+  // Identifica o usuário no monitoramento de erros (Sentry)
+  useEffect(() => {
+    setMonitoringUser(user ? { id: user.id, email: user.email } : null);
+  }, [user?.id, user?.email]);
 
   // Fetch user profile from database with timeout
   const fetchProfile = useCallback(async (userId: string) => {

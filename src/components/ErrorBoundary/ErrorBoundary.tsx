@@ -3,6 +3,7 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { captureError } from '@/lib/monitoring';
 
 interface Props {
   children: ReactNode;
@@ -27,30 +28,15 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
-    
-    // Em produção, enviar erro para serviço de monitoramento
-    if (import.meta.env.PROD) {
-      // Aqui integraria com Sentry, LogRocket, etc.
-      this.logErrorToService(error, errorInfo);
-    }
-    
+
+    // Envia para o monitoramento (Sentry) — no-op se DSN não configurado
+    captureError(error, {
+      componentStack: errorInfo.componentStack,
+      url: window.location.href,
+    });
+
     this.setState({ error, errorInfo });
   }
-
-  private logErrorToService = (error: Error, errorInfo: ErrorInfo) => {
-    // Implementação do log de erro para serviços externos
-    const errorData = {
-      message: error.message,
-      stack: error.stack,
-      componentStack: errorInfo.componentStack,
-      timestamp: new Date().toISOString(),
-      userAgent: navigator.userAgent,
-      url: window.location.href,
-    };
-    
-    console.log('Error logged:', errorData);
-    // fetch('/api/log-error', { method: 'POST', body: JSON.stringify(errorData) });
-  };
 
   private handleReload = () => {
     window.location.reload();
