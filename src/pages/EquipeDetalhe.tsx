@@ -737,7 +737,7 @@ export default function EquipeDetalhe() {
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-8">
+    <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6 md:space-y-8 overflow-x-hidden">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="sm" onClick={() => navigate("/equipe")}

@@ -223,10 +223,10 @@ export default function Prazos() {
   });
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6 p-4 md:p-6 overflow-x-hidden animate-in fade-in duration-500">
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black tracking-tight flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20">
@@ -238,7 +238,7 @@ export default function Prazos() {
         </div>
         <Button
           onClick={() => setDialogOpen(true)}
-          className="rounded-2xl h-11 gap-2 px-6 font-black text-[11px] uppercase tracking-widest shadow-lg shadow-primary/20"
+          className="rounded-2xl h-11 gap-2 px-6 font-black text-[11px] uppercase tracking-widest shadow-lg shadow-primary/20 w-full sm:w-auto"
         >
           <Plus className="h-4 w-4" /> Novo Prazo
         </Button>
