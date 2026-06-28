@@ -30,21 +30,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useMyStats } from "@/hooks/useMyStats";
+import { formatPhone, isValidPhone } from "@/lib/phone";
 import { cn } from "@/lib/utils";
 
 const ESTADOS_BRASIL = [
-  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", 
+  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
   "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"
 ];
-
-// Máscara de celular brasileiro: (XX) XXXXX-XXXX (aceita também fixo (XX) XXXX-XXXX)
-function formatPhone(value: string): string {
-  const d = (value || "").replace(/\D/g, "").slice(0, 11);
-  if (d.length <= 2) return d.length ? `(${d}` : "";
-  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
-  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
-  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
-}
 
 const Perfil = () => {
   const { user, profile, session, isLoading, refreshProfile } = useAuth();
@@ -89,7 +81,12 @@ const Perfil = () => {
         toast({ title: "Aviso", description: "Dados da sessão ainda carregando. Tente novamente." });
         return;
       }
-      
+
+      if (!isValidPhone(userInfo.telefone)) {
+        toast({ variant: "destructive", title: "Telefone inválido", description: "Use o formato (XX) XXXXX-XXXX." });
+        return;
+      }
+
       setIsSaving(true);
 
       const updatePayload = {
@@ -202,11 +199,13 @@ const Perfil = () => {
                 </div>
                 
                 <div className="flex flex-wrap justify-center md:justify-start gap-3">
-                  <Badge variant="outline" className="bg-background text-muted-foreground/60 border-border font-black px-4 py-1.5 rounded-xl uppercase text-[10px] tracking-widest shadow-sm">
-                    OAB {userInfo.oab} / {userInfo.oab_uf}
-                  </Badge>
-                  <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 font-black px-4 py-1.5 rounded-xl uppercase text-[10px] tracking-widest">
-                    Verificado
+                  {userInfo.oab && (
+                    <Badge variant="outline" className="bg-background text-muted-foreground/60 border-border font-black px-4 py-1.5 rounded-xl uppercase text-[10px] tracking-widest shadow-sm">
+                      OAB {userInfo.oab} / {userInfo.oab_uf}
+                    </Badge>
+                  )}
+                  <Badge className="bg-primary/10 text-primary border-primary/20 font-black px-4 py-1.5 rounded-xl uppercase text-[10px] tracking-widest">
+                    {profile?.role === 'super_admin' ? 'Super Admin' : profile?.role === 'admin' ? 'Administrador' : 'Membro'}
                   </Badge>
                 </div>
               </div>
@@ -249,6 +248,9 @@ const Perfil = () => {
                     <span className="font-bold text-foreground/80">{userInfo.telefone || "Não informado"}</span>
                   )}
                 </div>
+                {editMode && userInfo.telefone && !isValidPhone(userInfo.telefone) && (
+                  <p className="text-[11px] font-bold text-destructive px-1">Telefone incompleto ou inválido.</p>
+                )}
               </div>
 
               <div className="space-y-3">

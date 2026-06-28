@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   Settings, Sun, Moon, Palette, Monitor, UserCircle, Mail, ExternalLink,
-  Users, FileText, Clock, Users2, Building2, Plug, Check, ChevronRight,
+  Users, FileText, Clock, Users2, Plug, Check, ChevronRight,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -13,7 +13,6 @@ import { TeamManagement } from "@/components/Settings/TeamManagement";
 import { ProcessTypeSimple } from "@/components/Settings/ProcessTypeSimple";
 import { DeadlineConfig } from "@/components/Settings/DeadlineConfig";
 import { ClientOriginConfig } from "@/components/Settings/ClientOriginConfig";
-import { OfficeSettings } from "@/components/Office/OfficeSettings";
 import { IntegrationsPanel } from "@/components/Integrations/IntegrationsPanel";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useAuth } from "@/contexts/AuthContext";
@@ -42,11 +41,10 @@ const SECTIONS: Section[] = [
   { id: "processos", label: "Processos", desc: "Tipos de processo", icon: FileText, group: "Operação" },
   { id: "prazos", label: "Prazos", desc: "Tipos de prazo e atos", icon: Clock, group: "Operação" },
   { id: "equipes", label: "Equipes", desc: "Times e membros", icon: Users2, group: "Operação" },
-  { id: "escritorio", label: "Escritório", desc: "Dados do escritório", icon: Building2, group: "Administração", adminOnly: true },
   { id: "integracao", label: "Integração", desc: "Apps conectados", icon: Plug, group: "Integrações" },
 ];
 
-const GROUP_ORDER = ["Conta", "Operação", "Administração", "Integrações"];
+const GROUP_ORDER = ["Conta", "Operação", "Integrações"];
 
 const Configuracoes = () => {
   const [activeTab, setActiveTab] = useState("geral");
@@ -76,7 +74,6 @@ const Configuracoes = () => {
       case "processos": return <ProcessTypeSimple />;
       case "prazos": return <DeadlineConfig />;
       case "equipes": return <TeamManagement />;
-      case "escritorio": return canManageOffice ? <OfficeSettings /> : null;
       case "integracao": return <IntegrationsPanel />;
       default: return <GeralSection {...{ displayName, displayEmail, theme, setTheme, navigate }} />;
     }
