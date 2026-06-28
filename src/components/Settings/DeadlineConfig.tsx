@@ -1,10 +1,12 @@
-
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Trash2, Plus, Clock, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 import { useOfficeSettingList } from "@/hooks/useOfficeSettingList";
 
 interface TipoPrazo { id: number; nome: string; diasPadrao: number; categoria: string; }
@@ -19,14 +21,20 @@ const PRAZOS_DEFAULT: TipoPrazo[] = [
   { id: 7, nome: "Alegações Finais", diasPadrao: 15, categoria: "Defesa" },
 ];
 
+const CATEGORIAS = ["Defesa", "Recurso", "Perícia", "Outros"];
+
+const catColor = (c: string) => {
+  switch (c) {
+    case "Defesa": return "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20";
+    case "Recurso": return "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20";
+    case "Perícia": return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20";
+    default: return "bg-muted text-muted-foreground border-border";
+  }
+};
+
 export function DeadlineConfig() {
   const { items: prazos, loading, saving, persist } = useOfficeSettingList<TipoPrazo>("tipos_prazo", PRAZOS_DEFAULT);
-
-  const [novoPrazo, setNovoPrazo] = useState({
-    nome: "",
-    diasPadrao: 15,
-    categoria: "Defesa"
-  });
+  const [novoPrazo, setNovoPrazo] = useState({ nome: "", diasPadrao: 15, categoria: "Defesa" });
 
   const adicionarPrazo = () => {
     if (novoPrazo.nome.trim()) {
@@ -34,49 +42,54 @@ export function DeadlineConfig() {
       setNovoPrazo({ nome: "", diasPadrao: 15, categoria: "Defesa" });
     }
   };
-
-  const removerPrazo = (id: number) => {
-    persist(prazos.filter(prazo => prazo.id !== id));
-  };
-
-  const getCategoriaColor = (categoria: string) => {
-    switch (categoria) {
-      case "Defesa": return "bg-blue-100 text-blue-800";
-      case "Recurso": return "bg-purple-100 text-purple-800";
-      case "Perícia": return "bg-green-100 text-green-800";
-      default: return "bg-gray-100 text-gray-800";
-    }
-  };
+  const removerPrazo = (id: number) => persist(prazos.filter((p) => p.id !== id));
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <Clock className="h-5 w-5" />
-          <span>Configuração de Prazos</span>
-          {(loading || saving) && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-        </CardTitle>
+    <Card className="glass-card rounded-[2rem] border-black/5 dark:border-border overflow-hidden shadow-premium">
+      <CardHeader className="border-b border-black/5 dark:border-border pb-4 flex flex-row items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="h-11 w-11 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+            <Clock className="h-5 w-5" />
+          </div>
+          <div>
+            <CardTitle className="text-lg font-black flex items-center gap-2">
+              Tipos de Prazo
+              {(loading || saving) && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+            </CardTitle>
+            <CardDescription className="text-xs font-medium">Prazos padrão e categorias dos atos</CardDescription>
+          </div>
+        </div>
+        <Badge variant="secondary" className="rounded-full font-black shrink-0">{prazos.length}</Badge>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid gap-4">
+
+      <CardContent className="p-5 md:p-6 space-y-5">
+        <div className="grid gap-2.5">
+          {!loading && prazos.length === 0 && (
+            <div className="text-center py-10 text-sm text-muted-foreground font-medium">
+              Nenhum tipo de prazo cadastrado.
+            </div>
+          )}
           {prazos.map((prazo) => (
-            <div key={prazo.id} className="flex items-center justify-between p-3 border rounded-lg">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <h4 className="font-medium">{prazo.nome}</h4>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getCategoriaColor(prazo.categoria)}`}>
+            <div
+              key={prazo.id}
+              className="group flex items-center justify-between gap-3 p-4 rounded-2xl border border-black/5 dark:border-border bg-black/[0.01] dark:bg-white/[0.01] hover:border-primary/30 hover:bg-primary/[0.02] transition-all"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <h4 className="font-bold text-sm truncate">{prazo.nome}</h4>
+                  <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide border", catColor(prazo.categoria))}>
                     {prazo.categoria}
                   </span>
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  Prazo padrão: {prazo.diasPadrao} dias
-                </div>
+                <p className="text-xs text-muted-foreground">Prazo padrão: <span className="font-bold text-foreground/70">{prazo.diasPadrao} dias</span></p>
               </div>
               <Button
                 variant="ghost"
-                size="sm"
+                size="icon"
                 onClick={() => removerPrazo(prazo.id)}
-                className="text-red-600 hover:text-red-700"
+                disabled={saving}
+                aria-label={`Remover ${prazo.nome}`}
+                className="h-8 w-8 shrink-0 rounded-xl text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-all"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -84,48 +97,45 @@ export function DeadlineConfig() {
           ))}
         </div>
 
-        <div className="border-t pt-4">
-          <h5 className="font-medium mb-3">Adicionar Novo Prazo</h5>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div>
-              <Label htmlFor="nomePrazo">Nome do Prazo</Label>
+        {/* Adicionar */}
+        <div className="rounded-2xl border border-dashed border-black/10 dark:border-border bg-black/[0.01] dark:bg-white/[0.01] p-4 space-y-3">
+          <h5 className="text-[11px] font-black uppercase tracking-widest text-muted-foreground/60">Adicionar novo prazo</h5>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="space-y-1.5 md:col-span-1 sm:col-span-2">
+              <Label htmlFor="nomePrazo" className="text-xs font-bold">Nome do prazo</Label>
               <Input
                 id="nomePrazo"
                 value={novoPrazo.nome}
-                onChange={(e) => setNovoPrazo({...novoPrazo, nome: e.target.value})}
+                onChange={(e) => setNovoPrazo({ ...novoPrazo, nome: e.target.value })}
+                onKeyDown={(e) => e.key === "Enter" && adicionarPrazo()}
                 placeholder="Ex: Embargos de Declaração"
+                className="h-11 rounded-xl"
               />
             </div>
-            <div>
-              <Label htmlFor="diasPadrao">Dias Padrão</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="diasPadrao" className="text-xs font-bold">Dias padrão</Label>
               <Input
                 id="diasPadrao"
                 type="number"
+                min={1}
                 value={novoPrazo.diasPadrao}
-                onChange={(e) => setNovoPrazo({...novoPrazo, diasPadrao: parseInt(e.target.value)})}
+                onChange={(e) => setNovoPrazo({ ...novoPrazo, diasPadrao: parseInt(e.target.value) || 0 })}
+                className="h-11 rounded-xl"
               />
             </div>
-            <div>
-              <Label htmlFor="categoria">Categoria</Label>
-              <select
-                id="categoria"
-                value={novoPrazo.categoria}
-                onChange={(e) => setNovoPrazo({...novoPrazo, categoria: e.target.value})}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
-              >
-                <option value="Defesa">Defesa</option>
-                <option value="Recurso">Recurso</option>
-                <option value="Perícia">Perícia</option>
-                <option value="Outros">Outros</option>
-              </select>
-            </div>
-            <div className="flex items-end">
-              <Button onClick={adicionarPrazo} className="w-full" disabled={saving || !novoPrazo.nome.trim()}>
-                <Plus className="h-4 w-4 mr-2" />
-                Adicionar
-              </Button>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Categoria</Label>
+              <Select value={novoPrazo.categoria} onValueChange={(v) => setNovoPrazo({ ...novoPrazo, categoria: v })}>
+                <SelectTrigger className="h-11 rounded-xl font-medium"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {CATEGORIAS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
           </div>
+          <Button onClick={adicionarPrazo} disabled={saving || !novoPrazo.nome.trim()} className="w-full rounded-xl font-bold">
+            <Plus className="h-4 w-4 mr-2" /> Adicionar Prazo
+          </Button>
         </div>
       </CardContent>
     </Card>
