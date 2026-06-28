@@ -25,6 +25,20 @@ export default defineConfig(({ mode }) => ({
   define: {
     __WS_TOKEN__: JSON.stringify(process.env.WS_TOKEN || ''),
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Separa libs pesadas em chunks próprios (cacheáveis entre deploys)
+        manualChunks: {
+          "react-vendor": ["react", "react-dom", "react-router-dom"],
+          "charts": ["recharts"],
+          "supabase": ["@supabase/supabase-js"],
+          "data": ["@tanstack/react-query"],
+          "datefns": ["date-fns"],
+        },
+      },
+    },
+  },
   test: {
     globals: true,
     environment: 'jsdom',

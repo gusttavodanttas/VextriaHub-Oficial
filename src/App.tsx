@@ -13,42 +13,44 @@ import { ErrorBoundary } from "@/components/ErrorBoundary/ErrorBoundary";
 import { InstallPrompt } from "@/components/PWA/InstallPrompt";
 import { usePerformanceMonitoring } from "@/hooks/usePerformanceMonitoring";
 import { usePWA } from "@/hooks/usePWA";
-import Landing from "./pages/Landing";
-import Index from "./pages/Index";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import Processos from "./pages/Processos";
-import Atendimentos from "./pages/Atendimentos";
-import Clientes from "./pages/Clientes";
-import Crm from "./pages/Crm";
-import Agenda from "./pages/Agenda";
-import Tarefas from "./pages/Tarefas";
-import Prazos from "./pages/Prazos";
-import Publicacoes from "./pages/Publicacoes";
-import Consultivo from "./pages/Consultivo";
-import Graficos from "./pages/Graficos";
-import Financeiro from "./pages/Financeiro";
-import Metas from "./pages/Metas";
-import Etiquetas from "./pages/Etiquetas";
-import Notificacoes from "./pages/Notificacoes";
-import Configuracoes from "./pages/Configuracoes";
-import Perfil from "./pages/Perfil";
-import Admin from "./pages/Admin";
-import SuperAdmin from "./pages/SuperAdmin";
-import SystemAdmin from "./pages/SystemAdmin";
-import SystemSubscriptions from "./pages/SystemSubscriptions";
-import Subscriptions from "./pages/Subscriptions";
-import NotFound from "./pages/NotFound";
-import Audiencias from "./pages/Audiencias";
-import Equipe from "./pages/Equipe";
-import EquipeDetalhe from "./pages/EquipeDetalhe";
-import Escritorio from "./pages/Escritorio";
-import Timesheet from "./pages/Timesheet";
-import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
-import Pagamento from "./pages/Pagamento";
-import Obrigado from "./pages/Obrigado";
-import Lixeira from "./pages/Lixeira";
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
+
+// Code-splitting: cada página vira um chunk próprio, carregado sob demanda
+const Landing = lazy(() => import("./pages/Landing"));
+const Index = lazy(() => import("./pages/Index"));
+const Login = lazy(() => import("./pages/Login"));
+const Register = lazy(() => import("./pages/Register"));
+const Processos = lazy(() => import("./pages/Processos"));
+const Atendimentos = lazy(() => import("./pages/Atendimentos"));
+const Clientes = lazy(() => import("./pages/Clientes"));
+const Crm = lazy(() => import("./pages/Crm"));
+const Agenda = lazy(() => import("./pages/Agenda"));
+const Tarefas = lazy(() => import("./pages/Tarefas"));
+const Prazos = lazy(() => import("./pages/Prazos"));
+const Publicacoes = lazy(() => import("./pages/Publicacoes"));
+const Consultivo = lazy(() => import("./pages/Consultivo"));
+const Graficos = lazy(() => import("./pages/Graficos"));
+const Financeiro = lazy(() => import("./pages/Financeiro"));
+const Metas = lazy(() => import("./pages/Metas"));
+const Etiquetas = lazy(() => import("./pages/Etiquetas"));
+const Notificacoes = lazy(() => import("./pages/Notificacoes"));
+const Configuracoes = lazy(() => import("./pages/Configuracoes"));
+const Perfil = lazy(() => import("./pages/Perfil"));
+const Admin = lazy(() => import("./pages/Admin"));
+const SuperAdmin = lazy(() => import("./pages/SuperAdmin"));
+const SystemAdmin = lazy(() => import("./pages/SystemAdmin"));
+const SystemSubscriptions = lazy(() => import("./pages/SystemSubscriptions"));
+const Subscriptions = lazy(() => import("./pages/Subscriptions"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const Audiencias = lazy(() => import("./pages/Audiencias"));
+const Equipe = lazy(() => import("./pages/Equipe"));
+const EquipeDetalhe = lazy(() => import("./pages/EquipeDetalhe"));
+const Escritorio = lazy(() => import("./pages/Escritorio"));
+const Timesheet = lazy(() => import("./pages/Timesheet"));
+const PoliticaPrivacidade = lazy(() => import("./pages/PoliticaPrivacidade"));
+const Pagamento = lazy(() => import("./pages/Pagamento"));
+const Obrigado = lazy(() => import("./pages/Obrigado"));
+const Lixeira = lazy(() => import("./pages/Lixeira"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -62,6 +64,16 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// Fallback exibido enquanto o chunk da página é baixado
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-[60vh] w-full">
+    <div className="flex flex-col items-center gap-3">
+      <div className="h-8 w-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+      <p className="text-xs text-muted-foreground font-medium">Carregando…</p>
+    </div>
+  </div>
+);
 
 const AppWithRouter = () => {
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
@@ -93,6 +105,7 @@ const AppWithRouter = () => {
 
   return (
     <AuthProvider>
+      <Suspense fallback={<PageLoader />}>
       <Routes>
         <Route path="/" element={<Navigate to="/home" replace />} />
         <Route path="/home" element={<Landing />} />
@@ -365,7 +378,8 @@ const AppWithRouter = () => {
         <Route path="/obrigado" element={<Obrigado />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
-      
+      </Suspense>
+
       {showInstallPrompt && (
         <InstallPrompt onClose={() => setShowInstallPrompt(false)} />
       )}
