@@ -69,8 +69,10 @@ const Perfil = () => {
         email: profile?.email || user?.email || "email@exemplo.com",
         telefone: profile?.phone ? formatPhone(profile.phone) : prev.telefone,
         endereco: profile?.address || prev.endereco,
-        cargo: profile?.position || (profile?.role === 'super_admin' ? 'CEO / Super Admin' : 
-               profile?.role === 'admin' ? 'Administrador' : 'Membro Comum'),
+        cargo: (user as any)?.office_role === 'owner' ? 'Proprietário'
+               : ((user as any)?.office_role === 'admin' || profile?.role === 'admin') ? 'Administrador'
+               : ((user as any)?.office_role === 'super_admin' || profile?.role === 'super_admin') ? 'Super Admin'
+               : (user as any)?.office_role === 'coordinator' ? 'Coordenador' : 'Membro',
         oab: profile?.oab || prev.oab,
         oab_uf: profile?.oab_uf || prev.oab_uf,
         especializacao: profile?.specialization || prev.especializacao
@@ -84,6 +86,14 @@ const Perfil = () => {
   const memberSince = createdAt
     ? new Date(createdAt).toLocaleDateString("pt-BR", { month: "short", year: "numeric" })
     : null;
+
+  // Papel real: prioriza o papel no escritório (owner/admin) sobre o profiles.role
+  const officeRole = (user as any)?.office_role as string | undefined;
+  const roleLabel =
+    officeRole === "owner" ? "Proprietário" :
+    (officeRole === "super_admin" || profile?.role === "super_admin") ? "Super Admin" :
+    (officeRole === "admin" || profile?.role === "admin") ? "Administrador" :
+    officeRole === "coordinator" ? "Coordenador" : "Membro";
 
   const handleSave = async () => {
     try {
@@ -106,7 +116,6 @@ const Perfil = () => {
         specialization: userInfo.especializacao,
         oab: userInfo.oab,
         oab_uf: userInfo.oab_uf,
-        position: userInfo.cargo
       };
       
       // Update explícito via chave primária (fallback pra .eq('user_id')) se a PK id falhar
@@ -213,15 +222,12 @@ const Perfil = () => {
                   )}
                   <div className="flex flex-wrap justify-center md:justify-start items-center gap-2">
                     <Badge className="bg-primary/10 text-primary border-primary/20 font-black px-3 py-1 rounded-lg uppercase text-[10px] tracking-widest">
-                      {profile?.role === 'super_admin' ? 'Super Admin' : profile?.role === 'admin' ? 'Administrador' : 'Membro'}
+                      {roleLabel}
                     </Badge>
                     {userInfo.oab && (
                       <Badge variant="outline" className="bg-background text-muted-foreground/70 border-border font-black px-3 py-1 rounded-lg uppercase text-[10px] tracking-widest">
                         OAB {userInfo.oab}/{userInfo.oab_uf}
                       </Badge>
-                    )}
-                    {userInfo.cargo && userInfo.cargo !== "Não informado" && (
-                      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">{userInfo.cargo}</span>
                     )}
                   </div>
                 </div>
