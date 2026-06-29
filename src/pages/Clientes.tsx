@@ -8,11 +8,13 @@ import { Client } from "@/types/client";
 import { useClientes } from "@/hooks/useClientes";
 import { cn } from "@/lib/utils";
 
-import { Users, Plus, Search, LayoutGrid, List, UserCheck, UserX, Building2, User } from "lucide-react";
+import { Users, Plus, Search, LayoutGrid, List, UserCheck, UserX, Building2, User, Download, Cake, ArrowUpDown, MessageCircle } from "lucide-react";
 import { useMyTeams } from "@/hooks/useMyTeams";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { onlyDigits } from "@/lib/document";
 
 import { ClientsAdvancedFilters } from "@/components/Clientes/ClientsAdvancedFilters";
 import { ClientsGrid } from "@/components/Clientes/ClientsGrid";
@@ -88,7 +90,7 @@ const Clientes = () => {
   }), [clients]);
 
   // Estados
-  const [filteredClients, setFilteredClients] = useState<Client[]>([]);
+  const [sortBy, setSortBy] = useState<"recentes" | "nome" | "processos">("recentes");
   const [searchValue, setSearchValue] = useState("");
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -102,20 +104,20 @@ const Clientes = () => {
   const [advancedFilters, setAdvancedFilters] = useState<any>({});
 
   const showEmptyState = dbIsEmpty && !loading;
-  const multiSelect = useMultiSelect(filteredClients);
 
-  // Filtragem
-  useEffect(() => {
+  // Filtragem + ordenação (useMemo evita re-render extra a cada tecla → digitação fluida)
+  const filteredClients = useMemo(() => {
     let filtered = [...clients];
-    const q = searchValue.toLowerCase();
+    const q = searchValue.toLowerCase().trim();
+    const qDigits = onlyDigits(searchValue);
 
     if (q) {
       filtered = filtered.filter(
         (c) =>
           c.name.toLowerCase().includes(q) ||
           c.email.toLowerCase().includes(q) ||
-          c.phone.includes(q) ||
-          c.cpfCnpj.includes(q)
+          (!!qDigits && onlyDigits(c.phone).includes(qDigits)) ||
+          (!!qDigits && onlyDigits(c.cpfCnpj).includes(qDigits))
       );
     }
     if (advancedFilters.tipoPessoa) filtered = filtered.filter((c) => c.tipoPessoa === advancedFilters.tipoPessoa);
@@ -124,14 +126,52 @@ const Clientes = () => {
     if (advancedFilters.dataInicioFrom) filtered = filtered.filter((c) => new Date(c.createdAt) >= advancedFilters.dataInicioFrom);
     if (advancedFilters.dataInicioTo) filtered = filtered.filter((c) => new Date(c.createdAt) <= advancedFilters.dataInicioTo);
 
-    // Filtro de equipe (coordenador)
     if (teamFilter) {
-      const teamMemberIds = myTeams.find(t => t.id === teamFilter)?.memberIds ?? [];
+      const teamMemberIds = myTeams.find((t) => t.id === teamFilter)?.memberIds ?? [];
       filtered = filtered.filter((c) => teamMemberIds.includes((c as any).userId));
     }
 
-    setFilteredClients(filtered);
-  }, [clients, searchValue, advancedFilters, teamFilter, myTeams]);
+    filtered.sort((a, b) => {
+      if (sortBy === "nome") return a.name.localeCompare(b.name, "pt-BR");
+      if (sortBy === "processos") return (b.cases || 0) - (a.cases || 0);
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+    return filtered;
+  }, [clients, searchValue, advancedFilters, teamFilter, myTeams, sortBy]);
+
+  const multiSelect = useMultiSelect(filteredClients);
+
+  // Aniversariantes do mês (data 'YYYY-MM-DD' — parse manual evita fuso)
+  const aniversariantes = useMemo(() => {
+    const mesAtual = new Date().getMonth() + 1;
+    return clients
+      .filter((c) => {
+        const parts = (c.dataAniversario || "").split("-");
+        return parts.length === 3 && Number(parts[1]) === mesAtual;
+      })
+      .map((c) => ({ ...c, dia: Number(c.dataAniversario.split("-")[2]) }))
+      .sort((a, b) => a.dia - b.dia);
+  }, [clients]);
+
+  const exportCSV = () => {
+    const header = ["Nome", "Documento", "Email", "Telefone", "Tipo", "Status", "Origem", "Processos", "Cadastro"];
+    const linhas = filteredClients.map((c) => [
+      c.name, c.cpfCnpj, c.email, c.phone,
+      c.tipoPessoa === "juridica" ? "Pessoa Jurídica" : "Pessoa Física",
+      c.status, c.origem, String(c.cases),
+      c.createdAt ? new Date(c.createdAt).toLocaleDateString("pt-BR") : "",
+    ]);
+    const csv = [header, ...linhas]
+      .map((r) => r.map((f) => `"${String(f ?? "").replace(/"/g, '""')}"`).join(";"))
+      .join("\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `clientes_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   // Abrir cliente via query param
   useEffect(() => {
@@ -148,12 +188,17 @@ const Clientes = () => {
     if (c) { setEditingClient(c); setEditDialogOpen(true); }
   };
 
-  const handleSaveClient = async (updatedClient: Client) => {
+  const handleSaveClient = async (updatedClient: Client): Promise<boolean> => {
+    const doc = onlyDigits(updatedClient.cpfCnpj);
+    if (doc) {
+      const dup = clients.find((c) => c.id !== updatedClient.id && onlyDigits(c.cpfCnpj) === doc);
+      if (dup) { toast({ variant: "destructive", title: "Documento já cadastrado", description: `${dup.name} já usa esse CPF/CNPJ.` }); return false; }
+    }
     const success = await update(updatedClient.id, {
       nome: updatedClient.name,
       email: updatedClient.email,
       telefone: updatedClient.phone,
-      cpf_cnpj: updatedClient.cpfCnpj,
+      cpf_cnpj: doc,
       tipo_pessoa: updatedClient.tipoPessoa,
       origem: updatedClient.origem,
       endereco: updatedClient.endereco,
@@ -161,14 +206,24 @@ const Clientes = () => {
       data_aniversario: updatedClient.dataAniversario,
     });
     if (success) toast({ title: "Cliente atualizado", description: `${updatedClient.name} atualizado com sucesso.` });
+    return !!success;
   };
 
-  const handleNovoCliente = async (newClient: Client) => {
+  const handleNovoCliente = async (newClient: {
+    name: string; email: string; phone: string; cpfCnpj: string;
+    tipoPessoa: "fisica" | "juridica"; origem: string; endereco: string;
+    dataAniversario: string; status: string;
+  }): Promise<boolean> => {
+    const doc = onlyDigits(newClient.cpfCnpj);
+    if (doc) {
+      const dup = clients.find((c) => onlyDigits(c.cpfCnpj) === doc);
+      if (dup) { toast({ variant: "destructive", title: "Cliente já cadastrado", description: `${dup.name} já usa esse CPF/CNPJ.` }); return false; }
+    }
     const success = await create({
       nome: newClient.name,
       email: newClient.email,
       telefone: newClient.phone,
-      cpf_cnpj: newClient.cpfCnpj,
+      cpf_cnpj: doc,
       tipo_pessoa: newClient.tipoPessoa,
       origem: newClient.origem,
       endereco: newClient.endereco,
@@ -176,6 +231,7 @@ const Clientes = () => {
       data_aniversario: newClient.dataAniversario,
     });
     if (success) toast({ title: "Cliente cadastrado", description: `${newClient.name} cadastrado com sucesso.` });
+    return !!success;
   };
 
   const handleDeleteSingleClient = (clientId: string) => {
@@ -231,6 +287,31 @@ const Clientes = () => {
           <StatCard label="Ativos" value={stats.ativos} Icon={UserCheck} color="bg-emerald-500/10 text-emerald-500" />
           <StatCard label="Inativos" value={stats.inativos} Icon={UserX} color="bg-red-500/10 text-red-500" />
           <StatCard label="Jurídica" value={stats.juridica} Icon={Building2} color="bg-violet-500/10 text-violet-500" />
+        </div>
+      )}
+
+      {/* Aniversariantes do mês */}
+      {!loading && aniversariantes.length > 0 && (
+        <div className="rounded-2xl border border-pink-500/20 bg-pink-500/5 p-4 flex items-start gap-3">
+          <div className="h-9 w-9 rounded-xl bg-pink-500/15 text-pink-600 dark:text-pink-400 flex items-center justify-center shrink-0">
+            <Cake className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-black uppercase tracking-widest text-pink-600 dark:text-pink-400">Aniversariantes do mês</p>
+            <div className="flex flex-wrap gap-2 mt-1.5">
+              {aniversariantes.map((c) => (
+                <span key={c.id} className="inline-flex items-center gap-1.5 text-xs font-bold bg-card border border-black/5 dark:border-border rounded-full px-2.5 py-1">
+                  <span className="text-pink-600 dark:text-pink-400 font-black">{String(c.dia).padStart(2, "0")}</span>
+                  <button onClick={() => { setSelectedClient(c); setClientDetailsOpen(true); }} className="hover:text-primary truncate max-w-[140px]">{c.name}</button>
+                  {c.phone && (
+                    <a href={`https://wa.me/55${onlyDigits(c.phone)}`} target="_blank" rel="noopener noreferrer" className="text-emerald-600 dark:text-emerald-400" title="WhatsApp">
+                      <MessageCircle className="h-3.5 w-3.5" />
+                    </a>
+                  )}
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
@@ -295,6 +376,26 @@ const Clientes = () => {
               )}
             </div>
 
+            <div className="flex items-center gap-2">
+            {/* Ordenação */}
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
+              <SelectTrigger className="h-10 w-auto gap-1.5 rounded-xl border-black/8 dark:border-border text-xs font-bold">
+                <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground/60" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="recentes">Mais recentes</SelectItem>
+                <SelectItem value="nome">Nome (A–Z)</SelectItem>
+                <SelectItem value="processos">Mais processos</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Exportar CSV */}
+            <Button variant="outline" size="sm" onClick={exportCSV} disabled={filteredClients.length === 0}
+              className="h-10 rounded-xl border-black/8 dark:border-border text-xs font-bold gap-1.5">
+              <Download className="h-3.5 w-3.5" /> Exportar
+            </Button>
+
             {/* Toggle grid/lista */}
             <div className="flex items-center p-1 bg-black/5 dark:bg-black/20 rounded-xl border border-black/5 dark:border-border">
               <Button variant="ghost" size="sm" onClick={() => setViewMode("list")}
@@ -311,6 +412,7 @@ const Clientes = () => {
                 )}>
                 <LayoutGrid className="w-3.5 h-3.5 mr-1.5" />Cards
               </Button>
+            </div>
             </div>
           </div>
 

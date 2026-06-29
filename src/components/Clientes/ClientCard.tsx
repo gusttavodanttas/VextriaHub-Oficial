@@ -7,6 +7,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Client } from '@/types/client';
 import { PermissionGuard } from '@/components/Auth/PermissionGuard';
 import { cn } from '@/lib/utils';
+import { formatPhone } from '@/lib/phone';
+import { onlyDigits } from '@/lib/document';
+import { MessageCircle } from 'lucide-react';
 
 interface ClientCardProps {
   client: Client;
@@ -138,7 +141,17 @@ export const ClientCard: React.FC<ClientCardProps> = ({
         {client.phone && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground/70 font-mono px-0.5">
             <Phone className="h-3 w-3 shrink-0" />
-            {client.phone}
+            {formatPhone(client.phone)}
+            <a
+              href={`https://wa.me/55${onlyDigits(client.phone)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="ml-auto text-emerald-600 dark:text-emerald-400 hover:scale-110 transition-transform"
+              title="WhatsApp"
+            >
+              <MessageCircle className="h-3.5 w-3.5" />
+            </a>
           </div>
         )}
 

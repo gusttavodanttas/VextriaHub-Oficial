@@ -1,269 +1,175 @@
-
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { UserPlus, User, Building2, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useOfficeSettingList } from "@/hooks/useOfficeSettingList";
+import { formatCpfCnpj, isValidCpfCnpj, onlyDigits } from "@/lib/document";
+import { formatPhone, isValidPhone } from "@/lib/phone";
 
-interface Client {
-  id: number;
+interface ClientInput {
   name: string;
   email: string;
   phone: string;
-  cases: number;
-  status: string;
-  lastContact: string;
   cpfCnpj: string;
   tipoPessoa: "fisica" | "juridica";
   origem: string;
   endereco: string;
   dataAniversario: string;
+  status: string;
 }
 
 interface NovoClienteDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (client: Client) => void;
+  // Retorna true/undefined em sucesso, false para manter o modal aberto (ex.: duplicado)
+  onSave: (client: ClientInput) => Promise<boolean | void> | boolean | void;
 }
 
-const ORIGENS_DEFAULT = [
-  "Indicação",
-  "Marketing Digital",
-  "Redes Sociais",
-  "Site",
-  "Telefone",
-  "Presencial",
-  "Outros"
-];
+const ORIGENS_DEFAULT = ["Indicação", "Marketing Digital", "Redes Sociais", "Site", "Telefone", "Presencial", "Outros"];
+
+const EMPTY: ClientInput = {
+  name: "", email: "", phone: "", cpfCnpj: "", tipoPessoa: "fisica",
+  origem: "", endereco: "", dataAniversario: "", status: "Ativo",
+};
+
+const emailOk = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
 export const NovoClienteDialog = ({ open, onOpenChange, onSave }: NovoClienteDialogProps) => {
   const { toast } = useToast();
   const { items: origensCliente } = useOfficeSettingList<string>("origens_cliente", ORIGENS_DEFAULT);
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    cpfCnpj: "",
-    tipoPessoa: "fisica" as "fisica" | "juridica",
-    origem: "",
-    endereco: "",
-    dataAniversario: ""
-  });
+  const [form, setForm] = useState<ClientInput>(EMPTY);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = () => {
-    // Validação básica
-    if (!formData.name.trim()) {
-      toast({
-        title: "Erro",
-        description: "Nome é obrigatório.",
-        variant: "destructive",
-      });
-      return;
-    }
+  const set = (patch: Partial<ClientInput>) => setForm((p) => ({ ...p, ...patch }));
+  const isPJ = form.tipoPessoa === "juridica";
 
-    if (!formData.cpfCnpj.trim()) {
-      toast({
-        title: "Erro",
-        description: `${formData.tipoPessoa === "fisica" ? "CPF" : "CNPJ"} é obrigatório.`,
-        variant: "destructive",
-      });
-      return;
-    }
+  const reset = () => { setForm(EMPTY); setErrors({}); };
 
-    // Gerar novo ID (em um sistema real seria gerado pelo backend)
-    const newId = Date.now();
-
-    const newClient: Client = {
-      id: newId,
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone,
-      cases: 0,
-      status: "ativo",
-      lastContact: "Agora",
-      cpfCnpj: formData.cpfCnpj,
-      tipoPessoa: formData.tipoPessoa,
-      origem: formData.origem || "Não informado",
-      endereco: formData.endereco,
-      dataAniversario: formData.dataAniversario
-    };
-
-    onSave(newClient);
-    
-    // Limpar formulário
-    setFormData({
-      name: "",
-      email: "",
-      phone: "",
-      cpfCnpj: "",
-      tipoPessoa: "fisica",
-      origem: "",
-      endereco: "",
-      dataAniversario: ""
-    });
-    
-    onOpenChange(false);
+  const validate = () => {
+    const e: Record<string, string> = {};
+    if (!form.name.trim()) e.name = "Nome é obrigatório.";
+    if (!onlyDigits(form.cpfCnpj)) e.cpfCnpj = `${isPJ ? "CNPJ" : "CPF"} é obrigatório.`;
+    else if (!isValidCpfCnpj(form.cpfCnpj, form.tipoPessoa)) e.cpfCnpj = `${isPJ ? "CNPJ" : "CPF"} inválido.`;
+    if (form.email && !emailOk(form.email)) e.email = "E-mail inválido.";
+    if (form.phone && !isValidPhone(form.phone)) e.phone = "Telefone inválido (use DDD + número).";
+    setErrors(e);
+    return Object.keys(e).length === 0;
   };
 
-  const handleCancel = () => {
-    // Limpar formulário ao cancelar
-    setFormData({
-      name: "",
-      email: "",
-      phone: "",
-      cpfCnpj: "",
-      tipoPessoa: "fisica",
-      origem: "",
-      endereco: "",
-      dataAniversario: ""
-    });
-    onOpenChange(false);
+  const handleSave = async () => {
+    if (!validate()) {
+      toast({ title: "Verifique os campos", description: "Há campos obrigatórios ou inválidos.", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    try {
+      const result = await onSave({ ...form, origem: form.origem || "Não informado" });
+      if (result === false) return; // duplicado ou falha — mantém o modal
+      reset();
+      onOpenChange(false);
+    } finally {
+      setSaving(false);
+    }
   };
+
+  const handleCancel = () => { reset(); onOpenChange(false); };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent aria-describedby={undefined} className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Novo Cliente</DialogTitle>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
-            <Label htmlFor="name" className="text-right">
-              Nome *
-            </Label>
-            <Input
-              id="name"
-              value={formData.name}
-              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              className="col-span-3"
-              required
-            />
+    <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
+      <DialogContent aria-describedby={undefined} className="sm:max-w-[560px] max-h-[92vh] overflow-y-auto rounded-[1.75rem] p-0">
+        <div className="p-6 md:p-7 space-y-6">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3 text-xl font-black">
+              <span className="h-10 w-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center"><UserPlus className="h-5 w-5" /></span>
+              Novo Cliente
+            </DialogTitle>
+            <DialogDescription className="text-xs">Cadastre um cliente. Campos com * são obrigatórios.</DialogDescription>
+          </DialogHeader>
+
+          {/* Tipo de pessoa */}
+          <div className="grid grid-cols-2 gap-2">
+            {([["fisica", "Pessoa Física", User], ["juridica", "Pessoa Jurídica", Building2]] as const).map(([val, label, Icon]) => (
+              <button
+                key={val}
+                type="button"
+                onClick={() => set({ tipoPessoa: val, cpfCnpj: formatCpfCnpj(form.cpfCnpj, val) })}
+                className={cn(
+                  "flex items-center gap-2 rounded-xl border p-3 text-sm font-bold transition-all",
+                  form.tipoPessoa === val ? "border-primary/40 bg-primary/5 text-primary" : "border-black/8 dark:border-border text-muted-foreground hover:bg-muted/40"
+                )}
+              >
+                <Icon className="h-4 w-4" /> {label}
+              </button>
+            ))}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
-            <Label className="text-right">
-              Tipo de Pessoa *
-            </Label>
-            <div className="col-span-3">
-              <RadioGroup
-                value={formData.tipoPessoa}
-                onValueChange={(value: "fisica" | "juridica") => 
-                  setFormData(prev => ({ ...prev, tipoPessoa: value }))
-                }
-                className="flex gap-4"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="fisica" id="fisica" />
-                  <Label htmlFor="fisica">Pessoa Física</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="juridica" id="juridica" />
-                  <Label htmlFor="juridica">Pessoa Jurídica</Label>
-                </div>
-              </RadioGroup>
+          <div className="space-y-4">
+            <Field label="Nome completo *" error={errors.name}>
+              <Input value={form.name} onChange={(e) => set({ name: e.target.value })} className="rounded-xl h-11" placeholder={isPJ ? "Razão social" : "Nome do cliente"} />
+            </Field>
+
+            <Field label={isPJ ? "CNPJ *" : "CPF *"} error={errors.cpfCnpj}>
+              <Input
+                value={form.cpfCnpj}
+                onChange={(e) => set({ cpfCnpj: formatCpfCnpj(e.target.value, form.tipoPessoa) })}
+                inputMode="numeric"
+                className="rounded-xl h-11 font-mono"
+                placeholder={isPJ ? "00.000.000/0000-00" : "000.000.000-00"}
+              />
+            </Field>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="E-mail" error={errors.email}>
+                <Input type="email" value={form.email} onChange={(e) => set({ email: e.target.value })} className="rounded-xl h-11" placeholder="email@exemplo.com" />
+              </Field>
+              <Field label="Telefone" error={errors.phone}>
+                <Input value={form.phone} onChange={(e) => set({ phone: formatPhone(e.target.value) })} inputMode="numeric" className="rounded-xl h-11" placeholder="(11) 99999-9999" />
+              </Field>
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
-            <Label htmlFor="cpfCnpj" className="text-right">
-              {formData.tipoPessoa === "fisica" ? "CPF *" : "CNPJ *"}
-            </Label>
-            <Input
-              id="cpfCnpj"
-              value={formData.cpfCnpj}
-              onChange={(e) => setFormData(prev => ({ ...prev, cpfCnpj: e.target.value }))}
-              className="col-span-3"
-              placeholder={formData.tipoPessoa === "fisica" ? "000.000.000-00" : "00.000.000/0000-00"}
-              required
-            />
-          </div>
+            <Field label="Endereço">
+              <Input value={form.endereco} onChange={(e) => set({ endereco: e.target.value })} className="rounded-xl h-11" placeholder="Rua, nº, bairro, cidade" />
+            </Field>
 
-          <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
-            <Label htmlFor="email" className="text-right">
-              Email
-            </Label>
-            <Input
-              id="email"
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-              className="col-span-3"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
-            <Label htmlFor="phone" className="text-right">
-              Telefone
-            </Label>
-            <Input
-              id="phone"
-              value={formData.phone}
-              onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-              className="col-span-3"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
-            <Label htmlFor="endereco" className="text-right">
-              Endereço
-            </Label>
-            <Input
-              id="endereco"
-              value={formData.endereco}
-              onChange={(e) => setFormData(prev => ({ ...prev, endereco: e.target.value }))}
-              className="col-span-3"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
-            <Label htmlFor="dataAniversario" className="text-right">
-              Data de Aniversário
-            </Label>
-            <Input
-              id="dataAniversario"
-              type="date"
-              value={formData.dataAniversario}
-              onChange={(e) => setFormData(prev => ({ ...prev, dataAniversario: e.target.value }))}
-              className="col-span-3"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
-            <Label className="text-right">
-              Origem
-            </Label>
-            <div className="col-span-3">
-              <Select
-                value={formData.origem}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, origem: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a origem" />
-                </SelectTrigger>
-                <SelectContent>
-                  {origensCliente.map((origem) => (
-                    <SelectItem key={origem} value={origem}>
-                      {origem}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Data de aniversário">
+                <Input type="date" value={form.dataAniversario} onChange={(e) => set({ dataAniversario: e.target.value })} className="rounded-xl h-11" />
+              </Field>
+              <Field label="Origem">
+                <Select value={form.origem} onValueChange={(v) => set({ origem: v })}>
+                  <SelectTrigger className="rounded-xl h-11"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    {origensCliente.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </Field>
             </div>
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={handleCancel}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSave}>
-            Cadastrar Cliente
+
+        <DialogFooter className="px-6 md:px-7 pb-6 gap-2">
+          <Button variant="outline" onClick={handleCancel} className="rounded-xl">Cancelar</Button>
+          <Button onClick={handleSave} disabled={saving} className="rounded-xl font-bold gap-2">
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />} Cadastrar Cliente
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 };
+
+function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground/60">{label}</Label>
+      {children}
+      {error && <p className="text-[11px] font-semibold text-destructive">{error}</p>}
+    </div>
+  );
+}

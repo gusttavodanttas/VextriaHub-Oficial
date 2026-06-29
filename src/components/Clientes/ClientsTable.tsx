@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { MoreHorizontal, Edit, Scale, Activity, FileText, Trash2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { formatCpfCnpj } from "@/lib/document";
+import { formatPhone } from "@/lib/phone";
 
 interface ClientsTableProps {
   clients: Client[];
@@ -73,14 +75,14 @@ export const ClientsTable: React.FC<ClientsTableProps> = ({
                 <TableCell>
                   <div className="flex flex-col">
                     <span className="font-bold text-foreground group-hover:text-primary transition-colors">{client.name}</span>
-                    <span className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground/40">{client.cpfCnpj || 'Sem Documento'}</span>
+                    <span className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground/40 font-mono">{client.cpfCnpj ? formatCpfCnpj(client.cpfCnpj, client.tipoPessoa) : 'Sem Documento'}</span>
                   </div>
                 </TableCell>
                 
                 <TableCell>
                   <div className="flex flex-col">
                     <span className="text-sm font-medium text-foreground/80">{client.email || 'Sem e-mail'}</span>
-                    <span className="text-xs font-bold text-muted-foreground/50">{client.phone || 'Sem telefone'}</span>
+                    <span className="text-xs font-bold text-muted-foreground/50 font-mono">{client.phone ? formatPhone(client.phone) : 'Sem telefone'}</span>
                   </div>
                 </TableCell>
                 
