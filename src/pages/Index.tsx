@@ -4,6 +4,10 @@ import { MiniFinanceChart } from "@/components/Dashboard/MiniFinanceChart";
 import { MetasWidget } from "@/components/Dashboard/MetasWidget";
 import { DashboardCustomize } from "@/components/Dashboard/DashboardCustomize";
 import { QuickViewSheet, SheetView } from "@/components/Dashboard/QuickViewSheet";
+import { NovoProcessoDialog } from "@/components/Processos/NovoProcessoDialog";
+import { NovoPrazoStandaloneDialog } from "@/components/Processos/NovoPrazoStandaloneDialog";
+import { NovoCompromissoDialog } from "@/components/Agenda/NovoCompromissoDialog";
+import { NovoClienteDialog } from "@/components/Clientes/NovoClienteDialog";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, FileText, CheckSquare, TrendingUp, ArrowRight, Plus, CalendarCheck, UserCheck, Users2, CalendarPlus, UserPlus, Award, Activity, Clock, Settings2 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -14,13 +18,16 @@ import { useMyStats } from "@/hooks/useMyStats";
 import { useMyActivity } from "@/hooks/useMyActivity";
 import { useDashboardPrefs } from "@/hooks/useDashboardPrefs";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useClientes } from "@/hooks/useClientes";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-const ACTION_CONFIG: { key: string; label: string; icon: React.ElementType; to: string }[] = [
-  { key: "processo", label: "Processo", icon: Plus, to: "/processos" },
-  { key: "prazo", label: "Prazo", icon: Plus, to: "/prazos" },
-  { key: "agendar", label: "Agendar", icon: CalendarPlus, to: "/agenda" },
-  { key: "cliente", label: "Cliente", icon: UserPlus, to: "/clientes" },
+type ModalKey = "processo" | "prazo" | "agendar" | "cliente";
+const ACTION_CONFIG: { key: string; label: string; icon: React.ElementType; to?: string; modal?: ModalKey }[] = [
+  { key: "processo", label: "Processo", icon: Plus, modal: "processo" },
+  { key: "prazo", label: "Prazo", icon: Plus, modal: "prazo" },
+  { key: "agendar", label: "Agendar", icon: CalendarPlus, modal: "agendar" },
+  { key: "cliente", label: "Cliente", icon: UserPlus, modal: "cliente" },
   { key: "timesheet", label: "Timesheet", icon: Clock, to: "/timesheet" },
   { key: "atendimento", label: "Atendimento", icon: UserCheck, to: "/atendimentos" },
   { key: "audiencia", label: "Audiência", icon: CalendarCheck, to: "/audiencias" },
@@ -85,13 +92,16 @@ function KpiCard({ icon: Icon, label, value, sub, color, bg, onClick, urgent, lo
 const Index = () => {
   const { isSuperAdmin, isOfficeAdmin, validatePayment } = useAuth();
   const navigate = useNavigate();
-  const { stats, loading: statsLoading } = useStats();
+  const { stats, loading: statsLoading, refresh } = useStats();
   const myStats = useMyStats();
   const { items: activity, loading: activityLoading } = useMyActivity(6);
-  const { prefs, toggle } = useDashboardPrefs();
+  const { prefs, toggle, move } = useDashboardPrefs();
   const { canViewMetas } = usePermissions();
+  const { create: createCliente } = useClientes();
+  const { toast } = useToast();
   const [sheetView, setSheetView] = useState<SheetView>(null);
   const [customizeOpen, setCustomizeOpen] = useState(false);
+  const [openModal, setOpenModal] = useState<ModalKey | null>(null);
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
@@ -116,8 +126,96 @@ const Index = () => {
 
   const brl = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v);
 
-  const showMetas = prefs.widgets.metas && canViewMetas;
-  const lateralVisible = prefs.widgets.produtividade || prefs.widgets.financeiro || showMetas;
+  const handleAction = (a: typeof ACTION_CONFIG[number]) => {
+    if (a.modal) setOpenModal(a.modal);
+    else if (a.to) navigate(a.to);
+  };
+
+  const handleNovoCliente = async (c: any) => {
+    const ok = await createCliente({
+      nome: c.name, email: c.email, telefone: c.phone, cpf_cnpj: c.cpfCnpj,
+      tipo_pessoa: c.tipoPessoa, origem: c.origem, endereco: c.endereco,
+      status: c.status || "Ativo", data_aniversario: c.dataAniversario,
+    } as any);
+    if (ok) { toast({ title: "Cliente cadastrado", description: `${c.name} cadastrado com sucesso.` }); refresh(); }
+    setOpenModal(null);
+  };
+
+  const onModalSuccess = () => { refresh(); setOpenModal(null); };
+
+  // Blocos configuráveis renderizados na ordem definida pelo usuário
+  const blockSpan = (k: string) => (k === "agenda" || k === "grafico") ? "lg:col-span-2" : "lg:col-span-1";
+  const visibleBlocks = prefs.order.filter((k) => prefs.widgets[k] && (k !== "metas" || canViewMetas));
+
+  const renderBlock = (k: string) => {
+    switch (k) {
+      case "agenda":
+        return (
+          <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 shadow-sm overflow-hidden h-full">
+            <CalendarWidget />
+          </div>
+        );
+      case "produtividade":
+        return (
+          <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 space-y-3 cursor-pointer hover:shadow-md transition-all h-full" onClick={() => navigate("/perfil")}>
+            <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 flex items-center gap-1.5"><Award className="h-3 w-3" /> Sua Produtividade</p>
+            <div className="flex items-end gap-2">
+              <p className="text-3xl font-black tracking-tight leading-none text-primary">{myStats.loading ? "…" : myStats.pontos}</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 pb-1">pontos</p>
+            </div>
+            <div className="grid grid-cols-3 gap-2 pt-2 border-t border-black/5 dark:border-border">
+              <div><p className="text-base font-black leading-none">{myStats.tarefasConcluidas}</p><p className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground/50 mt-1">Tarefas</p></div>
+              <div><p className="text-base font-black leading-none">{myStats.processosFinalizados}</p><p className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground/50 mt-1">Finalizados</p></div>
+              <div><p className="text-base font-black leading-none">{myStats.processosAtivos}</p><p className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground/50 mt-1">Ativos</p></div>
+            </div>
+          </div>
+        );
+      case "financeiro":
+        return (
+          <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 space-y-3 cursor-pointer hover:shadow-md transition-all h-full" onClick={() => navigate("/financeiro")}>
+            <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 flex items-center gap-1.5"><TrendingUp className="h-3 w-3" /> Financeiro do Mês</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div><p className="text-[9px] text-muted-foreground/50 font-bold uppercase tracking-widest mb-0.5">Receita</p><p className="text-base font-black text-emerald-500">{brl(stats.receitaMensal)}</p></div>
+              <div><p className="text-[9px] text-muted-foreground/50 font-bold uppercase tracking-widest mb-0.5">Despesas</p><p className="text-base font-black text-rose-500">{brl(stats.despesaMensal)}</p></div>
+            </div>
+            <div className="pt-2 border-t border-black/5 dark:border-border">
+              <p className="text-[9px] text-muted-foreground/50 font-bold uppercase tracking-widest mb-0.5">Saldo líquido</p>
+              <p className={cn("text-xl font-black", stats.receitaMensal - stats.despesaMensal >= 0 ? "text-emerald-500" : "text-rose-500")}>{brl(stats.receitaMensal - stats.despesaMensal)}</p>
+            </div>
+          </div>
+        );
+      case "grafico":
+        return <MiniFinanceChart />;
+      case "metas":
+        return <MetasWidget />;
+      case "atividade":
+        return (
+          <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 space-y-2.5 h-full">
+            <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 flex items-center gap-1.5"><Activity className="h-3 w-3" /> Atividade Recente</p>
+            {activityLoading ? (
+              <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-10 rounded-xl bg-black/[0.04] dark:bg-white/[0.04] animate-pulse" />)}</div>
+            ) : activity.length === 0 ? (
+              <p className="text-sm text-muted-foreground/60 font-medium py-6 text-center">Nenhuma atividade recente.</p>
+            ) : (
+              <div className="space-y-1">
+                {activity.slice(0, 5).map((it) => (
+                  <button key={it.id} onClick={() => navigate(it.link)} className="group flex items-center gap-2.5 p-2 rounded-xl hover:bg-card/80 transition-all text-left w-full">
+                    <span className={cn("h-2 w-2 rounded-full shrink-0", it.tipo === "Processo" ? "bg-blue-500" : it.tipo === "Tarefa" ? "bg-emerald-500" : "bg-amber-500")} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold truncate group-hover:text-primary transition-colors">{it.label}</p>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50">{it.tipo} · {new Date(it.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}</p>
+                    </div>
+                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/20 group-hover:text-primary transition-all shrink-0" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="flex-1 p-4 md:p-6 space-y-5 overflow-x-hidden">
@@ -143,7 +241,7 @@ const Index = () => {
             {ACTION_CONFIG.filter((a) => prefs.actions[a.key]).map((a) => (
               <Button key={a.key} size="sm" variant="outline"
                 className="rounded-xl h-9 sm:h-8 px-3 text-[10px] font-black uppercase tracking-widest border-black/5 dark:border-border gap-1.5 justify-center"
-                onClick={() => navigate(a.to)}
+                onClick={() => handleAction(a)}
               >
                 <a.icon className="h-3 w-3" /> {a.label}
               </Button>
@@ -175,132 +273,22 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Conteúdo principal — Agenda em destaque + lateral */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
 
-        {/* Agenda / Calendário */}
-        <div className={cn("rounded-2xl border border-black/5 dark:border-border bg-card/40 shadow-sm overflow-hidden", lateralVisible ? "lg:col-span-8" : "lg:col-span-12")}>
-          <CalendarWidget />
-        </div>
-
-        {/* Lateral — produtividade + financeiro + metas (configuráveis) */}
-        {lateralVisible && (
-        <div className="lg:col-span-4 space-y-4">
-
-          {/* Sua produtividade */}
-          {prefs.widgets.produtividade && (
-          <div
-            className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 space-y-3 cursor-pointer hover:shadow-md transition-all"
-            onClick={() => navigate("/perfil")}
-          >
-            <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 flex items-center gap-1.5">
-              <Award className="h-3 w-3" /> Sua Produtividade
-            </p>
-            <div className="flex items-end gap-2">
-              <p className="text-3xl font-black tracking-tight leading-none text-primary">{myStats.loading ? "…" : myStats.pontos}</p>
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 pb-1">pontos</p>
-            </div>
-            <div className="grid grid-cols-3 gap-2 pt-2 border-t border-black/5 dark:border-border">
-              <div>
-                <p className="text-base font-black leading-none">{myStats.tarefasConcluidas}</p>
-                <p className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground/50 mt-1">Tarefas</p>
-              </div>
-              <div>
-                <p className="text-base font-black leading-none">{myStats.processosFinalizados}</p>
-                <p className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground/50 mt-1">Finalizados</p>
-              </div>
-              <div>
-                <p className="text-base font-black leading-none">{myStats.processosAtivos}</p>
-                <p className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground/50 mt-1">Ativos</p>
-              </div>
-            </div>
-          </div>
-          )}
-
-          {/* Financeiro do mês */}
-          {prefs.widgets.financeiro && (
-          <div
-            className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 space-y-3 cursor-pointer hover:shadow-md transition-all"
-            onClick={() => navigate("/financeiro")}
-          >
-            <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 flex items-center gap-1.5">
-              <TrendingUp className="h-3 w-3" /> Financeiro do Mês
-            </p>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <p className="text-[9px] text-muted-foreground/50 font-bold uppercase tracking-widest mb-0.5">Receita</p>
-                <p className="text-base font-black text-emerald-500">{brl(stats.receitaMensal)}</p>
-              </div>
-              <div>
-                <p className="text-[9px] text-muted-foreground/50 font-bold uppercase tracking-widest mb-0.5">Despesas</p>
-                <p className="text-base font-black text-rose-500">{brl(stats.despesaMensal)}</p>
-              </div>
-            </div>
-            <div className="pt-2 border-t border-black/5 dark:border-border">
-              <p className="text-[9px] text-muted-foreground/50 font-bold uppercase tracking-widest mb-0.5">Saldo líquido</p>
-              <p className={cn("text-xl font-black", stats.receitaMensal - stats.despesaMensal >= 0 ? "text-emerald-500" : "text-rose-500")}>
-                {brl(stats.receitaMensal - stats.despesaMensal)}
-              </p>
-            </div>
-          </div>
-          )}
-
-          {showMetas && <MetasWidget />}
-
-        </div>
-        )}
+      {/* Blocos configuráveis (ordem definida pelo usuário) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+        {visibleBlocks.map((k) => (
+          <div key={k} className={blockSpan(k)}>{renderBlock(k)}</div>
+        ))}
       </div>
-
-      {/* Gráfico financeiro + Atividade recente (configuráveis) */}
-      {(prefs.widgets.grafico || prefs.widgets.atividade) && (
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-        {prefs.widgets.grafico && (
-        <div className={cn(prefs.widgets.atividade ? "lg:col-span-8" : "lg:col-span-12")}>
-          <MiniFinanceChart />
-        </div>
-        )}
-
-        {prefs.widgets.atividade && (
-        <div className={cn(prefs.widgets.grafico ? "lg:col-span-4" : "lg:col-span-12", "rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 space-y-2.5")}>
-          <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 flex items-center gap-1.5">
-            <Activity className="h-3 w-3" /> Atividade Recente
-          </p>
-          {activityLoading ? (
-            <div className="space-y-2">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-10 rounded-xl bg-black/[0.04] dark:bg-white/[0.04] animate-pulse" />
-              ))}
-            </div>
-          ) : activity.length === 0 ? (
-            <p className="text-sm text-muted-foreground/60 font-medium py-6 text-center">Nenhuma atividade recente.</p>
-          ) : (
-            <div className="space-y-1">
-              {activity.slice(0, 5).map((it) => (
-                <button
-                  key={it.id}
-                  onClick={() => navigate(it.link)}
-                  className="group flex items-center gap-2.5 p-2 rounded-xl hover:bg-card/80 transition-all text-left w-full"
-                >
-                  <span className={cn("h-2 w-2 rounded-full shrink-0",
-                    it.tipo === "Processo" ? "bg-blue-500" : it.tipo === "Tarefa" ? "bg-emerald-500" : "bg-amber-500")} />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold truncate group-hover:text-primary transition-colors">{it.label}</p>
-                    <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50">
-                      {it.tipo} · {new Date(it.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
-                    </p>
-                  </div>
-                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/20 group-hover:text-primary transition-all shrink-0" />
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-        )}
-      </div>
-      )}
 
       <QuickViewSheet view={sheetView} onClose={() => setSheetView(null)} />
-      <DashboardCustomize open={customizeOpen} onClose={() => setCustomizeOpen(false)} prefs={prefs} toggle={toggle} canViewMetas={canViewMetas} />
+      <DashboardCustomize open={customizeOpen} onClose={() => setCustomizeOpen(false)} prefs={prefs} toggle={toggle} move={move} canViewMetas={canViewMetas} />
+
+      {/* Modais de criação rápida */}
+      <NovoProcessoDialog open={openModal === "processo"} onOpenChange={(o) => !o && setOpenModal(null)} onSuccess={onModalSuccess} />
+      <NovoPrazoStandaloneDialog open={openModal === "prazo"} onOpenChange={(o) => !o && setOpenModal(null)} onSuccess={onModalSuccess} />
+      <NovoCompromissoDialog open={openModal === "agendar"} onOpenChange={(o) => !o && setOpenModal(null)} onCreated={onModalSuccess} />
+      <NovoClienteDialog open={openModal === "cliente"} onOpenChange={(o) => !o && setOpenModal(null)} onSave={handleNovoCliente} />
     </div>
   );
 };
