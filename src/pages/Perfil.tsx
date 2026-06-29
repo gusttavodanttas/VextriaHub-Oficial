@@ -230,15 +230,13 @@ const Perfil = () => {
             {/* Identidade */}
             <div className="px-6 md:px-10 -mt-14 md:-mt-16 relative z-10">
               <div className="flex flex-col md:flex-row md:items-end gap-5">
-                <div className="relative w-fit mx-auto md:mx-0 group/avatar">
-                  <div className="p-1.5 rounded-[2rem] bg-background shadow-premium">
-                    <Avatar className="h-24 w-24 md:h-28 md:w-28 rounded-[1.6rem] border-4 border-background">
-                      <AvatarImage src={avatarUrl || undefined} className="object-cover" />
-                      <AvatarFallback className="text-3xl font-black bg-gradient-to-br from-primary/20 to-primary/5 text-primary">
-                        {userInfo.nome?.substring(0, 2).toUpperCase() || "US"}
-                      </AvatarFallback>
-                    </Avatar>
-                  </div>
+                <div className="relative w-fit mx-auto md:mx-0">
+                  <Avatar className="h-24 w-24 md:h-28 md:w-28 rounded-[1.6rem] ring-4 ring-background shadow-2xl overflow-hidden">
+                    <AvatarImage src={avatarUrl || undefined} className="object-cover w-full h-full" />
+                    <AvatarFallback className="text-3xl font-black bg-gradient-to-br from-primary/20 to-primary/5 text-primary">
+                      {userInfo.nome?.substring(0, 2).toUpperCase() || "US"}
+                    </AvatarFallback>
+                  </Avatar>
                   <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
                   <button
                     type="button"
