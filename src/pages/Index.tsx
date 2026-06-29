@@ -1,16 +1,30 @@
 import { CalendarWidget } from "@/components/Dashboard/CalendarWidget";
 import { DashboardHero } from "@/components/Dashboard/DashboardHero";
 import { MiniFinanceChart } from "@/components/Dashboard/MiniFinanceChart";
+import { MetasWidget } from "@/components/Dashboard/MetasWidget";
+import { DashboardCustomize } from "@/components/Dashboard/DashboardCustomize";
 import { QuickViewSheet, SheetView } from "@/components/Dashboard/QuickViewSheet";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, FileText, CheckSquare, TrendingUp, ArrowRight, Plus, CalendarCheck, UserCheck, Users2, CalendarPlus, UserPlus, Award, Activity } from "lucide-react";
+import { AlertCircle, FileText, CheckSquare, TrendingUp, ArrowRight, Plus, CalendarCheck, UserCheck, Users2, CalendarPlus, UserPlus, Award, Activity, Clock, Settings2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useStats } from "@/hooks/useStats";
 import { useMyStats } from "@/hooks/useMyStats";
 import { useMyActivity } from "@/hooks/useMyActivity";
+import { useDashboardPrefs } from "@/hooks/useDashboardPrefs";
+import { usePermissions } from "@/hooks/usePermissions";
 import { cn } from "@/lib/utils";
+
+const ACTION_CONFIG: { key: string; label: string; icon: React.ElementType; to: string }[] = [
+  { key: "processo", label: "Processo", icon: Plus, to: "/processos" },
+  { key: "prazo", label: "Prazo", icon: Plus, to: "/prazos" },
+  { key: "agendar", label: "Agendar", icon: CalendarPlus, to: "/agenda" },
+  { key: "cliente", label: "Cliente", icon: UserPlus, to: "/clientes" },
+  { key: "timesheet", label: "Timesheet", icon: Clock, to: "/timesheet" },
+  { key: "atendimento", label: "Atendimento", icon: UserCheck, to: "/atendimentos" },
+  { key: "audiencia", label: "Audiência", icon: CalendarCheck, to: "/audiencias" },
+];
 
 interface KpiProps {
   icon: React.ElementType;
@@ -74,7 +88,10 @@ const Index = () => {
   const { stats, loading: statsLoading } = useStats();
   const myStats = useMyStats();
   const { items: activity, loading: activityLoading } = useMyActivity(6);
+  const { prefs, toggle } = useDashboardPrefs();
+  const { canViewMetas } = usePermissions();
   const [sheetView, setSheetView] = useState<SheetView>(null);
+  const [customizeOpen, setCustomizeOpen] = useState(false);
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
@@ -99,6 +116,9 @@ const Index = () => {
 
   const brl = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v);
 
+  const showMetas = prefs.widgets.metas && canViewMetas;
+  const lateralVisible = prefs.widgets.produtividade || prefs.widgets.financeiro || showMetas;
+
   return (
     <div className="flex-1 p-4 md:p-6 space-y-5 overflow-x-hidden">
 
@@ -108,32 +128,26 @@ const Index = () => {
       {/* KPIs clicáveis */}
       <section className="space-y-2.5">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
-          <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 shrink-0">Painel de Controle</p>
+          <div className="flex items-center gap-2">
+            <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 shrink-0">Painel de Controle</p>
+            <button
+              onClick={() => setCustomizeOpen(true)}
+              title="Personalizar painel"
+              aria-label="Personalizar painel"
+              className="h-6 w-6 rounded-lg flex items-center justify-center text-muted-foreground/50 hover:text-primary hover:bg-primary/10 transition-all"
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
           <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 w-full sm:w-auto">
-            <Button size="sm" variant="outline"
-              className="rounded-xl h-9 sm:h-8 px-3 text-[10px] font-black uppercase tracking-widest border-black/5 dark:border-border gap-1.5 justify-center"
-              onClick={() => navigate("/processos")}
-            >
-              <Plus className="h-3 w-3" /> Processo
-            </Button>
-            <Button size="sm" variant="outline"
-              className="rounded-xl h-9 sm:h-8 px-3 text-[10px] font-black uppercase tracking-widest border-black/5 dark:border-border gap-1.5 justify-center"
-              onClick={() => navigate("/prazos")}
-            >
-              <Plus className="h-3 w-3" /> Prazo
-            </Button>
-            <Button size="sm" variant="outline"
-              className="rounded-xl h-9 sm:h-8 px-3 text-[10px] font-black uppercase tracking-widest border-black/5 dark:border-border gap-1.5 justify-center"
-              onClick={() => navigate("/agenda")}
-            >
-              <CalendarPlus className="h-3 w-3" /> Agendar
-            </Button>
-            <Button size="sm" variant="outline"
-              className="rounded-xl h-9 sm:h-8 px-3 text-[10px] font-black uppercase tracking-widest border-black/5 dark:border-border gap-1.5 justify-center"
-              onClick={() => navigate("/clientes")}
-            >
-              <UserPlus className="h-3 w-3" /> Cliente
-            </Button>
+            {ACTION_CONFIG.filter((a) => prefs.actions[a.key]).map((a) => (
+              <Button key={a.key} size="sm" variant="outline"
+                className="rounded-xl h-9 sm:h-8 px-3 text-[10px] font-black uppercase tracking-widest border-black/5 dark:border-border gap-1.5 justify-center"
+                onClick={() => navigate(a.to)}
+              >
+                <a.icon className="h-3 w-3" /> {a.label}
+              </Button>
+            ))}
           </div>
         </div>
 
@@ -165,14 +179,16 @@ const Index = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
 
         {/* Agenda / Calendário */}
-        <div className="lg:col-span-8 rounded-2xl border border-black/5 dark:border-border bg-card/40 shadow-sm overflow-hidden">
+        <div className={cn("rounded-2xl border border-black/5 dark:border-border bg-card/40 shadow-sm overflow-hidden", lateralVisible ? "lg:col-span-8" : "lg:col-span-12")}>
           <CalendarWidget />
         </div>
 
-        {/* Lateral — produtividade + financeiro (se houver) + ações rápidas */}
+        {/* Lateral — produtividade + financeiro + metas (configuráveis) */}
+        {lateralVisible && (
         <div className="lg:col-span-4 space-y-4">
 
           {/* Sua produtividade */}
+          {prefs.widgets.produtividade && (
           <div
             className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 space-y-3 cursor-pointer hover:shadow-md transition-all"
             onClick={() => navigate("/perfil")}
@@ -199,8 +215,10 @@ const Index = () => {
               </div>
             </div>
           </div>
+          )}
 
           {/* Financeiro do mês */}
+          {prefs.widgets.financeiro && (
           <div
             className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 space-y-3 cursor-pointer hover:shadow-md transition-all"
             onClick={() => navigate("/financeiro")}
@@ -225,17 +243,25 @@ const Index = () => {
               </p>
             </div>
           </div>
+          )}
+
+          {showMetas && <MetasWidget />}
 
         </div>
+        )}
       </div>
 
-      {/* Gráfico financeiro + Atividade recente (compacta) */}
+      {/* Gráfico financeiro + Atividade recente (configuráveis) */}
+      {(prefs.widgets.grafico || prefs.widgets.atividade) && (
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-        <div className="lg:col-span-8">
+        {prefs.widgets.grafico && (
+        <div className={cn(prefs.widgets.atividade ? "lg:col-span-8" : "lg:col-span-12")}>
           <MiniFinanceChart />
         </div>
+        )}
 
-        <div className="lg:col-span-4 rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 space-y-2.5">
+        {prefs.widgets.atividade && (
+        <div className={cn(prefs.widgets.grafico ? "lg:col-span-4" : "lg:col-span-12", "rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 space-y-2.5")}>
           <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 flex items-center gap-1.5">
             <Activity className="h-3 w-3" /> Atividade Recente
           </p>
@@ -269,9 +295,12 @@ const Index = () => {
             </div>
           )}
         </div>
+        )}
       </div>
+      )}
 
       <QuickViewSheet view={sheetView} onClose={() => setSheetView(null)} />
+      <DashboardCustomize open={customizeOpen} onClose={() => setCustomizeOpen(false)} prefs={prefs} toggle={toggle} canViewMetas={canViewMetas} />
     </div>
   );
 };
