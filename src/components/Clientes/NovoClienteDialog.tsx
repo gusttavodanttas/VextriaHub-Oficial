@@ -131,7 +131,7 @@ export const NovoClienteDialog = ({ open, onOpenChange, onSave }: NovoClienteDia
           <DialogTitle>Novo Cliente</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
             <Label htmlFor="name" className="text-right">
               Nome *
             </Label>
@@ -144,7 +144,7 @@ export const NovoClienteDialog = ({ open, onOpenChange, onSave }: NovoClienteDia
             />
           </div>
 
-          <div className="grid grid-cols-4 items-center gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
             <Label className="text-right">
               Tipo de Pessoa *
             </Label>
@@ -168,7 +168,7 @@ export const NovoClienteDialog = ({ open, onOpenChange, onSave }: NovoClienteDia
             </div>
           </div>
 
-          <div className="grid grid-cols-4 items-center gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
             <Label htmlFor="cpfCnpj" className="text-right">
               {formData.tipoPessoa === "fisica" ? "CPF *" : "CNPJ *"}
             </Label>
@@ -182,7 +182,7 @@ export const NovoClienteDialog = ({ open, onOpenChange, onSave }: NovoClienteDia
             />
           </div>
 
-          <div className="grid grid-cols-4 items-center gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
             <Label htmlFor="email" className="text-right">
               Email
             </Label>
@@ -195,7 +195,7 @@ export const NovoClienteDialog = ({ open, onOpenChange, onSave }: NovoClienteDia
             />
           </div>
 
-          <div className="grid grid-cols-4 items-center gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
             <Label htmlFor="phone" className="text-right">
               Telefone
             </Label>
@@ -207,7 +207,7 @@ export const NovoClienteDialog = ({ open, onOpenChange, onSave }: NovoClienteDia
             />
           </div>
 
-          <div className="grid grid-cols-4 items-center gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
             <Label htmlFor="endereco" className="text-right">
               Endereço
             </Label>
@@ -219,7 +219,7 @@ export const NovoClienteDialog = ({ open, onOpenChange, onSave }: NovoClienteDia
             />
           </div>
 
-          <div className="grid grid-cols-4 items-center gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
             <Label htmlFor="dataAniversario" className="text-right">
               Data de Aniversário
             </Label>
@@ -232,7 +232,7 @@ export const NovoClienteDialog = ({ open, onOpenChange, onSave }: NovoClienteDia
             />
           </div>
 
-          <div className="grid grid-cols-4 items-center gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
             <Label className="text-right">
               Origem
             </Label>
