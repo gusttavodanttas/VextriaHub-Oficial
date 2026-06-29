@@ -251,17 +251,21 @@ const Perfil = () => {
         <div className="lg:col-span-2 space-y-8">
           <div className="glass-card rounded-[2.5rem] border-border bg-card/40 shadow-premium relative overflow-hidden">
             {/* Cover */}
-            <div className="h-28 md:h-32 bg-gradient-to-br from-primary via-primary/70 to-primary/30 relative">
-              <div
-                className="absolute inset-0 opacity-20 mix-blend-overlay"
-                style={{ backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)", backgroundSize: "22px 22px" }}
-              />
+            <div className="h-28 md:h-36 relative overflow-hidden bg-gradient-to-br from-primary via-primary/70 to-primary/30">
               {(office as any)?.logo_url ? (
-                <div className="absolute top-2.5 right-3 md:top-3 md:right-5 h-[72px] md:h-[88px] w-auto max-w-[240px] px-3 rounded-2xl bg-white/95 shadow-lg flex items-center justify-center">
-                  <img src={(office as any).logo_url} alt="Logo do escritório" className="h-full w-auto max-w-[220px] object-contain py-2" />
-                </div>
+                <>
+                  <img src={(office as any).logo_url} alt="Logo do escritório" className="absolute inset-0 h-full w-full object-cover" />
+                  {/* escurece a base para manter avatar/nome legíveis */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/20 to-transparent" />
+                </>
               ) : (
-                <Scale className="absolute right-6 bottom-3 h-16 w-16 text-white/20 pointer-events-none" />
+                <>
+                  <div
+                    className="absolute inset-0 opacity-20 mix-blend-overlay"
+                    style={{ backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)", backgroundSize: "22px 22px" }}
+                  />
+                  <Scale className="absolute right-6 bottom-3 h-16 w-16 text-white/20 pointer-events-none" />
+                </>
               )}
             </div>
 
