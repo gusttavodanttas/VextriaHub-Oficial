@@ -15,6 +15,15 @@ import { formatPhone, isValidPhone } from '@/lib/phone';
 import { uploadPublicImage, validateImage } from '@/lib/uploadImage';
 import { PermissionGuard } from '@/components/Auth/PermissionGuard';
 
+function formatCnpj(v: string): string {
+  const d = (v || '').replace(/\D/g, '').slice(0, 14);
+  return d
+    .replace(/^(\d{2})(\d)/, '$1.$2')
+    .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/\.(\d{3})(\d)/, '.$1/$2')
+    .replace(/(\d{4})(\d)/, '$1-$2');
+}
+
 export const OfficeSettings: React.FC = () => {
   const { office } = useAuth();
   const { updateOffice } = useOfficeManagement();
@@ -23,6 +32,7 @@ export const OfficeSettings: React.FC = () => {
   const logoRef = useRef<HTMLInputElement>(null);
   const [logoUrl, setLogoUrl] = useState((office as any)?.logo_url || '');
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [fiscal, setFiscal] = useState({ cnpj: '', razao_social: '', inscricao: '' });
   const [formData, setFormData] = useState({
     name: office?.name || '',
     email: office?.email || '',
@@ -37,7 +47,7 @@ export const OfficeSettings: React.FC = () => {
     (async () => {
       const { data } = await supabase
         .from('offices')
-        .select('name, email, phone, address, logo_url')
+        .select('name, email, phone, address, logo_url, settings')
         .eq('id', office.id)
         .maybeSingle();
       if (cancel || !data) return;
@@ -48,6 +58,8 @@ export const OfficeSettings: React.FC = () => {
         address: data.address || '',
       });
       setLogoUrl((data as any).logo_url || '');
+      const f = (data as any).settings?.fiscal;
+      if (f) setFiscal({ cnpj: f.cnpj || '', razao_social: f.razao_social || '', inscricao: f.inscricao || '' });
     })();
     return () => { cancel = true; };
   }, [office?.id]);
@@ -72,6 +84,8 @@ export const OfficeSettings: React.FC = () => {
     }
   };
 
+  const emailValido = !formData.email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!office?.id) return;
@@ -79,9 +93,17 @@ export const OfficeSettings: React.FC = () => {
       toast({ title: "Telefone inválido", description: "Use o formato (XX) XXXXX-XXXX.", variant: "destructive" });
       return;
     }
+    if (!emailValido) {
+      toast({ title: "E-mail inválido", description: "Verifique o e-mail do escritório.", variant: "destructive" });
+      return;
+    }
     setIsLoading(true);
     try {
       const result = await updateOffice(office.id, formData);
+      // Dados fiscais ficam em offices.settings (jsonb)
+      const { data: cur } = await supabase.from("offices").select("settings").eq("id", office.id).maybeSingle();
+      const merged = { ...((cur?.settings as any) || {}), fiscal };
+      await supabase.from("offices").update({ settings: merged }).eq("id", office.id);
       if (result) {
         toast({ title: "Escritório atualizado", description: "As informações foram salvas com sucesso." });
       }
@@ -144,7 +166,7 @@ export const OfficeSettings: React.FC = () => {
               </div>
               <div>
                 <p className="font-bold text-sm">Logo do escritório</p>
-                <p className="text-xs text-muted-foreground">PNG ou JPG, até 3MB. Aparece nos documentos.</p>
+                <p className="text-xs text-muted-foreground">PNG ou JPG, até 3MB. Aparece no perfil da equipe.</p>
               </div>
             </div>
 
@@ -156,7 +178,8 @@ export const OfficeSettings: React.FC = () => {
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="email" className="text-xs font-bold">E-mail</Label>
-                  <Input id="email" type="email" value={formData.email} onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))} placeholder="contato@escritorio.com" className="h-11 rounded-xl" />
+                  <Input id="email" type="email" value={formData.email} onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))} placeholder="contato@escritorio.com" className={cn("h-11 rounded-xl", !emailValido && "border-destructive focus-visible:ring-destructive")} />
+                  {!emailValido && <p className="text-[11px] font-bold text-destructive">E-mail inválido.</p>}
                 </div>
                 <div className="space-y-1.5 md:col-span-2">
                   <Label htmlFor="phone" className="text-xs font-bold">Telefone</Label>
@@ -177,6 +200,26 @@ export const OfficeSettings: React.FC = () => {
                 <Label htmlFor="address" className="text-xs font-bold">Endereço</Label>
                 <Textarea id="address" value={formData.address} onChange={(e) => setFormData((p) => ({ ...p, address: e.target.value }))} placeholder="Endereço completo do escritório" rows={3} className="rounded-xl resize-none" />
               </div>
+
+              {/* Dados fiscais */}
+              <div className="pt-4 mt-2 border-t border-black/5 dark:border-border space-y-4">
+                <p className="text-[11px] font-black uppercase tracking-widest text-muted-foreground/60">Dados fiscais (para contratos e documentos)</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold">CNPJ</Label>
+                    <Input value={fiscal.cnpj} onChange={(e) => setFiscal((p) => ({ ...p, cnpj: formatCnpj(e.target.value) }))} placeholder="00.000.000/0000-00" inputMode="numeric" className="h-11 rounded-xl" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold">Inscrição (estadual/municipal)</Label>
+                    <Input value={fiscal.inscricao} onChange={(e) => setFiscal((p) => ({ ...p, inscricao: e.target.value }))} placeholder="Opcional" className="h-11 rounded-xl" />
+                  </div>
+                  <div className="space-y-1.5 md:col-span-2">
+                    <Label className="text-xs font-bold">Razão social</Label>
+                    <Input value={fiscal.razao_social} onChange={(e) => setFiscal((p) => ({ ...p, razao_social: e.target.value }))} placeholder="Razão social completa" className="h-11 rounded-xl" />
+                  </div>
+                </div>
+              </div>
+
               <Button type="submit" disabled={isLoading} className="rounded-xl font-bold gap-2">
                 {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 {isLoading ? 'Salvando…' : 'Salvar Alterações'}

@@ -27,7 +27,8 @@ import {
   Eye,
   EyeOff,
   Loader2,
-  CalendarDays
+  CalendarDays,
+  X
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -123,6 +124,24 @@ const Perfil = () => {
         setUploadingAvatar(false);
         if (fileRef.current) fileRef.current.value = "";
       }
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!avatarUrl) return;
+    const targetId = profile?.id || user?.id;
+    const targetCol = profile?.id ? "id" : "user_id";
+    try {
+      setUploadingAvatar(true);
+      const { error } = await supabase.from("profiles").update({ avatar_url: null }).eq(targetCol, targetId);
+      if (error) throw error;
+      setAvatarUrl("");
+      if (refreshProfile) await refreshProfile();
+      toast({ title: "Foto removida" });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Erro", description: err?.message });
+    } finally {
+      setUploadingAvatar(false);
     }
   };
 
@@ -253,6 +272,16 @@ const Perfil = () => {
                   >
                     {uploadingAvatar ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
                   </button>
+                  {avatarUrl && !uploadingAvatar && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveAvatar}
+                      aria-label="Remover foto"
+                      className="absolute -top-1 -right-1 h-7 w-7 rounded-full bg-destructive text-white flex items-center justify-center shadow-lg border-2 border-background hover:scale-105 transition-transform"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </div>
 
                 <div className="flex-1 text-center md:text-left space-y-2 md:pb-2">
@@ -442,14 +471,37 @@ const Perfil = () => {
 /* ---------- Segurança (alterar senha) ---------- */
 function SecurityCard() {
   const { toast } = useToast();
+  const { user, profile } = useAuth();
+  const emailAtual = profile?.email || user?.email || "";
+
+  const [novoEmail, setNovoEmail] = useState("");
+  const [salvandoEmail, setSalvandoEmail] = useState(false);
+
   const [novaSenha, setNovaSenha] = useState("");
   const [confirmar, setConfirmar] = useState("");
   const [mostrar, setMostrar] = useState(false);
   const [salvando, setSalvando] = useState(false);
 
+  const emailValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(novoEmail.trim());
+  const emailDiferente = novoEmail.trim() && novoEmail.trim().toLowerCase() !== emailAtual.toLowerCase();
+  const podeTrocarEmail = emailValido && emailDiferente && !salvandoEmail;
+
   const curta = novaSenha.length > 0 && novaSenha.length < 6;
   const diverge = confirmar.length > 0 && confirmar !== novaSenha;
   const podeSalvar = novaSenha.length >= 6 && confirmar === novaSenha && !salvando;
+
+  const alterarEmail = async () => {
+    if (!podeTrocarEmail) return;
+    setSalvandoEmail(true);
+    const { error } = await supabase.auth.updateUser({ email: novoEmail.trim() });
+    setSalvandoEmail(false);
+    if (error) {
+      toast({ variant: "destructive", title: "Erro ao alterar e-mail", description: error.message });
+      return;
+    }
+    toast({ title: "Confirme no seu e-mail", description: "Enviamos um link de confirmação para o novo endereço." });
+    setNovoEmail("");
+  };
 
   const alterar = async () => {
     if (!podeSalvar) return;
@@ -470,6 +522,24 @@ function SecurityCard() {
         <Lock className="h-6 w-6 text-primary" />
         Segurança
       </h3>
+
+      {/* Trocar e-mail */}
+      <div className="space-y-1.5 pb-6 border-b border-border/50">
+        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50">Alterar e-mail de acesso</Label>
+        <p className="text-[11px] text-muted-foreground -mt-0.5 mb-1">Atual: <span className="font-bold text-foreground/70">{emailAtual}</span></p>
+        <Input
+          type="email"
+          value={novoEmail}
+          onChange={(e) => setNovoEmail(e.target.value)}
+          placeholder="novo@email.com"
+          className={cn("h-12 rounded-2xl bg-background/50", novoEmail && !emailValido && "border-destructive focus-visible:ring-destructive")}
+        />
+        {novoEmail && !emailValido && <p className="text-[11px] font-bold text-destructive px-1">E-mail inválido.</p>}
+        <Button onClick={alterarEmail} disabled={!podeTrocarEmail} variant="outline" className="w-full h-11 rounded-2xl font-black uppercase text-xs tracking-widest gap-2 mt-1">
+          {salvandoEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+          {salvandoEmail ? "Enviando…" : "Alterar e-mail"}
+        </Button>
+      </div>
 
       <div className="space-y-4">
         <div className="space-y-1.5">
