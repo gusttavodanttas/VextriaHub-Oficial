@@ -26,6 +26,7 @@ import { useDashboardPrefs } from "@/hooks/useDashboardPrefs";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useClientes } from "@/hooks/useClientes";
 import { useToast } from "@/hooks/use-toast";
+import { useDailyOabRobot } from "@/hooks/useDailyOabRobot";
 import { cn } from "@/lib/utils";
 
 type ModalKey = "processo" | "prazo" | "agendar" | "cliente" | "atendimento" | "audiencia" | "timesheet" | "tarefa" | "consultivo";
@@ -110,6 +111,9 @@ const Index = () => {
   const [sheetView, setSheetView] = useState<SheetView>(null);
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [openModal, setOpenModal] = useState<ModalKey | null>(null);
+
+  // Robô diário: busca nacional pela OAB e enche a caixa "Encontrados"
+  useDailyOabRobot();
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);

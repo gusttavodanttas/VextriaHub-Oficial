@@ -433,13 +433,16 @@ serve(async (req) => {
       });
     }
 
-    const { oab, uf, days } = await req.json();
+    const { oab, uf, days, nacional } = await req.json();
     if (!oab || !uf) throw new Error("OAB e UF são obrigatórios");
 
     const ufUpper = uf.toUpperCase();
-    const tribunaisParaBuscar = UF_TO_TRIBUNAIS[ufUpper] || [`tj${uf.toLowerCase()}`];
+    // Nacional: varre TODOS os tribunais do país, mantendo o filtro da OAB/UF do advogado.
+    const tribunaisParaBuscar = nacional
+      ? Array.from(new Set(Object.values(UF_TO_TRIBUNAIS).flat()))
+      : (UF_TO_TRIBUNAIS[ufUpper] || [`tj${uf.toLowerCase()}`]);
 
-    console.log(`[OAB] OAB=${oab} UF=${ufUpper} dias=${days}`);
+    console.log(`[OAB] OAB=${oab} UF=${ufUpper} dias=${days} nacional=${!!nacional} tribunais=${tribunaisParaBuscar.length}`);
 
     let allResults: any[] = [];
     const numeroOabPuro = oab.replace(/\D/g, "");
