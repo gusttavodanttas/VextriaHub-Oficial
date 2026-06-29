@@ -1,9 +1,10 @@
-import { Bot, CalendarClock, Snowflake, MessageCircle, Mail, Copy, Check, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import { Bot, CalendarClock, Snowflake, MessageCircle, Mail, Copy, Check, Settings2, CheckCircle2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { useCrmRobot } from "@/hooks/useCrmRobot";
+import { useOfficeSettingValue } from "@/hooks/useOfficeSettingValue";
 import { gerarMensagemContato, linkWhatsapp, linkEmail } from "@/lib/crmMessage";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
 
 const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
 
@@ -59,48 +60,80 @@ function LeadRow({ lead, motivo, remetente, onContatado, onOpen }: { lead: any; 
 }
 
 export function CrmRoboBox({ data, refresh, remetente, onOpenLead }: Props) {
-  const { contatosHoje, esfriando, marcarContatado } = useCrmRobot(data, refresh);
+  const { value: followupDias, save: saveFollowup } = useOfficeSettingValue<number>("crm_followup_dias", 3);
+  const { value: esfriandoDias, save: saveEsfriando } = useOfficeSettingValue<number>("crm_esfriando_dias", 7);
+  const { contatosHoje, esfriando, marcarContatado } = useCrmRobot(data, refresh, { followupDias, esfriandoDias });
+  const [showConfig, setShowConfig] = useState(false);
 
-  if (contatosHoje.length === 0 && esfriando.length === 0) return null;
+  const vazio = contatosHoje.length === 0 && esfriando.length === 0;
+  const hojeStr = new Date().toISOString().slice(0, 10);
 
   return (
     <div className="glass-card rounded-[2rem] border border-primary/20 bg-primary/[0.03] p-5 md:p-6 space-y-5">
       <div className="flex items-center gap-3">
         <div className="h-10 w-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center"><Bot className="h-5 w-5" /></div>
-        <div>
+        <div className="flex-1 min-w-0">
           <p className="font-black text-lg leading-tight">Robô do CRM</p>
           <p className="text-xs text-muted-foreground">Quem você precisa contatar — com mensagem pronta para enviar.</p>
         </div>
+        <button onClick={() => setShowConfig(s => !s)} title="Configurar prazos"
+          className="h-9 w-9 rounded-xl border border-black/5 dark:border-border text-muted-foreground hover:text-primary hover:bg-primary/5 inline-flex items-center justify-center transition-colors">
+          <Settings2 className="h-4 w-4" />
+        </button>
       </div>
 
-      {contatosHoje.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-[11px] font-black uppercase tracking-widest text-primary flex items-center gap-1.5">
-            <CalendarClock className="h-3.5 w-3.5" /> Contatos de hoje ({contatosHoje.length})
-          </p>
-          <div className="space-y-2">
-            {contatosHoje.map((lead) => (
-              <LeadRow key={lead.id} lead={lead} remetente={remetente}
-                motivo={`Follow-up ${lead.proximo_contato < new Date().toISOString().slice(0,10) ? "atrasado" : "para hoje"}`}
-                onContatado={() => marcarContatado(lead.id)} onOpen={() => onOpenLead?.(lead)} />
-            ))}
-          </div>
+      {showConfig && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl border border-black/5 dark:border-border bg-card">
+          <label className="space-y-1.5">
+            <span className="text-[11px] font-black uppercase tracking-widest text-muted-foreground/60">Reagendar follow-up em (dias)</span>
+            <Input type="number" min={1} max={90} value={followupDias}
+              onChange={(e) => saveFollowup(Math.max(1, Number(e.target.value) || 1))} className="h-10 rounded-xl" />
+          </label>
+          <label className="space-y-1.5">
+            <span className="text-[11px] font-black uppercase tracking-widest text-muted-foreground/60">Esfriando após (dias sem atendimento)</span>
+            <Input type="number" min={1} max={180} value={esfriandoDias}
+              onChange={(e) => saveEsfriando(Math.max(1, Number(e.target.value) || 1))} className="h-10 rounded-xl" />
+          </label>
         </div>
       )}
 
-      {esfriando.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-[11px] font-black uppercase tracking-widest text-orange-500 flex items-center gap-1.5">
-            <Snowflake className="h-3.5 w-3.5" /> Leads esfriando ({esfriando.length})
-          </p>
-          <div className="space-y-2">
-            {esfriando.map((lead) => (
-              <LeadRow key={lead.id} lead={lead} remetente={remetente}
-                motivo={`${lead.status} · sem atendimento recente`}
-                onContatado={() => marcarContatado(lead.id)} onOpen={() => onOpenLead?.(lead)} />
-            ))}
-          </div>
+      {vazio ? (
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/15 text-emerald-700 dark:text-emerald-400">
+          <CheckCircle2 className="h-5 w-5 shrink-0" />
+          <p className="text-sm font-bold">CRM em dia — nenhum contato pendente nem lead esfriando.</p>
         </div>
+      ) : (
+        <>
+          {contatosHoje.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[11px] font-black uppercase tracking-widest text-primary flex items-center gap-1.5">
+                <CalendarClock className="h-3.5 w-3.5" /> Contatos de hoje ({contatosHoje.length})
+              </p>
+              <div className="space-y-2">
+                {contatosHoje.map((lead) => (
+                  <LeadRow key={lead.id} lead={lead} remetente={remetente}
+                    motivo={`Follow-up ${lead.proximo_contato < hojeStr ? "atrasado" : "para hoje"}`}
+                    onContatado={() => marcarContatado(lead.id)} onOpen={() => onOpenLead?.(lead)} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {esfriando.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[11px] font-black uppercase tracking-widest text-orange-500 flex items-center gap-1.5">
+                <Snowflake className="h-3.5 w-3.5" /> Leads esfriando ({esfriando.length})
+              </p>
+              <div className="space-y-2">
+                {esfriando.map((lead) => (
+                  <LeadRow key={lead.id} lead={lead} remetente={remetente}
+                    motivo={`${lead.status} · sem atendimento recente`}
+                    onContatado={() => marcarContatado(lead.id)} onOpen={() => onOpenLead?.(lead)} />
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

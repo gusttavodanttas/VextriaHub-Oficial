@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
-// Parâmetros do robô (defaults sensatos; configuráveis no futuro)
-const FOLLOWUP_DIAS = 3;   // ao auto-agendar, próximo contato em +N dias
-const ESFRIANDO_DIAS = 7;  // lead quente/morno sem atendimento há X dias = esfriando
+// Defaults (sobrescritos pelas configurações do escritório)
+const FOLLOWUP_DIAS_PADRAO = 3;   // ao auto-agendar, próximo contato em +N dias
+const ESFRIANDO_DIAS_PADRAO = 7;  // lead quente/morno sem atendimento há X dias = esfriando
 
 const STATUS_ATIVOS = ["lead", "quente", "morno", "frio"];
 const addDays = (d: Date, n: number) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
@@ -22,13 +22,19 @@ export interface CrmRoboResult {
  * leads "esfriando" (quente/morno sem atendimento há X dias). Faz auto follow-up
  * (1x/dia) nos leads ativos sem data de próximo contato.
  */
-export function useCrmRobot(clientes: any[], refresh?: () => void): CrmRoboResult {
+export function useCrmRobot(
+  clientes: any[],
+  refresh?: () => void,
+  opts?: { followupDias?: number; esfriandoDias?: number }
+): CrmRoboResult {
   const { user } = useAuth();
   const [lastAtend, setLastAtend] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
+  const followupDias = opts?.followupDias ?? FOLLOWUP_DIAS_PADRAO;
+  const esfriandoDias = opts?.esfriandoDias ?? ESFRIANDO_DIAS_PADRAO;
   const hoje = toStr(new Date());
-  const cutoffEsfriando = toStr(addDays(new Date(), -ESFRIANDO_DIAS));
+  const cutoffEsfriando = toStr(addDays(new Date(), -esfriandoDias));
 
   const ativos = useMemo(
     () => clientes.filter((c) => STATUS_ATIVOS.includes((c.status || "").toLowerCase())),
@@ -71,7 +77,7 @@ export function useCrmRobot(clientes: any[], refresh?: () => void): CrmRoboResul
     const semData = ativos.filter((c) => !c.proximo_contato).map((c) => c.id);
     if (semData.length === 0) { localStorage.setItem(key, String(Date.now())); return; }
     (async () => {
-      const novaData = toStr(addDays(new Date(), FOLLOWUP_DIAS));
+      const novaData = toStr(addDays(new Date(), followupDias));
       const { error } = await supabase
         .from("clientes")
         .update({ proximo_contato: novaData } as any)
@@ -103,7 +109,7 @@ export function useCrmRobot(clientes: any[], refresh?: () => void): CrmRoboResul
 
   const marcarContatado = async (id: string) => {
     if (!user?.office_id) return;
-    const novaData = toStr(addDays(new Date(), FOLLOWUP_DIAS));
+    const novaData = toStr(addDays(new Date(), followupDias));
     await supabase.from("clientes").update({ proximo_contato: novaData } as any).eq("id", id).eq("office_id", user.office_id);
     refresh?.();
   };
