@@ -107,29 +107,29 @@ const Index = () => {
 
       {/* KPIs clicáveis */}
       <section className="space-y-2.5">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
           <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 shrink-0">Painel de Controle</p>
-          <div className="flex flex-wrap gap-2 shrink-0">
-            <Button size="sm"
-              className="rounded-xl h-8 px-3 text-[10px] font-black uppercase tracking-widest gap-1.5 shadow-sm"
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 w-full sm:w-auto">
+            <Button size="sm" variant="outline"
+              className="rounded-xl h-9 sm:h-8 px-3 text-[10px] font-black uppercase tracking-widest border-black/5 dark:border-border gap-1.5 justify-center"
               onClick={() => navigate("/processos")}
             >
-              <FileText className="h-3 w-3" /> Processo
+              <Plus className="h-3 w-3" /> Processo
             </Button>
             <Button size="sm" variant="outline"
-              className="rounded-xl h-8 px-3 text-[10px] font-black uppercase tracking-widest border-black/5 dark:border-border gap-1.5"
+              className="rounded-xl h-9 sm:h-8 px-3 text-[10px] font-black uppercase tracking-widest border-black/5 dark:border-border gap-1.5 justify-center"
               onClick={() => navigate("/prazos")}
             >
               <Plus className="h-3 w-3" /> Prazo
             </Button>
             <Button size="sm" variant="outline"
-              className="rounded-xl h-8 px-3 text-[10px] font-black uppercase tracking-widest border-black/5 dark:border-border gap-1.5"
+              className="rounded-xl h-9 sm:h-8 px-3 text-[10px] font-black uppercase tracking-widest border-black/5 dark:border-border gap-1.5 justify-center"
               onClick={() => navigate("/agenda")}
             >
               <CalendarPlus className="h-3 w-3" /> Agendar
             </Button>
             <Button size="sm" variant="outline"
-              className="rounded-xl h-8 px-3 text-[10px] font-black uppercase tracking-widest border-black/5 dark:border-border gap-1.5"
+              className="rounded-xl h-9 sm:h-8 px-3 text-[10px] font-black uppercase tracking-widest border-black/5 dark:border-border gap-1.5 justify-center"
               onClick={() => navigate("/clientes")}
             >
               <UserPlus className="h-3 w-3" /> Cliente
