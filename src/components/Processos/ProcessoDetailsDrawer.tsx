@@ -31,6 +31,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Circle,
+  Sparkles,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
@@ -42,6 +43,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useOfficeTeams } from '@/hooks/useOfficeTeams';
 import { useOfficeUsers } from '@/hooks/useOfficeUsers';
+import { CompletarDadosDialog } from '@/components/Processos/CompletarDadosDialog';
 
 interface Movimentacao {
   id: string;
@@ -84,6 +86,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
   const [movements, setMovements] = useState<Movimentacao[]>([]);
   const [loadingMovements, setLoadingMovements] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [completarOpen, setCompletarOpen] = useState(false);
   const [lastSyncedProcessoId, setLastSyncedProcessoId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("resumo");
   const [editing, setEditing] = useState(false);
@@ -614,6 +617,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
   ];
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent aria-describedby={undefined} className="max-w-5xl w-[96vw] h-[92vh] p-0 rounded-3xl border border-border bg-background shadow-2xl flex flex-col overflow-hidden gap-0">
 
@@ -654,7 +658,14 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                   <Button size="sm" onClick={handleSave} disabled={saving} className="h-9 rounded-xl text-xs gap-1.5 shadow-md"><Save className="h-3.5 w-3.5" /> {saving ? 'Salvando...' : 'Salvar'}</Button>
                 </>
               ) : (
-                <Button variant="outline" size="sm" onClick={() => setEditing(true)} className="h-9 rounded-xl text-xs gap-1.5 border-border"><Edit className="h-3.5 w-3.5" /> Editar</Button>
+                <div className="flex gap-2">
+                  {processo.numeroProcesso && (
+                    <Button variant="outline" size="sm" onClick={() => setCompletarOpen(true)} className="h-9 rounded-xl text-xs gap-1.5 border-border" title="Buscar dados no tribunal e completar os campos vazios">
+                      <Sparkles className="h-3.5 w-3.5 text-primary" /> Completar dados
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" onClick={() => setEditing(true)} className="h-9 rounded-xl text-xs gap-1.5 border-border"><Edit className="h-3.5 w-3.5" /> Editar</Button>
+                </div>
               )}
             </div>
           </div>
@@ -1242,5 +1253,16 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
 
       </DialogContent>
     </Dialog>
+
+    {processo && (
+      <CompletarDadosDialog
+        open={completarOpen}
+        onOpenChange={setCompletarOpen}
+        processoId={processo.id}
+        numeroProcesso={processo.numeroProcesso || ''}
+        onApplied={() => queryClient.invalidateQueries({ queryKey: ['processos'] })}
+      />
+    )}
+    </>
   );
 };
