@@ -4,16 +4,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PermissionGuard } from "@/components/Auth/PermissionGuard";
 import { OfficeSettings } from "@/components/Office/OfficeSettings";
 import { UserManagement } from "@/components/Office/UserManagement";
-import { Building2, Users, Settings, FileText, UserCheck } from "lucide-react";
+import { Building2, Users, Settings, FileText, UserCheck, Clock, CalendarDays, DollarSign } from "lucide-react";
 import { useStats } from "@/hooks/useStats";
 import { cn } from "@/lib/utils";
 
 const Escritorio = () => {
   const { stats, loading } = useStats();
+  const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v || 0);
   const kpis = [
     { label: "Colaboradores", value: stats.colaboradores, icon: Users, color: "text-primary", bg: "bg-primary/10" },
     { label: "Processos ativos", value: stats.processosAtivos, icon: FileText, color: "text-blue-500", bg: "bg-blue-500/10" },
     { label: "Clientes", value: stats.clientes, icon: UserCheck, color: "text-emerald-500", bg: "bg-emerald-500/10" },
+    { label: "Prazos a vencer", value: stats.prazosVencendo, icon: Clock, color: "text-amber-500", bg: "bg-amber-500/10" },
+    { label: "Audiências próximas", value: stats.audienciasProximas, icon: CalendarDays, color: "text-purple-500", bg: "bg-purple-500/10" },
+    { label: "Receita do mês", value: brl(stats.receitaMensal), icon: DollarSign, color: "text-emerald-600", bg: "bg-emerald-500/10" },
   ];
 
   return (
@@ -33,18 +37,18 @@ const Escritorio = () => {
         </div>
 
         {/* KPIs */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
           {kpis.map((k) => (
             <div
               key={k.label}
-              className="glass-card flex items-center gap-4 rounded-[1.5rem] border border-black/5 dark:border-border p-5 shadow-premium hover:border-primary/20 transition-all"
+              className="glass-card flex items-center gap-3 md:gap-4 rounded-[1.5rem] border border-black/5 dark:border-border p-4 md:p-5 shadow-premium hover:border-primary/20 transition-all"
             >
-              <div className={cn("h-12 w-12 rounded-2xl flex items-center justify-center shrink-0", k.bg)}>
-                <k.icon className={cn("h-6 w-6", k.color)} />
+              <div className={cn("h-11 w-11 md:h-12 md:w-12 rounded-2xl flex items-center justify-center shrink-0", k.bg)}>
+                <k.icon className={cn("h-5 w-5 md:h-6 md:w-6", k.color)} />
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">{k.label}</p>
-                <p className="text-3xl font-black tracking-tight leading-none mt-1">{loading ? "…" : k.value}</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 truncate">{k.label}</p>
+                <p className="text-2xl md:text-3xl font-black tracking-tight leading-none mt-1 truncate">{loading ? "…" : k.value}</p>
               </div>
             </div>
           ))}
