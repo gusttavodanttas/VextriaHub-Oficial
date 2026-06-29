@@ -28,13 +28,16 @@ import {
   EyeOff,
   Loader2,
   CalendarDays,
-  X
+  X,
+  Clock,
+  Activity
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useMyStats } from "@/hooks/useMyStats";
+import { useMyActivity } from "@/hooks/useMyActivity";
 import { formatPhone, isValidPhone } from "@/lib/phone";
 import { uploadPublicImage, validateImage } from "@/lib/uploadImage";
 import { CityCombobox } from "@/components/ui/CityCombobox";
@@ -90,6 +93,14 @@ const Perfil = () => {
   const memberSince = createdAt
     ? new Date(createdAt).toLocaleDateString("pt-BR", { month: "short", year: "numeric" })
     : null;
+
+  const [lastAccess, setLastAccess] = useState<string | null>(null);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      const t = data.user?.last_sign_in_at;
+      if (t) setLastAccess(new Date(t).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }));
+    });
+  }, []);
 
   // Papel real: prioriza o papel no escritório (owner/admin) sobre o profiles.role
   const officeRole = (user as any)?.office_role as string | undefined;
@@ -318,6 +329,11 @@ const Perfil = () => {
                     <CalendarDays className="h-3.5 w-3.5 text-primary/70" /> Membro desde <span className="font-bold text-foreground/70 capitalize">{memberSince}</span>
                   </span>
                 )}
+                {lastAccess && (
+                  <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                    <Clock className="h-3.5 w-3.5 text-primary/70" /> Último acesso <span className="font-bold text-foreground/70">{lastAccess}</span>
+                  </span>
+                )}
                 <span className="inline-flex items-center gap-1.5 text-muted-foreground">
                   <Award className="h-3.5 w-3.5 text-primary/70" /><span className="font-bold text-foreground/70">{myStats.loading ? "…" : `${myStats.pontos} pts`}</span>
                 </span>
@@ -460,6 +476,7 @@ const Perfil = () => {
             </div>
           </div>
 
+          <ActivityCard />
           <SecurityCard />
         </div>
       </div>
@@ -467,6 +484,43 @@ const Perfil = () => {
     </div>
   );
 };
+
+/* ---------- Atividade recente ---------- */
+function ActivityCard() {
+  const { items, loading } = useMyActivity(8);
+  const dotColor: Record<string, string> = {
+    Processo: "bg-blue-500",
+    Tarefa: "bg-emerald-500",
+    Atendimento: "bg-amber-500",
+  };
+  return (
+    <div className="glass-card p-8 rounded-[2.5rem] border-border bg-card/40 shadow-premium space-y-5">
+      <h3 className="text-xl font-black flex items-center gap-3 text-foreground">
+        <Activity className="h-6 w-6 text-primary" />
+        Atividade Recente
+      </h3>
+      {loading ? (
+        <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-primary/40" /></div>
+      ) : items.length === 0 ? (
+        <p className="text-sm text-muted-foreground font-medium py-4 text-center">Nenhuma atividade ainda.</p>
+      ) : (
+        <ol className="relative border-l border-border/60 ml-2 space-y-4">
+          {items.map((it) => (
+            <li key={it.id} className="ml-4">
+              <span className={cn("absolute -left-[5px] mt-1.5 h-2.5 w-2.5 rounded-full ring-2 ring-background", dotColor[it.tipo])} />
+              <p className="text-sm font-bold text-foreground truncate">{it.label}</p>
+              <p className="text-[11px] text-muted-foreground">
+                <span className="font-black uppercase tracking-wide">{it.tipo}</span>
+                {" · "}
+                {new Date(it.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
+              </p>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
 
 /* ---------- Segurança (alterar senha) ---------- */
 function SecurityCard() {

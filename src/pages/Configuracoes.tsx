@@ -4,13 +4,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { cn } from "@/lib/utils";
 import {
   Settings, Sun, Moon, Palette, Monitor,
-  Users, FileText, Clock, Users2, Plug, Check, ChevronRight,
+  Users, FileText, Clock, Users2, Plug, Check, ChevronRight, Bell,
 } from "lucide-react";
 
 import { TeamManagement } from "@/components/Settings/TeamManagement";
 import { ProcessTypeSimple } from "@/components/Settings/ProcessTypeSimple";
 import { DeadlineConfig } from "@/components/Settings/DeadlineConfig";
 import { ClientOriginConfig } from "@/components/Settings/ClientOriginConfig";
+import { NotificationPrefs } from "@/components/Settings/NotificationPrefs";
 import { IntegrationsPanel } from "@/components/Integrations/IntegrationsPanel";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -34,6 +35,7 @@ interface Section {
 
 const SECTIONS: Section[] = [
   { id: "geral", label: "Aparência", desc: "Tema da plataforma", icon: Palette, group: "Preferências" },
+  { id: "notificacoes", label: "Notificações", desc: "Alertas que você recebe", icon: Bell, group: "Preferências" },
   { id: "clientes", label: "Clientes", desc: "Origens de captação", icon: Users, group: "Operação" },
   { id: "processos", label: "Processos", desc: "Tipos de processo", icon: FileText, group: "Operação" },
   { id: "prazos", label: "Prazos", desc: "Tipos de prazo e atos", icon: Clock, group: "Operação" },
@@ -66,6 +68,7 @@ const Configuracoes = () => {
       case "processos": return <ProcessTypeSimple />;
       case "prazos": return <DeadlineConfig />;
       case "equipes": return <TeamManagement />;
+      case "notificacoes": return <NotificationPrefs />;
       case "integracao": return <IntegrationsPanel />;
       default: return <AparenciaSection theme={theme} setTheme={setTheme} />;
     }
