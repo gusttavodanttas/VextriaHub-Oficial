@@ -87,6 +87,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
   const [loadingMovements, setLoadingMovements] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [completarOpen, setCompletarOpen] = useState(false);
+  const [andamentoConfirm, setAndamentoConfirm] = useState<{ all: any[]; novos: any[]; meta: any } | null>(null);
   const [lastSyncedProcessoId, setLastSyncedProcessoId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("resumo");
   const [editing, setEditing] = useState(false);
@@ -281,26 +282,41 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
         return;
       }
       const andamentos = Array.isArray(data.andamentos) ? data.andamentos : [];
-      if (andamentos.length === 0) {
+      // Detecta apenas os andamentos NOVOS (não pede pra adicionar o que já existe)
+      const keyOf = (dt: any, tx: any) => `${String(dt || '').slice(0, 10)}|${String(tx || '').toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 60)}`;
+      const existing = new Set((movements || []).map((m: any) => keyOf(m.data, m.texto)));
+      const novos = andamentos.filter((a: any) => !existing.has(keyOf(a.data, a.descricao || a.resumo)));
+      if (novos.length === 0) {
         toast({ title: 'Já atualizado', description: 'Nenhum andamento novo encontrado.' });
       } else {
-        const inseridos = await persistAndamentos(processo.id, user?.office_id, andamentos, 'datajud');
-        if (inseridos > 0) {
-          toast({ title: 'Histórico atualizado', description: `${inseridos} nova(s) movimentação(ões) adicionada(s).` });
-        } else {
-          toast({ title: 'Já atualizado', description: 'Todos os andamentos já estavam registrados.' });
-        }
-        const updatePayload: any = { sincronizado_em: new Date().toISOString() };
-        if (data.titulo && data.titulo !== 'Processo' && (!processo.titulo || processo.titulo.includes('(Auto)'))) updatePayload.titulo = data.titulo;
-        if (data.autor && data.autor !== 'Não identificado' && !processo.parteAutora) updatePayload.parte_autora = data.autor;
-        if (data.reu && data.reu !== 'Não identificado' && !processo.requerido) updatePayload.requerido = data.reu;
-        await supabase.from('processos').update(updatePayload).eq('id', processo.id);
-        queryClient.invalidateQueries({ queryKey: ['processos'] });
+        // Não salva automático: abre confirmação com os novos andamentos
+        setAndamentoConfirm({ all: andamentos, novos, meta: data });
       }
       await fetchMovements();
     } catch (err) { console.error(err); }
     finally { setSyncing(false); }
-  }, [processo?.id, processo?.numeroProcesso, syncing, user?.office_id, profile, persistAndamentos, toast, fetchMovements, queryClient]);
+  }, [processo?.id, processo?.numeroProcesso, syncing, user?.office_id, profile, toast, fetchMovements, movements]);
+
+  // Confirma e persiste os andamentos novos
+  const confirmAndamentos = useCallback(async () => {
+    if (!andamentoConfirm || !processo?.id) return;
+    setSyncing(true);
+    try {
+      const data = andamentoConfirm.meta;
+      const inseridos = await persistAndamentos(processo.id, user?.office_id, andamentoConfirm.all, 'datajud');
+      const updatePayload: any = { sincronizado_em: new Date().toISOString() };
+      if (data.titulo && data.titulo !== 'Processo' && (!processo.titulo || processo.titulo.includes('(Auto)'))) updatePayload.titulo = data.titulo;
+      if (data.autor && data.autor !== 'Não identificado' && !processo.parteAutora) updatePayload.parte_autora = data.autor;
+      if (data.reu && data.reu !== 'Não identificado' && !processo.requerido) updatePayload.requerido = data.reu;
+      await supabase.from('processos').update(updatePayload).eq('id', processo.id);
+      queryClient.invalidateQueries({ queryKey: ['processos'] });
+      await fetchMovements();
+      toast({ title: 'Histórico atualizado', description: `${inseridos} movimentação(ões) adicionada(s).` });
+    } finally {
+      setSyncing(false);
+      setAndamentoConfirm(null);
+    }
+  }, [andamentoConfirm, processo, user?.office_id, persistAndamentos, queryClient, fetchMovements, toast]);
 
   useEffect(() => {
     if (!processo?.id || !open) return;
@@ -1263,6 +1279,34 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
         onApplied={() => queryClient.invalidateQueries({ queryKey: ['processos'] })}
       />
     )}
+
+    {/* Confirmação de novos andamentos */}
+    <Dialog open={!!andamentoConfirm} onOpenChange={(o) => { if (!o) setAndamentoConfirm(null); }}>
+      <DialogContent aria-describedby={undefined} className="sm:max-w-lg rounded-[2rem]">
+        <DialogTitle className="flex items-center gap-2 text-lg font-black">
+          <span className="h-8 w-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center"><History className="h-4 w-4" /></span>
+          {andamentoConfirm?.novos.length} novo(s) andamento(s) encontrado(s)
+        </DialogTitle>
+        <p className="text-xs text-muted-foreground -mt-1">Revise antes de adicionar ao histórico do processo.</p>
+        <div className="space-y-2 max-h-[50vh] overflow-y-auto pt-1">
+          {andamentoConfirm?.novos.map((a: any, i: number) => (
+            <div key={i} className="p-3 rounded-xl border border-black/5 dark:border-border bg-black/[0.01] dark:bg-white/[0.01]">
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">
+                {a.data ? new Date(a.data).toLocaleDateString('pt-BR') : '—'}
+              </p>
+              <p className="text-sm font-medium leading-snug mt-0.5">{a.descricao || a.resumo || 'Movimentação'}</p>
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-2 pt-1">
+          <Button onClick={confirmAndamentos} disabled={syncing} className="flex-1 rounded-xl font-bold">
+            {syncing ? <RotateCw className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
+            Adicionar {andamentoConfirm?.novos.length} andamento(s)
+          </Button>
+          <Button variant="outline" onClick={() => setAndamentoConfirm(null)} className="rounded-xl">Agora não</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
     </>
   );
 };
