@@ -128,7 +128,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
   const [loadingMovements, setLoadingMovements] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [completarOpen, setCompletarOpen] = useState(false);
-  const [andamentoConfirm, setAndamentoConfirm] = useState<{ all: any[]; novos: any[]; meta: any } | null>(null);
+  const [andamentoConfirm, setAndamentoConfirm] = useState<{ all: any[]; novos: any[]; meta: any; processoId: string } | null>(null);
   const [lastSyncedProcessoId, setLastSyncedProcessoId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("resumo");
   const [editing, setEditing] = useState(false);
@@ -170,6 +170,27 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
   });
 
   useEffect(() => {
+    // SEMPRE zera os dados do processo anterior ao TROCAR de processo ou fechar.
+    // (Antes só limpava ao fechar — por isso a confirmação/andamentos de um processo
+    //  vazava para o próximo, ex.: andamentos do PH aparecendo na Maria Luiza.)
+    setMovements([]);
+    setPublicacoes([]);
+    setPrazos([]);
+    setAudiencias([]);
+    setAtendimentos([]);
+    setTarefas([]);
+    setTimesheets([]);
+    setAndamentoConfirm(null);
+    setExpandedPubId(null);
+    setTratandoPubId(null);
+    setLastSyncedProcessoId(null);
+    setShowAddAndamento(false);
+    setShowAddPrazo(false);
+    setShowAddAudiencia(false);
+    setShowAddTarefa(false);
+    setShowAddTimesheet(false);
+    setShowAddAtendimento(false);
+
     if (processo && open) {
       setEditData({
         titulo: processo.titulo || '',
@@ -189,25 +210,6 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
       });
       setEditing(false);
       setActiveTab("resumo");
-    }
-    // Limpa todos os sub-dados ao fechar ou trocar de processo para evitar dados fantasmas
-    if (!open) {
-      setMovements([]);
-      setPublicacoes([]);
-      setPrazos([]);
-      setAudiencias([]);
-      setAtendimentos([]);
-      setTarefas([]);
-      setTimesheets([]);
-      setExpandedPubId(null);
-      setTratandoPubId(null);
-      setLastSyncedProcessoId(null);
-      setShowAddAndamento(false);
-      setShowAddPrazo(false);
-      setShowAddAudiencia(false);
-      setShowAddTarefa(false);
-      setShowAddTimesheet(false);
-      setShowAddAtendimento(false);
     }
   }, [processo?.id, open]);
 
@@ -323,24 +325,31 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
         return;
       }
       const andamentos = Array.isArray(data.andamentos) ? data.andamentos : [];
-      // Detecta apenas os andamentos NOVOS (não pede pra adicionar o que já existe)
+      // Detecta apenas os andamentos NOVOS (não pede pra adicionar o que já existe).
+      // Busca os existentes direto do banco DESTE processo (não do estado, que é limpo ao trocar).
       const keyOf = (dt: any, tx: any) => `${String(dt || '').slice(0, 10)}|${String(tx || '').toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 60)}`;
-      const existing = new Set((movements || []).map((m: any) => keyOf(m.data, m.texto)));
+      const { data: existingRows } = await supabase
+        .from('movimentacoes_processo')
+        .select('data_movimentacao, descricao')
+        .eq('processo_id', processo.id);
+      const existing = new Set((existingRows || []).map((m: any) => keyOf(m.data_movimentacao, m.descricao)));
       const novos = andamentos.filter((a: any) => !existing.has(keyOf(a.data, a.descricao || a.resumo)));
       if (novos.length === 0) {
         toast({ title: 'Já atualizado', description: 'Nenhum andamento novo encontrado.' });
       } else {
-        // Não salva automático: abre confirmação com os novos andamentos
-        setAndamentoConfirm({ all: andamentos, novos, meta: data });
+        // Não salva automático: abre confirmação com os novos andamentos (amarrada ao processo atual)
+        setAndamentoConfirm({ all: andamentos, novos, meta: data, processoId: processo.id });
       }
       await fetchMovements();
     } catch (err) { console.error(err); }
     finally { setSyncing(false); }
-  }, [processo?.id, processo?.numeroProcesso, syncing, user?.office_id, profile, toast, fetchMovements, movements]);
+  }, [processo?.id, processo?.numeroProcesso, syncing, user?.office_id, profile, toast, fetchMovements]);
 
   // Confirma e persiste os andamentos novos
   const confirmAndamentos = useCallback(async () => {
     if (!andamentoConfirm || !processo?.id) return;
+    // Segurança: só persiste se a confirmação for DESTE processo (evita salvar andamentos de outro)
+    if (andamentoConfirm.processoId !== processo.id) { setAndamentoConfirm(null); return; }
     setSyncing(true);
     try {
       const data = andamentoConfirm.meta;
