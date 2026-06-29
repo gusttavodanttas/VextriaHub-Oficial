@@ -30,12 +30,14 @@ import {
   CalendarDays,
   X,
   Clock,
-  Activity
+  Activity,
+  ChevronRight
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 import { useMyStats } from "@/hooks/useMyStats";
 import { useMyActivity } from "@/hooks/useMyActivity";
 import { formatPhone, isValidPhone } from "@/lib/phone";
@@ -373,8 +375,10 @@ const Perfil = () => {
                       inputMode="numeric"
                       placeholder="(11) 91234-5678"
                     />
+                  ) : userInfo.telefone ? (
+                    <span className="font-bold text-foreground/80">{userInfo.telefone}</span>
                   ) : (
-                    <span className="font-bold text-foreground/80">{userInfo.telefone || "Não informado"}</span>
+                    <button onClick={() => setEditMode(true)} className="font-bold text-sm text-primary/70 hover:text-primary transition-colors">+ Adicionar</button>
                   )}
                 </div>
                 {editMode && userInfo.telefone && !isValidPhone(userInfo.telefone) && (
@@ -396,8 +400,10 @@ const Perfil = () => {
                         onChange={(e) => setUserInfo({...userInfo, oab: e.target.value})}
                         placeholder="Número da OAB"
                       />
+                    ) : userInfo.oab ? (
+                      <span className="font-bold text-foreground/80">{userInfo.oab}</span>
                     ) : (
-                      <span className="font-bold text-foreground/80">{userInfo.oab || "Não informado"}</span>
+                      <button onClick={() => setEditMode(true)} className="font-bold text-sm text-primary/70 hover:text-primary transition-colors">+ Adicionar</button>
                     )}
                   </div>
                   {editMode && (
@@ -430,8 +436,10 @@ const Perfil = () => {
                     <div className="flex-1 min-w-0">
                       <CityCombobox value={userInfo.endereco} onChange={(val) => setUserInfo({ ...userInfo, endereco: val })} />
                     </div>
+                  ) : userInfo.endereco ? (
+                    <span className="font-bold truncate text-foreground/80">{userInfo.endereco}</span>
                   ) : (
-                    <span className="font-bold truncate text-foreground/80">{userInfo.endereco || "Não informado"}</span>
+                    <button onClick={() => setEditMode(true)} className="font-bold text-sm text-primary/70 hover:text-primary transition-colors">+ Adicionar</button>
                   )}
                 </div>
               </div>
@@ -487,6 +495,7 @@ const Perfil = () => {
 
 /* ---------- Atividade recente ---------- */
 function ActivityCard() {
+  const navigate = useNavigate();
   const { items, loading } = useMyActivity(8);
   const dotColor: Record<string, string> = {
     Processo: "bg-blue-500",
@@ -494,7 +503,7 @@ function ActivityCard() {
     Atendimento: "bg-amber-500",
   };
   return (
-    <div className="glass-card p-8 rounded-[2.5rem] border-border bg-card/40 shadow-premium space-y-5">
+    <div className="glass-card p-6 md:p-8 rounded-[2.5rem] border-border bg-card/40 shadow-premium space-y-4">
       <h3 className="text-xl font-black flex items-center gap-3 text-foreground">
         <Activity className="h-6 w-6 text-primary" />
         Atividade Recente
@@ -502,21 +511,31 @@ function ActivityCard() {
       {loading ? (
         <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-primary/40" /></div>
       ) : items.length === 0 ? (
-        <p className="text-sm text-muted-foreground font-medium py-4 text-center">Nenhuma atividade ainda.</p>
+        <div className="text-center py-8">
+          <p className="text-sm text-muted-foreground font-medium">Nenhuma atividade ainda.</p>
+          <p className="text-xs text-muted-foreground/60 mt-1">Seus processos, tarefas e atendimentos aparecem aqui.</p>
+        </div>
       ) : (
-        <ol className="relative border-l border-border/60 ml-2 space-y-4">
+        <div className="space-y-1.5">
           {items.map((it) => (
-            <li key={it.id} className="ml-4">
-              <span className={cn("absolute -left-[5px] mt-1.5 h-2.5 w-2.5 rounded-full ring-2 ring-background", dotColor[it.tipo])} />
-              <p className="text-sm font-bold text-foreground truncate">{it.label}</p>
-              <p className="text-[11px] text-muted-foreground">
-                <span className="font-black uppercase tracking-wide">{it.tipo}</span>
-                {" · "}
-                {new Date(it.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
-              </p>
-            </li>
+            <button
+              key={it.id}
+              onClick={() => navigate(it.link)}
+              className="group w-full flex items-center gap-3 p-3 rounded-2xl border border-transparent hover:border-primary/20 hover:bg-primary/[0.03] transition-all text-left"
+            >
+              <span className={cn("h-2.5 w-2.5 rounded-full shrink-0", dotColor[it.tipo])} />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-foreground truncate group-hover:text-primary transition-colors">{it.label}</p>
+                <p className="text-[11px] text-muted-foreground">
+                  <span className="font-black uppercase tracking-wide">{it.tipo}</span>
+                  {" · "}
+                  {new Date(it.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
+                </p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
+            </button>
           ))}
-        </ol>
+        </div>
       )}
     </div>
   );

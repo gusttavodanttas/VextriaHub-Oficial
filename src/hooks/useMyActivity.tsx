@@ -7,6 +7,7 @@ export interface ActivityItem {
   tipo: "Processo" | "Tarefa" | "Atendimento";
   label: string;
   date: string;
+  link: string;
 }
 
 const pick = (o: any, keys: string[], fallback: string) => {
@@ -34,9 +35,9 @@ export function useMyActivity(limit = 8) {
       if (cancel) return;
 
       const all: ActivityItem[] = [
-        ...(proc.data || []).map((p: any) => ({ id: `p-${p.id}`, tipo: "Processo" as const, label: pick(p, ["titulo", "numero_processo", "numero", "cliente", "nome"], "Processo"), date: p.created_at })),
-        ...(tar.data || []).map((t: any) => ({ id: `t-${t.id}`, tipo: "Tarefa" as const, label: pick(t, ["titulo", "descricao", "nome"], "Tarefa"), date: t.created_at })),
-        ...(at.data || []).map((a: any) => ({ id: `a-${a.id}`, tipo: "Atendimento" as const, label: pick(a, ["assunto", "titulo", "descricao", "tipo"], "Atendimento"), date: a.created_at })),
+        ...(proc.data || []).map((p: any) => ({ id: `p-${p.id}`, tipo: "Processo" as const, label: pick(p, ["titulo", "numero_processo", "numero", "cliente", "nome"], "Processo"), date: p.created_at, link: `/processos?openId=${p.id}` })),
+        ...(tar.data || []).map((t: any) => ({ id: `t-${t.id}`, tipo: "Tarefa" as const, label: pick(t, ["titulo", "descricao", "nome"], "Tarefa"), date: t.created_at, link: `/tarefas?openId=${t.id}` })),
+        ...(at.data || []).map((a: any) => ({ id: `a-${a.id}`, tipo: "Atendimento" as const, label: pick(a, ["assunto", "titulo", "descricao", "tipo"], "Atendimento"), date: a.created_at, link: `/atendimentos?openId=${a.id}` })),
       ]
         .filter((x) => x.date)
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
