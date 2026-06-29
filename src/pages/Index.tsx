@@ -2,11 +2,13 @@ import { CalendarWidget } from "@/components/Dashboard/CalendarWidget";
 import { DashboardHero } from "@/components/Dashboard/DashboardHero";
 import { QuickViewSheet, SheetView } from "@/components/Dashboard/QuickViewSheet";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, FileText, CheckSquare, TrendingUp, ArrowRight, Plus, CalendarCheck, UserCheck, Users2, CalendarPlus, UserPlus } from "lucide-react";
+import { AlertCircle, FileText, CheckSquare, TrendingUp, ArrowRight, Plus, CalendarCheck, UserCheck, Users2, CalendarPlus, UserPlus, Award, Activity } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useStats } from "@/hooks/useStats";
+import { useMyStats } from "@/hooks/useMyStats";
+import { useMyActivity } from "@/hooks/useMyActivity";
 import { cn } from "@/lib/utils";
 
 interface KpiProps {
@@ -69,6 +71,8 @@ const Index = () => {
   const { isSuperAdmin, isOfficeAdmin, validatePayment } = useAuth();
   const navigate = useNavigate();
   const { stats, loading: statsLoading } = useStats();
+  const myStats = useMyStats();
+  const { items: activity, loading: activityLoading } = useMyActivity(6);
   const [sheetView, setSheetView] = useState<SheetView>(null);
 
   useEffect(() => {
@@ -153,8 +157,36 @@ const Index = () => {
           <CalendarWidget />
         </div>
 
-        {/* Lateral — financeiro (se houver) + ações rápidas */}
+        {/* Lateral — produtividade + financeiro (se houver) + ações rápidas */}
         <div className="lg:col-span-4 space-y-4">
+
+          {/* Sua produtividade */}
+          <div
+            className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 space-y-3 cursor-pointer hover:shadow-md transition-all"
+            onClick={() => navigate("/perfil")}
+          >
+            <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 flex items-center gap-1.5">
+              <Award className="h-3 w-3" /> Sua Produtividade
+            </p>
+            <div className="flex items-end gap-2">
+              <p className="text-3xl font-black tracking-tight leading-none text-primary">{myStats.loading ? "…" : myStats.pontos}</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 pb-1">pontos</p>
+            </div>
+            <div className="grid grid-cols-3 gap-2 pt-2 border-t border-black/5 dark:border-border">
+              <div>
+                <p className="text-base font-black leading-none">{myStats.tarefasConcluidas}</p>
+                <p className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground/50 mt-1">Tarefas</p>
+              </div>
+              <div>
+                <p className="text-base font-black leading-none">{myStats.processosFinalizados}</p>
+                <p className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground/50 mt-1">Finalizados</p>
+              </div>
+              <div>
+                <p className="text-base font-black leading-none">{myStats.processosAtivos}</p>
+                <p className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground/50 mt-1">Ativos</p>
+              </div>
+            </div>
+          </div>
 
           {hasFinanceiro && (
             <div
@@ -208,6 +240,42 @@ const Index = () => {
 
         </div>
       </div>
+
+      {/* Atividade recente */}
+      <section className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 space-y-3">
+        <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 flex items-center gap-1.5">
+          <Activity className="h-3 w-3" /> Atividade Recente
+        </p>
+        {activityLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-12 rounded-xl bg-black/[0.04] dark:bg-white/[0.04] animate-pulse" />
+            ))}
+          </div>
+        ) : activity.length === 0 ? (
+          <p className="text-sm text-muted-foreground/60 font-medium py-4 text-center">Nenhuma atividade recente.</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {activity.map((it) => (
+              <button
+                key={it.id}
+                onClick={() => navigate(it.link)}
+                className="group flex items-center gap-3 p-3 rounded-xl border border-black/5 dark:border-border bg-card/40 hover:bg-card/80 hover:shadow-sm transition-all text-left"
+              >
+                <span className={cn("h-2 w-2 rounded-full shrink-0",
+                  it.tipo === "Processo" ? "bg-blue-500" : it.tipo === "Tarefa" ? "bg-emerald-500" : "bg-amber-500")} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold truncate group-hover:text-primary transition-colors">{it.label}</p>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50">
+                    {it.tipo} · {new Date(it.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                  </p>
+                </div>
+                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/20 group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
 
       <QuickViewSheet view={sheetView} onClose={() => setSheetView(null)} />
     </div>
