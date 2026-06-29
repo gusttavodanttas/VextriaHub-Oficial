@@ -412,25 +412,29 @@ serve(async (req) => {
     const processKey = Deno.env.get("PROCESSO_API_KEY") || PUBLIC_DATAJUD_KEY;
     const authHeader = req.headers.get("Authorization") || req.headers.get("authorization");
 
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Sua sessão expirou. Por favor, faça login novamente." }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 401,
-      });
-    }
+    // Bypass para o robô agendado (cron) — não tem sessão de usuário
+    const robotSecret = req.headers.get("x-robot-secret");
+    const isRobot = !!robotSecret && robotSecret === Deno.env.get("ROBOT_SECRET");
 
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? ""
-    );
-
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Falha na autenticação." }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 401,
-      });
+    if (!isRobot) {
+      if (!authHeader) {
+        return new Response(JSON.stringify({ error: "Sua sessão expirou. Por favor, faça login novamente." }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 401,
+        });
+      }
+      const supabaseClient = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+      );
+      const token = authHeader.replace("Bearer ", "");
+      const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
+      if (userError || !user) {
+        return new Response(JSON.stringify({ error: "Falha na autenticação." }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 401,
+        });
+      }
     }
 
     const { oab, uf, days, nacional } = await req.json();
