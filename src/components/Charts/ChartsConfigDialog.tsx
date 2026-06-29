@@ -7,6 +7,30 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Trophy, AlertTriangle } from "lucide-react";
 import type { PontosConfig } from "@/hooks/useChartsData";
+import React from "react";
+
+// Componente ESTÁVEL (fora do dialog) para os <Input> não remontarem a cada tecla
+const TipoRows = React.memo(function TipoRows({ map, setMap, tipos }: { map: Record<string, number>; setMap: (m: Record<string, number>) => void; tipos: string[] }) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <Label className="text-[11px] text-muted-foreground flex-1">Padrão (tipos sem valor específico)</Label>
+        <Input type="number" min={0} value={map._default ?? 0}
+          onChange={e => setMap({ ...map, _default: Number(e.target.value) })}
+          className="h-8 w-20 rounded-lg text-xs" />
+      </div>
+      {tipos.map(t => (
+        <div key={t} className="flex items-center gap-2">
+          <Label className="text-[11px] flex-1 truncate">{t}</Label>
+          <Input type="number" min={0} value={map[t] ?? map._default ?? 0}
+            onChange={e => setMap({ ...map, [t]: Number(e.target.value) })}
+            className="h-8 w-20 rounded-lg text-xs" />
+        </div>
+      ))}
+      {tipos.length === 0 && <p className="text-[10px] text-muted-foreground/50">Nenhum tipo cadastrado ainda — use o valor padrão.</p>}
+    </div>
+  );
+});
 
 export function ChartsConfigDialog({
   open, onClose, officeId, pontos, tiposPrazo, tiposAudiencia, onSaved,
@@ -78,26 +102,6 @@ export function ChartsConfigDialog({
     onSaved();
     onClose();
   };
-
-  const TipoRows = ({ map, setMap, tipos }: { map: Record<string, number>; setMap: (m: Record<string, number>) => void; tipos: string[] }) => (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <Label className="text-[11px] text-muted-foreground flex-1">Padrão (tipos sem valor específico)</Label>
-        <Input type="number" min={0} value={map._default ?? 0}
-          onChange={e => setMap({ ...map, _default: Number(e.target.value) })}
-          className="h-8 w-20 rounded-lg text-xs" />
-      </div>
-      {tipos.map(t => (
-        <div key={t} className="flex items-center gap-2">
-          <Label className="text-[11px] flex-1 truncate">{t}</Label>
-          <Input type="number" min={0} value={map[t] ?? map._default ?? 0}
-            onChange={e => setMap({ ...map, [t]: Number(e.target.value) })}
-            className="h-8 w-20 rounded-lg text-xs" />
-        </div>
-      ))}
-      {tipos.length === 0 && <p className="text-[10px] text-muted-foreground/50">Nenhum tipo cadastrado ainda — use o valor padrão.</p>}
-    </div>
-  );
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>

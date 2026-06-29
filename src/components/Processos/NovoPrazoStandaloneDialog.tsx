@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -209,6 +209,49 @@ interface GerenciarTiposProps {
   onClose: () => void;
   officeId: string;
 }
+// Formulário de tipo de ato — ESTÁVEL (fora do modal) para os <Input> não remontarem a cada tecla
+const DraftForm = memo(function DraftForm({ draft, setDraft, saving, onSave, onCancel }: {
+  draft: Omit<TipoAto, 'id'>;
+  setDraft: (fn: (d: Omit<TipoAto, 'id'>) => Omit<TipoAto, 'id'>) => void;
+  saving: boolean;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="p-3 rounded-xl border border-primary/20 bg-primary/5 space-y-3 mt-2">
+      <Input placeholder="Nome do tipo de ato" value={draft.label}
+        onChange={e => setDraft(d => ({ ...d, label: e.target.value }))} className="h-8 rounded-lg text-xs" />
+      <div className="grid grid-cols-3 gap-2">
+        <div>
+          <p className="text-[9px] uppercase tracking-widest text-muted-foreground mb-1">Dias</p>
+          <Input type="number" min={1} max={365} value={draft.diasUteis}
+            onChange={e => setDraft(d => ({ ...d, diasUteis: Number(e.target.value) }))} className="h-8 rounded-lg text-xs" />
+        </div>
+        <div>
+          <p className="text-[9px] uppercase tracking-widest text-muted-foreground mb-1">Tipo</p>
+          <select value={draft.corridos ? 'corridos' : 'uteis'}
+            onChange={e => setDraft(d => ({ ...d, corridos: e.target.value === 'corridos' }))}
+            className="h-8 w-full rounded-lg text-xs border border-border bg-background px-2">
+            <option value="uteis">Úteis</option>
+            <option value="corridos">Corridos</option>
+          </select>
+        </div>
+        <div>
+          <p className="text-[9px] uppercase tracking-widest text-muted-foreground mb-1">Margem int.</p>
+          <Input type="number" min={0} max={30} value={draft.margem}
+            onChange={e => setDraft(d => ({ ...d, margem: Number(e.target.value) }))} className="h-8 rounded-lg text-xs" />
+        </div>
+      </div>
+      <div className="flex gap-2 justify-end">
+        <Button type="button" variant="ghost" size="sm" onClick={onCancel} className="h-7 rounded-lg text-xs" disabled={saving}>Cancelar</Button>
+        <Button type="button" size="sm" onClick={onSave} disabled={saving} className="h-7 rounded-lg text-xs gap-1">
+          <Check className="h-3 w-3" /> {saving ? 'Salvando…' : 'Salvar'}
+        </Button>
+      </div>
+    </div>
+  );
+});
+
 function GerenciarTiposModal({ open, onClose, officeId }: GerenciarTiposProps) {
   const { toast } = useToast();
   const [tipos, setTipos] = useState<TipoAto[]>([]);
@@ -287,40 +330,6 @@ function GerenciarTiposModal({ open, onClose, officeId }: GerenciarTiposProps) {
     setSaving(false);
   };
 
-  const DraftForm = ({ onSave, onCancel }: { onSave: () => void; onCancel: () => void }) => (
-    <div className="p-3 rounded-xl border border-primary/20 bg-primary/5 space-y-3 mt-2">
-      <Input placeholder="Nome do tipo de ato" value={draft.label}
-        onChange={e => setDraft(d => ({ ...d, label: e.target.value }))} className="h-8 rounded-lg text-xs" />
-      <div className="grid grid-cols-3 gap-2">
-        <div>
-          <p className="text-[9px] uppercase tracking-widest text-muted-foreground mb-1">Dias</p>
-          <Input type="number" min={1} max={365} value={draft.diasUteis}
-            onChange={e => setDraft(d => ({ ...d, diasUteis: Number(e.target.value) }))} className="h-8 rounded-lg text-xs" />
-        </div>
-        <div>
-          <p className="text-[9px] uppercase tracking-widest text-muted-foreground mb-1">Tipo</p>
-          <select value={draft.corridos ? 'corridos' : 'uteis'}
-            onChange={e => setDraft(d => ({ ...d, corridos: e.target.value === 'corridos' }))}
-            className="h-8 w-full rounded-lg text-xs border border-border bg-background px-2">
-            <option value="uteis">Úteis</option>
-            <option value="corridos">Corridos</option>
-          </select>
-        </div>
-        <div>
-          <p className="text-[9px] uppercase tracking-widest text-muted-foreground mb-1">Margem int.</p>
-          <Input type="number" min={0} max={30} value={draft.margem}
-            onChange={e => setDraft(d => ({ ...d, margem: Number(e.target.value) }))} className="h-8 rounded-lg text-xs" />
-        </div>
-      </div>
-      <div className="flex gap-2 justify-end">
-        <Button type="button" variant="ghost" size="sm" onClick={onCancel} className="h-7 rounded-lg text-xs" disabled={saving}>Cancelar</Button>
-        <Button type="button" size="sm" onClick={onSave} disabled={saving} className="h-7 rounded-lg text-xs gap-1">
-          <Check className="h-3 w-3" /> {saving ? 'Salvando…' : 'Salvar'}
-        </Button>
-      </div>
-    </div>
-  );
-
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
       <DialogContent aria-describedby={undefined} className="max-w-sm bg-background border border-border p-0 rounded-2xl shadow-2xl overflow-hidden max-h-[85vh] flex flex-col">
@@ -360,12 +369,12 @@ function GerenciarTiposModal({ open, onClose, officeId }: GerenciarTiposProps) {
                     </button>
                   </div>
                   {editingId === t.id && (
-                    <DraftForm onSave={applyEdit} onCancel={() => setEditingId(null)} />
+                    <DraftForm draft={draft} setDraft={setDraft} saving={saving} onSave={applyEdit} onCancel={() => setEditingId(null)} />
                   )}
                 </div>
               ))}
 
-              {adding && <DraftForm onSave={applyAdd} onCancel={() => setAdding(false)} />}
+              {adding && <DraftForm draft={draft} setDraft={setDraft} saving={saving} onSave={applyAdd} onCancel={() => setAdding(false)} />}
 
               {!adding && (
                 <button type="button" onClick={startAdd} disabled={saving}
