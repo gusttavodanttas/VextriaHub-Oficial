@@ -69,6 +69,47 @@ const fmtDuration = (min: number | null | undefined) => {
   return h > 0 ? `${h}h${m > 0 ? `${String(m).padStart(2, '0')}min` : ''}` : `${m}min`;
 };
 
+// ── Campo da capa (componente ESTÁVEL: definido fora do drawer para o <Input>
+//    não remontar a cada tecla — era a causa do travamento ao digitar) ──
+const CapaField = React.memo(function CapaField({ label, editing, value, icon, onChange }: {
+  label: string; editing: boolean; value: string; icon?: React.ReactNode; onChange: (v: string) => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <p className="text-[10px] text-muted-foreground/60 uppercase font-black tracking-widest">{label}</p>
+      {editing ? (
+        <Input
+          className="h-10 text-sm rounded-xl bg-background border-border focus:ring-2 focus:ring-primary/20"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      ) : (
+        <div className="flex items-center gap-2 min-h-[40px] px-3 py-2 rounded-xl bg-muted/20 border border-transparent">
+          {icon}
+          <p className="text-sm font-semibold text-foreground">{value || '—'}</p>
+        </div>
+      )}
+    </div>
+  );
+});
+
+// ── Wrapper de formulário de adição rápida (também estável) ──
+const AddForm = React.memo(function AddForm({ children, onSubmit, onCancel, loading }: {
+  children: React.ReactNode; onSubmit: (e: React.FormEvent<HTMLFormElement>) => void; onCancel: () => void; loading?: boolean;
+}) {
+  return (
+    <form onSubmit={onSubmit} className="p-5 rounded-2xl border border-primary/20 bg-primary/5 space-y-4 animate-in fade-in duration-300">
+      {children}
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="ghost" size="sm" onClick={onCancel} className="rounded-xl text-xs h-8">Cancelar</Button>
+        <Button type="submit" size="sm" disabled={loading} className="rounded-xl text-xs h-8 gap-1.5">
+          {loading ? <RotateCw className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />} Salvar
+        </Button>
+      </div>
+    </form>
+  );
+});
+
 export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
   processo,
   open,
@@ -569,36 +610,13 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
     return 'text-slate-600 bg-slate-500/10 border-slate-500/20';
   };
 
-  const Field = ({ label, field, icon }: { label: string; field: keyof typeof editData; icon?: React.ReactNode }) => (
-    <div className="space-y-1.5">
-      <p className="text-[10px] text-muted-foreground/60 uppercase font-black tracking-widest">{label}</p>
-      {editing ? (
-        <Input
-          className="h-10 text-sm rounded-xl bg-background border-border focus:ring-2 focus:ring-primary/20"
-          value={String(editData[field] || '')}
-          onChange={(e) => setEditData({ ...editData, [field]: field === 'valor_causa' ? Number(e.target.value) || 0 : e.target.value })}
-        />
-      ) : (
-        <div className="flex items-center gap-2 min-h-[40px] px-3 py-2 rounded-xl bg-muted/20 border border-transparent">
-          {icon}
-          <p className="text-sm font-semibold text-foreground">{String(editData[field]) || '—'}</p>
-        </div>
-      )}
-    </div>
-  );
-
-  // ── Quick add form wrapper ──
-  const AddForm = ({ children, onSubmit, onCancel }: { children: React.ReactNode; onSubmit: (e: React.FormEvent<HTMLFormElement>) => void; onCancel: () => void }) => (
-    <form onSubmit={onSubmit} className="p-5 rounded-2xl border border-primary/20 bg-primary/5 space-y-4 animate-in fade-in duration-300">
-      {children}
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="ghost" size="sm" onClick={onCancel} className="rounded-xl text-xs h-8">Cancelar</Button>
-        <Button type="submit" size="sm" disabled={addLoading} className="rounded-xl text-xs h-8 gap-1.5">
-          {addLoading ? <RotateCw className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />} Salvar
-        </Button>
-      </div>
-    </form>
-  );
+  // Atalho: liga um campo da capa ao editData (setState funcional evita closure obsoleto)
+  const fieldProps = (field: keyof typeof editData) => ({
+    editing,
+    value: String(editData[field] ?? ''),
+    onChange: (v: string) =>
+      setEditData((prev) => ({ ...prev, [field]: field === 'valor_causa' ? Number(v) || 0 : v })),
+  });
 
   const EmptySub = ({ icon: Icon, label }: { icon: any; label: string }) => (
     <div className="py-16 flex flex-col items-center justify-center text-center space-y-3 opacity-30">
@@ -747,13 +765,13 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                     <Gavel className="h-4 w-4" /><span>Capa Jurídica</span>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5 p-6 rounded-2xl border border-border bg-muted/20">
-                    <Field label="Classe" field="classe_judicial" />
-                    <Field label="Assunto Principal" field="assunto_principal" />
-                    <Field label="Fase Atual" field="fase_processual" />
-                    <Field label="Instância" field="instancia" />
-                    <Field label="Tribunal" field="tribunal" icon={<Building2 className="h-3.5 w-3.5 text-primary/60" />} />
-                    <Field label="Vara" field="vara" icon={<MapPin className="h-3.5 w-3.5 text-primary/60" />} />
-                    <Field label="Comarca / UF" field="comarca" />
+                    <CapaField label="Classe" {...fieldProps('classe_judicial')} />
+                    <CapaField label="Assunto Principal" {...fieldProps('assunto_principal')} />
+                    <CapaField label="Fase Atual" {...fieldProps('fase_processual')} />
+                    <CapaField label="Instância" {...fieldProps('instancia')} />
+                    <CapaField label="Tribunal" icon={<Building2 className="h-3.5 w-3.5 text-primary/60" />} {...fieldProps('tribunal')} />
+                    <CapaField label="Vara" icon={<MapPin className="h-3.5 w-3.5 text-primary/60" />} {...fieldProps('vara')} />
+                    <CapaField label="Comarca / UF" {...fieldProps('comarca')} />
 
                     {officeTeams.length > 0 && (
                       <div className="space-y-1.5">
@@ -887,7 +905,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                 </div>
 
                 {showAddAndamento && (
-                  <AddForm onSubmit={handleAddAndamento} onCancel={() => setShowAddAndamento(false)}>
+                  <AddForm loading={addLoading} onSubmit={handleAddAndamento} onCancel={() => setShowAddAndamento(false)}>
                     <Input name="descricao" placeholder="Descrição do andamento" required className="h-9 rounded-xl text-sm" />
                     <div className="grid grid-cols-2 gap-3">
                       <Input name="data" type="date" required defaultValue={new Date().toISOString().split('T')[0]} className="h-9 rounded-xl text-sm" />
@@ -1045,7 +1063,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
               <div className="space-y-4">
                 <SectionHeader label="prazo(s)" count={prazos.length} onAdd={() => setShowAddPrazo(true)} />
                 {showAddPrazo && (
-                  <AddForm onSubmit={handleAddPrazo} onCancel={() => setShowAddPrazo(false)}>
+                  <AddForm loading={addLoading} onSubmit={handleAddPrazo} onCancel={() => setShowAddPrazo(false)}>
                     <Input name="titulo" placeholder="Título do prazo" required className="h-9 rounded-xl text-sm" />
                     <Input name="descricao" placeholder="Descrição (opcional)" className="h-9 rounded-xl text-sm" />
                     <div className="grid grid-cols-2 gap-3">
@@ -1084,7 +1102,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
               <div className="space-y-4">
                 <SectionHeader label="audiência(s)" count={audiencias.length} onAdd={() => setShowAddAudiencia(true)} />
                 {showAddAudiencia && (
-                  <AddForm onSubmit={handleAddAudiencia} onCancel={() => setShowAddAudiencia(false)}>
+                  <AddForm loading={addLoading} onSubmit={handleAddAudiencia} onCancel={() => setShowAddAudiencia(false)}>
                     <Input name="titulo" placeholder="Título da audiência" required className="h-9 rounded-xl text-sm" />
                     <div className="grid grid-cols-2 gap-3">
                       <Input name="data" type="date" required className="h-9 rounded-xl text-sm" />
@@ -1117,7 +1135,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
               <div className="space-y-4">
                 <SectionHeader label="atendimento(s)" count={atendimentos.length} onAdd={() => setShowAddAtendimento(true)} />
                 {showAddAtendimento && (
-                  <AddForm onSubmit={handleAddAtendimento} onCancel={() => setShowAddAtendimento(false)}>
+                  <AddForm loading={addLoading} onSubmit={handleAddAtendimento} onCancel={() => setShowAddAtendimento(false)}>
                     <Input name="tipo" placeholder="Tipo (reunião, ligação, email...)" required className="h-9 rounded-xl text-sm" />
                     <div className="grid grid-cols-2 gap-3">
                       <Input name="data" type="date" required className="h-9 rounded-xl text-sm" />
@@ -1147,7 +1165,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
               <div className="space-y-4">
                 <SectionHeader label="tarefa(s)" count={tarefas.length} onAdd={() => setShowAddTarefa(true)} />
                 {showAddTarefa && (
-                  <AddForm onSubmit={handleAddTarefa} onCancel={() => setShowAddTarefa(false)}>
+                  <AddForm loading={addLoading} onSubmit={handleAddTarefa} onCancel={() => setShowAddTarefa(false)}>
                     <Input name="titulo" placeholder="Título da tarefa" required className="h-9 rounded-xl text-sm" />
                     <Input name="descricao" placeholder="Descrição (opcional)" className="h-9 rounded-xl text-sm" />
                     <div className="grid grid-cols-2 gap-3">
@@ -1183,7 +1201,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
               <div className="space-y-4">
                 <SectionHeader label="registro(s)" count={timesheets.length} onAdd={() => setShowAddTimesheet(true)} />
                 {showAddTimesheet && (
-                  <AddForm onSubmit={handleAddTimesheet} onCancel={() => setShowAddTimesheet(false)}>
+                  <AddForm loading={addLoading} onSubmit={handleAddTimesheet} onCancel={() => setShowAddTimesheet(false)}>
                     <Input name="descricao" placeholder="Descrição da atividade" required className="h-9 rounded-xl text-sm" />
                     <div className="grid grid-cols-2 gap-3">
                       <Input name="duracao" type="number" placeholder="Duração (min)" required className="h-9 rounded-xl text-sm" />
