@@ -310,7 +310,12 @@ const Perfil = () => {
                       placeholder="Nome Completo"
                     />
                   ) : (
-                    <h2 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">{userInfo.nome}</h2>
+                    <h2
+                      className="text-2xl md:text-3xl font-black tracking-tight text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]"
+                      style={{ textShadow: "0 1px 2px rgba(0,0,0,0.9), 0 2px 12px rgba(0,0,0,0.7)" }}
+                    >
+                      {userInfo.nome}
+                    </h2>
                   )}
                   <div className="flex flex-wrap justify-center md:justify-start items-center gap-2">
                     <Badge className="bg-primary/10 text-primary border-primary/20 font-black px-3 py-1 rounded-lg uppercase text-[10px] tracking-widest">
