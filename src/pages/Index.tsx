@@ -11,8 +11,11 @@ import { NovoClienteDialog } from "@/components/Clientes/NovoClienteDialog";
 import { QuickAtendimentoDialog } from "@/components/Dashboard/QuickAtendimentoDialog";
 import { QuickAudienciaDialog } from "@/components/Dashboard/QuickAudienciaDialog";
 import { QuickTimesheetDialog } from "@/components/Dashboard/QuickTimesheetDialog";
+import { QuickTarefaDialog } from "@/components/Dashboard/QuickTarefaDialog";
+import { QuickConsultivoDialog } from "@/components/Dashboard/QuickConsultivoDialog";
+import { PrazosBlock, TarefasBlock } from "@/components/Dashboard/ListBlocks";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, FileText, CheckSquare, TrendingUp, ArrowRight, Plus, CalendarCheck, UserCheck, Users2, CalendarPlus, UserPlus, Award, Activity, Clock, Settings2 } from "lucide-react";
+import { AlertCircle, FileText, CheckSquare, TrendingUp, ArrowRight, Plus, CalendarCheck, UserCheck, Users2, CalendarPlus, UserPlus, Award, Activity, Clock, Settings2, MessageSquareText } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -25,12 +28,14 @@ import { useClientes } from "@/hooks/useClientes";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-type ModalKey = "processo" | "prazo" | "agendar" | "cliente" | "atendimento" | "audiencia" | "timesheet";
+type ModalKey = "processo" | "prazo" | "agendar" | "cliente" | "atendimento" | "audiencia" | "timesheet" | "tarefa" | "consultivo";
 const ACTION_CONFIG: { key: string; label: string; icon: React.ElementType; to?: string; modal?: ModalKey }[] = [
   { key: "processo", label: "Processo", icon: Plus, modal: "processo" },
   { key: "prazo", label: "Prazo", icon: Plus, modal: "prazo" },
   { key: "agendar", label: "Agendar", icon: CalendarPlus, modal: "agendar" },
   { key: "cliente", label: "Cliente", icon: UserPlus, modal: "cliente" },
+  { key: "tarefa", label: "Tarefa", icon: CheckSquare, modal: "tarefa" },
+  { key: "consultivo", label: "Consultivo", icon: MessageSquareText, modal: "consultivo" },
   { key: "atendimento", label: "Atendimento", icon: UserCheck, modal: "atendimento" },
   { key: "audiencia", label: "Audiência", icon: CalendarCheck, modal: "audiencia" },
   { key: "timesheet", label: "Timesheet", icon: Clock, modal: "timesheet" },
@@ -147,7 +152,7 @@ const Index = () => {
   const onModalSuccess = () => { refresh(); setOpenModal(null); };
 
   // Blocos grandes (coluna principal) vs cards (lateral), na ordem do usuário.
-  const MAIN_KEYS = ["agenda", "grafico"];
+  const MAIN_KEYS = ["agenda", "grafico", "prazos", "tarefas"];
   const isVisible = (k: string) => prefs.widgets[k] && (k !== "metas" || canViewMetas);
   const mainBlocks = prefs.order.filter((k) => MAIN_KEYS.includes(k) && isVisible(k));
   const sideBlocks = prefs.order.filter((k) => !MAIN_KEYS.includes(k) && isVisible(k));
@@ -191,6 +196,10 @@ const Index = () => {
         );
       case "grafico":
         return <MiniFinanceChart />;
+      case "prazos":
+        return <PrazosBlock />;
+      case "tarefas":
+        return <TarefasBlock />;
       case "metas":
         return <MetasWidget />;
       case "atividade":
@@ -283,7 +292,7 @@ const Index = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
         {mainBlocks.length > 0 && (
           <div className={cn("flex flex-col gap-5 min-w-0", sideBlocks.length > 0 ? "lg:col-span-8" : "lg:col-span-12")}>
-            {mainBlocks.map((k) => <div key={k} className={k === "grafico" ? "flex-1 min-h-0" : ""}>{renderBlock(k)}</div>)}
+            {mainBlocks.map((k, i) => <div key={k} className={i === mainBlocks.length - 1 ? "flex-1 min-h-0" : ""}>{renderBlock(k)}</div>)}
           </div>
         )}
         {sideBlocks.length > 0 && (
@@ -309,6 +318,8 @@ const Index = () => {
       <QuickAtendimentoDialog open={openModal === "atendimento"} onOpenChange={(o) => !o && setOpenModal(null)} onSuccess={onModalSuccess} />
       <QuickAudienciaDialog open={openModal === "audiencia"} onOpenChange={(o) => !o && setOpenModal(null)} onSuccess={onModalSuccess} />
       <QuickTimesheetDialog open={openModal === "timesheet"} onOpenChange={(o) => !o && setOpenModal(null)} onSuccess={onModalSuccess} />
+      <QuickTarefaDialog open={openModal === "tarefa"} onOpenChange={(o) => !o && setOpenModal(null)} onSuccess={onModalSuccess} />
+      <QuickConsultivoDialog open={openModal === "consultivo"} onOpenChange={(o) => !o && setOpenModal(null)} onSuccess={onModalSuccess} />
     </div>
   );
 };

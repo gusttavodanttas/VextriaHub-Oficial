@@ -9,9 +9,11 @@ const ACTIONS: { key: string; label: string }[] = [
   { key: "prazo", label: "Novo Prazo" },
   { key: "agendar", label: "Agendar" },
   { key: "cliente", label: "Novo Cliente" },
-  { key: "timesheet", label: "Timesheet" },
+  { key: "tarefa", label: "Nova Tarefa" },
+  { key: "consultivo", label: "Novo Consultivo" },
   { key: "atendimento", label: "Atendimento" },
   { key: "audiencia", label: "Audiência" },
+  { key: "timesheet", label: "Timesheet" },
 ];
 
 interface Props {
