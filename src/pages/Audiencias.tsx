@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,6 +59,13 @@ const Audiencias = () => {
   const [statusFilter, setStatusFilter] = useState("todas");
   const [tipoFilter, setTipoFilter] = useState("todos");
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("new")) {
+      setDialogOpen(true);
+      window.history.replaceState({}, "", "/audiencias");
+    }
+  }, []);
   const [tiposDialogOpen, setTiposDialogOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Audiencia | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);

@@ -634,6 +634,13 @@ const Atendimentos = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [tiposDialogOpen, setTiposDialogOpen] = useState(false);
   const [editItem, setEditItem] = useState<Atendimento | null>(null);
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("new")) {
+      setDialogOpen(true);
+      window.history.replaceState({}, "", "/atendimentos");
+    }
+  }, []);
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
   // Stats

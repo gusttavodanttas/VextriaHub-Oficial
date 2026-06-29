@@ -128,7 +128,7 @@ const Index = () => {
 
   const handleAction = (a: typeof ACTION_CONFIG[number]) => {
     if (a.modal) setOpenModal(a.modal);
-    else if (a.to) navigate(a.to);
+    else if (a.to) navigate(`${a.to}?new=1`); // abre o formulário de criação ao chegar na aba
   };
 
   const handleNovoCliente = async (c: any) => {

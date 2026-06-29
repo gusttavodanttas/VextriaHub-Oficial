@@ -103,6 +103,13 @@ export default function Timesheet() {
   const { data: timesheets, loading, activeTimer, startTimer, pauseTimer, stopTimer, getTodayStats, getWeekStats } = useTimesheet();
 
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("new")) {
+      setDialogOpen(true);
+      window.history.replaceState({}, "", "/timesheet");
+    }
+  }, []);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [saving, setSaving] = useState(false);
 
