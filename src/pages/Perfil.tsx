@@ -20,7 +20,6 @@ import {
   Phone,
   MapPin,
   Award,
-  Briefcase,
   Edit,
   Save,
   Scale,
@@ -57,7 +56,6 @@ const Perfil = () => {
     cargo: "Não informado",
     oab: "",
     oab_uf: "DF",
-    especializacao: "",
   });
 
   // Preenche dados reais da Sessão Pessoal logada assim que carregar
@@ -75,7 +73,6 @@ const Perfil = () => {
                : (user as any)?.office_role === 'coordinator' ? 'Coordenador' : 'Membro',
         oab: profile?.oab || prev.oab,
         oab_uf: profile?.oab_uf || prev.oab_uf,
-        especializacao: profile?.specialization || prev.especializacao
       }));
     }
   }, [user, profile]);
@@ -113,7 +110,6 @@ const Perfil = () => {
         full_name: userInfo.nome,
         phone: userInfo.telefone,
         address: userInfo.endereco,
-        specialization: userInfo.especializacao,
         oab: userInfo.oab,
         oab_uf: userInfo.oab_uf,
       };
@@ -330,37 +326,24 @@ const Perfil = () => {
               </div>
 
               <div className="space-y-3">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50 px-1">Localização</Label>
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50 px-1">Localização (UF)</Label>
                 <div className="flex items-center gap-4 p-4 rounded-2xl bg-background/50 border border-border group hover:border-primary/20 transition-all shadow-sm">
                   <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-foreground transition-all shadow-inner">
                     <MapPin className="h-5 w-5" />
                   </div>
                   {editMode ? (
-                    <Input
-                      className="bg-transparent border-none p-0 h-auto font-black shadow-none focus-visible:ring-0 text-foreground"
-                      value={userInfo.endereco}
-                      onChange={(e) => setUserInfo({...userInfo, endereco: e.target.value})}
-                    />
+                    <Select value={userInfo.endereco || undefined} onValueChange={(val) => setUserInfo({ ...userInfo, endereco: val })}>
+                      <SelectTrigger className="bg-transparent border-none p-0 h-auto font-black shadow-none focus:ring-0 text-foreground [&>svg]:opacity-50">
+                        <SelectValue placeholder="Selecione o estado" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-2xl border-border bg-card shadow-2xl max-h-[300px]">
+                        {ESTADOS_BRASIL.map((uf) => (
+                          <SelectItem key={uf} value={uf} className="rounded-xl font-bold">{uf}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   ) : (
                     <span className="font-bold truncate text-foreground/80">{userInfo.endereco || "Não informado"}</span>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50 px-1">Área de Atuação / Especialidade</Label>
-                <div className="flex items-center gap-4 p-4 rounded-2xl bg-background/50 border border-border group hover:border-primary/20 transition-all shadow-sm">
-                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-foreground transition-all shadow-inner">
-                    <Briefcase className="h-5 w-5" />
-                  </div>
-                  {editMode ? (
-                    <Input
-                      className="bg-transparent border-none p-0 h-auto font-black shadow-none focus-visible:ring-0 text-foreground"
-                      value={userInfo.especializacao}
-                      onChange={(e) => setUserInfo({...userInfo, especializacao: e.target.value})}
-                    />
-                  ) : (
-                    <span className="font-bold truncate text-foreground/80">{userInfo.especializacao || "Não informado"}</span>
                   )}
                 </div>
               </div>
