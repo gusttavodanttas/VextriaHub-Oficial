@@ -201,10 +201,10 @@ const Processos = () => {
             size="sm"
             onClick={() => setIsIntegracaoOpen(true)}
             className="rounded-xl h-9 px-4 font-semibold text-xs border-black/10 dark:border-border gap-1.5"
-            title="Consulta processos no banco nacional de dados do CNJ (DataJud)"
+            title="Buscar e importar processo pelo número"
           >
             <Database className="h-3.5 w-3.5 text-primary" />
-            DataJud
+            Consultar Processo
           </Button>
           <Button
             variant="outline"
@@ -343,12 +343,6 @@ const Processos = () => {
           )}
         </CardContent>
       </Card>
-
-      {/* Tooltip explicativo discreto */}
-      <div className="flex flex-wrap gap-4 text-[11px] text-muted-foreground/60 px-1">
-        <span><strong className="text-muted-foreground">DataJud</strong> — consulta o banco nacional do CNJ para buscar qualquer processo pelo número</span>
-        <span><strong className="text-muted-foreground">Sincronizar OAB</strong> — importa automaticamente todos os processos e publicações vinculados ao número da OAB cadastrado</span>
-      </div>
 
       {/* Modais */}
       <NovoProcessoDialog

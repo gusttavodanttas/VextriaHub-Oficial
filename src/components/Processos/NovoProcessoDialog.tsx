@@ -626,7 +626,17 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="valorCausa">Valor da Causa</Label>
-                            <Input id="valorCausa" type="number" value={formData.valorCausa || 0} onChange={(e) => handleChange('valorCausa', Number(e.target.value))} className="h-11 rounded-xl" />
+                            <Input
+                              id="valorCausa"
+                              inputMode="numeric"
+                              placeholder="R$ 0,00"
+                              value={formData.valorCausa ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(formData.valorCausa) : ''}
+                              onChange={(e) => {
+                                const digits = e.target.value.replace(/\D/g, '');
+                                handleChange('valorCausa', digits ? Number(digits) / 100 : 0);
+                              }}
+                              className="h-11 rounded-xl"
+                            />
                           </div>
                         </div>
                       </div>
