@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useDeferredValue } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useConsultivos, Consultivo } from "@/hooks/useConsultivos";
@@ -372,6 +372,7 @@ export default function ConsultivoPage() {
   const [filtroClienteNome, setFiltroClienteNome] = useState<string | null>(null);
   const [filtroClienteId, setFiltroClienteId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const dSearch = useDeferredValue(search);
   const [filterCat, setFilterCat] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterPri, setFilterPri] = useState("all");
@@ -412,14 +413,14 @@ export default function ConsultivoPage() {
   const andamento  = data.filter(c => c.status === "em_andamento").length;
   const concluidos = data.filter(c => c.status === "concluido").length;
 
-  const filtered = data.filter(c => {
-    const matchSearch  = !search || c.titulo.toLowerCase().includes(search.toLowerCase()) || (c.descricao || "").toLowerCase().includes(search.toLowerCase());
+  const filtered = useMemo(() => data.filter(c => {
+    const matchSearch  = !dSearch || c.titulo.toLowerCase().includes(dSearch.toLowerCase()) || (c.descricao || "").toLowerCase().includes(dSearch.toLowerCase());
     const matchCat     = filterCat === "all" || c.categoria === filterCat;
     const matchStatus  = filterStatus === "all" || c.status === filterStatus;
     const matchPri     = filterPri === "all" || c.prioridade === filterPri;
     const matchClient  = !filtroClienteId || c.cliente_id === filtroClienteId;
     return matchSearch && matchCat && matchStatus && matchPri && matchClient;
-  });
+  }), [data, dSearch, filterCat, filterStatus, filterPri, filtroClienteId]);
 
   const defaultCatVal = effectiveCats[0]?.valor ?? "";
 

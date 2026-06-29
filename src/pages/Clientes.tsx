@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useDeferredValue } from "react";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -92,6 +92,7 @@ const Clientes = () => {
   // Estados
   const [sortBy, setSortBy] = useState<"recentes" | "nome" | "processos">("recentes");
   const [searchValue, setSearchValue] = useState("");
+  const dSearch = useDeferredValue(searchValue);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -108,8 +109,8 @@ const Clientes = () => {
   // Filtragem + ordenação (useMemo evita re-render extra a cada tecla → digitação fluida)
   const filteredClients = useMemo(() => {
     let filtered = [...clients];
-    const q = searchValue.toLowerCase().trim();
-    const qDigits = onlyDigits(searchValue);
+    const q = dSearch.toLowerCase().trim();
+    const qDigits = onlyDigits(dSearch);
 
     if (q) {
       filtered = filtered.filter(
@@ -137,7 +138,7 @@ const Clientes = () => {
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
     return filtered;
-  }, [clients, searchValue, advancedFilters, teamFilter, myTeams, sortBy]);
+  }, [clients, dSearch, advancedFilters, teamFilter, myTeams, sortBy]);
 
   const multiSelect = useMultiSelect(filteredClients);
 

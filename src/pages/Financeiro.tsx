@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useDeferredValue } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -897,6 +897,7 @@ const Financeiro = () => {
   };
 
   const [busca, setBusca] = useState("");
+  const dBusca = useDeferredValue(busca);
   const [filtroStatus, setFiltroStatus] = useState("todos");
   const [filtroCategoria, setFiltroCategoria] = useState("todas");
 
@@ -944,12 +945,12 @@ const Financeiro = () => {
   }, [items]);
 
   const filtered = useMemo(() => items.filter((i) => {
-    const q = busca.toLowerCase();
-    const matchBusca = !busca || i.descricao.toLowerCase().includes(q) || (i.clientes?.nome?.toLowerCase().includes(q) ?? false);
+    const q = dBusca.toLowerCase();
+    const matchBusca = !dBusca || i.descricao.toLowerCase().includes(q) || (i.clientes?.nome?.toLowerCase().includes(q) ?? false);
     const matchStatus = filtroStatus === "todos" || i.status === filtroStatus;
     const matchCat = filtroCategoria === "todas" || i.categoria === filtroCategoria;
     return matchBusca && matchStatus && matchCat;
-  }), [items, busca, filtroStatus, filtroCategoria]);
+  }), [items, dBusca, filtroStatus, filtroCategoria]);
 
   const receber = filtered.filter((i) => i.tipo === "receita");
   const pagar = filtered.filter((i) => i.tipo === "despesa");

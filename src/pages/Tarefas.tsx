@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useDeferredValue } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -73,6 +73,7 @@ const Tarefas = () => {
   const atendimentoMap = useMemo(() => Object.fromEntries(atendimentos.map(a => [a.id, a.label])), [atendimentos]);
 
   const [search, setSearch] = useState("");
+  const dSearch = useDeferredValue(search);
   const [prioridadeFilter, setPrioridadeFilter] = useState("todas");
   const [statusFilter, setStatusFilter] = useState("pendentes");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -80,12 +81,12 @@ const Tarefas = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const filtered = useMemo(() => tarefas.filter(t => {
-    const q = search.toLowerCase();
+    const q = dSearch.toLowerCase();
     const matchesSearch = !q || t.titulo?.toLowerCase().includes(q) || (t.cliente_nome || "").toLowerCase().includes(q) || (t.descricao || "").toLowerCase().includes(q);
     const matchesPrio = prioridadeFilter === "todas" || t.prioridade === prioridadeFilter;
     const matchesStatus = statusFilter === "todas" || (statusFilter === "pendentes" ? !t.concluida : t.concluida);
     return matchesSearch && matchesPrio && matchesStatus;
-  }), [tarefas, search, prioridadeFilter, statusFilter]);
+  }), [tarefas, dSearch, prioridadeFilter, statusFilter]);
 
   const multiSelect = useMultiSelect(filtered);
 

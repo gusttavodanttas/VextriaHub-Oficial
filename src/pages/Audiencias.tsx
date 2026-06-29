@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useDeferredValue } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,6 +56,7 @@ const Audiencias = () => {
   const membros = useMemo(() => officeUsers.map(u => ({ id: u.user_id, label: u.profile?.full_name || u.profile?.email || "Membro" })), [officeUsers]);
 
   const [searchTerm, setSearchTerm] = useState("");
+  const dSearch = useDeferredValue(searchTerm);
   const [statusFilter, setStatusFilter] = useState("todas");
   const [tipoFilter, setTipoFilter] = useState("todos");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -79,12 +80,12 @@ const Audiencias = () => {
   }, [tiposCadastrados, audiencias]);
 
   const filtered = useMemo(() => audiencias.filter(a => {
-    const q = searchTerm.toLowerCase();
+    const q = dSearch.toLowerCase();
     const matchesSearch = !q || a.titulo?.toLowerCase().includes(q) || (a.cliente_nome || "").toLowerCase().includes(q) || (a.local || "").toLowerCase().includes(q);
     const matchesStatus = statusFilter === "todas" || a.status === statusFilter;
     const matchesTipo = tipoFilter === "todos" || a.tipo === tipoFilter;
     return matchesSearch && matchesStatus && matchesTipo;
-  }), [audiencias, searchTerm, statusFilter, tipoFilter]);
+  }), [audiencias, dSearch, statusFilter, tipoFilter]);
 
   const multiSelect = useMultiSelect(filtered);
 

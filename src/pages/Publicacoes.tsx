@@ -1,5 +1,5 @@
 ﻿
-import { useState, useMemo } from "react";
+import { useState, useMemo, useDeferredValue } from "react";
 import { formatCNJ } from "@/utils/formatCNJ";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -217,7 +217,8 @@ export default function Publicacoes() {
     };
   }, [publications]);
 
-  // Filtragem
+  // Filtragem (busca adiada para não travar a digitação)
+  const dSearch = useDeferredValue(filters.search);
   const filteredPublications = useMemo(() => {
     // 1. De-duplicação por CNJ + Conteúdo (primeiros 50 chars) + Data
     const uniqueMap = new Map();
@@ -232,9 +233,9 @@ export default function Publicacoes() {
 
     // 2. Filtros
     return uniquePublicacoes.filter(pub => {
-      const searchTerm = filters.search.toLowerCase();
+      const searchTerm = dSearch.toLowerCase();
       const matchesSearch = (pub.titulo || '').toLowerCase().includes(searchTerm) ||
-                           (pub.numero_processo || '').includes(filters.search) ||
+                           (pub.numero_processo || '').includes(dSearch) ||
                            (pub.conteudo || '').toLowerCase().includes(searchTerm);
       
       // 'all' exclui arquivadas — arquivadas só aparecem quando filtro = 'arquivada'
@@ -266,7 +267,7 @@ export default function Publicacoes() {
       
       return matchesSearch && matchesStatus && matchesUrgencia && matchesDate;
     });
-  }, [publications, filters]);
+  }, [publications, dSearch, filters.status, filters.urgencia, filters.dateRange]);
 
   const activeFiltersCount = useMemo(() => {
     return [

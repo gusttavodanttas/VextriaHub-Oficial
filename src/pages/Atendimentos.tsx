@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useDeferredValue } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -628,6 +628,7 @@ const Atendimentos = () => {
   const items = query.data ?? [];
 
   const [busca, setBusca] = useState("");
+  const dBusca = useDeferredValue(busca);
   const [filtroStatus, setFiltroStatus] = useState("todos");
   const [filtroTipo, setFiltroTipo] = useState("todos");
 
@@ -652,15 +653,15 @@ const Atendimentos = () => {
   }), [items]);
 
   const filtered = useMemo(() => items.filter((i) => {
-    const q = busca.toLowerCase();
-    const matchBusca = !busca
+    const q = dBusca.toLowerCase();
+    const matchBusca = !dBusca
       || i.tipo_atendimento.toLowerCase().includes(q)
       || (i.clientes?.nome?.toLowerCase().includes(q) ?? false)
       || (i.observacoes?.toLowerCase().includes(q) ?? false);
     const matchStatus = filtroStatus === "todos" || i.status === filtroStatus;
     const matchTipo = filtroTipo === "todos" || i.tipo_atendimento === filtroTipo;
     return matchBusca && matchStatus && matchTipo;
-  }), [items, busca, filtroStatus, filtroTipo]);
+  }), [items, dBusca, filtroStatus, filtroTipo]);
 
   const openNew = () => { setEditItem(null); setDialogOpen(true); };
   const openEdit = (item: Atendimento) => { setEditItem(item); setDialogOpen(true); };

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
+﻿import React, { useState, useEffect, useCallback, useMemo, useDeferredValue } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -137,23 +137,26 @@ const Processos = () => {
     return result;
   }, [processos]);
 
+  // Busca adiada (input responsivo; filtragem/lista re-renderiza em baixa prioridade)
+  const dSearch = useDeferredValue(filters.search);
   const filteredProcessos = useMemo(() => {
     const tab = STATUS_TABS.find(t => t.key === activeTab);
     const teamMemberIds = teamFilter
       ? myTeams.find(t => t.id === teamFilter)?.memberIds ?? []
       : null;
+    const q = dSearch.toLowerCase();
     return processos.filter(p => {
       const matchesSearch =
-        p.titulo.toLowerCase().includes(filters.search.toLowerCase()) ||
-        p.cliente.toLowerCase().includes(filters.search.toLowerCase()) ||
-        (p.numeroProcesso && p.numeroProcesso.includes(filters.search));
+        p.titulo.toLowerCase().includes(q) ||
+        p.cliente.toLowerCase().includes(q) ||
+        (p.numeroProcesso && p.numeroProcesso.includes(dSearch));
       const matchesCliente = filters.cliente === 'all' || p.cliente === filters.cliente;
       const matchesArea = filters.area === 'all' || p.area === filters.area;
       const matchesTab = tab ? tab.match(p) : true;
       const matchesTeam = !teamMemberIds || teamMemberIds.includes(p.responsavelId ?? '');
       return matchesSearch && matchesCliente && matchesArea && matchesTab && matchesTeam;
     });
-  }, [processos, filters, activeTab, teamFilter, myTeams]);
+  }, [processos, dSearch, filters.cliente, filters.area, activeTab, teamFilter, myTeams]);
 
   const clientesDisponiveis = useMemo(() => {
     const unique = new Set(processos.map(p => p.cliente));

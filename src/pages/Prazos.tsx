@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useDeferredValue } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -118,6 +118,7 @@ export default function Prazos() {
   const navigate = useNavigate();
 
   const [search, setSearch] = useState('');
+  const dSearch = useDeferredValue(search);
   const [filterPriority, setFilterPriority] = useState<'all' | 'alta' | 'media' | 'baixa'>('all');
   const [filterUrgency, setFilterUrgency] = useState<Urgency | 'all'>('all');
   const [showConcluidos, setShowConcluidos] = useState(false);
@@ -187,12 +188,12 @@ export default function Prazos() {
   });
 
   const filtered = useMemo(() => prazos.filter(p => {
-    const matchSearch = !search || p.titulo.toLowerCase().includes(search.toLowerCase()) || (p.descricao || '').toLowerCase().includes(search.toLowerCase());
+    const matchSearch = !dSearch || p.titulo.toLowerCase().includes(dSearch.toLowerCase()) || (p.descricao || '').toLowerCase().includes(dSearch.toLowerCase());
     const matchPriority = filterPriority === 'all' || p.prioridade === filterPriority;
     const matchConcluido = showConcluidos || p.status !== 'concluido';
     const matchUrgency = filterUrgency === 'all' || getUrgency(p) === filterUrgency;
     return matchSearch && matchPriority && matchConcluido && matchUrgency;
-  }), [prazos, search, filterPriority, filterUrgency, showConcluidos]);
+  }), [prazos, dSearch, filterPriority, filterUrgency, showConcluidos]);
 
   const grouped = useMemo(() => {
     const map: Record<Urgency, Prazo[]> = { vencido: [], hoje: [], critico: [], normal: [], concluido: [] };

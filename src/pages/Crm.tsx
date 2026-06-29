@@ -1,4 +1,4 @@
-﻿import { useState, useMemo } from "react";
+﻿import { useState, useMemo, useDeferredValue } from "react";
 import { UserCheck, Phone, Mail, Building2, Calendar, Filter, Search, Plus, Target, TrendingUp, BarChart3, Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,7 @@ export default function Crm() {
   const [selectedOpportunity, setSelectedOpportunity] = useState(null);
   const [showNovoLeadDialog, setShowNovoLeadDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const dSearch = useDeferredValue(searchQuery);
   const [statusFilter, setStatusFilter] = useState<string>("todos");
 
   const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
@@ -54,14 +55,14 @@ export default function Crm() {
   }, [allClientes]);
 
   const matchSearch = (c: any) =>
-    c.nome.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (c.email && c.email.toLowerCase().includes(searchQuery.toLowerCase()));
+    c.nome.toLowerCase().includes(dSearch.toLowerCase()) ||
+    (c.email && c.email.toLowerCase().includes(dSearch.toLowerCase()));
 
   const filteredLeads = useMemo(
     () => leads.filter(l => matchSearch(l) && (statusFilter === "todos" || l.status === statusFilter)),
-    [leads, searchQuery, statusFilter]
+    [leads, dSearch, statusFilter]
   );
-  const filteredClients = useMemo(() => convertedClients.filter(matchSearch), [convertedClients, searchQuery]);
+  const filteredClients = useMemo(() => convertedClients.filter(matchSearch), [convertedClients, dSearch]);
 
   const handleMenuClick = (view: string) => {
     setCurrentView(view);
