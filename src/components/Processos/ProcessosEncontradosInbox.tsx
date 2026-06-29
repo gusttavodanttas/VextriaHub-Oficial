@@ -54,14 +54,21 @@ export function ProcessosEncontradosInbox({ onImported, onBuscar }: { onImported
       {items.map((item) => (
         <div key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border border-black/5 dark:border-border bg-black/[0.01] dark:bg-white/[0.01] hover:border-primary/30 transition-all">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
               <Scale className="h-4 w-4 text-primary shrink-0" />
               <p className="font-bold text-sm truncate">{item.titulo || "Processo"}</p>
+              {item.tribunal && (
+                <span className="shrink-0 px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 text-[10px] font-black uppercase tracking-wide">
+                  {item.tribunal.toUpperCase()}
+                </span>
+              )}
             </div>
             <p className="text-[11px] font-mono text-muted-foreground">{formatCNJ(item.numero_processo)}</p>
-            <p className="text-xs text-muted-foreground truncate mt-0.5">
-              {item.tribunal || "—"}{item.autor ? ` · ${item.autor}` : ""}{item.reu ? ` × ${item.reu}` : ""}
-            </p>
+            {(item.autor || item.reu) && (
+              <p className="text-xs text-muted-foreground truncate mt-0.5">
+                {item.autor || "—"}{item.reu ? ` × ${item.reu}` : ""}
+              </p>
+            )}
           </div>
           <div className="flex gap-2 shrink-0">
             <Button size="sm" onClick={() => adicionar(item)} disabled={busy === item.id} className="rounded-xl font-bold gap-1.5">
