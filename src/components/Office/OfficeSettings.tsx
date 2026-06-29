@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,9 +9,10 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOfficeManagement } from '@/hooks/useOfficeManagement';
 import { useToast } from '@/hooks/use-toast';
-import { Building2, Save, BarChart3, CreditCard, Loader2 } from 'lucide-react';
+import { Building2, Save, BarChart3, CreditCard, Loader2, Camera } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatPhone, isValidPhone } from '@/lib/phone';
+import { uploadPublicImage, validateImage } from '@/lib/uploadImage';
 import { PermissionGuard } from '@/components/Auth/PermissionGuard';
 
 export const OfficeSettings: React.FC = () => {
@@ -19,6 +20,9 @@ export const OfficeSettings: React.FC = () => {
   const { updateOffice } = useOfficeManagement();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const logoRef = useRef<HTMLInputElement>(null);
+  const [logoUrl, setLogoUrl] = useState((office as any)?.logo_url || '');
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [formData, setFormData] = useState({
     name: office?.name || '',
     email: office?.email || '',
@@ -33,7 +37,7 @@ export const OfficeSettings: React.FC = () => {
     (async () => {
       const { data } = await supabase
         .from('offices')
-        .select('name, email, phone, address')
+        .select('name, email, phone, address, logo_url')
         .eq('id', office.id)
         .maybeSingle();
       if (cancel || !data) return;
@@ -43,9 +47,30 @@ export const OfficeSettings: React.FC = () => {
         phone: formatPhone(data.phone || ''),
         address: data.address || '',
       });
+      setLogoUrl((data as any).logo_url || '');
     })();
     return () => { cancel = true; };
   }, [office?.id]);
+
+  const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !office?.id) return;
+    const err = validateImage(file);
+    if (err) { toast({ variant: "destructive", title: "Imagem inválida", description: err }); return; }
+    try {
+      setUploadingLogo(true);
+      const url = await uploadPublicImage("logos", file, office.id);
+      const { error } = await supabase.from("offices").update({ logo_url: url }).eq("id", office.id);
+      if (error) throw error;
+      setLogoUrl(url);
+      toast({ title: "Logo atualizada", description: "A logo do escritório foi alterada." });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Erro ao enviar logo", description: err?.message || "Verifique se o bucket de imagens existe." });
+    } finally {
+      setUploadingLogo(false);
+      if (logoRef.current) logoRef.current.value = "";
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,6 +121,33 @@ export const OfficeSettings: React.FC = () => {
             </div>
           </CardHeader>
           <CardContent className="p-5 md:p-6">
+            {/* Logo */}
+            <div className="flex items-center gap-4 pb-5 mb-5 border-b border-black/5 dark:border-border">
+              <div className="relative group/logo">
+                <div className="h-20 w-20 rounded-2xl border border-black/10 dark:border-border bg-black/[0.02] dark:bg-white/[0.02] flex items-center justify-center overflow-hidden">
+                  {logoUrl ? (
+                    <img src={logoUrl} alt="Logo do escritório" className="h-full w-full object-contain" />
+                  ) : (
+                    <Building2 className="h-8 w-8 text-muted-foreground/40" />
+                  )}
+                </div>
+                <input ref={logoRef} type="file" accept="image/*" className="hidden" onChange={handleLogoChange} />
+                <button
+                  type="button"
+                  onClick={() => logoRef.current?.click()}
+                  disabled={uploadingLogo}
+                  aria-label="Alterar logo"
+                  className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg border-2 border-background hover:scale-105 transition-transform disabled:opacity-60"
+                >
+                  {uploadingLogo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+              <div>
+                <p className="font-bold text-sm">Logo do escritório</p>
+                <p className="text-xs text-muted-foreground">PNG ou JPG, até 3MB. Aparece nos documentos.</p>
+              </div>
+            </div>
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">

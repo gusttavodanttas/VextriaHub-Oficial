@@ -29,12 +29,15 @@ import {
   Loader2,
   CalendarDays
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useMyStats } from "@/hooks/useMyStats";
 import { formatPhone, isValidPhone } from "@/lib/phone";
+import { uploadPublicImage, validateImage } from "@/lib/uploadImage";
+import { CityCombobox } from "@/components/ui/CityCombobox";
+import { Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ESTADOS_BRASIL = [
@@ -47,7 +50,10 @@ const Perfil = () => {
   const { toast } = useToast();
   const [editMode, setEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
   const [userInfo, setUserInfo] = useState({
     nome: "Carregando...",
     email: "Carregando...",
@@ -91,6 +97,34 @@ const Perfil = () => {
     (officeRole === "super_admin" || profile?.role === "super_admin") ? "Super Admin" :
     (officeRole === "admin" || profile?.role === "admin") ? "Administrador" :
     officeRole === "coordinator" ? "Coordenador" : "Membro";
+
+  useEffect(() => {
+    if ((profile as any)?.avatar_url) setAvatarUrl((profile as any).avatar_url);
+  }, [(profile as any)?.avatar_url]);
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const err = validateImage(file);
+      if (err) { toast({ variant: "destructive", title: "Imagem inválida", description: err }); return; }
+      const targetId = profile?.id || user?.id;
+      const targetCol = profile?.id ? "id" : "user_id";
+      try {
+        setUploadingAvatar(true);
+        const url = await uploadPublicImage("avatars", file, user?.id || "user");
+        const { error } = await supabase.from("profiles").update({ avatar_url: url }).eq(targetCol, targetId);
+        if (error) throw error;
+        setAvatarUrl(url);
+        if (refreshProfile) await refreshProfile();
+        toast({ title: "Foto atualizada", description: "Sua foto de perfil foi alterada." });
+      } catch (err: any) {
+        toast({ variant: "destructive", title: "Erro ao enviar foto", description: err?.message || "Verifique se o bucket de imagens existe." });
+      } finally {
+        setUploadingAvatar(false);
+        if (fileRef.current) fileRef.current.value = "";
+      }
+    }
+  };
 
   const handleSave = async () => {
     try {
@@ -196,13 +230,25 @@ const Perfil = () => {
             {/* Identidade */}
             <div className="px-6 md:px-10 -mt-14 md:-mt-16 relative z-10">
               <div className="flex flex-col md:flex-row md:items-end gap-5">
-                <div className="p-1.5 rounded-[2rem] bg-background shadow-premium w-fit mx-auto md:mx-0">
-                  <Avatar className="h-24 w-24 md:h-28 md:w-28 rounded-[1.6rem] border-4 border-background">
-                    <AvatarImage src="/placeholder.svg" className="object-cover" />
-                    <AvatarFallback className="text-3xl font-black bg-gradient-to-br from-primary/20 to-primary/5 text-primary">
-                      {userInfo.nome?.substring(0, 2).toUpperCase() || "US"}
-                    </AvatarFallback>
-                  </Avatar>
+                <div className="relative w-fit mx-auto md:mx-0 group/avatar">
+                  <div className="p-1.5 rounded-[2rem] bg-background shadow-premium">
+                    <Avatar className="h-24 w-24 md:h-28 md:w-28 rounded-[1.6rem] border-4 border-background">
+                      <AvatarImage src={avatarUrl || undefined} className="object-cover" />
+                      <AvatarFallback className="text-3xl font-black bg-gradient-to-br from-primary/20 to-primary/5 text-primary">
+                        {userInfo.nome?.substring(0, 2).toUpperCase() || "US"}
+                      </AvatarFallback>
+                    </Avatar>
+                  </div>
+                  <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+                  <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    disabled={uploadingAvatar}
+                    aria-label="Alterar foto de perfil"
+                    className="absolute -bottom-1 -right-1 h-9 w-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg border-2 border-background hover:scale-105 transition-transform disabled:opacity-60"
+                  >
+                    {uploadingAvatar ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                  </button>
                 </div>
 
                 <div className="flex-1 text-center md:text-left space-y-2 md:pb-2">
@@ -326,22 +372,15 @@ const Perfil = () => {
               </div>
 
               <div className="space-y-3">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50 px-1">Localização (UF)</Label>
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50 px-1">Localização (Cidade)</Label>
                 <div className="flex items-center gap-4 p-4 rounded-2xl bg-background/50 border border-border group hover:border-primary/20 transition-all shadow-sm">
                   <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-foreground transition-all shadow-inner">
                     <MapPin className="h-5 w-5" />
                   </div>
                   {editMode ? (
-                    <Select value={userInfo.endereco || undefined} onValueChange={(val) => setUserInfo({ ...userInfo, endereco: val })}>
-                      <SelectTrigger className="bg-transparent border-none p-0 h-auto font-black shadow-none focus:ring-0 text-foreground [&>svg]:opacity-50">
-                        <SelectValue placeholder="Selecione o estado" />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-2xl border-border bg-card shadow-2xl max-h-[300px]">
-                        {ESTADOS_BRASIL.map((uf) => (
-                          <SelectItem key={uf} value={uf} className="rounded-xl font-bold">{uf}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="flex-1 min-w-0">
+                      <CityCombobox value={userInfo.endereco} onChange={(val) => setUserInfo({ ...userInfo, endereco: val })} />
+                    </div>
                   ) : (
                     <span className="font-bold truncate text-foreground/80">{userInfo.endereco || "Não informado"}</span>
                   )}
