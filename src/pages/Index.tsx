@@ -8,6 +8,7 @@ import { NovoProcessoDialog } from "@/components/Processos/NovoProcessoDialog";
 import { NovoPrazoStandaloneDialog } from "@/components/Processos/NovoPrazoStandaloneDialog";
 import { NovoCompromissoDialog } from "@/components/Agenda/NovoCompromissoDialog";
 import { NovoClienteDialog } from "@/components/Clientes/NovoClienteDialog";
+import { QuickAtendimentoDialog } from "@/components/Dashboard/QuickAtendimentoDialog";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, FileText, CheckSquare, TrendingUp, ArrowRight, Plus, CalendarCheck, UserCheck, Users2, CalendarPlus, UserPlus, Award, Activity, Clock, Settings2 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -22,14 +23,14 @@ import { useClientes } from "@/hooks/useClientes";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-type ModalKey = "processo" | "prazo" | "agendar" | "cliente";
+type ModalKey = "processo" | "prazo" | "agendar" | "cliente" | "atendimento";
 const ACTION_CONFIG: { key: string; label: string; icon: React.ElementType; to?: string; modal?: ModalKey }[] = [
   { key: "processo", label: "Processo", icon: Plus, modal: "processo" },
   { key: "prazo", label: "Prazo", icon: Plus, modal: "prazo" },
   { key: "agendar", label: "Agendar", icon: CalendarPlus, modal: "agendar" },
   { key: "cliente", label: "Cliente", icon: UserPlus, modal: "cliente" },
+  { key: "atendimento", label: "Atendimento", icon: UserCheck, modal: "atendimento" },
   { key: "timesheet", label: "Timesheet", icon: Clock, to: "/timesheet" },
-  { key: "atendimento", label: "Atendimento", icon: UserCheck, to: "/atendimentos" },
   { key: "audiencia", label: "Audiência", icon: CalendarCheck, to: "/audiencias" },
 ];
 
@@ -289,6 +290,7 @@ const Index = () => {
       <NovoPrazoStandaloneDialog open={openModal === "prazo"} onOpenChange={(o) => !o && setOpenModal(null)} onSuccess={onModalSuccess} />
       <NovoCompromissoDialog open={openModal === "agendar"} onOpenChange={(o) => !o && setOpenModal(null)} onCreated={onModalSuccess} />
       <NovoClienteDialog open={openModal === "cliente"} onOpenChange={(o) => !o && setOpenModal(null)} onSave={handleNovoCliente} />
+      <QuickAtendimentoDialog open={openModal === "atendimento"} onOpenChange={(o) => !o && setOpenModal(null)} onSuccess={onModalSuccess} />
     </div>
   );
 };
