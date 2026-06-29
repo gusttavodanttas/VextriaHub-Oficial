@@ -5,6 +5,15 @@ import { useProcessosEncontrados, ProcessoEncontrado } from "@/hooks/useProcesso
 import { useProcessosV2 } from "@/hooks/useProcessosV2";
 import { useToast } from "@/hooks/use-toast";
 import { formatCNJ } from "@/utils/formatCNJ";
+import { tribunalFromCNJ } from "@/utils/tribunalCNJ";
+
+// Limpa títulos tipo "x", "NOME x" (parte vazia) → usa nome disponível ou o nº do processo
+function cleanTitulo(t: string | null, numero: string): string {
+  let s = (t || "").replace(/\s+/g, " ").trim();
+  s = s.replace(/\s*x\s*$/i, "").replace(/^x\s*/i, "").trim();
+  if (!s || s.toLowerCase() === "x") return `Processo ${formatCNJ(numero)}`;
+  return s;
+}
 
 export function ProcessosEncontradosInbox({ onImported, onBuscar }: { onImported?: () => void; onBuscar?: () => void }) {
   const { items, loading, remover, descartar } = useProcessosEncontrados();
@@ -16,7 +25,13 @@ export function ProcessosEncontradosInbox({ onImported, onBuscar }: { onImported
     setBusy(item.id);
     try {
       const p = item.payload || {};
-      await create({ ...p, titulo: p.titulo || item.titulo || "Processo", numeroProcesso: item.numero_processo });
+      const tribunalCerto = tribunalFromCNJ(item.numero_processo) || p.tribunal || item.tribunal || null;
+      await create({
+        ...p,
+        titulo: cleanTitulo(item.titulo, item.numero_processo),
+        tribunal: tribunalCerto,
+        numeroProcesso: item.numero_processo,
+      });
       await remover(item.id);
       toast({ title: "Processo adicionado", description: "Incluído na sua base." });
       onImported?.();
@@ -56,12 +71,15 @@ export function ProcessosEncontradosInbox({ onImported, onBuscar }: { onImported
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
               <Scale className="h-4 w-4 text-primary shrink-0" />
-              <p className="font-bold text-sm truncate">{item.titulo || "Processo"}</p>
-              {item.tribunal && (
-                <span className="shrink-0 px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 text-[10px] font-black uppercase tracking-wide">
-                  {item.tribunal.toUpperCase()}
-                </span>
-              )}
+              <p className="font-bold text-sm truncate">{cleanTitulo(item.titulo, item.numero_processo)}</p>
+              {(() => {
+                const sigla = tribunalFromCNJ(item.numero_processo) || (item.tribunal || "").toUpperCase();
+                return sigla ? (
+                  <span className="shrink-0 px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 text-[10px] font-black uppercase tracking-wide">
+                    {sigla}
+                  </span>
+                ) : null;
+              })()}
             </div>
             <p className="text-[11px] font-mono text-muted-foreground">{formatCNJ(item.numero_processo)}</p>
             {(item.autor || item.reu) && (
