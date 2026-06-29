@@ -32,6 +32,7 @@ import {
   CheckCircle2,
   Circle,
   Sparkles,
+  Trash2,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
@@ -126,6 +127,8 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
 
   const [movements, setMovements] = useState<Movimentacao[]>([]);
   const [loadingMovements, setLoadingMovements] = useState(false);
+  const [confirmDelMov, setConfirmDelMov] = useState<string | null>(null);
+  const [delMovLoading, setDelMovLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [completarOpen, setCompletarOpen] = useState(false);
   const [andamentoConfirm, setAndamentoConfirm] = useState<{ all: any[]; novos: any[]; meta: any; processoId: string } | null>(null);
@@ -181,6 +184,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
     setTarefas([]);
     setTimesheets([]);
     setAndamentoConfirm(null);
+    setConfirmDelMov(null);
     setExpandedPubId(null);
     setTratandoPubId(null);
     setLastSyncedProcessoId(null);
@@ -286,6 +290,17 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
     if (!error && data) setMovements(data as any);
     setLoadingMovements(false);
   }, [processo?.id]);
+
+  // Exclui um andamento (movimentação) específico — usado para remover andamentos errados
+  const handleDeleteMovement = useCallback(async (id: string) => {
+    setDelMovLoading(true);
+    const { error } = await supabase.from('movimentacoes_processo').delete().eq('id', id);
+    setDelMovLoading(false);
+    if (error) { toast({ title: 'Erro ao excluir', description: error.message, variant: 'destructive' }); return; }
+    setMovements(prev => prev.filter(m => (m as any).id !== id));
+    setConfirmDelMov(null);
+    toast({ title: 'Andamento excluído' });
+  }, [toast]);
 
   const fetchSubData = useCallback(async (tab: string) => {
     if (!processo?.id) return;
@@ -939,12 +954,32 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                 ) : movements.length > 0 ? (
                   <div className="relative pl-6 space-y-8 border-l-2 border-border ml-2 pt-2 pb-10">
                     {movements.map((mov) => (
-                      <div key={mov.id} className="relative">
+                      <div key={mov.id} className="relative group">
                         <div className="absolute -left-[29px] top-1 h-3.5 w-3.5 rounded-full bg-background border-2 border-primary/40 ring-4 ring-primary/5" />
                         <div className="space-y-1.5 pl-2">
                           <div className="flex items-center justify-between gap-4">
                             <span className="text-[10px] font-black text-primary/80 bg-primary/5 px-2.5 py-0.5 rounded-lg">{fmtDate(mov.data)}</span>
-                            <span className="text-[9px] uppercase tracking-widest text-muted-foreground/40 font-bold">{mov.tipo || 'Andamento'}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[9px] uppercase tracking-widest text-muted-foreground/40 font-bold">{mov.tipo || 'Andamento'}</span>
+                              {confirmDelMov === (mov as any).id ? (
+                                <span className="flex items-center gap-1">
+                                  <button onClick={() => handleDeleteMovement((mov as any).id)} disabled={delMovLoading}
+                                    className="text-[9px] font-black uppercase tracking-widest text-rose-600 hover:text-rose-700 disabled:opacity-40">
+                                    {delMovLoading ? '...' : 'Excluir'}
+                                  </button>
+                                  <span className="text-muted-foreground/30">/</span>
+                                  <button onClick={() => setConfirmDelMov(null)} disabled={delMovLoading}
+                                    className="text-[9px] font-black uppercase tracking-widest text-muted-foreground hover:text-foreground">
+                                    Cancelar
+                                  </button>
+                                </span>
+                              ) : (
+                                <button onClick={() => setConfirmDelMov((mov as any).id)} title="Excluir andamento"
+                                  className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground/40 hover:text-rose-500">
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </div>
                           </div>
                           <p className="text-sm font-semibold text-foreground/85 leading-relaxed">{mov.texto}</p>
                         </div>
