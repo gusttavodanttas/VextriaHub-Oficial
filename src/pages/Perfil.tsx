@@ -257,8 +257,8 @@ const Perfil = () => {
                 style={{ backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)", backgroundSize: "22px 22px" }}
               />
               {(office as any)?.logo_url ? (
-                <div className="absolute top-3 right-3 md:top-4 md:right-5 h-11 md:h-12 px-2.5 rounded-xl bg-white/95 shadow-lg flex items-center">
-                  <img src={(office as any).logo_url} alt="Logo do escritório" className="h-7 md:h-8 max-w-[140px] object-contain" />
+                <div className="absolute top-3 right-3 md:top-4 md:right-5 h-14 md:h-16 px-3 rounded-2xl bg-white/95 shadow-lg flex items-center justify-center">
+                  <img src={(office as any).logo_url} alt="Logo do escritório" className="h-10 md:h-12 w-auto max-w-[180px] object-contain" />
                 </div>
               ) : (
                 <Scale className="absolute right-6 bottom-3 h-16 w-16 text-white/20 pointer-events-none" />
@@ -445,6 +445,8 @@ const Perfil = () => {
               </div>
             </div>
           </div>
+
+          <ActivityCard />
         </div>
 
         <div className="space-y-6">
@@ -484,7 +486,6 @@ const Perfil = () => {
             </div>
           </div>
 
-          <ActivityCard />
           <SecurityCard />
         </div>
       </div>
