@@ -564,7 +564,7 @@ export const NovoPrazoStandaloneDialog = ({
       <GerenciarTiposModal open={gerenciarOpen} onClose={() => setGerenciarOpen(false)} officeId={user?.office_id || ''} />
 
       <Dialog open={open} onOpenChange={v => { if (!v) onOpenChange(false); }}>
-        <DialogContent aria-describedby={undefined} className="max-w-md bg-background border border-border p-0 rounded-2xl shadow-2xl overflow-hidden max-h-[92vh] overflow-y-auto">
+        <DialogContent aria-describedby={undefined} className="max-w-md bg-background border border-border p-0 rounded-2xl shadow-2xl overflow-hidden max-h-[92vh] overflow-y-auto [&>button]:z-20">
           <DialogHeader className="px-6 pt-6 pb-4 border-b border-border sticky top-0 bg-background z-10">
             <DialogTitle className="flex items-center gap-2.5 text-base font-black text-foreground">
               <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-500">
