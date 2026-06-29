@@ -46,7 +46,7 @@ const ESTADOS_BRASIL = [
 ];
 
 const Perfil = () => {
-  const { user, profile, session, isLoading, refreshProfile } = useAuth();
+  const { user, profile, office, session, isLoading, refreshProfile } = useAuth();
   const { toast } = useToast();
   const [editMode, setEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -224,7 +224,13 @@ const Perfil = () => {
                 className="absolute inset-0 opacity-20 mix-blend-overlay"
                 style={{ backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)", backgroundSize: "22px 22px" }}
               />
-              <Scale className="absolute right-6 bottom-3 h-16 w-16 text-white/20 pointer-events-none" />
+              {(office as any)?.logo_url ? (
+                <div className="absolute top-3 right-3 md:top-4 md:right-5 h-11 md:h-12 px-2.5 rounded-xl bg-white/95 shadow-lg flex items-center">
+                  <img src={(office as any).logo_url} alt="Logo do escritório" className="h-7 md:h-8 max-w-[140px] object-contain" />
+                </div>
+              ) : (
+                <Scale className="absolute right-6 bottom-3 h-16 w-16 text-white/20 pointer-events-none" />
+              )}
             </div>
 
             {/* Identidade */}
