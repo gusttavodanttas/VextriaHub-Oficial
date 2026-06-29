@@ -32,7 +32,6 @@ const Consultivo = lazy(() => import("./pages/Consultivo"));
 const Graficos = lazy(() => import("./pages/Graficos"));
 const Financeiro = lazy(() => import("./pages/Financeiro"));
 const Metas = lazy(() => import("./pages/Metas"));
-const Etiquetas = lazy(() => import("./pages/Etiquetas"));
 const Notificacoes = lazy(() => import("./pages/Notificacoes"));
 const Configuracoes = lazy(() => import("./pages/Configuracoes"));
 const Perfil = lazy(() => import("./pages/Perfil"));
@@ -281,16 +280,6 @@ const AppWithRouter = () => {
             <PrivateRoute>
               <AppLayout>
                 <Metas />
-              </AppLayout>
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/etiquetas"
-          element={
-            <PrivateRoute>
-              <AppLayout>
-                <Etiquetas />
               </AppLayout>
             </PrivateRoute>
           }

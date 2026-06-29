@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   Home, FileText, Users, Calendar, BookOpen, Settings, UserCircle, LogOut,
-  ChevronLeft, ChevronRight, UserCheck, Tag, BarChart3, UserPlus,
+  ChevronLeft, ChevronRight, UserCheck, BarChart3, UserPlus,
   CalendarDays, DollarSign, Target, UsersIcon, MessageSquareText, Shield,
   Building2, AlertCircle, Clock, CreditCard, Trash2,
 } from "lucide-react";
@@ -36,7 +36,6 @@ const adminOnlyItems = [
   { title: "Gráficos", url: "/graficos", icon: BarChart3 },
   { title: "Financeiro", url: "/financeiro", icon: DollarSign },
   { title: "Metas", url: "/metas", icon: Target },
-  { title: "Etiquetas", url: "/etiquetas", icon: Tag },
   { title: "Equipe", url: "/equipe", icon: UsersIcon },
 ];
 
@@ -50,7 +49,7 @@ export function AppSidebar() {
   const isCollapsed = state === "collapsed";
   const { logout } = useAuth();
   const { toast } = useToast();
-  const { canViewAdmin, canManageOffice, canViewGraficos, canViewFinanceiro, canViewMetas, canViewEtiquetas, canViewEquipe } = usePermissions();
+  const { canViewAdmin, canManageOffice, canViewGraficos, canViewFinanceiro, canViewMetas, canViewEquipe } = usePermissions();
   const { isSuperAdmin, user } = useAuth();
 
   const filteredAdminItems = adminOnlyItems.filter(item => {
@@ -58,7 +57,6 @@ export function AppSidebar() {
       case '/graficos': return canViewGraficos;
       case '/financeiro': return canViewFinanceiro;
       case '/metas': return canViewMetas;
-      case '/etiquetas': return canViewEtiquetas;
       case '/equipe': return canViewEquipe;
       default: return false;
     }
