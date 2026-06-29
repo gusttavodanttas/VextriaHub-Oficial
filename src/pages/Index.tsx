@@ -9,6 +9,8 @@ import { NovoPrazoStandaloneDialog } from "@/components/Processos/NovoPrazoStand
 import { NovoCompromissoDialog } from "@/components/Agenda/NovoCompromissoDialog";
 import { NovoClienteDialog } from "@/components/Clientes/NovoClienteDialog";
 import { QuickAtendimentoDialog } from "@/components/Dashboard/QuickAtendimentoDialog";
+import { QuickAudienciaDialog } from "@/components/Dashboard/QuickAudienciaDialog";
+import { QuickTimesheetDialog } from "@/components/Dashboard/QuickTimesheetDialog";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, FileText, CheckSquare, TrendingUp, ArrowRight, Plus, CalendarCheck, UserCheck, Users2, CalendarPlus, UserPlus, Award, Activity, Clock, Settings2 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -23,15 +25,15 @@ import { useClientes } from "@/hooks/useClientes";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-type ModalKey = "processo" | "prazo" | "agendar" | "cliente" | "atendimento";
+type ModalKey = "processo" | "prazo" | "agendar" | "cliente" | "atendimento" | "audiencia" | "timesheet";
 const ACTION_CONFIG: { key: string; label: string; icon: React.ElementType; to?: string; modal?: ModalKey }[] = [
   { key: "processo", label: "Processo", icon: Plus, modal: "processo" },
   { key: "prazo", label: "Prazo", icon: Plus, modal: "prazo" },
   { key: "agendar", label: "Agendar", icon: CalendarPlus, modal: "agendar" },
   { key: "cliente", label: "Cliente", icon: UserPlus, modal: "cliente" },
   { key: "atendimento", label: "Atendimento", icon: UserCheck, modal: "atendimento" },
-  { key: "timesheet", label: "Timesheet", icon: Clock, to: "/timesheet" },
-  { key: "audiencia", label: "Audiência", icon: CalendarCheck, to: "/audiencias" },
+  { key: "audiencia", label: "Audiência", icon: CalendarCheck, modal: "audiencia" },
+  { key: "timesheet", label: "Timesheet", icon: Clock, modal: "timesheet" },
 ];
 
 interface KpiProps {
@@ -291,6 +293,8 @@ const Index = () => {
       <NovoCompromissoDialog open={openModal === "agendar"} onOpenChange={(o) => !o && setOpenModal(null)} onCreated={onModalSuccess} />
       <NovoClienteDialog open={openModal === "cliente"} onOpenChange={(o) => !o && setOpenModal(null)} onSave={handleNovoCliente} />
       <QuickAtendimentoDialog open={openModal === "atendimento"} onOpenChange={(o) => !o && setOpenModal(null)} onSuccess={onModalSuccess} />
+      <QuickAudienciaDialog open={openModal === "audiencia"} onOpenChange={(o) => !o && setOpenModal(null)} onSuccess={onModalSuccess} />
+      <QuickTimesheetDialog open={openModal === "timesheet"} onOpenChange={(o) => !o && setOpenModal(null)} onSuccess={onModalSuccess} />
     </div>
   );
 };
