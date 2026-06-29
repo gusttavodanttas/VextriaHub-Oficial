@@ -146,19 +146,11 @@ const Index = () => {
 
   const onModalSuccess = () => { refresh(); setOpenModal(null); };
 
-  // Blocos configuráveis renderizados na ordem definida pelo usuário.
-  // Calcula spans evitando "buracos": o último card sozinho ocupa a linha toda.
-  const visibleBlocks = prefs.order.filter((k) => prefs.widgets[k] && (k !== "metas" || canViewMetas));
-  const laidOut = (() => {
-    let col = 0; // posição na grade de 2 colunas
-    return visibleBlocks.map((k, idx) => {
-      let span = (k === "agenda" || k === "grafico") ? 2 : 1;
-      const isLast = idx === visibleBlocks.length - 1;
-      if (isLast && span === 1 && col % 2 === 0) span = 2; // sozinho no fim → largura total
-      col += span;
-      return { k, span };
-    });
-  })();
+  // Blocos grandes (coluna principal) vs cards (lateral), na ordem do usuário.
+  const MAIN_KEYS = ["agenda", "grafico"];
+  const isVisible = (k: string) => prefs.widgets[k] && (k !== "metas" || canViewMetas);
+  const mainBlocks = prefs.order.filter((k) => MAIN_KEYS.includes(k) && isVisible(k));
+  const sideBlocks = prefs.order.filter((k) => !MAIN_KEYS.includes(k) && isVisible(k));
 
   const renderBlock = (k: string) => {
     switch (k) {
@@ -287,11 +279,23 @@ const Index = () => {
       </section>
 
 
-      {/* Blocos configuráveis (ordem definida pelo usuário) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
-        {laidOut.map(({ k, span }) => (
-          <div key={k} className={span === 2 ? "lg:col-span-2" : "lg:col-span-1"}>{renderBlock(k)}</div>
-        ))}
+      {/* Coluna principal (Agenda/Gráfico) + lateral (cards) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        {mainBlocks.length > 0 && (
+          <div className={cn("space-y-5 min-w-0", sideBlocks.length > 0 ? "lg:col-span-8" : "lg:col-span-12")}>
+            {mainBlocks.map((k) => <div key={k}>{renderBlock(k)}</div>)}
+          </div>
+        )}
+        {sideBlocks.length > 0 && (
+          <div className={cn(
+            "min-w-0",
+            mainBlocks.length > 0
+              ? "lg:col-span-4 space-y-4"
+              : "lg:col-span-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+          )}>
+            {sideBlocks.map((k) => <div key={k}>{renderBlock(k)}</div>)}
+          </div>
+        )}
       </div>
 
       <QuickViewSheet view={sheetView} onClose={() => setSheetView(null)} />

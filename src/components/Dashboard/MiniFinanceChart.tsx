@@ -63,7 +63,7 @@ export function MiniFinanceChart() {
       {loading ? (
         <div className="flex items-center justify-center h-[180px]"><Loader2 className="h-5 w-5 animate-spin text-primary/40" /></div>
       ) : !temDados ? (
-        <div className="flex items-center justify-center h-[180px] text-sm text-muted-foreground/50 font-medium">Sem lançamentos no período.</div>
+        <div className="flex items-center justify-center py-8 text-sm text-muted-foreground/50 font-medium">Sem lançamentos no período.</div>
       ) : (
         <ResponsiveContainer width="100%" height={180}>
           <BarChart data={data} barGap={4} margin={{ top: 8, right: 4, left: 4, bottom: 0 }}>

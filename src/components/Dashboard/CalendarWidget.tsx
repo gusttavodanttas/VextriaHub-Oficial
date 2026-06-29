@@ -58,6 +58,14 @@ export function CalendarWidget() {
   const selectedKey = selected ? format(selected, "yyyy-MM-dd") : null;
   const dayEvents = selectedKey ? eventMap[selectedKey] || [] : [];
 
+  // Próximos eventos (a partir de hoje) — para preencher o painel quando o dia está vazio
+  const todayKey = format(new Date(), "yyyy-MM-dd");
+  const upcoming = Object.entries(eventMap)
+    .filter(([k]) => k >= todayKey)
+    .flatMap(([k, evs]) => (evs as DayEvent[]).map((e) => ({ ...e, dateKey: k })))
+    .sort((a, b) => a.dateKey.localeCompare(b.dateKey))
+    .slice(0, 6);
+
   return (
     <div className="p-4 space-y-3">
       {/* Cabeçalho */}
@@ -92,10 +100,28 @@ export function CalendarWidget() {
               {format(selected, "dd 'de' MMMM", { locale: ptBR })}
             </p>
             {dayEvents.length === 0 ? (
-              <div className="flex flex-col items-center justify-center text-center py-8 gap-2 text-muted-foreground/40">
-                <CalendarDays className="h-7 w-7 opacity-50" />
-                <p className="text-xs font-semibold">Sem eventos nesta data</p>
-              </div>
+              upcoming.length > 0 ? (
+                <div className="space-y-1.5">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 px-1 pt-1">Próximos eventos</p>
+                  {upcoming.map((e, i) => (
+                    <div key={i} className={cn(
+                      "flex items-center gap-2.5 px-3 py-2 rounded-xl border text-xs",
+                      e.type === "prazo"
+                        ? "border-rose-500/15 bg-rose-500/5 text-rose-600 dark:text-rose-400"
+                        : "border-orange-500/15 bg-orange-500/5 text-orange-600 dark:text-orange-400"
+                    )}>
+                      {e.type === "prazo" ? <AlertCircle className="h-3 w-3 shrink-0" /> : <Clock className="h-3 w-3 shrink-0" />}
+                      <span className="font-semibold truncate flex-1">{e.titulo}</span>
+                      <span className="text-[10px] opacity-60 shrink-0">{format(parseISO(e.dateKey), "dd/MM")}{e.hora ? ` ${e.hora}` : ""}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center text-center py-8 gap-2 text-muted-foreground/40">
+                  <CalendarDays className="h-7 w-7 opacity-50" />
+                  <p className="text-xs font-semibold">Sem eventos nesta data</p>
+                </div>
+              )
             ) : (
               dayEvents.map((e, i) => (
                 <div key={i} className={cn(
