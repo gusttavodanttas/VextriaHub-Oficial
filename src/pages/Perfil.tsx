@@ -257,8 +257,8 @@ const Perfil = () => {
                 style={{ backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)", backgroundSize: "22px 22px" }}
               />
               {(office as any)?.logo_url ? (
-                <div className="absolute top-3 right-3 md:top-4 md:right-5 h-14 md:h-16 px-3 rounded-2xl bg-white/95 shadow-lg flex items-center justify-center">
-                  <img src={(office as any).logo_url} alt="Logo do escritório" className="h-10 md:h-12 w-auto max-w-[180px] object-contain" />
+                <div className="absolute top-2.5 right-3 md:top-3 md:right-5 h-[72px] md:h-[88px] w-auto max-w-[240px] px-3 rounded-2xl bg-white/95 shadow-lg flex items-center justify-center">
+                  <img src={(office as any).logo_url} alt="Logo do escritório" className="h-full w-auto max-w-[220px] object-contain py-2" />
                 </div>
               ) : (
                 <Scale className="absolute right-6 bottom-3 h-16 w-16 text-white/20 pointer-events-none" />
