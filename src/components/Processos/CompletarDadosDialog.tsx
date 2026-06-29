@@ -6,6 +6,7 @@ import { Loader2, Sparkles, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { tribunalFromCNJ } from "@/utils/tribunalCNJ";
 
 interface Props {
   open: boolean;
@@ -57,7 +58,8 @@ export function CompletarDadosDialog({ open, onOpenChange, processoId, numeroPro
 
       const found = FIELDS
         .map((f) => {
-          const novo = f.get(data);
+          // Tribunal: deriva a sigla certa do número CNJ (evita "TJ" genérico)
+          const novo = f.col === "tribunal" ? (tribunalFromCNJ(numeroProcesso) || f.get(data)) : f.get(data);
           const current = (atual as any)?.[f.col];
           if (isEmpty(current) && !isEmpty(novo)) {
             return { col: f.col, label: f.label, current, novo, display: f.fmt ? f.fmt(novo) : String(novo) };

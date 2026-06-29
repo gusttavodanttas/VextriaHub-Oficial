@@ -337,7 +337,7 @@ const Processos = () => {
         <CardContent className="p-5">
           {isEncontrados ? (
             <ProcessosEncontradosInbox
-              onImported={() => { refresh(); refetchEncontrados(); }}
+              onChange={() => { refresh(); refetchEncontrados(); }}
               onBuscar={() => setIsSyncDialogOpen(true)}
             />
           ) : filteredProcessos.length === 0 ? (

@@ -31,6 +31,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { NovoProcessoForm, tiposProcesso, statusProcesso, fasesProcessuais } from '@/types/processo';
 import { Separator } from '@/components/ui/separator';
 import { formatCNJ, unformatCNJ } from '@/lib/formatters';
+import { tribunalFromCNJ } from '@/utils/tribunalCNJ';
 import { JudicialSyncDialog, JudicialSyncContent } from './JudicialSyncDialog';
 import { useProcessosV2 } from '@/hooks/useProcessosV2';
 import { supabase } from '@/integrations/supabase/client';
@@ -43,6 +44,8 @@ interface NovoProcessoDialogProps {
   onOpenChange?: (open: boolean) => void;
   initialData?: Partial<NovoProcessoForm>;
   onSuccess?: () => void;
+  // Abre direto num passo específico (ex.: 'form' ao vir da caixa "Encontrados")
+  initialStep?: 'choice' | 'oab' | 'cnj_search' | 'form';
 }
 
 export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
@@ -52,6 +55,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
   onOpenChange: setControlledOpen,
   initialData,
   onSuccess,
+  initialStep,
 }) => {
   const { toast } = useToast();
   const { user, profile } = useAuth();
@@ -72,7 +76,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
   const [internalOpen, setInternalOpen] = useState(false);
   const open = controlledOpen ?? internalOpen;
   const setOpen = setControlledOpen ?? setInternalOpen;
-  const [step, setStep] = useState<'choice' | 'oab' | 'cnj' | 'form'>('choice');
+  const [step, setStep] = useState<'choice' | 'oab' | 'cnj' | 'cnj_search' | 'form'>(initialStep ?? 'choice');
   const [isLoading, setIsLoading] = useState(false);
   const [cnjInput, setCnjInput] = useState('');
   // Sinaliza que a busca rodou mas não localizou as partes (sigilo/sem cadastro)
@@ -127,7 +131,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
       tipoProcesso: i.tipoProcesso || i.classe || prev.tipoProcesso || '',
       faseProcessual: i.faseProcessual || prev.faseProcessual || 'Fase Inicial',
       responsavelId: prev.responsavelId || user?.id || '',
-      tribunal: i.tribunal || prev.tribunal || '',
+      tribunal: tribunalFromCNJ(i.numeroProcesso || prev.numeroProcesso) || i.tribunal || prev.tribunal || '',
       vara: i.vara || prev.vara || '',
       comarca: i.comarca || prev.comarca || '',
       requerido: i.requerido || i.reu || prev.requerido || '',
