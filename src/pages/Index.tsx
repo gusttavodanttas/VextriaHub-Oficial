@@ -1,5 +1,6 @@
 import { CalendarWidget } from "@/components/Dashboard/CalendarWidget";
 import { DashboardHero } from "@/components/Dashboard/DashboardHero";
+import { MiniFinanceChart } from "@/components/Dashboard/MiniFinanceChart";
 import { QuickViewSheet, SheetView } from "@/components/Dashboard/QuickViewSheet";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, FileText, CheckSquare, TrendingUp, ArrowRight, Plus, CalendarCheck, UserCheck, Users2, CalendarPlus, UserPlus, Award, Activity } from "lucide-react";
@@ -96,7 +97,6 @@ const Index = () => {
     );
   }
 
-  const hasFinanceiro = stats.receitaMensal > 0 || stats.despesaMensal > 0;
   const brl = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v);
 
   return (
@@ -109,18 +109,30 @@ const Index = () => {
       <section className="space-y-2.5">
         <div className="flex items-center justify-between gap-2">
           <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 shrink-0">Painel de Controle</p>
-          <div className="flex gap-2 shrink-0">
-            <Button size="sm" variant="outline"
-              className="rounded-xl h-8 px-3 text-[10px] font-black uppercase tracking-widest border-black/5 dark:border-border gap-1"
-              onClick={() => navigate("/prazos")}
-            >
-              <Plus className="h-3 w-3" /> <span className="hidden sm:inline">Prazo</span>
-            </Button>
+          <div className="flex flex-wrap gap-2 shrink-0">
             <Button size="sm"
-              className="rounded-xl h-8 px-3 sm:px-4 text-[10px] font-black uppercase tracking-widest gap-1 shadow-sm"
+              className="rounded-xl h-8 px-3 text-[10px] font-black uppercase tracking-widest gap-1.5 shadow-sm"
               onClick={() => navigate("/processos")}
             >
-              <FileText className="h-3 w-3" /> <span className="hidden sm:inline">Novo Processo</span><span className="sm:hidden">Processo</span>
+              <FileText className="h-3 w-3" /> Processo
+            </Button>
+            <Button size="sm" variant="outline"
+              className="rounded-xl h-8 px-3 text-[10px] font-black uppercase tracking-widest border-black/5 dark:border-border gap-1.5"
+              onClick={() => navigate("/prazos")}
+            >
+              <Plus className="h-3 w-3" /> Prazo
+            </Button>
+            <Button size="sm" variant="outline"
+              className="rounded-xl h-8 px-3 text-[10px] font-black uppercase tracking-widest border-black/5 dark:border-border gap-1.5"
+              onClick={() => navigate("/agenda")}
+            >
+              <CalendarPlus className="h-3 w-3" /> Agendar
+            </Button>
+            <Button size="sm" variant="outline"
+              className="rounded-xl h-8 px-3 text-[10px] font-black uppercase tracking-widest border-black/5 dark:border-border gap-1.5"
+              onClick={() => navigate("/clientes")}
+            >
+              <UserPlus className="h-3 w-3" /> Cliente
             </Button>
           </div>
         </div>
@@ -188,94 +200,76 @@ const Index = () => {
             </div>
           </div>
 
-          {hasFinanceiro && (
-            <div
-              className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 space-y-3 cursor-pointer hover:shadow-md transition-all"
-              onClick={() => navigate("/financeiro")}
-            >
-              <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 flex items-center gap-1.5">
-                <TrendingUp className="h-3 w-3" /> Financeiro do Mês
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-[9px] text-muted-foreground/50 font-bold uppercase tracking-widest mb-0.5">Receita</p>
-                  <p className="text-base font-black text-emerald-500">{brl(stats.receitaMensal)}</p>
-                </div>
-                <div>
-                  <p className="text-[9px] text-muted-foreground/50 font-bold uppercase tracking-widest mb-0.5">Despesas</p>
-                  <p className="text-base font-black text-rose-500">{brl(stats.despesaMensal)}</p>
-                </div>
+          {/* Financeiro do mês */}
+          <div
+            className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 space-y-3 cursor-pointer hover:shadow-md transition-all"
+            onClick={() => navigate("/financeiro")}
+          >
+            <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 flex items-center gap-1.5">
+              <TrendingUp className="h-3 w-3" /> Financeiro do Mês
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="text-[9px] text-muted-foreground/50 font-bold uppercase tracking-widest mb-0.5">Receita</p>
+                <p className="text-base font-black text-emerald-500">{brl(stats.receitaMensal)}</p>
               </div>
-              <div className="pt-2 border-t border-black/5 dark:border-border">
-                <p className="text-[9px] text-muted-foreground/50 font-bold uppercase tracking-widest mb-0.5">Saldo líquido</p>
-                <p className={cn("text-xl font-black", stats.receitaMensal - stats.despesaMensal >= 0 ? "text-emerald-500" : "text-rose-500")}>
-                  {brl(stats.receitaMensal - stats.despesaMensal)}
-                </p>
+              <div>
+                <p className="text-[9px] text-muted-foreground/50 font-bold uppercase tracking-widest mb-0.5">Despesas</p>
+                <p className="text-base font-black text-rose-500">{brl(stats.despesaMensal)}</p>
               </div>
             </div>
-          )}
-
-          {/* Ações rápidas */}
-          <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 space-y-3">
-            <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50">Ações Rápidas</p>
-            <div className="grid grid-cols-2 gap-2.5">
-              {[
-                { icon: FileText, label: "Novo processo", to: "/processos", color: "text-blue-500", bg: "bg-blue-500/10" },
-                { icon: Plus, label: "Novo prazo", to: "/prazos", color: "text-rose-500", bg: "bg-rose-500/10" },
-                { icon: CalendarPlus, label: "Agendar", to: "/agenda", color: "text-orange-500", bg: "bg-orange-500/10" },
-                { icon: UserPlus, label: "Novo cliente", to: "/clientes", color: "text-emerald-500", bg: "bg-emerald-500/10" },
-              ].map((a) => (
-                <button key={a.label}
-                  onClick={() => navigate(a.to)}
-                  className="group flex flex-col items-start gap-2 p-3 rounded-xl border border-black/5 dark:border-border bg-card/40 hover:bg-card/80 hover:shadow-sm hover:-translate-y-0.5 transition-all text-left"
-                >
-                  <div className={cn("p-1.5 rounded-lg transition-transform group-hover:scale-110", a.bg)}>
-                    <a.icon className={cn("h-4 w-4", a.color)} />
-                  </div>
-                  <span className="text-xs font-bold leading-tight">{a.label}</span>
-                </button>
-              ))}
+            <div className="pt-2 border-t border-black/5 dark:border-border">
+              <p className="text-[9px] text-muted-foreground/50 font-bold uppercase tracking-widest mb-0.5">Saldo líquido</p>
+              <p className={cn("text-xl font-black", stats.receitaMensal - stats.despesaMensal >= 0 ? "text-emerald-500" : "text-rose-500")}>
+                {brl(stats.receitaMensal - stats.despesaMensal)}
+              </p>
             </div>
           </div>
 
         </div>
       </div>
 
-      {/* Atividade recente */}
-      <section className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 space-y-3">
-        <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 flex items-center gap-1.5">
-          <Activity className="h-3 w-3" /> Atividade Recente
-        </p>
-        {activityLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-12 rounded-xl bg-black/[0.04] dark:bg-white/[0.04] animate-pulse" />
-            ))}
-          </div>
-        ) : activity.length === 0 ? (
-          <p className="text-sm text-muted-foreground/60 font-medium py-4 text-center">Nenhuma atividade recente.</p>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {activity.map((it) => (
-              <button
-                key={it.id}
-                onClick={() => navigate(it.link)}
-                className="group flex items-center gap-3 p-3 rounded-xl border border-black/5 dark:border-border bg-card/40 hover:bg-card/80 hover:shadow-sm transition-all text-left"
-              >
-                <span className={cn("h-2 w-2 rounded-full shrink-0",
-                  it.tipo === "Processo" ? "bg-blue-500" : it.tipo === "Tarefa" ? "bg-emerald-500" : "bg-amber-500")} />
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold truncate group-hover:text-primary transition-colors">{it.label}</p>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50">
-                    {it.tipo} · {new Date(it.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
-                  </p>
-                </div>
-                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/20 group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
-              </button>
-            ))}
-          </div>
-        )}
-      </section>
+      {/* Gráfico financeiro + Atividade recente (compacta) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+        <div className="lg:col-span-8">
+          <MiniFinanceChart />
+        </div>
+
+        <div className="lg:col-span-4 rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 space-y-2.5">
+          <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 flex items-center gap-1.5">
+            <Activity className="h-3 w-3" /> Atividade Recente
+          </p>
+          {activityLoading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-10 rounded-xl bg-black/[0.04] dark:bg-white/[0.04] animate-pulse" />
+              ))}
+            </div>
+          ) : activity.length === 0 ? (
+            <p className="text-sm text-muted-foreground/60 font-medium py-6 text-center">Nenhuma atividade recente.</p>
+          ) : (
+            <div className="space-y-1">
+              {activity.slice(0, 5).map((it) => (
+                <button
+                  key={it.id}
+                  onClick={() => navigate(it.link)}
+                  className="group flex items-center gap-2.5 p-2 rounded-xl hover:bg-card/80 transition-all text-left w-full"
+                >
+                  <span className={cn("h-2 w-2 rounded-full shrink-0",
+                    it.tipo === "Processo" ? "bg-blue-500" : it.tipo === "Tarefa" ? "bg-emerald-500" : "bg-amber-500")} />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold truncate group-hover:text-primary transition-colors">{it.label}</p>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50">
+                      {it.tipo} · {new Date(it.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                    </p>
+                  </div>
+                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/20 group-hover:text-primary transition-all shrink-0" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
       <QuickViewSheet view={sheetView} onClose={() => setSheetView(null)} />
     </div>
