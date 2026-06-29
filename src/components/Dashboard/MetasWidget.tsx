@@ -9,7 +9,7 @@ export function MetasWidget() {
   const ativas = (metas || []).filter((m) => m.status !== "concluida").slice(0, 3);
 
   return (
-    <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 space-y-3 cursor-pointer hover:shadow-md transition-all" onClick={() => navigate("/metas")}>
+    <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 space-y-3 cursor-pointer hover:shadow-md transition-all h-full" onClick={() => navigate("/metas")}>
       <div className="flex items-center justify-between">
         <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 flex items-center gap-1.5">
           <Target className="h-3 w-3" /> Metas

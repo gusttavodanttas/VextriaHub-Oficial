@@ -146,9 +146,19 @@ const Index = () => {
 
   const onModalSuccess = () => { refresh(); setOpenModal(null); };
 
-  // Blocos configuráveis renderizados na ordem definida pelo usuário
-  const blockSpan = (k: string) => (k === "agenda" || k === "grafico") ? "lg:col-span-2" : "lg:col-span-1";
+  // Blocos configuráveis renderizados na ordem definida pelo usuário.
+  // Calcula spans evitando "buracos": o último card sozinho ocupa a linha toda.
   const visibleBlocks = prefs.order.filter((k) => prefs.widgets[k] && (k !== "metas" || canViewMetas));
+  const laidOut = (() => {
+    let col = 0; // posição na grade de 2 colunas
+    return visibleBlocks.map((k, idx) => {
+      let span = (k === "agenda" || k === "grafico") ? 2 : 1;
+      const isLast = idx === visibleBlocks.length - 1;
+      if (isLast && span === 1 && col % 2 === 0) span = 2; // sozinho no fim → largura total
+      col += span;
+      return { k, span };
+    });
+  })();
 
   const renderBlock = (k: string) => {
     switch (k) {
@@ -278,9 +288,9 @@ const Index = () => {
 
 
       {/* Blocos configuráveis (ordem definida pelo usuário) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
-        {visibleBlocks.map((k) => (
-          <div key={k} className={blockSpan(k)}>{renderBlock(k)}</div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
+        {laidOut.map(({ k, span }) => (
+          <div key={k} className={span === 2 ? "lg:col-span-2" : "lg:col-span-1"}>{renderBlock(k)}</div>
         ))}
       </div>
 
