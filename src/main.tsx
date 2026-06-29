@@ -5,6 +5,12 @@ import { initMonitoring } from './lib/monitoring'
 
 initMonitoring();
 
+// Aplica a cor primária personalizada do escritório (se houver) antes do render
+try {
+  const brand = localStorage.getItem("brand_primary_hsl");
+  if (brand) document.documentElement.style.setProperty("--primary", brand);
+} catch { /* ignore */ }
+
 // Após um novo deploy, abas antigas tentam buscar chunks com nomes antigos (404).
 // Recarrega automaticamente uma única vez para pegar a versão nova.
 function handleChunkError(message?: string) {

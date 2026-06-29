@@ -13,7 +13,10 @@ import { Building2, Save, BarChart3, CreditCard, Loader2, Camera } from 'lucide-
 import { cn } from '@/lib/utils';
 import { formatPhone, isValidPhone } from '@/lib/phone';
 import { uploadPublicImage, validateImage } from '@/lib/uploadImage';
+import { hexToHslString, applyPrimary, BRAND_LS_KEY } from '@/lib/brandColor';
 import { PermissionGuard } from '@/components/Auth/PermissionGuard';
+
+const BRAND_PRESETS = ['#0ea5e9', '#2563eb', '#7c3aed', '#16a34a', '#dc2626', '#ea580c', '#0d9488', '#db2777'];
 
 function formatCnpj(v: string): string {
   const d = (v || '').replace(/\D/g, '').slice(0, 14);
@@ -33,6 +36,7 @@ export const OfficeSettings: React.FC = () => {
   const [logoUrl, setLogoUrl] = useState((office as any)?.logo_url || '');
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [fiscal, setFiscal] = useState({ cnpj: '', razao_social: '', inscricao: '' });
+  const [brandColor, setBrandColor] = useState('');
   const [formData, setFormData] = useState({
     name: office?.name || '',
     email: office?.email || '',
@@ -60,6 +64,12 @@ export const OfficeSettings: React.FC = () => {
       setLogoUrl((data as any).logo_url || '');
       const f = (data as any).settings?.fiscal;
       if (f) setFiscal({ cnpj: f.cnpj || '', razao_social: f.razao_social || '', inscricao: f.inscricao || '' });
+      const pc = (data as any).settings?.primary_color;
+      if (pc) {
+        setBrandColor(pc);
+        const hsl = hexToHslString(pc);
+        if (hsl) { applyPrimary(hsl); localStorage.setItem(BRAND_LS_KEY, hsl); }
+      }
     })();
     return () => { cancel = true; };
   }, [office?.id]);
@@ -84,6 +94,17 @@ export const OfficeSettings: React.FC = () => {
     }
   };
 
+  const chooseColor = (hex: string) => {
+    setBrandColor(hex);
+    const hsl = hexToHslString(hex);
+    if (hsl) { applyPrimary(hsl); localStorage.setItem(BRAND_LS_KEY, hsl); }
+  };
+  const resetColor = () => {
+    setBrandColor('');
+    applyPrimary(null);
+    localStorage.removeItem(BRAND_LS_KEY);
+  };
+
   const emailValido = !formData.email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -102,7 +123,7 @@ export const OfficeSettings: React.FC = () => {
       const result = await updateOffice(office.id, formData);
       // Dados fiscais ficam em offices.settings (jsonb)
       const { data: cur } = await supabase.from("offices").select("settings").eq("id", office.id).maybeSingle();
-      const merged = { ...((cur?.settings as any) || {}), fiscal };
+      const merged = { ...((cur?.settings as any) || {}), fiscal, primary_color: brandColor || null };
       await supabase.from("offices").update({ settings: merged }).eq("id", office.id);
       if (result) {
         toast({ title: "Escritório atualizado", description: "As informações foram salvas com sucesso." });
@@ -218,6 +239,31 @@ export const OfficeSettings: React.FC = () => {
                     <Input value={fiscal.razao_social} onChange={(e) => setFiscal((p) => ({ ...p, razao_social: e.target.value }))} placeholder="Razão social completa" className="h-11 rounded-xl" />
                   </div>
                 </div>
+              </div>
+
+              {/* Branding — cor primária */}
+              <div className="pt-4 mt-2 border-t border-black/5 dark:border-border space-y-3">
+                <p className="text-[11px] font-black uppercase tracking-widest text-muted-foreground/60">Cor da marca</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  {BRAND_PRESETS.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => chooseColor(c)}
+                      className={cn("h-9 w-9 rounded-full transition-all", brandColor.toLowerCase() === c ? "ring-2 ring-offset-2 ring-offset-background ring-foreground scale-110" : "hover:scale-105")}
+                      style={{ backgroundColor: c }}
+                      aria-label={`Cor ${c}`}
+                    />
+                  ))}
+                  <label className="h-9 w-9 rounded-full border-2 border-dashed border-border flex items-center justify-center cursor-pointer overflow-hidden" title="Cor personalizada">
+                    <input type="color" value={brandColor || '#0ea5e9'} onChange={(e) => chooseColor(e.target.value)} className="h-10 w-10 cursor-pointer opacity-0 absolute" />
+                    <span className="text-sm">🎨</span>
+                  </label>
+                  {brandColor && (
+                    <Button type="button" variant="ghost" size="sm" onClick={resetColor} className="rounded-xl font-bold text-xs">Restaurar padrão</Button>
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground/70">Aplica em botões, destaques e gráficos. Pré-visualiza na hora; clique em Salvar para fixar.</p>
               </div>
 
               <Button type="submit" disabled={isLoading} className="rounded-xl font-bold gap-2">
