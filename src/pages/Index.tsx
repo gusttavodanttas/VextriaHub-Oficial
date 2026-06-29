@@ -280,10 +280,10 @@ const Index = () => {
 
 
       {/* Coluna principal (Agenda/Gráfico) + lateral (cards) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
         {mainBlocks.length > 0 && (
-          <div className={cn("space-y-5 min-w-0", sideBlocks.length > 0 ? "lg:col-span-8" : "lg:col-span-12")}>
-            {mainBlocks.map((k) => <div key={k}>{renderBlock(k)}</div>)}
+          <div className={cn("flex flex-col gap-5 min-w-0", sideBlocks.length > 0 ? "lg:col-span-8" : "lg:col-span-12")}>
+            {mainBlocks.map((k) => <div key={k} className={k === "grafico" ? "flex-1 min-h-0" : ""}>{renderBlock(k)}</div>)}
           </div>
         )}
         {sideBlocks.length > 0 && (
