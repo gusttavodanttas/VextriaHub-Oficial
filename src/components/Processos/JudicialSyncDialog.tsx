@@ -202,6 +202,24 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
 
       setResults(filteredResults);
       setSearched(true);
+
+      // Salva os achados na caixa "Processos Encontrados" (staging) para revisão posterior
+      if (filteredResults.length > 0 && user?.office_id) {
+        const rows = filteredResults.map((r) => ({
+          office_id: user.office_id,
+          numero_processo: (r.numeroProcesso || '').replace(/\D/g, ''),
+          titulo: r.titulo || null,
+          tribunal: r.tribunal || null,
+          autor: r.autor || null,
+          reu: r.reu || null,
+          fonte: r.fonte || 'oab',
+          payload: r as any,
+          encontrado_por: user.id,
+        }));
+        supabase.from('processos_encontrados')
+          .upsert(rows, { onConflict: 'office_id,numero_processo', ignoreDuplicates: true })
+          .then(() => {}, () => {});
+      }
     } catch (error: any) {
       toast({
         title: "Erro na sincronização",

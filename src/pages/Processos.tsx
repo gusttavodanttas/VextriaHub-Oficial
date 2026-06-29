@@ -3,8 +3,10 @@ import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProcessosV2 } from '@/hooks/useProcessosV2';
-import { FileText, Loader2, RotateCw, Search, Plus, Database, Scale, CheckCircle2, PauseCircle, FolderOpen, Users } from 'lucide-react';
+import { FileText, Loader2, RotateCw, Search, Plus, Database, Scale, CheckCircle2, PauseCircle, FolderOpen, Users, Inbox } from 'lucide-react';
 import { useMyTeams } from '@/hooks/useMyTeams';
+import { useProcessosEncontrados } from '@/hooks/useProcessosEncontrados';
+import { ProcessosEncontradosInbox } from '@/components/Processos/ProcessosEncontradosInbox';
 import { cn } from '@/lib/utils';
 
 import { Button } from '@/components/ui/button';
@@ -74,6 +76,7 @@ const Processos = () => {
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const { teams: myTeams, isAnyCoordinator, coordinatedMemberIds } = useMyTeams();
+  const { count: encontradosCount, refetch: refetchEncontrados } = useProcessosEncontrados();
 
   const {
     data: processos,
@@ -176,7 +179,8 @@ const Processos = () => {
     );
   }
 
-  const activeTabDef = STATUS_TABS.find(t => t.key === activeTab)!;
+  const activeTabDef = STATUS_TABS.find(t => t.key === activeTab) ?? STATUS_TABS[0];
+  const isEncontrados = activeTab === 'encontrados';
 
   return (
     <div className="space-y-5 p-4 md:p-6 animate-in fade-in duration-500">
@@ -228,7 +232,7 @@ const Processos = () => {
       </div>
 
       {/* KPI tabs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {STATUS_TABS.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.key;
@@ -260,6 +264,29 @@ const Processos = () => {
             </button>
           );
         })}
+
+        {/* Aba especial: Processos Encontrados (robô) */}
+        <button
+          onClick={() => setActiveTab('encontrados')}
+          className={cn(
+            'relative flex items-center gap-3 p-4 rounded-2xl border text-left transition-all duration-200 hover:-translate-y-0.5',
+            isEncontrados
+              ? 'bg-primary/10 border-primary/30 shadow-md'
+              : 'bg-card/60 border-black/5 dark:border-border hover:border-black/10 dark:hover:border-border'
+          )}
+        >
+          <div className={cn('p-2 rounded-xl relative', isEncontrados ? 'bg-primary/10' : 'bg-muted/50')}>
+            <Inbox className={cn('h-4 w-4', isEncontrados ? 'text-primary' : 'text-muted-foreground')} />
+            {encontradosCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center">{encontradosCount}</span>
+            )}
+          </div>
+          <div>
+            <div className={cn('text-2xl font-black leading-none', isEncontrados ? 'text-primary' : 'text-foreground')}>{encontradosCount}</div>
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mt-0.5">Encontrados</div>
+          </div>
+          {isEncontrados && <div className="absolute bottom-0 inset-x-0 h-0.5 rounded-b-2xl bg-primary" />}
+        </button>
       </div>
 
       {/* Barra de pesquisa + filtros */}
@@ -306,9 +333,14 @@ const Processos = () => {
 
       {/* Conteúdo */}
       <Card className="border-black/5 dark:border-border bg-card/50 rounded-2xl overflow-hidden">
-        <div className={cn('h-1 w-full', activeTabDef.bar)} />
+        <div className={cn('h-1 w-full', isEncontrados ? 'bg-primary' : activeTabDef.bar)} />
         <CardContent className="p-5">
-          {filteredProcessos.length === 0 ? (
+          {isEncontrados ? (
+            <ProcessosEncontradosInbox
+              onImported={() => { refresh(); refetchEncontrados(); }}
+              onBuscar={() => setIsSyncDialogOpen(true)}
+            />
+          ) : filteredProcessos.length === 0 ? (
             <EmptyState
               icon={FileText}
               title="Nenhum processo encontrado"
@@ -353,7 +385,7 @@ const Processos = () => {
       <JudicialSyncDialog
         open={isSyncDialogOpen}
         onOpenChange={setIsSyncDialogOpen}
-        onSyncComplete={() => { refresh(); setIsSyncDialogOpen(false); toast({ title: 'Sincronização concluída', description: 'Processos atualizados com dados oficiais.' }); }}
+        onSyncComplete={() => { refresh(); refetchEncontrados(); setIsSyncDialogOpen(false); toast({ title: 'Sincronização concluída', description: 'Processos atualizados com dados oficiais.' }); }}
       />
       <ProcessoIntegracaoPanel open={isIntegracaoOpen} onOpenChange={setIsIntegracaoOpen} />
       <DeleteConfirmDialog
