@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 // Importações dos novos componentes modularizados
 import { CrmLeadsList } from "@/components/Crm/CrmLeadsList";
 import { CrmKanban } from "@/components/Crm/CrmKanban";
+import { CrmRoboBox } from "@/components/Crm/CrmRoboBox";
 import { CrmPipelineVendas } from "@/components/Crm/CrmPipelineVendas";
 import { CrmFunilVendas } from "@/components/Crm/CrmFunilVendas";
 import { CrmOportunidades } from "@/components/Crm/CrmOportunidades";
@@ -42,7 +43,7 @@ const TEMPERATURAS = [
 
 export default function Crm() {
   const { data: allClientes = [], loading, refresh } = useClientes();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("leads");
   const [currentView, setCurrentView] = useState("main");
@@ -289,6 +290,11 @@ export default function Crm() {
           <p className="text-xs font-bold text-muted-foreground/40 mt-2 uppercase tracking-tighter">Soma do valor estimado dos leads</p>
         </div>
       </div>
+
+      {/* Robô do CRM — contatos de hoje + leads esfriando */}
+      {!loading && (
+        <CrmRoboBox data={allClientes} refresh={refresh} remetente={(profile as any)?.full_name} onOpenLead={handleOpportunityClick} />
+      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-center gap-6 px-4">
