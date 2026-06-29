@@ -1,5 +1,10 @@
 ﻿import { useState, useMemo, useDeferredValue } from "react";
-import { UserCheck, Phone, Mail, Building2, Calendar, Filter, Search, Plus, Target, TrendingUp, BarChart3, Loader2 } from "lucide-react";
+import { UserCheck, Phone, Mail, Search, Plus, Target, TrendingUp, BarChart3, Loader2, MessageCircle, ChevronDown, LayoutList, Trello } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { formatPhone } from "@/lib/phone";
+import { onlyDigits } from "@/lib/document";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,15 +25,25 @@ import { cn } from "@/lib/utils";
 
 // Importações dos novos componentes modularizados
 import { CrmLeadsList } from "@/components/Crm/CrmLeadsList";
-import { CrmConversoes } from "@/components/Crm/CrmConversoes";
+import { CrmKanban } from "@/components/Crm/CrmKanban";
 import { CrmPipelineVendas } from "@/components/Crm/CrmPipelineVendas";
 import { CrmFunilVendas } from "@/components/Crm/CrmFunilVendas";
 import { CrmOportunidades } from "@/components/Crm/CrmOportunidades";
 import { CrmOportunidadeDetail } from "@/components/Crm/CrmOportunidadeDetail";
 import { CrmRelatorios, CrmMetas } from "@/components/Crm/CrmDashboards";
 
+const TEMPERATURAS = [
+  { v: "lead", label: "Novo" },
+  { v: "frio", label: "Frio" },
+  { v: "morno", label: "Morno" },
+  { v: "quente", label: "Quente" },
+  { v: "convertido", label: "Convertido" },
+];
+
 export default function Crm() {
   const { data: allClientes = [], loading, refresh } = useClientes();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("leads");
   const [currentView, setCurrentView] = useState("main");
   const [selectedOpportunity, setSelectedOpportunity] = useState(null);
@@ -84,20 +99,38 @@ export default function Crm() {
     setCurrentView("opportunity-detail");
   };
 
+  // Muda a temperatura/status do lead direto na tela (persiste)
+  const updateLeadStatus = async (id: string, status: string) => {
+    if (!user?.office_id) return;
+    const { error } = await supabase.from("clientes").update({ status }).eq("id", id).eq("office_id", user.office_id);
+    if (!error) refresh();
+  };
+
+  // Define a data do próximo contato (follow-up) — requer coluna proximo_contato em clientes
+  const setFollowup = async (id: string, date: string) => {
+    if (!user?.office_id) return;
+    const { error } = await supabase.from("clientes").update({ proximo_contato: date || null } as any).eq("id", id).eq("office_id", user.office_id);
+    if (error) {
+      toast({ title: "Follow-up não ativado", description: "Rode o SQL para criar a coluna 'proximo_contato' (veja as instruções).", variant: "destructive" });
+      return;
+    }
+    refresh();
+  };
+
+  const hojeStr = new Date().toISOString().slice(0, 10);
+
   const renderSpecificView = () => {
     switch (currentView) {
       case "leads":
         return <CrmLeadsList onBack={handleBackToMain} tipo="todos" data={leads} refresh={refresh} />;
       case "leads-quentes":
         return <CrmLeadsList onBack={handleBackToMain} tipo="quentes" data={leads.filter(l => l.status === "quente")} refresh={refresh} />;
-      case "conversoes":
-        return <CrmConversoes onBack={handleBackToMain} />;
       case "receita-potencial":
         return <CrmPipelineVendas onBack={handleBackToMain} data={allClientes} loading={loading} />;
       case "funil-vendas":
         return <CrmFunilVendas onBack={handleBackToMain} data={allClientes} loading={loading} />;
       case "oportunidades":
-        return <CrmOportunidades onBack={handleBackToMain} onOpportunityClick={handleOpportunityClick} />;
+        return <CrmOportunidades onBack={handleBackToMain} onOpportunityClick={handleOpportunityClick} data={leads} />;
       case "opportunity-detail":
         return <CrmOportunidadeDetail onBack={() => setCurrentView("oportunidades")} opportunity={selectedOpportunity} />;
       case "relatorios":
@@ -234,7 +267,7 @@ export default function Crm() {
           <p className="text-xs font-bold text-muted-foreground/40 mt-2 uppercase tracking-tighter">Potencial de contrato imediato</p>
         </div>
 
-        <div className="glass-card p-6 rounded-[2rem] shadow-premium border-black/5 dark:border-border hover-lift group cursor-pointer" onClick={() => handleCardClick("conversoes")}>
+        <div className="glass-card p-6 rounded-[2rem] shadow-premium border-black/5 dark:border-border hover-lift group cursor-pointer" onClick={() => setActiveTab("clientes")}>
           <div className="flex items-center justify-between mb-4">
             <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Sucesso Conversão</p>
             <div className="p-2.5 bg-emerald-500/10 rounded-xl">
@@ -242,7 +275,7 @@ export default function Crm() {
             </div>
           </div>
           <p className="text-4xl font-black text-emerald-500">{loading ? <Loader2 className="h-8 w-8 animate-spin" /> : `${conversionRate}%`}</p>
-          <p className="text-xs font-bold text-muted-foreground/40 mt-2 uppercase tracking-tighter">Taxa média mensal</p>
+          <p className="text-xs font-bold text-muted-foreground/40 mt-2 uppercase tracking-tighter">Convertidos sobre o total da base</p>
         </div>
  
         <div className="glass-card p-6 rounded-[2rem] shadow-premium border-black/5 dark:border-border hover-lift group cursor-pointer" onClick={() => handleCardClick("receita-potencial")}>
@@ -261,11 +294,14 @@ export default function Crm() {
         <div className="flex flex-col md:flex-row justify-between items-center gap-6 px-4">
           <div className="glass-card p-2 rounded-[1.5rem] inline-flex h-auto">
             <TabsList className="bg-transparent h-auto p-0 gap-1">
-              <TabsTrigger value="leads" className="rounded-xl px-10 py-3 font-black uppercase text-xs tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-premium transition-all">
-                Pipeline Leads
+              <TabsTrigger value="leads" className="rounded-xl px-6 md:px-8 py-3 font-black uppercase text-xs tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-premium transition-all gap-1.5">
+                <LayoutList className="h-3.5 w-3.5" /> Lista
               </TabsTrigger>
-              <TabsTrigger value="clientes" className="rounded-xl px-10 py-3 font-black uppercase text-xs tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-premium transition-all">
-                Histórico Conversão
+              <TabsTrigger value="kanban" className="rounded-xl px-6 md:px-8 py-3 font-black uppercase text-xs tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-premium transition-all gap-1.5">
+                <Trello className="h-3.5 w-3.5" /> Kanban
+              </TabsTrigger>
+              <TabsTrigger value="clientes" className="rounded-xl px-6 md:px-8 py-3 font-black uppercase text-xs tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-premium transition-all">
+                Convertidos
               </TabsTrigger>
             </TabsList>
           </div>
@@ -280,9 +316,6 @@ export default function Crm() {
                 className="pl-12 h-12 bg-black/[0.03] dark:bg-white/[0.03] border-black/5 dark:border-border rounded-xl font-bold"
               />
             </div>
-            <Button variant="ghost" className="h-12 w-12 rounded-xl border border-black/5 dark:border-border hover:bg-black/5 dark:hover:bg-muted/30 text-muted-foreground/40 hover:text-primary">
-              <Filter className="h-5 w-5" />
-            </Button>
           </div>
         </div>
 
@@ -339,20 +372,49 @@ export default function Crm() {
                               </div>
                             )}
                             {lead.telefone && (
-                              <div className="flex items-center text-xs font-bold text-muted-foreground/60">
+                              <div className="flex items-center text-xs font-bold text-muted-foreground/60 font-mono">
                                 <Phone className="h-3.5 w-3.5 mr-2 text-primary/60" />
-                                {lead.telefone}
+                                {formatPhone(lead.telefone)}
                               </div>
                             )}
                           </div>
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2">
                             {Number((lead as any).valor_estimado) > 0 && (
                               <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">{brl(Number((lead as any).valor_estimado))}</span>
                             )}
-                            <Badge variant="outline" className={cn("px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-lg", getStatusColor(lead.status))}>
-                              {lead.status}
-                            </Badge>
-                            <Button variant="ghost" size="sm" className="rounded-xl h-10 px-6 font-black text-xs uppercase tracking-widest hover:bg-primary/10 hover:text-primary transition-all" onClick={() => handleOpportunityClick(lead)}>
+                            {(() => {
+                              const fu = (lead as any).proximo_contato as string | null;
+                              const overdue = !!fu && fu <= hojeStr;
+                              return (
+                                <input
+                                  type="date"
+                                  value={fu || ""}
+                                  onChange={(e) => setFollowup(lead.id, e.target.value)}
+                                  title="Próximo contato (follow-up)"
+                                  className={cn("h-9 rounded-lg border bg-background text-[11px] px-2 font-bold", overdue ? "border-rose-500/50 text-rose-600 dark:text-rose-400" : "border-black/10 dark:border-border text-muted-foreground/70")}
+                                />
+                              );
+                            })()}
+                            {lead.telefone && (
+                              <a href={`https://wa.me/55${onlyDigits(lead.telefone)}`} target="_blank" rel="noopener noreferrer" className="text-emerald-600 dark:text-emerald-400 hover:scale-110 transition-transform p-1" title="WhatsApp">
+                                <MessageCircle className="h-4 w-4" />
+                              </a>
+                            )}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button className={cn("px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-lg border-2 inline-flex items-center gap-1 hover:opacity-80 transition-opacity", getStatusColor(lead.status))} title="Mudar temperatura">
+                                  {lead.status} <ChevronDown className="h-3 w-3" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="rounded-xl">
+                                {TEMPERATURAS.map(t => (
+                                  <DropdownMenuItem key={t.v} onSelect={() => updateLeadStatus(lead.id, t.v)} className="text-xs font-bold cursor-pointer">
+                                    {t.label}
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                            <Button variant="ghost" size="sm" className="rounded-xl h-10 px-5 font-black text-xs uppercase tracking-widest hover:bg-primary/10 hover:text-primary transition-all" onClick={() => handleOpportunityClick(lead)}>
                               Detalhes
                             </Button>
                           </div>
@@ -382,6 +444,22 @@ export default function Crm() {
                       </Button>
                     )}
                   </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="kanban">
+            <Card className="glass-card border-black/5 dark:border-border overflow-hidden rounded-[2rem]">
+              <CardHeader className="p-6 md:p-8 pb-4">
+                <CardTitle className="text-xl md:text-2xl font-black">Pipeline (Kanban)</CardTitle>
+                <CardDescription className="text-sm font-medium">Arraste os leads entre as colunas para mudar a temperatura.</CardDescription>
+              </CardHeader>
+              <CardContent className="p-4 md:p-6 pt-0">
+                {loading ? (
+                  <div className="flex justify-center py-12"><Loader2 className="h-10 w-10 animate-spin text-primary/20" /></div>
+                ) : (
+                  <CrmKanban data={allClientes} refresh={refresh} onCardClick={handleOpportunityClick} />
                 )}
               </CardContent>
             </Card>
@@ -422,12 +500,17 @@ export default function Crm() {
                               </div>
                             )}
                             {client.telefone && (
-                              <div className="flex items-center text-xs font-bold text-muted-foreground/60">
+                              <div className="flex items-center text-xs font-bold text-muted-foreground/60 font-mono">
                                 <Phone className="h-3.5 w-3.5 mr-2 text-emerald-500/60" />
-                                {client.telefone}
+                                {formatPhone(client.telefone)}
                               </div>
                             )}
                           </div>
+                          {client.telefone && (
+                            <a href={`https://wa.me/55${onlyDigits(client.telefone)}`} target="_blank" rel="noopener noreferrer" className="text-emerald-600 dark:text-emerald-400 hover:scale-110 transition-transform p-1" title="WhatsApp">
+                              <MessageCircle className="h-4 w-4" />
+                            </a>
+                          )}
                           <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest">
                             Contratado
                           </Badge>

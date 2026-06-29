@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserCheck, Building2, Phone, Mail, MapPin, Target, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatPhone } from "@/lib/phone";
 
 interface Lead {
   id?: string;
@@ -305,7 +306,8 @@ export const NovoLeadDialog = ({ open, onOpenChange, onSave }: NovoLeadDialogPro
                 <Input
                   id="telefone"
                   value={formData.telefone}
-                  onChange={(e) => handleInputChange("telefone", e.target.value)}
+                  onChange={(e) => handleInputChange("telefone", formatPhone(e.target.value))}
+                  inputMode="numeric"
                   placeholder="(11) 99999-9999"
                   className="h-12 bg-muted/30 border-border rounded-xl font-bold"
                 />
