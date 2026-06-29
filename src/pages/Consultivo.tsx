@@ -739,7 +739,7 @@ export default function ConsultivoPage() {
                   <Settings className="h-3 w-3" />Gerenciar
                 </button>
               </div>
-              <div className="grid grid-cols-4 gap-1.5">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                 {effectiveCats.map(cat => {
                   const cc   = getColorCfg(cat.cor);
                   const CIcon = getIconEl(cat.icone);

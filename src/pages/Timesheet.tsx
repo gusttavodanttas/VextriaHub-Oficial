@@ -496,7 +496,7 @@ export default function Timesheet() {
                 <span className="h-4 w-4 rounded bg-primary/15 text-primary text-[9px] font-black flex items-center justify-center">2</span>
                 Categoria
               </Label>
-              <div className="grid grid-cols-4 gap-1.5">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                 {TIMESHEET_CATEGORIAS.map(cat => {
                   const cfg = CATEGORIA_CONFIG[cat];
                   const active = categoria === cat;

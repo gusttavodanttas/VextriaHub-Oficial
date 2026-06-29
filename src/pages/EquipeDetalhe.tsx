@@ -184,7 +184,7 @@ function MemberCard({ member, rank, onAssign }: { member: MemberStats; rank: num
       </div>
 
       {/* Mini stats always visible */}
-      <div className="grid grid-cols-4 border-t border-border divide-x divide-border">
+      <div className="grid grid-cols-2 sm:grid-cols-4 border-t border-border sm:divide-x divide-border">
         {[
           { label: "Processos", value: member.processos, color: "text-blue-500" },
           { label: "Tarefas", value: member.tarefasPendentes, color: "text-violet-500" },
