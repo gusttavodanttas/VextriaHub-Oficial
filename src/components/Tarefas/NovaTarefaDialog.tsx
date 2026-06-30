@@ -58,6 +58,18 @@ export const NovaTarefaDialog = ({ open, onOpenChange, clientes, processos, aten
     });
   };
 
+  // Vínculo reverso: ao escolher um processo, preenche o cliente dele (se ainda vazio)
+  const handleProcessoChange = (processo_id: string) => {
+    setFormData((prev) => {
+      const proc = processos.find((p) => p.id === processo_id);
+      const next: typeof prev = { ...prev, processo_id };
+      if (processo_id !== NONE && proc?.cliente_id && prev.cliente_id === NONE) {
+        next.cliente_id = proc.cliente_id;
+      }
+      return next;
+    });
+  };
+
   useEffect(() => {
     if (!open) return;
     if (tarefa) {
@@ -194,7 +206,7 @@ export const NovaTarefaDialog = ({ open, onOpenChange, clientes, processos, aten
                   <span className="ml-1 text-[10px] font-bold text-muted-foreground/50">({processosFiltrados.length} do cliente)</span>
                 )}
               </Label>
-              <Select value={formData.processo_id} onValueChange={(v) => setFormData({ ...formData, processo_id: v })}>
+              <Select value={formData.processo_id} onValueChange={handleProcessoChange}>
                 <SelectTrigger className="rounded-xl"><SelectValue placeholder="Nenhum" /></SelectTrigger>
                 <SelectContent className="rounded-xl">
                   <SelectItem value={NONE}>Nenhum</SelectItem>
