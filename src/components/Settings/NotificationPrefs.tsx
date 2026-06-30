@@ -68,13 +68,15 @@ export function NotificationPrefs() {
             </div>
           </div>
           <Select value={leadDias} onValueChange={saveLead}>
-            <SelectTrigger className="w-32 rounded-xl shrink-0"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-40 rounded-xl shrink-0"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="1">1 dia</SelectItem>
               <SelectItem value="2">2 dias</SelectItem>
               <SelectItem value="3">3 dias</SelectItem>
               <SelectItem value="5">5 dias</SelectItem>
-              <SelectItem value="7">7 dias</SelectItem>
+              <SelectItem value="7">7 dias (1 semana)</SelectItem>
+              <SelectItem value="15">15 dias</SelectItem>
+              <SelectItem value="30">30 dias (1 mês)</SelectItem>
             </SelectContent>
           </Select>
         </div>
