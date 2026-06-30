@@ -6,6 +6,7 @@ import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 import { useOpenItemFromSearch } from "@/hooks/useOpenItemFromSearch";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { ClientSelect } from "@/components/Clientes/ClientSelect";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -450,15 +451,11 @@ const FormDialog: React.FC<{
             </div>
             <div className="space-y-1">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Cliente</Label>
-              <Select value={form.cliente_id} onValueChange={(v) => { set("cliente_id", v); set("processo_id", NONE); }}>
-                <SelectTrigger className="rounded-xl h-9 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>Nenhum</SelectItem>
-                  {clientes.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <ClientSelect
+                value={form.cliente_id === NONE ? "" : form.cliente_id}
+                onValueChange={(id) => { set("cliente_id", id); set("processo_id", NONE); }}
+                placeholder="Selecionar cliente"
+              />
             </div>
           </div>
 

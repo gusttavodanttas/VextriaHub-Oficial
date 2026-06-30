@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ClientSelect } from "@/components/Clientes/ClientSelect";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Calendar as CalendarIcon, Clock, MapPin } from "lucide-react";
@@ -297,20 +298,11 @@ export const NovoCompromissoDialog: React.FC<NovoCompromissoDialogProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Cliente</Label>
-              <Select
-                value={formData.cliente_id}
-                onValueChange={(v) => setFormData((prev) => ({ ...prev, cliente_id: v, processo_id: NONE }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecionar cliente..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>Nenhum</SelectItem>
-                  {clientes.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <ClientSelect
+                value={formData.cliente_id === NONE ? "" : formData.cliente_id}
+                onValueChange={(id) => setFormData((prev) => ({ ...prev, cliente_id: id, processo_id: NONE }))}
+                placeholder="Selecionar cliente..."
+              />
             </div>
 
             <div className="space-y-2">

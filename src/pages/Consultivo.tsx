@@ -7,6 +7,7 @@ import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 import { useConsultivoCategorias, ConsultivoCategoria } from "@/hooks/useConsultivoCategorias";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { ClientSelect } from "@/components/Clientes/ClientSelect";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -707,15 +708,7 @@ export default function ConsultivoPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground">Cliente</Label>
-                <Select value={form.cliente_id || "__none__"} onValueChange={v => setForm(f => ({ ...f, cliente_id: v === "__none__" ? "" : v }))}>
-                  <SelectTrigger className="rounded-xl border-black/8 dark:border-border">
-                    <SelectValue placeholder="Selecionar cliente..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Sem cliente</SelectItem>
-                    {clientes.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <ClientSelect value={form.cliente_id || ""} onValueChange={(id) => setForm(f => ({ ...f, cliente_id: id }))} placeholder="Selecionar cliente..." />
               </div>
               {membros.length > 0 && (
                 <div className="space-y-1.5">
