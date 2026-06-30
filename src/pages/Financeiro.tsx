@@ -548,7 +548,7 @@ const FormDialog: React.FC<FormDialogProps> = ({
           {!editId && (
             <div className="space-y-3">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Tipo de lançamento</Label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {([
                   { value: "unico",      label: "Único",      Icon: DollarSign, desc: "Um lançamento" },
                   { value: "parcelado",  label: "Parcelado",  Icon: Layers,     desc: "Divide em parcelas" },
