@@ -93,7 +93,14 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
 
   return (
     <Dialog open={!!item} onOpenChange={onOpenChange}>
-      <DialogContent aria-describedby={undefined} className="w-[95vw] max-w-md rounded-3xl">
+      <DialogContent
+        aria-describedby={undefined}
+        className={cn(
+          "w-[95vw] max-w-md rounded-3xl max-h-[85vh] overflow-y-auto",
+          // Mobile: vira "bottom sheet" colado embaixo, largura total e rolável
+          "max-sm:w-full max-sm:max-w-none max-sm:left-0 max-sm:translate-x-0 max-sm:top-auto max-sm:bottom-0 max-sm:translate-y-0 max-sm:rounded-b-none max-sm:rounded-t-3xl max-sm:max-h-[88vh]"
+        )}
+      >
         {cfg && (
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg font-black">
