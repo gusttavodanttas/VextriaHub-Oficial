@@ -237,7 +237,7 @@ const Tarefas = () => {
         )}>
         {/* Checkbox concluir */}
         <button
-          onClick={() => toggle.mutate({ id: t.id, concluida: !t.concluida })}
+          onClick={() => toggle.mutate({ id: t.id, concluida: !t.concluida, tarefa: t })}
           className={cn(
             "shrink-0 h-6 w-6 rounded-lg border-2 flex items-center justify-center transition-all",
             t.concluida ? "bg-emerald-500 border-emerald-500 text-white" : "border-muted-foreground/30 hover:border-emerald-500 hover:bg-emerald-500/10"
@@ -274,7 +274,7 @@ const Tarefas = () => {
               <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg"><MoreHorizontal className="h-4 w-4" /></Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="rounded-xl w-40">
-              <DropdownMenuItem className="rounded-lg gap-2" onClick={() => toggle.mutate({ id: t.id, concluida: !t.concluida })}>
+              <DropdownMenuItem className="rounded-lg gap-2" onClick={() => toggle.mutate({ id: t.id, concluida: !t.concluida, tarefa: t })}>
                 <CheckCircle2 className="h-4 w-4" /> {t.concluida ? "Reabrir" : "Concluir"}
               </DropdownMenuItem>
               <DropdownMenuItem className="rounded-lg gap-2 text-destructive focus:text-destructive" onClick={() => { multiSelect.clearSelection(); multiSelect.toggleItem(t.id); setDeleteDialogOpen(true); }}>

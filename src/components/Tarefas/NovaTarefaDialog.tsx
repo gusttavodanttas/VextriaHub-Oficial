@@ -116,17 +116,15 @@ export const NovaTarefaDialog = ({ open, onOpenChange, clientes, processos, aten
     setSaving(true);
     try {
       if (recorrente) {
+        // Recorrência ENCADEADA: cria só a 1ª; as próximas são geradas ao concluir cada uma.
         const n = Math.max(1, Math.min(52, parseInt(formData.ocorrencias) || 1));
-        const baseDate = new Date(`${formData.data_vencimento}T12:00:00`);
         const grupo = (crypto as any).randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
-        const datas = generateOccurrences(baseDate, formData.recorrencia as RecRule, n);
-        const inputs: TarefaInput[] = datas.map((d) => ({
+        await onSubmit({
           ...base,
-          data_vencimento: format(d, "yyyy-MM-dd"),
           recorrencia_grupo: grupo,
           recorrencia_regra: formData.recorrencia,
-        }));
-        await onSubmitMany(inputs);
+          recorrencia_restantes: n - 1,
+        });
       } else {
         await onSubmit(base, tarefa?.id);
       }
@@ -258,7 +256,7 @@ export const NovaTarefaDialog = ({ open, onOpenChange, clientes, processos, aten
                 )}
               </div>
               {formData.recorrencia !== "nenhuma" && (
-                <p className="text-[11px] text-muted-foreground">Serão criadas {Math.max(1, Math.min(52, parseInt(formData.ocorrencias) || 1))} tarefas a partir do vencimento.</p>
+                <p className="text-[11px] text-muted-foreground">Cria a 1ª tarefa; ao concluí-la, a próxima é gerada automaticamente (até {Math.max(1, Math.min(52, parseInt(formData.ocorrencias) || 1))} ocorrências).</p>
               )}
             </div>
           )}

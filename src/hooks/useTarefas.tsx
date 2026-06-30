@@ -2,6 +2,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { format } from "date-fns";
+import { continueOccurrences, RecRule } from "@/lib/recorrencia";
 
 export interface Tarefa {
   id: string;
@@ -16,6 +18,7 @@ export interface Tarefa {
   atendimento_id: string | null;
   recorrencia_grupo: string | null;
   recorrencia_regra: string | null;
+  recorrencia_restantes?: number | null;
   cliente_nome?: string | null;
   updated_at?: string | null;
   responsavel_id?: string | null;
@@ -31,6 +34,7 @@ export interface TarefaInput {
   atendimento_id?: string | null;
   recorrencia_grupo?: string | null;
   recorrencia_regra?: string | null;
+  recorrencia_restantes?: number | null;
   responsavel_id?: string | null;
 }
 
@@ -47,6 +51,7 @@ function buildPayload(input: Partial<TarefaInput>) {
   if (input.atendimento_id) p.atendimento_id = input.atendimento_id;
   if (input.recorrencia_grupo) p.recorrencia_grupo = input.recorrencia_grupo;
   if (input.recorrencia_regra) p.recorrencia_regra = input.recorrencia_regra;
+  if (input.recorrencia_restantes !== undefined && input.recorrencia_restantes !== null) p.recorrencia_restantes = input.recorrencia_restantes;
   if (input.responsavel_id !== undefined) p.responsavel_id = input.responsavel_id;
   return p;
 }
@@ -81,6 +86,7 @@ export function useTarefas() {
         atendimento_id: t.atendimento_id ?? null,
         recorrencia_grupo: t.recorrencia_grupo ?? null,
         recorrencia_regra: t.recorrencia_regra ?? null,
+        recorrencia_restantes: t.recorrencia_restantes ?? null,
         cliente_nome: t.clientes?.nome || null,
         updated_at: t.updated_at,
       }));
@@ -133,9 +139,36 @@ export function useTarefas() {
   });
 
   const toggle = useMutation({
-    mutationFn: async ({ id, concluida }: { id: string; concluida: boolean }) => {
-      const { error } = await supabase.from("tarefas").update({ concluida }).eq("id", id);
+    mutationFn: async ({ id, concluida, tarefa }: { id: string; concluida: boolean; tarefa?: Tarefa }) => {
+      const now = new Date().toISOString();
+      // 1) marca concluída/reaberta com auditoria (data/autor); fallback se as colunas não existirem
+      const full: any = concluida
+        ? { concluida: true, concluida_em: now, concluida_por: user?.id, recorrencia_restantes: 0 }
+        : { concluida: false, concluida_em: null, concluida_por: null };
+      let { error } = await supabase.from("tarefas").update(full).eq("id", id);
+      if (error) ({ error } = await supabase.from("tarefas").update({ concluida }).eq("id", id));
       if (error) throw error;
+
+      // 2) recorrência encadeada: ao concluir, gera a PRÓXIMA ocorrência
+      if (concluida && tarefa?.recorrencia_regra && (tarefa.recorrencia_restantes ?? 0) > 0 && tarefa.data_vencimento && officeId && user?.id) {
+        const base = new Date(`${tarefa.data_vencimento}T12:00:00`);
+        const next = continueOccurrences(base, tarefa.recorrencia_regra as RecRule, 1)[0];
+        const row: any = {
+          titulo: tarefa.titulo,
+          descricao: tarefa.descricao ?? null,
+          prioridade: tarefa.prioridade ?? "media",
+          cliente_id: tarefa.cliente_id ?? null,
+          processo_id: tarefa.processo_id ?? null,
+          atendimento_id: tarefa.atendimento_id ?? null,
+          responsavel_id: tarefa.responsavel_id ?? null,
+          recorrencia_grupo: tarefa.recorrencia_grupo ?? null,
+          recorrencia_regra: tarefa.recorrencia_regra,
+          recorrencia_restantes: (tarefa.recorrencia_restantes ?? 0) - 1,
+          data_vencimento: format(next, "yyyy-MM-dd"),
+          office_id: officeId, user_id: user.id, concluida: false, deletado: false,
+        };
+        await supabase.from("tarefas").insert([row]); // best-effort (não bloqueia a conclusão)
+      }
     },
     onSuccess: () => invalidate(),
     onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),

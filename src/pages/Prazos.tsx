@@ -155,7 +155,11 @@ export default function Prazos() {
 
   const concludeMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('prazos').update({ status: 'concluido' }).eq('id', id);
+      // tenta gravar auditoria (data/autor); se as colunas não existirem, grava só o status
+      let { error } = await supabase.from('prazos')
+        .update({ status: 'concluido', concluido_em: new Date().toISOString(), concluido_por: user?.id } as any)
+        .eq('id', id);
+      if (error) ({ error } = await supabase.from('prazos').update({ status: 'concluido' }).eq('id', id));
       if (error) throw error;
     },
     onSuccess: () => {
@@ -166,7 +170,10 @@ export default function Prazos() {
 
   const reopenMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('prazos').update({ status: 'pendente' }).eq('id', id);
+      let { error } = await supabase.from('prazos')
+        .update({ status: 'pendente', concluido_em: null, concluido_por: null } as any)
+        .eq('id', id);
+      if (error) ({ error } = await supabase.from('prazos').update({ status: 'pendente' }).eq('id', id));
       if (error) throw error;
     },
     onSuccess: () => {
