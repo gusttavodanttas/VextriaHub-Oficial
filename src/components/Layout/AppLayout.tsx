@@ -5,6 +5,7 @@ import { AppSidebar } from './AppSidebar';
 import { AppHeader } from './AppHeader';
 import { SidebarInset } from '@/components/ui/sidebar';
 import { useCoordinatorAlerts } from '@/hooks/useCoordinatorAlerts';
+import { useProximityNotifications } from '@/hooks/useProximityNotifications';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -12,6 +13,7 @@ interface AppLayoutProps {
 
 export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   useCoordinatorAlerts();
+  useProximityNotifications();
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-background overflow-x-hidden">
