@@ -83,7 +83,7 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
         {cfg && (
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg font-black">
-              <span className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0"><cfg.Icon className="h-4.5 w-4.5" /></span>
+              <span className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0"><cfg.Icon className="h-4 w-4" /></span>
               <span className="truncate">{cfg.label}</span>
             </DialogTitle>
             <DialogDescription className="sr-only">Detalhes do item da agenda</DialogDescription>
