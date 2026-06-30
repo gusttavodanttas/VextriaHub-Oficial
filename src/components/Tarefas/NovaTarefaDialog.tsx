@@ -150,8 +150,8 @@ export const NovaTarefaDialog = ({ open, onOpenChange, clientes, processos, aten
         cliente_id: tarefa.cliente_id || NONE,
         processo_id: tarefa.processo_id || NONE,
         atendimento_id: tarefa.atendimento_id || NONE,
-        recorrencia: "nenhuma",
-        ocorrencias: "4",
+        recorrencia: tarefa.recorrencia_regra || "nenhuma",
+        ocorrencias: tarefa.recorrencia_restantes != null ? String(tarefa.recorrencia_restantes + 1) : "4",
         responsavel_id: tarefa.responsavel_id || user?.id || NONE,
         avisos_dias: (tarefa as any).avisos_dias ?? null,
       });
@@ -166,8 +166,8 @@ export const NovaTarefaDialog = ({ open, onOpenChange, clientes, processos, aten
       toast({ title: "Campo obrigatório", description: "Informe o título da tarefa.", variant: "destructive" });
       return;
     }
-    const recorrente = !isEdit && formData.recorrencia !== "nenhuma";
-    if (recorrente && !formData.data_vencimento) {
+    const recorrente = formData.recorrencia !== "nenhuma";
+    if (!isEdit && recorrente && !formData.data_vencimento) {
       toast({ title: "Data necessária", description: "Defina o vencimento para gerar a recorrência.", variant: "destructive" });
       return;
     }
@@ -184,15 +184,22 @@ export const NovaTarefaDialog = ({ open, onOpenChange, clientes, processos, aten
       ...((formData.avisos_dias != null || isEdit) ? { avisos_dias: formData.avisos_dias } : {}),
     };
 
+    const n = Math.max(1, Math.min(52, parseInt(formData.ocorrencias) || 1));
+    const novoGrupo = () => ((crypto as any).randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
+
     setSaving(true);
     try {
-      if (recorrente) {
+      if (isEdit) {
+        // Editar a recorrência da tarefa existente (define, altera ou limpa)
+        const recPatch = recorrente
+          ? { recorrencia_grupo: tarefa!.recorrencia_grupo || novoGrupo(), recorrencia_regra: formData.recorrencia, recorrencia_restantes: n - 1 }
+          : { recorrencia_grupo: null, recorrencia_regra: null, recorrencia_restantes: null };
+        await onSubmit({ ...base, ...recPatch }, tarefa?.id);
+      } else if (recorrente) {
         // Recorrência ENCADEADA: cria só a 1ª; as próximas são geradas ao concluir cada uma.
-        const n = Math.max(1, Math.min(52, parseInt(formData.ocorrencias) || 1));
-        const grupo = (crypto as any).randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
         await onSubmit({
           ...base,
-          recorrencia_grupo: grupo,
+          recorrencia_grupo: novoGrupo(),
           recorrencia_regra: formData.recorrencia,
           recorrencia_restantes: n - 1,
         });
@@ -308,33 +315,38 @@ export const NovaTarefaDialog = ({ open, onOpenChange, clientes, processos, aten
               onChange={(e) => setFormData({ ...formData, descricao: e.target.value })} rows={2} className="rounded-xl" />
           </div>
 
-          {/* Recorrência (só ao criar) */}
-          {!isEdit && (
-            <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-3 space-y-3">
-              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-muted-foreground/70">
-                <Repeat className="h-3.5 w-3.5" /> Recorrência
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Select value={formData.recorrencia} onValueChange={(v) => setFormData({ ...formData, recorrencia: v })}>
-                  <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
-                  <SelectContent className="rounded-xl">
-                    {RECORRENCIAS.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                {formData.recorrencia !== "nenhuma" && (
-                  <div className="flex items-center gap-2">
-                    <Input type="number" min={1} max={52} value={formData.ocorrencias}
-                      onChange={(e) => setFormData({ ...formData, ocorrencias: e.target.value })}
-                      className="rounded-xl" />
-                    <span className="text-xs text-muted-foreground font-semibold whitespace-nowrap">ocorrências</span>
-                  </div>
-                )}
-              </div>
+          {/* Recorrência */}
+          <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-3 space-y-3">
+            <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-muted-foreground/70">
+              <Repeat className="h-3.5 w-3.5" /> Recorrência
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Select value={formData.recorrencia} onValueChange={(v) => setFormData({ ...formData, recorrencia: v })}>
+                <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  {RECORRENCIAS.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
               {formData.recorrencia !== "nenhuma" && (
-                <p className="text-[11px] text-muted-foreground">Cria a 1ª tarefa; ao concluí-la, a próxima é gerada automaticamente (até {Math.max(1, Math.min(52, parseInt(formData.ocorrencias) || 1))} ocorrências).</p>
+                <div className="flex items-center gap-2">
+                  <Input type="number" min={1} max={52} value={formData.ocorrencias}
+                    onChange={(e) => setFormData({ ...formData, ocorrencias: e.target.value })}
+                    className="rounded-xl" />
+                  <span className="text-xs text-muted-foreground font-semibold whitespace-nowrap">ocorrências</span>
+                </div>
               )}
             </div>
-          )}
+            {formData.recorrencia !== "nenhuma" && (
+              <p className="text-[11px] text-muted-foreground">
+                {isEdit
+                  ? `Ao concluir, a próxima é gerada automaticamente (mais ${Math.max(0, (parseInt(formData.ocorrencias) || 1) - 1)} após esta).`
+                  : `Cria a 1ª tarefa; ao concluí-la, a próxima é gerada automaticamente (até ${Math.max(1, Math.min(52, parseInt(formData.ocorrencias) || 1))} ocorrências).`}
+              </p>
+            )}
+            {isEdit && formData.recorrencia === "nenhuma" && tarefa?.recorrencia_regra && (
+              <p className="text-[11px] text-amber-600 dark:text-amber-400">Salvar com "Não repetir" encerra a recorrência desta tarefa.</p>
+            )}
+          </div>
 
           {/* Comentários (só ao editar uma tarefa existente) */}
           {isEdit && tarefa?.id && <TarefaComentarios tarefaId={tarefa.id} membros={membros} />}

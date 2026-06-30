@@ -53,9 +53,10 @@ function buildPayload(input: Partial<TarefaInput>) {
   if (input.cliente_id !== undefined) p.cliente_id = input.cliente_id;
   if (input.processo_id !== undefined) p.processo_id = input.processo_id;
   if (input.atendimento_id) p.atendimento_id = input.atendimento_id;
-  if (input.recorrencia_grupo) p.recorrencia_grupo = input.recorrencia_grupo;
-  if (input.recorrencia_regra) p.recorrencia_regra = input.recorrencia_regra;
-  if (input.recorrencia_restantes !== undefined && input.recorrencia_restantes !== null) p.recorrencia_restantes = input.recorrencia_restantes;
+  // Recorrência: usa "in" para permitir limpar (null) ao editar a série.
+  if ("recorrencia_grupo" in input) p.recorrencia_grupo = input.recorrencia_grupo ?? null;
+  if ("recorrencia_regra" in input) p.recorrencia_regra = input.recorrencia_regra ?? null;
+  if ("recorrencia_restantes" in input) p.recorrencia_restantes = input.recorrencia_restantes ?? null;
   if (input.responsavel_id !== undefined) p.responsavel_id = input.responsavel_id;
   if (input.avisos_dias !== undefined) p.avisos_dias = input.avisos_dias;
   return p;
@@ -193,5 +194,19 @@ export function useTarefas() {
     onError: (e: any) => toast({ title: "Erro ao excluir", description: e.message, variant: "destructive" }),
   });
 
-  return { tarefas, isLoading, create, createMany, update, toggle, remove };
+  // Ações em lote (concluir/reabrir, prioridade, responsável, prazo)
+  const bulkPatch = useMutation({
+    mutationFn: async ({ ids, patch, concluir }: { ids: string[]; patch?: Record<string, any>; concluir?: boolean }) => {
+      const now = new Date().toISOString();
+      const payload: Record<string, any> = { ...(patch || {}) };
+      if (concluir === true) Object.assign(payload, { concluida: true, concluida_em: now, concluida_por: user?.id ?? null });
+      if (concluir === false) Object.assign(payload, { concluida: false, concluida_em: null, concluida_por: null });
+      const { error } = await supabase.from("tarefas").update(payload).in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: () => { invalidate(); toast({ title: "Tarefas atualizadas" }); },
+    onError: (e: any) => toast({ title: "Erro ao atualizar", description: e.message, variant: "destructive" }),
+  });
+
+  return { tarefas, isLoading, create, createMany, update, toggle, remove, bulkPatch };
 }

@@ -1,4 +1,5 @@
 import { useMemo, useState, useDeferredValue } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +11,7 @@ import {
 import {
   CheckSquare, Plus, Search, Trash2, Pencil, MoreHorizontal, User, FileText, MessageSquare,
   ListChecks, AlertTriangle, CheckCircle2, Flame, Clock, Trophy, Target, Repeat, X, MessageCircle,
+  Flag, CalendarClock, ChevronDown,
 } from "lucide-react";
 import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
 import { NovaTarefaDialog } from "@/components/Tarefas/NovaTarefaDialog";
@@ -33,20 +35,25 @@ const prioMeta: Record<string, { label: string; cls: string; dot: string }> = {
   baixa: { label: "Baixa", cls: "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10", dot: "bg-emerald-500" },
 };
 
-function StatCard({ icon: Icon, label, value, color, bg }: { icon: React.ElementType; label: string; value: number; color: string; bg: string }) {
+function StatCard({ icon: Icon, label, value, color, bg, active, onClick }: { icon: React.ElementType; label: string; value: number; color: string; bg: string; active?: boolean; onClick?: () => void }) {
   return (
-    <div className="flex items-center gap-3 p-4 rounded-2xl border border-black/5 dark:border-border bg-card/40">
+    <button type="button" onClick={onClick}
+      className={cn(
+        "flex items-center gap-3 p-4 rounded-2xl border bg-card/40 text-left transition-all hover:shadow-md hover:border-black/10 dark:hover:border-white/15",
+        active ? "border-primary/50 ring-2 ring-primary/15 bg-primary/[0.03]" : "border-black/5 dark:border-border"
+      )}>
       <div className={cn("p-2.5 rounded-xl shrink-0", bg)}><Icon className={cn("h-5 w-5", color)} /></div>
       <div className="min-w-0">
         <p className="text-2xl font-black leading-none">{value}</p>
         <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mt-1">{label}</p>
       </div>
-    </div>
+    </button>
   );
 }
 
 const Tarefas = () => {
-  const { tarefas, isLoading, create, createMany, update, toggle, remove } = useTarefas();
+  const navigate = useNavigate();
+  const { tarefas, isLoading, create, createMany, update, toggle, remove, bulkPatch } = useTarefas();
   const { data: clientesData } = useClientes();
   const { data: processosData } = useProcessosV2();
   const { users: officeUsers } = useOfficeUsers();
@@ -101,6 +108,9 @@ const Tarefas = () => {
   const dSearch = useDeferredValue(search);
   const [prioridadeFilter, setPrioridadeFilter] = useState("todas");
   const [statusFilter, setStatusFilter] = useState("pendentes");
+  const [respFilter, setRespFilter] = useState("todos");
+  const [clienteFilter, setClienteFilter] = useState("todos");
+  const [vencimentoFilter, setVencimentoFilter] = useState<"todos" | "atrasadas" | "hoje">("todos");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Tarefa | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -110,8 +120,30 @@ const Tarefas = () => {
     const matchesSearch = !q || t.titulo?.toLowerCase().includes(q) || (t.cliente_nome || "").toLowerCase().includes(q) || (t.descricao || "").toLowerCase().includes(q);
     const matchesPrio = prioridadeFilter === "todas" || t.prioridade === prioridadeFilter;
     const matchesStatus = statusFilter === "todas" || (statusFilter === "pendentes" ? !t.concluida : t.concluida);
-    return matchesSearch && matchesPrio && matchesStatus;
-  }), [tarefas, dSearch, prioridadeFilter, statusFilter]);
+    const matchesResp = respFilter === "todos" || (t.responsavel_id ?? "") === respFilter;
+    const matchesCliente = clienteFilter === "todos" || t.cliente_id === clienteFilter;
+    let matchesVenc = true;
+    if (vencimentoFilter === "atrasadas") matchesVenc = !!t.data_vencimento && !t.concluida && isPast(parseISO(t.data_vencimento)) && !isToday(parseISO(t.data_vencimento));
+    else if (vencimentoFilter === "hoje") matchesVenc = !!t.data_vencimento && isToday(parseISO(t.data_vencimento));
+    return matchesSearch && matchesPrio && matchesStatus && matchesResp && matchesCliente && matchesVenc;
+  }), [tarefas, dSearch, prioridadeFilter, statusFilter, respFilter, clienteFilter, vencimentoFilter]);
+
+  // Qual stat card está "ativo" conforme os filtros atuais
+  const activeStat = useMemo(() => {
+    if (statusFilter === "concluidas" && vencimentoFilter === "todos") return "concluidas";
+    if (statusFilter === "pendentes" && vencimentoFilter === "atrasadas") return "atrasadas";
+    if (statusFilter === "pendentes" && vencimentoFilter === "hoje") return "hoje";
+    if (statusFilter === "pendentes" && vencimentoFilter === "todos") return "pendentes";
+    return "";
+  }, [statusFilter, vencimentoFilter]);
+
+  const aplicarStat = (stat: "pendentes" | "atrasadas" | "hoje" | "concluidas") => {
+    if (activeStat === stat) { setStatusFilter("pendentes"); setVencimentoFilter("todos"); return; }
+    if (stat === "concluidas") { setStatusFilter("concluidas"); setVencimentoFilter("todos"); }
+    else if (stat === "atrasadas") { setStatusFilter("pendentes"); setVencimentoFilter("atrasadas"); }
+    else if (stat === "hoje") { setStatusFilter("pendentes"); setVencimentoFilter("hoje"); }
+    else { setStatusFilter("pendentes"); setVencimentoFilter("todos"); }
+  };
 
   const multiSelect = useMultiSelect(filtered);
 
@@ -252,6 +284,13 @@ const Tarefas = () => {
     setDeleteDialogOpen(false);
   };
 
+  // Ações em lote
+  const selectedIds = () => multiSelect.getSelectedItems().map(i => i.id);
+  const bulkConcluir = async () => { await bulkPatch.mutateAsync({ ids: selectedIds(), concluir: true }); multiSelect.clearSelection(); };
+  const bulkPrioridade = async (prioridade: string) => { await bulkPatch.mutateAsync({ ids: selectedIds(), patch: { prioridade } }); multiSelect.clearSelection(); };
+  const bulkResponsavel = async (responsavel_id: string) => { await bulkPatch.mutateAsync({ ids: selectedIds(), patch: { responsavel_id } }); multiSelect.clearSelection(); };
+  const bulkPrazo = async (data: string) => { await bulkPatch.mutateAsync({ ids: selectedIds(), patch: { data_vencimento: data || null } }); multiSelect.clearSelection(); };
+
   const dueLabel = (dateStr: string) => {
     const d = parseISO(dateStr);
     const diff = differenceInCalendarDays(d, new Date());
@@ -291,7 +330,14 @@ const Tarefas = () => {
         <div className="flex-1 min-w-0">
           <p className={cn("font-bold truncate", t.concluida && "line-through text-muted-foreground")}>{t.titulo}</p>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-[11px] text-muted-foreground font-medium">
-            {t.cliente_nome && <span className="flex items-center gap-1 truncate"><User className="h-3 w-3 shrink-0" />{t.cliente_nome}</span>}
+            {t.cliente_nome && (t.cliente_id ? (
+              <button type="button" onClick={() => navigate(`/clientes?openId=${t.cliente_id}`)}
+                className="flex items-center gap-1 truncate hover:text-primary hover:underline transition-colors" title="Abrir ficha do cliente">
+                <User className="h-3 w-3 shrink-0" />{t.cliente_nome}
+              </button>
+            ) : (
+              <span className="flex items-center gap-1 truncate"><User className="h-3 w-3 shrink-0" />{t.cliente_nome}</span>
+            ))}
             {t.processo_id && processoMap[t.processo_id] && <span className="flex items-center gap-1 truncate max-w-[180px]"><FileText className="h-3 w-3 shrink-0" />{processoMap[t.processo_id]}</span>}
             {t.atendimento_id && atendimentoMap[t.atendimento_id] && <span className="flex items-center gap-1 truncate"><MessageSquare className="h-3 w-3 shrink-0" />{atendimentoMap[t.atendimento_id]}</span>}
             {due && !t.concluida && <span className={cn("flex items-center gap-1", due.cls)}><Clock className="h-3 w-3" />{due.label}</span>}
@@ -302,6 +348,9 @@ const Tarefas = () => {
               </span>
             )}
           </div>
+          {t.descricao && !t.concluida && (
+            <p className="text-[11px] text-muted-foreground/50 line-clamp-1 mt-0.5">{t.descricao}</p>
+          )}
         </div>
 
         {/* Prioridade */}
@@ -355,10 +404,10 @@ const Tarefas = () => {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
-        <StatCard icon={ListChecks} label="Pendentes" value={stats.pendentes} color="text-purple-500" bg="bg-purple-500/10" />
-        <StatCard icon={AlertTriangle} label="Atrasadas" value={stats.atrasadas} color="text-rose-500" bg="bg-rose-500/10" />
-        <StatCard icon={Flame} label="Vencem hoje" value={stats.hoje} color="text-orange-500" bg="bg-orange-500/10" />
-        <StatCard icon={CheckCircle2} label="Concluídas" value={stats.concluidas} color="text-emerald-500" bg="bg-emerald-500/10" />
+        <StatCard icon={ListChecks} label="Pendentes" value={stats.pendentes} color="text-purple-500" bg="bg-purple-500/10" active={activeStat === "pendentes"} onClick={() => aplicarStat("pendentes")} />
+        <StatCard icon={AlertTriangle} label="Atrasadas" value={stats.atrasadas} color="text-rose-500" bg="bg-rose-500/10" active={activeStat === "atrasadas"} onClick={() => aplicarStat("atrasadas")} />
+        <StatCard icon={Flame} label="Vencem hoje" value={stats.hoje} color="text-orange-500" bg="bg-orange-500/10" active={activeStat === "hoje"} onClick={() => aplicarStat("hoje")} />
+        <StatCard icon={CheckCircle2} label="Concluídas" value={stats.concluidas} color="text-emerald-500" bg="bg-emerald-500/10" active={activeStat === "concluidas"} onClick={() => aplicarStat("concluidas")} />
       </div>
 
       {/* Gamificação */}
@@ -422,9 +471,9 @@ const Tarefas = () => {
           <Input placeholder="Buscar por título, cliente ou descrição..." value={search}
             onChange={(e) => setSearch(e.target.value)} className="pl-10 h-11 rounded-xl bg-card/40 border-black/5 dark:border-border" />
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full md:w-36 h-11 rounded-xl bg-card/40 border-black/5 dark:border-border font-bold"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-full md:w-32 h-11 rounded-xl bg-card/40 border-black/5 dark:border-border font-bold"><SelectValue /></SelectTrigger>
             <SelectContent className="rounded-xl">
               <SelectItem value="pendentes">Pendentes</SelectItem>
               <SelectItem value="concluidas">Concluídas</SelectItem>
@@ -432,12 +481,28 @@ const Tarefas = () => {
             </SelectContent>
           </Select>
           <Select value={prioridadeFilter} onValueChange={setPrioridadeFilter}>
-            <SelectTrigger className="w-full md:w-36 h-11 rounded-xl bg-card/40 border-black/5 dark:border-border font-bold"><SelectValue placeholder="Prioridade" /></SelectTrigger>
+            <SelectTrigger className="w-full md:w-32 h-11 rounded-xl bg-card/40 border-black/5 dark:border-border font-bold"><SelectValue placeholder="Prioridade" /></SelectTrigger>
             <SelectContent className="rounded-xl">
               <SelectItem value="todas">Toda prioridade</SelectItem>
               <SelectItem value="alta">Alta</SelectItem>
               <SelectItem value="media">Média</SelectItem>
               <SelectItem value="baixa">Baixa</SelectItem>
+            </SelectContent>
+          </Select>
+          {membros.length > 0 && (
+            <Select value={respFilter} onValueChange={setRespFilter}>
+              <SelectTrigger className="w-full md:w-40 h-11 rounded-xl bg-card/40 border-black/5 dark:border-border font-bold"><SelectValue /></SelectTrigger>
+              <SelectContent className="rounded-xl">
+                <SelectItem value="todos">Todos responsáveis</SelectItem>
+                {membros.map((m) => <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+          <Select value={clienteFilter} onValueChange={setClienteFilter}>
+            <SelectTrigger className="w-full md:w-44 h-11 rounded-xl bg-card/40 border-black/5 dark:border-border font-bold"><SelectValue /></SelectTrigger>
+            <SelectContent className="rounded-xl max-h-72">
+              <SelectItem value="todos">Todos clientes</SelectItem>
+              {clientes.map((c) => <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
@@ -457,11 +522,64 @@ const Tarefas = () => {
         </div>
       ) : (
         <div className="space-y-5">
-          <div className="flex items-center gap-3 px-1">
-            <Checkbox checked={multiSelect.isAllSelected} onCheckedChange={() => multiSelect.isAllSelected ? multiSelect.clearSelection() : multiSelect.selectAll()} className="rounded-md" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
-              {multiSelect.selectedCount > 0 ? `${multiSelect.selectedCount} selecionada(s)` : "Selecionar todas"}
-            </span>
+          <div className="flex flex-wrap items-center gap-2 px-1">
+            <div className="flex items-center gap-3">
+              <Checkbox checked={multiSelect.isAllSelected} onCheckedChange={() => multiSelect.isAllSelected ? multiSelect.clearSelection() : multiSelect.selectAll()} className="rounded-md" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
+                {multiSelect.selectedCount > 0 ? `${multiSelect.selectedCount} selecionada(s)` : "Selecionar todas"}
+              </span>
+            </div>
+
+            {multiSelect.selectedCount > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 sm:ml-auto">
+                <Button size="sm" variant="outline" disabled={bulkPatch.isPending}
+                  className="h-8 rounded-lg gap-1.5 font-bold text-emerald-600" onClick={bulkConcluir}>
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Concluir
+                </Button>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm" variant="outline" className="h-8 rounded-lg gap-1.5 font-bold">
+                      <Flag className="h-3.5 w-3.5" /> Prioridade <ChevronDown className="h-3 w-3 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="rounded-xl w-36">
+                    <DropdownMenuItem className="rounded-lg gap-2" onClick={() => bulkPrioridade("alta")}><span className="h-2 w-2 rounded-full bg-rose-500" /> Alta</DropdownMenuItem>
+                    <DropdownMenuItem className="rounded-lg gap-2" onClick={() => bulkPrioridade("media")}><span className="h-2 w-2 rounded-full bg-amber-500" /> Média</DropdownMenuItem>
+                    <DropdownMenuItem className="rounded-lg gap-2" onClick={() => bulkPrioridade("baixa")}><span className="h-2 w-2 rounded-full bg-emerald-500" /> Baixa</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {membros.length > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" variant="outline" className="h-8 rounded-lg gap-1.5 font-bold">
+                        <User className="h-3.5 w-3.5" /> Responsável <ChevronDown className="h-3 w-3 opacity-50" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="rounded-xl w-48 max-h-64 overflow-y-auto">
+                      {membros.map((m) => (
+                        <DropdownMenuItem key={m.id} className="rounded-lg" onClick={() => bulkResponsavel(m.id)}>{m.label}</DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+
+                <label className="flex items-center gap-1.5 h-8 rounded-lg border border-black/10 dark:border-border bg-card/40 px-2 text-xs font-bold cursor-pointer" title="Definir prazo das selecionadas">
+                  <CalendarClock className="h-3.5 w-3.5 text-muted-foreground/60" />
+                  <input type="date" onChange={(e) => bulkPrazo(e.target.value)}
+                    className="bg-transparent outline-none text-xs font-bold w-[7.5rem]" />
+                </label>
+
+                <Button size="sm" variant="outline" disabled={remove.isPending}
+                  className="h-8 rounded-lg gap-1.5 font-bold text-rose-600" onClick={() => setDeleteDialogOpen(true)}>
+                  <Trash2 className="h-3.5 w-3.5" /> Excluir
+                </Button>
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-lg" onClick={() => multiSelect.clearSelection()} title="Limpar seleção">
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
           </div>
           {Object.entries(groups).map(([label, items]) =>
             items.length === 0 ? null : (
