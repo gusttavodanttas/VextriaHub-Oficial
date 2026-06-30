@@ -15,7 +15,7 @@ const diasAte = (dateStr: string) =>
   differenceInCalendarDays(startOfDay(new Date(dateStr.length <= 10 ? `${dateStr}T12:00:00` : dateStr)), startOfDay(new Date()));
 
 /**
- * Gera notificações de PROXIMIDADE (audiências, prazos, tarefas) no sino.
+ * Gera notificações de PROXIMIDADE (audiências, prazos, tarefas, atendimentos) no sino.
  * A antecedência é POR ITEM (coluna aviso_dias): null = usa o padrão global do
  * usuário; 0 = não avisar; N = avisar N dias antes. Roda 1x/dia e deduplica.
  */
@@ -102,6 +102,26 @@ export function useProximityNotifications() {
               title: `Tarefa ${proxLabel(t.data_vencimento)}`,
               message: `${t.titulo} — vence ${proxLabel(t.data_vencimento)}`,
               action_url: `/tarefas?openId=${t.id}&d=${D}`, action_label: "Ver tarefa", read: false,
+            });
+          });
+        });
+      }
+
+      if (prefs.atendimentos) {
+        const { data } = await supabase.from("atendimentos")
+          .select("*, clientes(nome)")
+          .eq("office_id", user.office_id).eq("deletado", false)
+          .in("status", ["agendado", "pendente"])
+          .gte("data_atendimento", start.toISOString()).lte("data_atendimento", end.toISOString());
+        (data || []).forEach((a: any) => {
+          const d = diasAte(a.data_atendimento);
+          marcosDe(a).forEach((D) => {
+            if (d < 0 || d > D) return;
+            candidatos.push({
+              user_id: user.id, type: "info",
+              title: `Atendimento ${proxLabel(a.data_atendimento)}`,
+              message: `${a.tipo_atendimento || "Atendimento"}${a.clientes?.nome ? ` — ${a.clientes.nome}` : ""} — ${proxLabel(a.data_atendimento)} às ${format(new Date(a.data_atendimento), "HH:mm")}`,
+              action_url: `/atendimentos?openId=${a.id}&d=${D}`, action_label: "Ver atendimento", read: false,
             });
           });
         });

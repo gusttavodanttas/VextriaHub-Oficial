@@ -7,6 +7,8 @@ import { useOpenItemFromSearch } from "@/hooks/useOpenItemFromSearch";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { ClientSelect } from "@/components/Clientes/ClientSelect";
+import { AvisoDiasSelect } from "@/components/Notifications/AvisoDiasSelect";
+import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -74,6 +76,20 @@ const STATUS_CONFIG = {
 
 type StatusType = keyof typeof STATUS_CONFIG;
 
+// Proximidade de atendimentos futuros agendados/pendentes
+const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+const diasAteData = (data: Date) =>
+  Math.round((startOfDay(data).getTime() - startOfDay(new Date()).getTime()) / 86400000);
+
+const proximidadeBadge = (item: { data_atendimento: string; status: StatusType }) => {
+  if (item.status !== "agendado" && item.status !== "pendente") return null;
+  const dias = diasAteData(parseISO(item.data_atendimento));
+  if (dias < 0 || dias > 7) return null;
+  if (dias === 0) return { label: "Hoje", className: "border-red-500/50 text-red-500 bg-red-500/10" };
+  if (dias === 1) return { label: "Amanhã", className: "border-orange-500/50 text-orange-500 bg-orange-500/10" };
+  return { label: `Em ${dias} dias`, className: "border-amber-500/50 text-amber-600 bg-amber-500/10" };
+};
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface Atendimento {
@@ -87,6 +103,8 @@ interface Atendimento {
   user_id: string;
   office_id: string;
   deletado: boolean;
+  duracao?: number | null;
+  avisos_dias?: number[] | null;
   clientes?: { nome: string } | null;
 }
 
@@ -102,6 +120,8 @@ interface FormState {
   cliente_id: string;
   processo_id: string;
   responsavel_id: string;
+  duracao: string;
+  avisos_dias: number[] | null;
 }
 
 const toNull = (v: string | null | undefined) =>
@@ -116,6 +136,8 @@ const defaultForm = (userId = ""): FormState => ({
   cliente_id: NONE,
   processo_id: NONE,
   responsavel_id: userId,
+  duracao: "",
+  avisos_dias: null,
 });
 
 const tipoInfo = (tipo: string, extras: string[] = []) => {
@@ -362,6 +384,8 @@ const FormDialog: React.FC<{
       office_id: officeId,
       deletado: false,
       responsavel_id: form.responsavel_id || userId || null,
+      duracao: form.duracao ? Number(form.duracao) : null,
+      ...((form.avisos_dias != null || editId) ? { avisos_dias: form.avisos_dias } : {}),
     };
     if (editId) onUpdate({ id: editId, ...payload });
     else onSave(payload);
@@ -490,6 +514,20 @@ const FormDialog: React.FC<{
             </div>
           )}
 
+          {/* Duração + Avisar */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Duração (min)</Label>
+              <Input type="number" min={0} value={form.duracao}
+                onChange={(e) => set("duracao", e.target.value)}
+                placeholder="Ex: 60" className="rounded-xl h-9 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Avisar</Label>
+              <AvisoDiasSelect value={form.avisos_dias} onChange={(v) => set("avisos_dias", v)} />
+            </div>
+          </div>
+
           {/* Observações */}
           <div className="space-y-1">
             <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Observações</Label>
@@ -528,6 +566,7 @@ const AtendimentoCard: React.FC<{
   const { Icon: StatusIcon } = cfg;
   const { label: tipoLabel, Icon: TipoIcon } = tipoInfo(item.tipo_atendimento);
   const dataAt = parseISO(item.data_atendimento);
+  const prox = proximidadeBadge(item);
 
   return (
     <div className="glass-card hover-lift rounded-2xl border border-black/5 dark:border-border bg-card/40 shadow-premium p-5 flex flex-col gap-3 group transition-all">
@@ -544,11 +583,26 @@ const AtendimentoCard: React.FC<{
             </p>
           </div>
         </div>
-        <Badge className={cn("px-2.5 py-1 rounded-xl text-[9px] uppercase tracking-widest font-black flex items-center gap-1 shrink-0", cfg.className)}>
-          <StatusIcon className="h-3 w-3" />
-          {cfg.label}
-        </Badge>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <Badge className={cn("px-2.5 py-1 rounded-xl text-[9px] uppercase tracking-widest font-black flex items-center gap-1", cfg.className)}>
+            <StatusIcon className="h-3 w-3" />
+            {cfg.label}
+          </Badge>
+          {prox && (
+            <Badge className={cn("px-2 py-0.5 rounded-lg text-[9px] uppercase tracking-widest font-black", prox.className)}>
+              {prox.label}
+            </Badge>
+          )}
+        </div>
       </div>
+
+      {/* Duração */}
+      {item.duracao != null && item.duracao > 0 && (
+        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/70 font-semibold -mt-1">
+          <Clock className="h-3 w-3 text-primary/50" />
+          {item.duracao} min
+        </div>
+      )}
 
       {/* Cliente */}
       {item.clientes?.nome && (
@@ -640,6 +694,7 @@ const Atendimentos = () => {
     }
   }, []);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   // Stats
   const stats = useMemo(() => ({
@@ -648,6 +703,14 @@ const Atendimentos = () => {
     realizados: items.filter((i) => i.status === "realizado").length,
     cancelados: items.filter((i) => i.status === "cancelado").length,
   }), [items]);
+
+  // Atendimentos passados ainda agendados/pendentes → precisam de baixa
+  const pendentesBaixa = useMemo(() => {
+    const agora = Date.now();
+    return items
+      .filter((i) => (i.status === "agendado" || i.status === "pendente") && parseISO(i.data_atendimento).getTime() < agora)
+      .sort((a, b) => parseISO(a.data_atendimento).getTime() - parseISO(b.data_atendimento).getTime());
+  }, [items]);
 
   const filtered = useMemo(() => items.filter((i) => {
     const q = dBusca.toLowerCase();
@@ -677,14 +740,16 @@ const Atendimentos = () => {
     update.mutate(data, { onSuccess: () => setDialogOpen(false) });
   };
 
-  const handleDelete = (id: string) => {
-    if (!confirm("Confirmar exclusão?")) return;
-    remove.mutate(id);
-  };
+  const handleDelete = (id: string) => setDeleteId(id);
 
   const handleMarkRealizado = (id: string) => {
     setLoadingId(id);
     markRealizado.mutate(id, { onSettled: () => setLoadingId(null) });
+  };
+
+  const handleMarkCancelado = (id: string) => {
+    setLoadingId(id);
+    update.mutate({ id, status: "cancelado" }, { onSettled: () => setLoadingId(null) });
   };
 
   const formInitial: FormState = editItem
@@ -697,6 +762,8 @@ const Atendimentos = () => {
         cliente_id: editItem.cliente_id ?? NONE,
         processo_id: editItem.processo_id ?? NONE,
         responsavel_id: (editItem as any).responsavel_id ?? user?.id ?? "",
+        duracao: editItem.duracao != null ? String(editItem.duracao) : "",
+        avisos_dias: (editItem as any).avisos_dias ?? null,
       }
     : defaultForm(user?.id ?? "");
 
@@ -734,6 +801,54 @@ const Atendimentos = () => {
         <StatCard label="Realizados" value={stats.realizados} Icon={CheckCircle2} color="bg-emerald-500/10 text-emerald-500" />
         <StatCard label="Cancelados" value={stats.cancelados} Icon={XCircle} color="bg-red-500/10 text-red-500" />
       </div>
+
+      {/* Pendentes de baixa */}
+      {pendentesBaixa.length > 0 && (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+            <p className="text-sm font-black text-amber-700 dark:text-amber-500">
+              {pendentesBaixa.length} atendimento{pendentesBaixa.length !== 1 ? "s" : ""} aguardando baixa
+            </p>
+          </div>
+          <p className="text-xs text-muted-foreground/70 -mt-1">
+            Atendimentos com data passada ainda marcados como agendados ou pendentes. Confirme o que ocorreu.
+          </p>
+          <div className="space-y-2">
+            {pendentesBaixa.slice(0, 5).map((item) => {
+              const { label: tLabel, Icon: TIcon } = tipoInfo(item.tipo_atendimento, extras);
+              return (
+                <div key={item.id} className="flex items-center gap-2 rounded-xl bg-card/60 border border-black/5 dark:border-border px-3 py-2">
+                  <TIcon className="h-3.5 w-3.5 text-primary/60 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold truncate">
+                      {tLabel}{item.clientes?.nome ? ` · ${item.clientes.nome}` : ""}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground/60 font-semibold uppercase tracking-wide">
+                      {format(parseISO(item.data_atendimento), "dd/MM/yyyy 'às' HH:mm")}
+                    </p>
+                  </div>
+                  <Button size="sm" variant="ghost" disabled={loadingId === item.id}
+                    onClick={() => handleMarkRealizado(item.id)}
+                    className="h-7 rounded-lg px-2 text-[10px] font-black uppercase tracking-wide text-emerald-600 hover:bg-emerald-500/10">
+                    {loadingId === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <><CheckCircle2 className="h-3 w-3 mr-1" />Realizado</>}
+                  </Button>
+                  <Button size="sm" variant="ghost" disabled={loadingId === item.id}
+                    onClick={() => handleMarkCancelado(item.id)}
+                    className="h-7 rounded-lg px-2 text-[10px] font-black uppercase tracking-wide text-red-500 hover:bg-red-500/10">
+                    <XCircle className="h-3 w-3 mr-1" />Cancelar
+                  </Button>
+                </div>
+              );
+            })}
+            {pendentesBaixa.length > 5 && (
+              <p className="text-[10px] text-muted-foreground/50 font-bold uppercase tracking-widest pt-1">
+                + {pendentesBaixa.length - 5} mais
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Filtros */}
       <div className="flex flex-col sm:flex-row gap-3">
@@ -840,6 +955,16 @@ const Atendimentos = () => {
         onClose={() => setTiposDialogOpen(false)}
         extras={extras}
         onSave={saveExtras}
+      />
+
+      {/* Confirmar exclusão */}
+      <DeleteConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(o) => { if (!o) setDeleteId(null); }}
+        onConfirm={() => { if (deleteId) remove.mutate(deleteId); setDeleteId(null); }}
+        isLoading={remove.isPending}
+        title="Excluir atendimento"
+        description="Esta ação não pode ser desfeita. O atendimento será removido permanentemente."
       />
     </div>
   );
