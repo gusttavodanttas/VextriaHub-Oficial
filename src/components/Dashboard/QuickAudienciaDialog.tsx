@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAudiencias } from "@/hooks/useAudiencias";
 import { useAudienciaTipos } from "@/hooks/useAudienciaTipos";
 import { ClientSelect } from "@/components/Clientes/ClientSelect";
+import { AvisoDiasSelect } from "@/components/Notifications/AvisoDiasSelect";
 
 interface Props { open: boolean; onOpenChange: (o: boolean) => void; onSuccess?: () => void; }
 
@@ -19,11 +20,11 @@ export function QuickAudienciaDialog({ open, onOpenChange, onSuccess }: Props) {
   const { create } = useAudiencias();
   const { tipos = [] } = useAudienciaTipos();
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ titulo: "", tipo: "", data: "", local: "", cliente_id: "", obs: "" });
+  const [form, setForm] = useState({ titulo: "", tipo: "", data: "", local: "", cliente_id: "", obs: "", avisos_dias: null as number[] | null });
 
   useEffect(() => {
     if (!open) return;
-    setForm({ titulo: "", tipo: "", data: "", local: "", cliente_id: "", obs: "" });
+    setForm({ titulo: "", tipo: "", data: "", local: "", cliente_id: "", obs: "", avisos_dias: null });
   }, [open]);
 
   const salvar = () => {
@@ -39,6 +40,7 @@ export function QuickAudienciaDialog({ open, onOpenChange, onSuccess }: Props) {
         observacoes: form.obs.trim() || null,
         cliente_id: form.cliente_id || null,
         responsavel_id: user?.id || null,
+        ...(form.avisos_dias != null ? { avisos_dias: form.avisos_dias } : {}),
       },
       {
         onSuccess: () => { setSaving(false); onSuccess?.(); onOpenChange(false); },
@@ -83,6 +85,10 @@ export function QuickAudienciaDialog({ open, onOpenChange, onSuccess }: Props) {
           <div className="space-y-1.5">
             <Label className="text-xs font-bold">Local</Label>
             <Input value={form.local} onChange={(e) => setForm({ ...form, local: e.target.value })} placeholder="Fórum / vara" className="h-11 rounded-xl" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-bold">Avisar</Label>
+            <AvisoDiasSelect value={form.avisos_dias} onChange={(v) => setForm({ ...form, avisos_dias: v })} />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs font-bold">Observações</Label>

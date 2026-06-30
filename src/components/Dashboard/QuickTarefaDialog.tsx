@@ -9,6 +9,7 @@ import { Loader2, CheckSquare } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTarefas } from "@/hooks/useTarefas";
 import { ClientSelect } from "@/components/Clientes/ClientSelect";
+import { AvisoDiasSelect } from "@/components/Notifications/AvisoDiasSelect";
 
 interface Props { open: boolean; onOpenChange: (o: boolean) => void; onSuccess?: () => void; }
 
@@ -18,11 +19,11 @@ export function QuickTarefaDialog({ open, onOpenChange, onSuccess }: Props) {
   const { user } = useAuth();
   const { create } = useTarefas();
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ titulo: "", prioridade: "media", data: "", cliente_id: "", descricao: "" });
+  const [form, setForm] = useState({ titulo: "", prioridade: "media", data: "", cliente_id: "", descricao: "", avisos_dias: null as number[] | null });
 
   useEffect(() => {
     if (!open) return;
-    setForm({ titulo: "", prioridade: "media", data: "", cliente_id: "", descricao: "" });
+    setForm({ titulo: "", prioridade: "media", data: "", cliente_id: "", descricao: "", avisos_dias: null });
   }, [open]);
 
   const salvar = () => {
@@ -36,6 +37,7 @@ export function QuickTarefaDialog({ open, onOpenChange, onSuccess }: Props) {
         prioridade: form.prioridade,
         cliente_id: form.cliente_id || null,
         responsavel_id: user?.id || null,
+        ...(form.avisos_dias != null ? { avisos_dias: form.avisos_dias } : {}),
       },
       { onSuccess: () => { setSaving(false); onSuccess?.(); onOpenChange(false); }, onError: () => setSaving(false) }
     );
@@ -73,6 +75,10 @@ export function QuickTarefaDialog({ open, onOpenChange, onSuccess }: Props) {
           <div className="space-y-1.5">
             <Label className="text-xs font-bold">Cliente (opcional)</Label>
             <ClientSelect value={form.cliente_id} onValueChange={(id) => setForm({ ...form, cliente_id: id })} placeholder="Sem cliente" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-bold">Avisar</Label>
+            <AvisoDiasSelect value={form.avisos_dias} onChange={(v) => setForm({ ...form, avisos_dias: v })} />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs font-bold">Descrição</Label>
