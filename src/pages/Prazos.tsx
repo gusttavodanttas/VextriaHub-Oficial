@@ -7,6 +7,7 @@ import { NovoPrazoStandaloneDialog, PrazoFormData } from "@/components/Processos
 import { useOpenItemFromSearch } from "@/hooks/useOpenItemFromSearch";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, differenceInCalendarDays, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -39,6 +40,8 @@ interface Prazo {
   processo_id?: string | null;
   user_id: string;
   office_id?: string | null;
+  concluido_em?: string | null;
+  concluido_por?: string | null;
 }
 
 // Prazo fatal: data_fim_prazo (novo padrão) ou data_vencimento (legado)
@@ -114,6 +117,8 @@ const SECTION_LABELS: Record<Urgency, string> = {
 export default function Prazos() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { users: officeUsers } = useOfficeUsers();
+  const membroMap = useMemo(() => Object.fromEntries((officeUsers || []).map((u: any) => [u.user_id, u.profile?.full_name || u.profile?.email || "—"])), [officeUsers]);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -428,6 +433,11 @@ export default function Prazos() {
                             <Clock className="h-3 w-3" />
                             <span className="underline underline-offset-2 text-[11px]">Ver processo</span>
                           </button>
+                        )}
+                        {isConcluido && prazo.concluido_em && (
+                          <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                            <CheckCircle2 className="h-3 w-3" /> Concluído por {membroMap[prazo.concluido_por || ""] || "—"} · {format(new Date(prazo.concluido_em), "dd/MM/yy", { locale: ptBR })}
+                          </span>
                         )}
                       </div>
                     </div>

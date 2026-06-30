@@ -81,6 +81,7 @@ const Tarefas = () => {
   const atendimentos = useMemo(() => (atendimentosData || []).map((a: any) => ({ id: a.id, label: `${a.tipo_atendimento}${a.data_atendimento ? " · " + format(parseISO(a.data_atendimento), "dd/MM/yy") : ""}` })), [atendimentosData]);
   const processoMap = useMemo(() => Object.fromEntries(processos.map(p => [p.id, p.label])), [processos]);
   const atendimentoMap = useMemo(() => Object.fromEntries(atendimentos.map(a => [a.id, a.label])), [atendimentos]);
+  const membroMap = useMemo(() => Object.fromEntries(membros.map(m => [m.id, m.label])), [membros]);
 
   const [search, setSearch] = useState("");
   const dSearch = useDeferredValue(search);
@@ -257,7 +258,12 @@ const Tarefas = () => {
             {t.cliente_nome && <span className="flex items-center gap-1 truncate"><User className="h-3 w-3 shrink-0" />{t.cliente_nome}</span>}
             {t.processo_id && processoMap[t.processo_id] && <span className="flex items-center gap-1 truncate max-w-[180px]"><FileText className="h-3 w-3 shrink-0" />{processoMap[t.processo_id]}</span>}
             {t.atendimento_id && atendimentoMap[t.atendimento_id] && <span className="flex items-center gap-1 truncate"><MessageSquare className="h-3 w-3 shrink-0" />{atendimentoMap[t.atendimento_id]}</span>}
-            {due && <span className={cn("flex items-center gap-1", due.cls)}><Clock className="h-3 w-3" />{due.label}</span>}
+            {due && !t.concluida && <span className={cn("flex items-center gap-1", due.cls)}><Clock className="h-3 w-3" />{due.label}</span>}
+            {t.concluida && t.concluida_em && (
+              <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 className="h-3 w-3 shrink-0" /> Concluído por {membroMap[t.concluida_por || ""] || "—"} · {format(parseISO(t.concluida_em), "dd/MM/yy")}
+              </span>
+            )}
           </div>
         </div>
 

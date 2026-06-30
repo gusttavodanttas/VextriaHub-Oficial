@@ -22,6 +22,8 @@ export interface Tarefa {
   cliente_nome?: string | null;
   updated_at?: string | null;
   responsavel_id?: string | null;
+  concluida_em?: string | null;
+  concluida_por?: string | null;
 }
 
 export interface TarefaInput {
@@ -89,6 +91,9 @@ export function useTarefas() {
         recorrencia_restantes: t.recorrencia_restantes ?? null,
         cliente_nome: t.clientes?.nome || null,
         updated_at: t.updated_at,
+        responsavel_id: t.responsavel_id ?? null,
+        concluida_em: t.concluida_em ?? null,
+        concluida_por: t.concluida_por ?? null,
       }));
     },
     enabled: !!officeId,
