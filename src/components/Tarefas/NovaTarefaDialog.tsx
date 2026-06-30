@@ -5,13 +5,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckSquare, Loader2, Repeat, MessageCircle, Trash2 } from "lucide-react";
+import { CheckSquare, Loader2, Repeat, MessageCircle, Trash2, ListChecks, Plus, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
 import { RECORRENCIAS, generateOccurrences, type RecRule } from "@/lib/recorrencia";
 import type { Tarefa, TarefaInput } from "@/hooks/useTarefas";
 import { useTarefaComentarios } from "@/hooks/useTarefaComentarios";
+import { useSubtarefas } from "@/hooks/useSubtarefas";
 import { useAuth } from "@/contexts/AuthContext";
+import { cn } from "@/lib/utils";
 import { AvisoDiasSelect } from "@/components/Notifications/AvisoDiasSelect";
 
 interface Option { id: string; label: string; cliente_id?: string | null; }
@@ -39,6 +41,68 @@ const empty = { titulo: "", descricao: "", data_vencimento: "", prioridade: "med
 
 const iniciaisDe = (nome: string) =>
   nome.split(" ").filter(Boolean).slice(0, 2).map((s) => s[0]).join("").toUpperCase() || "?";
+
+const TarefaSubtarefas = ({ tarefaId }: { tarefaId: string }) => {
+  const { subtarefas, isLoading, add, toggle, remove } = useSubtarefas(tarefaId);
+  const [titulo, setTitulo] = useState("");
+  const total = subtarefas.length;
+  const feitas = subtarefas.filter((s) => s.concluida).length;
+  const pct = total ? Math.round((feitas / total) * 100) : 0;
+
+  const adicionar = () => {
+    if (!titulo.trim()) return;
+    add.mutate(titulo, { onSuccess: () => setTitulo("") });
+  };
+
+  return (
+    <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-3 space-y-3">
+      <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-muted-foreground/70">
+        <ListChecks className="h-3.5 w-3.5" /> Subtarefas
+        {total > 0 && <span className="text-muted-foreground/40">· {feitas}/{total}</span>}
+      </div>
+
+      {total > 0 && (
+        <div className="h-1.5 w-full rounded-full bg-black/5 dark:bg-muted/30 overflow-hidden">
+          <div className="h-full rounded-full bg-emerald-500 transition-all duration-300" style={{ width: `${pct}%` }} />
+        </div>
+      )}
+
+      {isLoading ? (
+        <p className="text-xs text-muted-foreground/50">Carregando…</p>
+      ) : total === 0 ? (
+        <p className="text-xs text-muted-foreground/40 italic">Nenhuma subtarefa ainda.</p>
+      ) : (
+        <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+          {subtarefas.map((s) => (
+            <div key={s.id} className="flex items-center gap-2.5 group/s">
+              <button type="button" onClick={() => toggle.mutate({ id: s.id, concluida: !s.concluida })}
+                className={cn(
+                  "shrink-0 h-5 w-5 rounded-md border-2 flex items-center justify-center transition-all",
+                  s.concluida ? "bg-emerald-500 border-emerald-500 text-white" : "border-muted-foreground/30 hover:border-emerald-500 hover:bg-emerald-500/10"
+                )}>
+                {s.concluida && <Check className="h-3 w-3" />}
+              </button>
+              <span className={cn("flex-1 text-sm", s.concluida && "line-through text-muted-foreground/50")}>{s.titulo}</span>
+              <button type="button" onClick={() => remove.mutate(s.id)}
+                className="opacity-0 group-hover/s:opacity-100 text-muted-foreground/40 hover:text-rose-500 transition-opacity" title="Remover">
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <Input value={titulo} onChange={(e) => setTitulo(e.target.value)}
+          placeholder="Adicionar item…" className="rounded-xl h-9 text-sm"
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); adicionar(); } }} />
+        <Button type="button" size="sm" onClick={adicionar} disabled={!titulo.trim() || add.isPending} className="rounded-xl h-9 px-3">
+          {add.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+        </Button>
+      </div>
+    </div>
+  );
+};
 
 const TarefaComentarios = ({ tarefaId, membros }: { tarefaId: string; membros: Option[] }) => {
   const { user } = useAuth();
@@ -348,7 +412,8 @@ export const NovaTarefaDialog = ({ open, onOpenChange, clientes, processos, aten
             )}
           </div>
 
-          {/* Comentários (só ao editar uma tarefa existente) */}
+          {/* Subtarefas + Comentários (só ao editar uma tarefa existente) */}
+          {isEdit && tarefa?.id && <TarefaSubtarefas tarefaId={tarefa.id} />}
           {isEdit && tarefa?.id && <TarefaComentarios tarefaId={tarefa.id} membros={membros} />}
 
           <div className="flex gap-2 pt-1">

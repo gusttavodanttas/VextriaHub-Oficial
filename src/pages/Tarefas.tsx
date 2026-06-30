@@ -11,7 +11,7 @@ import {
 import {
   CheckSquare, Plus, Search, Trash2, Pencil, MoreHorizontal, User, FileText, MessageSquare,
   ListChecks, AlertTriangle, CheckCircle2, Flame, Clock, Trophy, Target, Repeat, X, MessageCircle,
-  Flag, CalendarClock, ChevronDown,
+  Flag, CalendarClock, ChevronDown, List, Columns3,
 } from "lucide-react";
 import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
 import { NovaTarefaDialog } from "@/components/Tarefas/NovaTarefaDialog";
@@ -86,6 +86,20 @@ const Tarefas = () => {
     },
   });
 
+  // Progresso de subtarefas por tarefa (1 query; resiliente se a tabela não existir)
+  const { data: subtaskCounts = {} } = useQuery<Record<string, { total: number; done: number }>>({
+    queryKey: ["subtarefa-counts", user?.office_id],
+    enabled: !!user?.office_id,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tarefa_subtarefas")
+        .select("tarefa_id, concluida").eq("office_id", user!.office_id).eq("deletado", false);
+      if (error) return {};
+      const m: Record<string, { total: number; done: number }> = {};
+      (data || []).forEach((r: any) => { const e = (m[r.tarefa_id] ||= { total: 0, done: 0 }); e.total++; if (r.concluida) e.done++; });
+      return m;
+    },
+  });
+
   const clientes = useMemo(
     () => (clientesData || [])
       .map((c: any) => ({ id: c.id, label: c.nome }))
@@ -114,19 +128,39 @@ const Tarefas = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Tarefa | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [view, setView] = useState<"lista" | "kanban">("lista");
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [overCol, setOverCol] = useState<string | null>(null);
 
-  const filtered = useMemo(() => tarefas.filter(t => {
+  // Filtros base (busca, prioridade, responsável, cliente) — usados na lista E no kanban
+  const baseFiltered = useMemo(() => tarefas.filter(t => {
     const q = dSearch.toLowerCase();
     const matchesSearch = !q || t.titulo?.toLowerCase().includes(q) || (t.cliente_nome || "").toLowerCase().includes(q) || (t.descricao || "").toLowerCase().includes(q);
     const matchesPrio = prioridadeFilter === "todas" || t.prioridade === prioridadeFilter;
-    const matchesStatus = statusFilter === "todas" || (statusFilter === "pendentes" ? !t.concluida : t.concluida);
     const matchesResp = respFilter === "todos" || (t.responsavel_id ?? "") === respFilter;
     const matchesCliente = clienteFilter === "todos" || t.cliente_id === clienteFilter;
+    return matchesSearch && matchesPrio && matchesResp && matchesCliente;
+  }), [tarefas, dSearch, prioridadeFilter, respFilter, clienteFilter]);
+
+  // Lista aplica também status (pendentes/concluídas) e vencimento (dos stat cards)
+  const filtered = useMemo(() => baseFiltered.filter(t => {
+    const matchesStatus = statusFilter === "todas" || (statusFilter === "pendentes" ? !t.concluida : t.concluida);
     let matchesVenc = true;
     if (vencimentoFilter === "atrasadas") matchesVenc = !!t.data_vencimento && !t.concluida && isPast(parseISO(t.data_vencimento)) && !isToday(parseISO(t.data_vencimento));
     else if (vencimentoFilter === "hoje") matchesVenc = !!t.data_vencimento && isToday(parseISO(t.data_vencimento));
-    return matchesSearch && matchesPrio && matchesStatus && matchesResp && matchesCliente && matchesVenc;
-  }), [tarefas, dSearch, prioridadeFilter, statusFilter, respFilter, clienteFilter, vencimentoFilter]);
+    return matchesStatus && matchesVenc;
+  }), [baseFiltered, statusFilter, vencimentoFilter]);
+
+  // Kanban por status de fluxo (A Fazer / Em Andamento / Concluída)
+  const kanbanCols = useMemo(() => {
+    const c: Record<string, Tarefa[]> = { a_fazer: [], fazendo: [], concluida: [] };
+    for (const t of baseFiltered) {
+      if (t.concluida) c.concluida.push(t);
+      else if (t.status === "fazendo") c.fazendo.push(t);
+      else c.a_fazer.push(t);
+    }
+    return c;
+  }, [baseFiltered]);
 
   // Qual stat card está "ativo" conforme os filtros atuais
   const activeStat = useMemo(() => {
@@ -179,6 +213,12 @@ const Tarefas = () => {
     Atrasadas: "text-rose-500", Hoje: "text-orange-500", Amanhã: "text-amber-500",
     "Esta semana": "text-blue-500", Futuras: "text-muted-foreground/50", "Sem prazo": "text-muted-foreground/50", Concluídas: "text-emerald-500",
   };
+
+  const KANBAN: { key: string; label: string; color: string; dot: string }[] = [
+    { key: "a_fazer",   label: "A Fazer",       color: "text-slate-500",   dot: "bg-slate-400" },
+    { key: "fazendo",   label: "Em Andamento",  color: "text-blue-500",    dot: "bg-blue-500" },
+    { key: "concluida", label: "Concluída",     color: "text-emerald-500", dot: "bg-emerald-500" },
+  ];
 
   // Gamificação (dados reais) — usa a data de conclusão auditada (concluida_em);
   // cai para updated_at só em tarefas antigas (anteriores à auditoria).
@@ -291,6 +331,19 @@ const Tarefas = () => {
   const bulkResponsavel = async (responsavel_id: string) => { await bulkPatch.mutateAsync({ ids: selectedIds(), patch: { responsavel_id } }); multiSelect.clearSelection(); };
   const bulkPrazo = async (data: string) => { await bulkPatch.mutateAsync({ ids: selectedIds(), patch: { data_vencimento: data || null } }); multiSelect.clearSelection(); };
 
+  // Kanban: mover tarefa entre colunas de fluxo
+  const moverTarefa = (id: string, col: string) => {
+    const t = tarefas.find(x => x.id === id);
+    if (!t) return;
+    if (col === "concluida") {
+      if (!t.concluida) toggle.mutate({ id: t.id, concluida: true, tarefa: t });
+    } else if (t.concluida) {
+      bulkPatch.mutate({ ids: [t.id], patch: { status: col }, concluir: false });
+    } else if (t.status !== col) {
+      bulkPatch.mutate({ ids: [t.id], patch: { status: col } });
+    }
+  };
+
   const dueLabel = (dateStr: string) => {
     const d = parseISO(dateStr);
     const diff = differenceInCalendarDays(d, new Date());
@@ -341,6 +394,7 @@ const Tarefas = () => {
             {t.processo_id && processoMap[t.processo_id] && <span className="flex items-center gap-1 truncate max-w-[180px]"><FileText className="h-3 w-3 shrink-0" />{processoMap[t.processo_id]}</span>}
             {t.atendimento_id && atendimentoMap[t.atendimento_id] && <span className="flex items-center gap-1 truncate"><MessageSquare className="h-3 w-3 shrink-0" />{atendimentoMap[t.atendimento_id]}</span>}
             {due && !t.concluida && <span className={cn("flex items-center gap-1", due.cls)}><Clock className="h-3 w-3" />{due.label}</span>}
+            {subtaskCounts[t.id]?.total > 0 && <span className="flex items-center gap-1"><ListChecks className="h-3 w-3 shrink-0" />{subtaskCounts[t.id].done}/{subtaskCounts[t.id].total}</span>}
             {commentCounts[t.id] > 0 && <span className="flex items-center gap-1"><MessageCircle className="h-3 w-3 shrink-0" />{commentCounts[t.id]}</span>}
             {t.concluida && t.concluida_em && (
               <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
@@ -353,7 +407,10 @@ const Tarefas = () => {
           )}
         </div>
 
-        {/* Prioridade */}
+        {/* Em andamento + Prioridade */}
+        {!t.concluida && t.status === "fazendo" && (
+          <Badge variant="outline" className="shrink-0 rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-widest border-blue-500/30 text-blue-600 dark:text-blue-400 bg-blue-500/10">Em and.</Badge>
+        )}
         {!t.concluida && (
           <Badge variant="outline" className={cn("shrink-0 rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-widest", meta.cls)}>{meta.label}</Badge>
         )}
@@ -379,6 +436,33 @@ const Tarefas = () => {
     );
   };
 
+  const renderKanbanCard = (t: Tarefa) => {
+    const meta = prioMeta[t.prioridade || "media"] || prioMeta.media;
+    const due = t.data_vencimento ? dueLabel(t.data_vencimento) : null;
+    const sc = subtaskCounts[t.id];
+    return (
+      <div key={t.id} draggable
+        onDragStart={() => setDraggingId(t.id)}
+        onDragEnd={() => { setDraggingId(null); setOverCol(null); }}
+        onClick={() => openEdit(t)}
+        className={cn(
+          "cursor-grab active:cursor-grabbing rounded-xl border border-black/5 dark:border-border bg-card p-3 space-y-2 transition-all hover:shadow-md hover:border-black/10 dark:hover:border-white/15",
+          draggingId === t.id && "opacity-40"
+        )}>
+        <div className="flex items-start gap-2">
+          <span className={cn("mt-1 h-2 w-2 rounded-full shrink-0", meta.dot)} />
+          <p className={cn("text-sm font-bold leading-snug", t.concluida && "line-through text-muted-foreground")}>{t.titulo}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[10px] text-muted-foreground font-medium pl-4">
+          {t.cliente_nome && <span className="flex items-center gap-1 truncate max-w-[140px]"><User className="h-3 w-3 shrink-0" />{t.cliente_nome}</span>}
+          {due && !t.concluida && <span className={cn("flex items-center gap-1", due.cls)}><Clock className="h-3 w-3" />{due.label}</span>}
+          {sc && sc.total > 0 && <span className="flex items-center gap-1"><ListChecks className="h-3 w-3 shrink-0" />{sc.done}/{sc.total}</span>}
+          {commentCounts[t.id] > 0 && <span className="flex items-center gap-1"><MessageCircle className="h-3 w-3 shrink-0" />{commentCounts[t.id]}</span>}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="flex-1 p-4 md:p-6 space-y-5 overflow-x-hidden">
       {/* Header */}
@@ -391,11 +475,21 @@ const Tarefas = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {!multiSelect.isNoneSelected && (
+          {view === "lista" && !multiSelect.isNoneSelected && (
             <Button variant="destructive" onClick={() => setDeleteDialogOpen(true)} className="rounded-xl h-10 gap-2 font-bold">
               <Trash2 className="h-4 w-4" /> Excluir ({multiSelect.selectedCount})
             </Button>
           )}
+          <div className="flex items-center rounded-xl border border-black/8 dark:border-border bg-card/60 p-0.5">
+            <Button size="icon" variant={view === "lista" ? "secondary" : "ghost"}
+              onClick={() => setView("lista")} className="h-9 w-9 rounded-lg" title="Lista">
+              <List className="h-4 w-4" />
+            </Button>
+            <Button size="icon" variant={view === "kanban" ? "secondary" : "ghost"}
+              onClick={() => setView("kanban")} className="h-9 w-9 rounded-lg" title="Kanban">
+              <Columns3 className="h-4 w-4" />
+            </Button>
+          </div>
           <Button onClick={openNew} className="rounded-xl h-10 gap-2 font-bold shadow-sm">
             <Plus className="h-4 w-4" /> Nova Tarefa
           </Button>
@@ -472,14 +566,16 @@ const Tarefas = () => {
             onChange={(e) => setSearch(e.target.value)} className="pl-10 h-11 rounded-xl bg-card/40 border-black/5 dark:border-border" />
         </div>
         <div className="flex flex-wrap gap-2">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full md:w-32 h-11 rounded-xl bg-card/40 border-black/5 dark:border-border font-bold"><SelectValue /></SelectTrigger>
-            <SelectContent className="rounded-xl">
-              <SelectItem value="pendentes">Pendentes</SelectItem>
-              <SelectItem value="concluidas">Concluídas</SelectItem>
-              <SelectItem value="todas">Todas</SelectItem>
-            </SelectContent>
-          </Select>
+          {view === "lista" && (
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full md:w-32 h-11 rounded-xl bg-card/40 border-black/5 dark:border-border font-bold"><SelectValue /></SelectTrigger>
+              <SelectContent className="rounded-xl">
+                <SelectItem value="pendentes">Pendentes</SelectItem>
+                <SelectItem value="concluidas">Concluídas</SelectItem>
+                <SelectItem value="todas">Todas</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
           <Select value={prioridadeFilter} onValueChange={setPrioridadeFilter}>
             <SelectTrigger className="w-full md:w-32 h-11 rounded-xl bg-card/40 border-black/5 dark:border-border font-bold"><SelectValue placeholder="Prioridade" /></SelectTrigger>
             <SelectContent className="rounded-xl">
@@ -511,6 +607,33 @@ const Tarefas = () => {
       {/* Lista */}
       {isLoading ? (
         <div className="space-y-2.5">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-16 rounded-2xl bg-black/[0.03] dark:bg-muted/20 animate-pulse" />)}</div>
+      ) : view === "kanban" ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {KANBAN.map((col) => {
+            const items = kanbanCols[col.key] || [];
+            return (
+              <div key={col.key}
+                onDragOver={(e) => { e.preventDefault(); setOverCol(col.key); }}
+                onDragLeave={() => setOverCol((c) => c === col.key ? null : c)}
+                onDrop={() => { if (draggingId) moverTarefa(draggingId, col.key); setDraggingId(null); setOverCol(null); }}
+                className={cn(
+                  "rounded-2xl border p-2.5 space-y-2 min-h-[220px] transition-colors",
+                  overCol === col.key ? "border-primary/50 bg-primary/[0.04]" : "border-black/5 dark:border-border bg-card/30"
+                )}>
+                <div className="flex items-center gap-2 px-1 pt-0.5">
+                  <span className={cn("h-2 w-2 rounded-full", col.dot)} />
+                  <span className={cn("text-[10px] font-black uppercase tracking-widest", col.color)}>{col.label}</span>
+                  <span className="text-[10px] font-black text-muted-foreground/40">{items.length}</span>
+                </div>
+                <div className="space-y-2">
+                  {items.length === 0
+                    ? <p className="text-[11px] text-muted-foreground/30 text-center py-8">Arraste tarefas para cá</p>
+                    : items.map(renderKanbanCard)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center text-center py-20 gap-4">
           <div className="p-5 rounded-full bg-purple-500/10 text-purple-500"><CheckSquare className="h-10 w-10 opacity-70" /></div>
