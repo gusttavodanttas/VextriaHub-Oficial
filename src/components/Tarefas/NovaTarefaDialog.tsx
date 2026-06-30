@@ -5,11 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckSquare, Loader2, Repeat } from "lucide-react";
+import { CheckSquare, Loader2, Repeat, MessageCircle, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { RECORRENCIAS, generateOccurrences, type RecRule } from "@/lib/recorrencia";
 import type { Tarefa, TarefaInput } from "@/hooks/useTarefas";
+import { useTarefaComentarios } from "@/hooks/useTarefaComentarios";
 import { useAuth } from "@/contexts/AuthContext";
 import { AvisoDiasSelect } from "@/components/Notifications/AvisoDiasSelect";
 
@@ -35,6 +36,73 @@ const prioridades = [
 
 const NONE = "__none__";
 const empty = { titulo: "", descricao: "", data_vencimento: "", prioridade: "media", cliente_id: NONE, processo_id: NONE, atendimento_id: NONE, recorrencia: "nenhuma", ocorrencias: "4", responsavel_id: NONE, avisos_dias: null as number[] | null };
+
+const iniciaisDe = (nome: string) =>
+  nome.split(" ").filter(Boolean).slice(0, 2).map((s) => s[0]).join("").toUpperCase() || "?";
+
+const TarefaComentarios = ({ tarefaId, membros }: { tarefaId: string; membros: Option[] }) => {
+  const { user } = useAuth();
+  const { comentarios, isLoading, add, remove } = useTarefaComentarios(tarefaId);
+  const [texto, setTexto] = useState("");
+  const nomeDe = (uid: string) => membros.find((m) => m.id === uid)?.label || "Membro";
+
+  const enviar = () => {
+    if (!texto.trim()) return;
+    add.mutate(texto, { onSuccess: () => setTexto("") });
+  };
+
+  return (
+    <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-3 space-y-3">
+      <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-muted-foreground/70">
+        <MessageCircle className="h-3.5 w-3.5" /> Comentários
+        {comentarios.length > 0 && <span className="text-muted-foreground/40">· {comentarios.length}</span>}
+      </div>
+
+      {isLoading ? (
+        <p className="text-xs text-muted-foreground/50">Carregando…</p>
+      ) : comentarios.length === 0 ? (
+        <p className="text-xs text-muted-foreground/40 italic">Nenhum comentário ainda.</p>
+      ) : (
+        <div className="space-y-2.5 max-h-52 overflow-y-auto pr-1">
+          {comentarios.map((c) => {
+            const nome = nomeDe(c.user_id);
+            const meu = c.user_id === user?.id;
+            return (
+              <div key={c.id} className="flex gap-2.5 group/c">
+                <div className="h-7 w-7 rounded-full bg-primary/10 text-primary text-[10px] font-black flex items-center justify-center shrink-0">
+                  {iniciaisDe(nome)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold">{nome}</span>
+                    <span className="text-[10px] text-muted-foreground/50">{format(parseISO(c.created_at), "dd/MM/yy HH:mm")}</span>
+                    {meu && (
+                      <button type="button" onClick={() => remove.mutate(c.id)}
+                        className="ml-auto opacity-0 group-hover/c:opacity-100 text-muted-foreground/40 hover:text-rose-500 transition-opacity"
+                        title="Excluir comentário">
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground/90 whitespace-pre-wrap break-words">{c.texto}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <Textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={1}
+          placeholder="Escreva um comentário… (Ctrl+Enter envia)" className="rounded-xl resize-none text-sm min-h-[2.25rem]"
+          onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); enviar(); } }} />
+        <Button type="button" size="sm" onClick={enviar} disabled={!texto.trim() || add.isPending} className="rounded-xl self-end h-9">
+          {add.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enviar"}
+        </Button>
+      </div>
+    </div>
+  );
+};
 
 export const NovaTarefaDialog = ({ open, onOpenChange, clientes, processos, atendimentos, membros = [], tarefa, onSubmit, onSubmitMany }: NovaTarefaDialogProps) => {
   const { user } = useAuth();
@@ -267,6 +335,9 @@ export const NovaTarefaDialog = ({ open, onOpenChange, clientes, processos, aten
               )}
             </div>
           )}
+
+          {/* Comentários (só ao editar uma tarefa existente) */}
+          {isEdit && tarefa?.id && <TarefaComentarios tarefaId={tarefa.id} membros={membros} />}
 
           <div className="flex gap-2 pt-1">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="flex-1 rounded-xl" disabled={saving}>

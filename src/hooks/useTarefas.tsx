@@ -24,6 +24,7 @@ export interface Tarefa {
   responsavel_id?: string | null;
   concluida_em?: string | null;
   concluida_por?: string | null;
+  avisos_dias?: number[] | null;
 }
 
 export interface TarefaInput {
@@ -96,6 +97,7 @@ export function useTarefas() {
         responsavel_id: t.responsavel_id ?? null,
         concluida_em: t.concluida_em ?? null,
         concluida_por: t.concluida_por ?? null,
+        avisos_dias: t.avisos_dias ?? null,
       }));
     },
     enabled: !!officeId,
@@ -173,6 +175,7 @@ export function useTarefas() {
           recorrencia_restantes: (tarefa.recorrencia_restantes ?? 0) - 1,
           data_vencimento: format(next, "yyyy-MM-dd"),
           office_id: officeId, user_id: user.id, concluida: false, deletado: false,
+          ...(Array.isArray(tarefa.avisos_dias) ? { avisos_dias: tarefa.avisos_dias } : {}),
         };
         await supabase.from("tarefas").insert([row]); // best-effort (não bloqueia a conclusão)
       }

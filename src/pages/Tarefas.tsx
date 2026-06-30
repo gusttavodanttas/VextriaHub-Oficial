@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   CheckSquare, Plus, Search, Trash2, Pencil, MoreHorizontal, User, FileText, MessageSquare,
-  ListChecks, AlertTriangle, CheckCircle2, Flame, Clock, Trophy, Target, Repeat, X,
+  ListChecks, AlertTriangle, CheckCircle2, Flame, Clock, Trophy, Target, Repeat, X, MessageCircle,
 } from "lucide-react";
 import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
 import { NovaTarefaDialog } from "@/components/Tarefas/NovaTarefaDialog";
@@ -63,6 +63,20 @@ const Tarefas = () => {
       return data || [];
     },
     enabled: !!user?.office_id,
+  });
+
+  // Contagem de comentários por tarefa (1 query; resiliente se a tabela não existir)
+  const { data: commentCounts = {} } = useQuery<Record<string, number>>({
+    queryKey: ["tarefa-coment-counts", user?.office_id],
+    enabled: !!user?.office_id,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tarefa_comentarios")
+        .select("tarefa_id").eq("office_id", user!.office_id).eq("deletado", false);
+      if (error) return {};
+      const m: Record<string, number> = {};
+      (data || []).forEach((r: any) => { m[r.tarefa_id] = (m[r.tarefa_id] || 0) + 1; });
+      return m;
+    },
   });
 
   const clientes = useMemo(
@@ -134,16 +148,18 @@ const Tarefas = () => {
     "Esta semana": "text-blue-500", Futuras: "text-muted-foreground/50", "Sem prazo": "text-muted-foreground/50", Concluídas: "text-emerald-500",
   };
 
-  // Gamificação (dados reais)
+  // Gamificação (dados reais) — usa a data de conclusão auditada (concluida_em);
+  // cai para updated_at só em tarefas antigas (anteriores à auditoria).
   const game = useMemo(() => {
-    const concluidas = tarefas.filter(t => t.concluida && t.updated_at);
+    const compTs = (t: Tarefa) => t.concluida_em || t.updated_at || null;
+    const concluidas = tarefas.filter(t => t.concluida && compTs(t));
     const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-    const concluidasSemana = concluidas.filter(t => parseISO(t.updated_at!) >= weekStart).length;
+    const concluidasSemana = concluidas.filter(t => parseISO(compTs(t)!) >= weekStart).length;
     const totalConcluidas = tarefas.filter(t => t.concluida).length;
     const pontos = totalConcluidas * 10;
     const nivel = Math.floor(pontos / 100) + 1;
     // Sequência (streak): dias consecutivos com ao menos 1 tarefa concluída
-    const dias = new Set(concluidas.map(t => format(parseISO(t.updated_at!), "yyyy-MM-dd")));
+    const dias = new Set(concluidas.map(t => format(parseISO(compTs(t)!), "yyyy-MM-dd")));
     let streak = 0;
     let cursor = new Date();
     if (!dias.has(format(cursor, "yyyy-MM-dd"))) cursor = subDays(cursor, 1);
@@ -179,10 +195,18 @@ const Tarefas = () => {
     }
     const out: { grupo: string; titulo: string; regra: string; restantes: number }[] = [];
     for (const [grupo, items] of Object.entries(byGroup)) {
-      if (items.length < 3) continue; // só séries de verdade
-      const restantes = items.filter(t => !t.concluida).length;
-      if (restantes > 0 && restantes <= 2 && !dismissed.has(grupo)) {
-        out.push({ grupo, titulo: items[0].titulo, regra: items[0].recorrencia_regra || "semanal", restantes });
+      const pendentes = items.filter(t => !t.concluida);
+      if (pendentes.length === 0) continue;
+      // Modelo encadeado: a tarefa pendente carrega quantas AINDA serão geradas.
+      const ativa = pendentes.find(t => t.recorrencia_restantes != null);
+      if (ativa) {
+        const restantes = ativa.recorrencia_restantes ?? 0;
+        if (restantes <= 2 && !dismissed.has(grupo)) {
+          out.push({ grupo, titulo: ativa.titulo, regra: ativa.recorrencia_regra || "semanal", restantes });
+        }
+      } else if (items.length >= 3 && pendentes.length <= 2 && !dismissed.has(grupo)) {
+        // Série legada em lote (sem contador): conta as pendentes.
+        out.push({ grupo, titulo: items[0].titulo, regra: items[0].recorrencia_regra || "semanal", restantes: pendentes.length });
       }
     }
     return out;
@@ -191,6 +215,16 @@ const Tarefas = () => {
   const handleExtend = async (grupo: string) => {
     const items = tarefas.filter(t => t.recorrencia_grupo === grupo);
     if (!items.length) return;
+    const pendentes = items.filter(t => !t.concluida);
+    const ativa = pendentes.find(t => t.recorrencia_restantes != null);
+
+    // Modelo encadeado: só aumenta o contador; as próximas nascem ao concluir.
+    if (ativa) {
+      await update.mutateAsync({ id: ativa.id, input: { recorrencia_restantes: (ativa.recorrencia_restantes ?? 0) + 4 } });
+      return;
+    }
+
+    // Série legada em lote: cria 4 ocorrências preservando responsável e avisos.
     const template = items[items.length - 1]; // tarefas vêm ordenadas por vencimento asc
     const regra = (template.recorrencia_regra || "semanal") as RecRule;
     const last = template.data_vencimento ? new Date(`${template.data_vencimento}T12:00:00`) : new Date();
@@ -203,8 +237,10 @@ const Tarefas = () => {
       cliente_id: template.cliente_id,
       processo_id: template.processo_id,
       atendimento_id: template.atendimento_id,
+      responsavel_id: template.responsavel_id ?? null,
       recorrencia_grupo: grupo,
       recorrencia_regra: regra,
+      ...(Array.isArray(template.avisos_dias) ? { avisos_dias: template.avisos_dias } : {}),
     }));
     await createMany.mutateAsync(inputs);
   };
@@ -259,6 +295,7 @@ const Tarefas = () => {
             {t.processo_id && processoMap[t.processo_id] && <span className="flex items-center gap-1 truncate max-w-[180px]"><FileText className="h-3 w-3 shrink-0" />{processoMap[t.processo_id]}</span>}
             {t.atendimento_id && atendimentoMap[t.atendimento_id] && <span className="flex items-center gap-1 truncate"><MessageSquare className="h-3 w-3 shrink-0" />{atendimentoMap[t.atendimento_id]}</span>}
             {due && !t.concluida && <span className={cn("flex items-center gap-1", due.cls)}><Clock className="h-3 w-3" />{due.label}</span>}
+            {commentCounts[t.id] > 0 && <span className="flex items-center gap-1"><MessageCircle className="h-3 w-3 shrink-0" />{commentCounts[t.id]}</span>}
             {t.concluida && t.concluida_em && (
               <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
                 <CheckCircle2 className="h-3 w-3 shrink-0" /> Concluído por {membroMap[t.concluida_por || ""] || "—"} · {format(parseISO(t.concluida_em), "dd/MM/yy")}
@@ -272,8 +309,8 @@ const Tarefas = () => {
           <Badge variant="outline" className={cn("shrink-0 rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-widest", meta.cls)}>{meta.label}</Badge>
         )}
 
-        {/* Ações */}
-        <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+        {/* Ações (sempre visíveis no mobile; hover no desktop) */}
+        <div className="flex items-center max-sm:opacity-100 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
           <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg" onClick={() => openEdit(t)}><Pencil className="h-3.5 w-3.5" /></Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -359,8 +396,10 @@ const Tarefas = () => {
           <div className="flex items-center gap-2.5 flex-1 min-w-0">
             <div className="p-2 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 shrink-0"><Repeat className="h-4 w-4" /></div>
             <p className="text-sm font-semibold min-w-0">
-              A recorrência <span className="font-black">"{s.titulo}"</span> ({recorrenciaLabel(s.regra)}) está acabando —
-              resta{s.restantes === 1 ? "" : "m"} <span className="font-black text-amber-600 dark:text-amber-400">{s.restantes}</span>.
+              A recorrência <span className="font-black">"{s.titulo}"</span> ({recorrenciaLabel(s.regra)}) está acabando —{" "}
+              {s.restantes === 0
+                ? "esta é a última ocorrência."
+                : <>gerará apenas mais <span className="font-black text-amber-600 dark:text-amber-400">{s.restantes}</span>.</>}
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
