@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 import { useOpenItemFromSearch } from "@/hooks/useOpenItemFromSearch";
+import { useTarefas } from "@/hooks/useTarefas";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { ClientSelect } from "@/components/Clientes/ClientSelect";
@@ -47,8 +48,13 @@ import {
   MapPin,
   Settings2,
   X,
+  RotateCcw,
+  CalendarPlus,
+  ListTodo,
+  PhoneCall,
+  ArrowRight,
 } from "lucide-react";
-import { format, parseISO, formatDistanceToNow } from "date-fns";
+import { format, parseISO, formatDistanceToNow, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
@@ -88,6 +94,33 @@ const proximidadeBadge = (item: { data_atendimento: string; status: StatusType }
   if (dias === 0) return { label: "Hoje", className: "border-red-500/50 text-red-500 bg-red-500/10" };
   if (dias === 1) return { label: "Amanhã", className: "border-orange-500/50 text-orange-500 bg-orange-500/10" };
   return { label: `Em ${dias} dias`, className: "border-amber-500/50 text-amber-600 bg-amber-500/10" };
+};
+
+// Agrupamento temporal dos cards
+const ORDEM_GRUPOS = ["hoje", "semana", "futuros", "passados"] as const;
+type GrupoKey = (typeof ORDEM_GRUPOS)[number];
+const LABEL_GRUPOS: Record<GrupoKey, string> = {
+  hoje: "Hoje", semana: "Esta semana", futuros: "Próximos", passados: "Passados",
+};
+const grupoDe = (item: { data_atendimento: string }): GrupoKey => {
+  const d = diasAteData(parseISO(item.data_atendimento));
+  if (d < 0) return "passados";
+  if (d === 0) return "hoje";
+  if (d <= 7) return "semana";
+  return "futuros";
+};
+
+// Sobreposição de horários (conflito de agenda do mesmo responsável)
+const DURACAO_PADRAO_MIN = 30;
+const haConflito = (
+  startMs: number, durMin: number,
+  it: { data_atendimento: string; duracao?: number | null },
+) => {
+  const end = startMs + (durMin > 0 ? durMin : DURACAO_PADRAO_MIN) * 60000;
+  const s2 = parseISO(it.data_atendimento).getTime();
+  const d2 = it.duracao && it.duracao > 0 ? it.duracao : DURACAO_PADRAO_MIN;
+  const e2 = s2 + d2 * 60000;
+  return startMs < e2 && s2 < end;
 };
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -331,10 +364,11 @@ const FormDialog: React.FC<{
   userId: string;
   extras: string[];
   membros?: MembroOpt[];
+  existing?: Atendimento[];
   onSave: (data: any) => void;
   onUpdate: (data: any) => void;
   loading: boolean;
-}> = ({ open, onClose, initial, editId, officeId, userId, extras, membros = [], onSave, onUpdate, loading }) => {
+}> = ({ open, onClose, initial, editId, officeId, userId, extras, membros = [], existing = [], onSave, onUpdate, loading }) => {
   const [form, setForm] = useState<FormState>(initial);
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((prev) => ({ ...prev, [k]: v }));
@@ -369,6 +403,23 @@ const FormDialog: React.FC<{
       }));
     },
   });
+
+  // Conflito de horário: mesmo responsável, status ativo, janelas sobrepostas
+  const conflitos = useMemo(() => {
+    if (form.status !== "agendado" && form.status !== "pendente") return [];
+    if (!form.data_atendimento || !form.hora_atendimento) return [];
+    const startMs = new Date(`${form.data_atendimento}T${form.hora_atendimento}:00`).getTime();
+    if (Number.isNaN(startMs)) return [];
+    const dur = form.duracao ? Number(form.duracao) : 0;
+    const resp = form.responsavel_id;
+    return existing.filter((it) => {
+      if (editId && it.id === editId) return false;
+      if (it.status !== "agendado" && it.status !== "pendente") return false;
+      const itResp = (it as any).responsavel_id;
+      if (resp && itResp && itResp !== resp) return false;
+      return haConflito(startMs, dur, it);
+    });
+  }, [existing, form.data_atendimento, form.hora_atendimento, form.duracao, form.responsavel_id, form.status, editId]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -458,6 +509,19 @@ const FormDialog: React.FC<{
                 className="rounded-xl h-9 text-sm" />
             </div>
           </div>
+
+          {/* Aviso de conflito de horário */}
+          {conflitos.length > 0 && (
+            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 flex items-start gap-2">
+              <AlertCircle className="h-3.5 w-3.5 text-amber-600 mt-0.5 shrink-0" />
+              <p className="text-[11px] text-amber-700 dark:text-amber-500 font-semibold leading-snug">
+                Conflito de horário com {conflitos.length} atendimento{conflitos.length > 1 ? "s" : ""}:{" "}
+                {conflitos.slice(0, 2).map((c) =>
+                  `${c.clientes?.nome || tipoInfo(c.tipo_atendimento).label} (${format(parseISO(c.data_atendimento), "HH:mm")})`
+                ).join(", ")}{conflitos.length > 2 ? "…" : ""}
+              </p>
+            </div>
+          )}
 
           {/* Status + Cliente em linha */}
           <div className="grid grid-cols-2 gap-2">
@@ -553,6 +617,156 @@ const FormDialog: React.FC<{
   );
 };
 
+// ─── Follow-up Dialog (após concluir) ─────────────────────────────────────────
+
+const FollowUpDialog: React.FC<{
+  item: Atendimento | null;
+  onClose: () => void;
+  onAgendarProximo: (item: Atendimento) => void;
+}> = ({ item, onClose, onAgendarProximo }) => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const { create: createTarefa } = useTarefas();
+
+  const [modo, setModo] = useState<null | "tarefa" | "contato">(null);
+  const [tarefaTitulo, setTarefaTitulo] = useState("");
+  const [tarefaData, setTarefaData] = useState("");
+  const [contatoData, setContatoData] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (item) {
+      setModo(null);
+      setTarefaTitulo(`Follow-up — ${item.clientes?.nome || tipoInfo(item.tipo_atendimento).label}`);
+      setTarefaData(format(addDays(new Date(), 3), "yyyy-MM-dd"));
+      setContatoData(format(addDays(new Date(), 30), "yyyy-MM-dd"));
+    }
+  }, [item]);
+
+  if (!item) return null;
+
+  const salvarTarefa = () => {
+    if (!tarefaTitulo.trim()) return;
+    setSaving(true);
+    createTarefa.mutate(
+      {
+        titulo: tarefaTitulo.trim(),
+        descricao: null,
+        data_vencimento: tarefaData || null,
+        prioridade: "media",
+        cliente_id: item.cliente_id ?? null,
+        processo_id: item.processo_id ?? null,
+        atendimento_id: item.id,
+        responsavel_id: (item as any).responsavel_id ?? user?.id ?? null,
+      },
+      { onSuccess: () => { setSaving(false); onClose(); }, onError: () => setSaving(false) }
+    );
+  };
+
+  const salvarContato = async () => {
+    if (!item.cliente_id || !contatoData) return;
+    setSaving(true);
+    const { error } = await supabase.from("clientes")
+      .update({ proximo_contato: contatoData }).eq("id", item.cliente_id);
+    setSaving(false);
+    if (error) { toast({ title: "Erro ao salvar contato", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Próximo contato definido!" });
+    onClose();
+  };
+
+  return (
+    <Dialog open={!!item} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent aria-describedby={undefined} className="sm:max-w-sm p-0 rounded-3xl border border-black/5 dark:border-border shadow-premium overflow-hidden">
+        <div className="px-5 pt-4 pb-3 bg-gradient-to-br from-emerald-500/10 via-emerald-500/4 to-transparent">
+          <DialogHeader>
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-xl bg-emerald-500/15 text-emerald-600 flex items-center justify-center">
+                <CheckCircle2 className="h-4 w-4" />
+              </div>
+              <DialogTitle className="text-lg font-black tracking-tight">Atendimento concluído</DialogTitle>
+            </div>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground/70 mt-1.5 ml-0.5">
+            {item.clientes?.nome ? `${item.clientes.nome} · ` : ""}Quer já encaminhar o próximo passo?
+          </p>
+        </div>
+
+        <div className="px-5 pb-5 pt-1 space-y-2">
+          {/* Próximo atendimento */}
+          <button onClick={() => onAgendarProximo(item)}
+            className="w-full flex items-center gap-3 rounded-xl border border-black/8 dark:border-border px-3 py-2.5 text-left hover:border-primary/40 hover:bg-primary/5 transition-all group">
+            <span className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0"><CalendarPlus className="h-4 w-4" /></span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm font-bold">Agendar próximo atendimento</span>
+              <span className="block text-[11px] text-muted-foreground/60">Mesmo cliente, daqui a 7 dias</span>
+            </span>
+            <ArrowRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
+          </button>
+
+          {/* Criar tarefa */}
+          {modo !== "tarefa" ? (
+            <button onClick={() => setModo("tarefa")}
+              className="w-full flex items-center gap-3 rounded-xl border border-black/8 dark:border-border px-3 py-2.5 text-left hover:border-purple-500/40 hover:bg-purple-500/5 transition-all">
+              <span className="h-8 w-8 rounded-lg bg-purple-500/10 text-purple-500 flex items-center justify-center shrink-0"><ListTodo className="h-4 w-4" /></span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-sm font-bold">Criar tarefa de follow-up</span>
+                <span className="block text-[11px] text-muted-foreground/60">Lembrete vinculado a este atendimento</span>
+              </span>
+            </button>
+          ) : (
+            <div className="rounded-xl border border-purple-500/30 bg-purple-500/5 px-3 py-3 space-y-2">
+              <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-purple-600">
+                <ListTodo className="h-3.5 w-3.5" /> Nova tarefa
+              </div>
+              <Input value={tarefaTitulo} onChange={(e) => setTarefaTitulo(e.target.value)}
+                placeholder="Título da tarefa" className="rounded-lg h-9 text-sm" />
+              <Input type="date" value={tarefaData} onChange={(e) => setTarefaData(e.target.value)}
+                className="rounded-lg h-9 text-sm" />
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setModo(null)} className="flex-1 rounded-lg h-8 text-[10px] font-black uppercase tracking-widest">Voltar</Button>
+                <Button size="sm" onClick={salvarTarefa} disabled={saving || !tarefaTitulo.trim()} className="flex-1 rounded-lg h-8 text-[10px] font-black uppercase tracking-widest">
+                  {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Criar tarefa"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Próximo contato (CRM) */}
+          {item.cliente_id && (modo !== "contato" ? (
+            <button onClick={() => setModo("contato")}
+              className="w-full flex items-center gap-3 rounded-xl border border-black/8 dark:border-border px-3 py-2.5 text-left hover:border-blue-500/40 hover:bg-blue-500/5 transition-all">
+              <span className="h-8 w-8 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0"><PhoneCall className="h-4 w-4" /></span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-sm font-bold">Definir próximo contato</span>
+                <span className="block text-[11px] text-muted-foreground/60">Agenda de relacionamento (CRM)</span>
+              </span>
+            </button>
+          ) : (
+            <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 px-3 py-3 space-y-2">
+              <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-blue-600">
+                <PhoneCall className="h-3.5 w-3.5" /> Próximo contato
+              </div>
+              <Input type="date" value={contatoData} onChange={(e) => setContatoData(e.target.value)}
+                className="rounded-lg h-9 text-sm" />
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setModo(null)} className="flex-1 rounded-lg h-8 text-[10px] font-black uppercase tracking-widest">Voltar</Button>
+                <Button size="sm" onClick={salvarContato} disabled={saving || !contatoData} className="flex-1 rounded-lg h-8 text-[10px] font-black uppercase tracking-widest">
+                  {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Salvar"}
+                </Button>
+              </div>
+            </div>
+          ))}
+
+          <Button variant="ghost" onClick={onClose}
+            className="w-full rounded-xl h-9 mt-1 font-black uppercase text-[10px] tracking-widest text-muted-foreground/60">
+            Pular por agora
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 // ─── Card ────────────────────────────────────────────────────────────────────
 
 const AtendimentoCard: React.FC<{
@@ -560,8 +774,9 @@ const AtendimentoCard: React.FC<{
   onEdit: (item: Atendimento) => void;
   onDelete: (id: string) => void;
   onMarkRealizado: (id: string) => void;
+  onRemarcar: (item: Atendimento) => void;
   loadingId: string | null;
-}> = ({ item, onEdit, onDelete, onMarkRealizado, loadingId }) => {
+}> = ({ item, onEdit, onDelete, onMarkRealizado, onRemarcar, loadingId }) => {
   const cfg = STATUS_CONFIG[item.status] ?? STATUS_CONFIG.pendente;
   const { Icon: StatusIcon } = cfg;
   const { label: tipoLabel, Icon: TipoIcon } = tipoInfo(item.tipo_atendimento);
@@ -633,6 +848,13 @@ const AtendimentoCard: React.FC<{
               {loadingId === item.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
             </Button>
           )}
+          {item.status === "cancelado" && (
+            <Button size="icon" variant="ghost"
+              className="h-7 w-7 rounded-lg hover:bg-blue-500/10 hover:text-blue-500"
+              onClick={() => onRemarcar(item)} title="Remarcar">
+              <RotateCcw className="h-3.5 w-3.5" />
+            </Button>
+          )}
           <Button size="icon" variant="ghost"
             className="h-7 w-7 rounded-lg hover:bg-primary/10 hover:text-primary"
             onClick={() => onEdit(item)} title="Editar">
@@ -695,6 +917,8 @@ const Atendimentos = () => {
   }, []);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [followUpItem, setFollowUpItem] = useState<Atendimento | null>(null);
+  const [prefill, setPrefill] = useState<Partial<FormState> | null>(null);
 
   // Stats
   const stats = useMemo(() => ({
@@ -723,8 +947,42 @@ const Atendimentos = () => {
     return matchBusca && matchStatus && matchTipo;
   }), [items, dBusca, filtroStatus, filtroTipo]);
 
-  const openNew = () => { setEditItem(null); setDialogOpen(true); };
-  const openEdit = (item: Atendimento) => { setEditItem(item); setDialogOpen(true); };
+  // Agrupa os cards por janela temporal (Hoje · Esta semana · Próximos · Passados)
+  const grupos = useMemo(() => {
+    const map: Record<GrupoKey, Atendimento[]> = { hoje: [], semana: [], futuros: [], passados: [] };
+    filtered.forEach((it) => map[grupoDe(it)].push(it));
+    const ts = (i: Atendimento) => parseISO(i.data_atendimento).getTime();
+    map.hoje.sort((a, b) => ts(a) - ts(b));
+    map.semana.sort((a, b) => ts(a) - ts(b));
+    map.futuros.sort((a, b) => ts(a) - ts(b));
+    map.passados.sort((a, b) => ts(b) - ts(a));
+    return ORDEM_GRUPOS.map((k) => ({ key: k, label: LABEL_GRUPOS[k], items: map[k] })).filter((g) => g.items.length);
+  }, [filtered]);
+
+  const openNew = () => { setPrefill(null); setEditItem(null); setDialogOpen(true); };
+  const openEdit = (item: Atendimento) => { setPrefill(null); setEditItem(item); setDialogOpen(true); };
+
+  // Remarcar: reabre o atendimento em edição já com status "agendado"
+  const openRemarcar = (item: Atendimento) => {
+    setPrefill(null);
+    setEditItem({ ...item, status: "agendado" });
+    setDialogOpen(true);
+  };
+
+  // Agendar próximo (vindo do follow-up): novo atendimento pré-preenchido
+  const agendarProximo = (item: Atendimento) => {
+    setFollowUpItem(null);
+    setEditItem(null);
+    setPrefill({
+      tipo_atendimento: item.tipo_atendimento || NONE,
+      cliente_id: item.cliente_id ?? NONE,
+      processo_id: item.processo_id ?? NONE,
+      responsavel_id: (item as any).responsavel_id ?? user?.id ?? "",
+      data_atendimento: format(addDays(new Date(), 7), "yyyy-MM-dd"),
+      status: "agendado",
+    });
+    setDialogOpen(true);
+  };
 
   // Abre o atendimento específico vindo de ?openId= (ex.: painel da equipe)
   useOpenItemFromSearch("/atendimentos", !query.isLoading && items.length > 0, (openId) => {
@@ -744,7 +1002,10 @@ const Atendimentos = () => {
 
   const handleMarkRealizado = (id: string) => {
     setLoadingId(id);
-    markRealizado.mutate(id, { onSettled: () => setLoadingId(null) });
+    markRealizado.mutate(id, {
+      onSuccess: () => { const it = items.find((x) => x.id === id); if (it) setFollowUpItem(it); },
+      onSettled: () => setLoadingId(null),
+    });
   };
 
   const handleMarkCancelado = (id: string) => {
@@ -765,7 +1026,7 @@ const Atendimentos = () => {
         duracao: editItem.duracao != null ? String(editItem.duracao) : "",
         avisos_dias: (editItem as any).avisos_dias ?? null,
       }
-    : defaultForm(user?.id ?? "");
+    : { ...defaultForm(user?.id ?? ""), ...(prefill ?? {}) };
 
   return (
     <div className="flex-1 p-4 md:p-8 space-y-8 overflow-x-hidden entry-animate">
@@ -837,6 +1098,11 @@ const Atendimentos = () => {
                     onClick={() => handleMarkCancelado(item.id)}
                     className="h-7 rounded-lg px-2 text-[10px] font-black uppercase tracking-wide text-red-500 hover:bg-red-500/10">
                     <XCircle className="h-3 w-3 mr-1" />Cancelar
+                  </Button>
+                  <Button size="sm" variant="ghost"
+                    onClick={() => openRemarcar(item)}
+                    className="h-7 rounded-lg px-2 text-[10px] font-black uppercase tracking-wide text-blue-500 hover:bg-blue-500/10">
+                    <RotateCcw className="h-3 w-3 mr-1" />Remarcar
                   </Button>
                 </div>
               );
@@ -923,11 +1189,23 @@ const Atendimentos = () => {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map((item) => (
-            <AtendimentoCard key={item.id} item={item}
-              onEdit={openEdit} onDelete={handleDelete}
-              onMarkRealizado={handleMarkRealizado} loadingId={loadingId} />
+        <div className="space-y-8">
+          {grupos.map((g) => (
+            <div key={g.key} className="space-y-3">
+              <div className="flex items-center gap-2">
+                <h2 className="text-xs font-black uppercase tracking-widest text-muted-foreground/70">{g.label}</h2>
+                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-muted/50 text-muted-foreground/60">{g.items.length}</span>
+                <div className="flex-1 h-px bg-border/50" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {g.items.map((item) => (
+                  <AtendimentoCard key={item.id} item={item}
+                    onEdit={openEdit} onDelete={handleDelete}
+                    onMarkRealizado={handleMarkRealizado} onRemarcar={openRemarcar}
+                    loadingId={loadingId} />
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       )}
@@ -943,11 +1221,19 @@ const Atendimentos = () => {
           userId={user?.id ?? ""}
           extras={extras}
           membros={membros}
+          existing={items}
           onSave={handleSave}
           onUpdate={handleUpdate}
           loading={create.isPending || update.isPending}
         />
       )}
+
+      {/* Follow-up após concluir */}
+      <FollowUpDialog
+        item={followUpItem}
+        onClose={() => setFollowUpItem(null)}
+        onAgendarProximo={agendarProximo}
+      />
 
       {/* Dialog gerenciar tipos */}
       <GerenciarTiposDialog
