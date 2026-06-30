@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, useLocation, useNavigate } from "react-router-dom";
-import { Calendar, Clock, Users, MapPin, Plus, CalendarCheck, AlertCircle, ArrowRight, CalendarClock, MessageSquare, Search } from "lucide-react";
+import { Calendar, Clock, Users, MapPin, Plus, CalendarCheck, AlertCircle, ArrowRight, CalendarClock, MessageSquare, Search, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NovoCompromissoDialog } from "@/components/Agenda/NovoCompromissoDialog";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ const typeMeta: Record<string, { label: string; icon: React.ElementType; color: 
   atendimento: { label: "Atendimento", icon: MessageSquare, color: "text-blue-500", bg: "bg-blue-500/10" },
   reuniao:     { label: "Reunião", icon: Calendar, color: "text-blue-500", bg: "bg-blue-500/10" },
   tarefa:      { label: "Tarefa", icon: CalendarCheck, color: "text-purple-500", bg: "bg-purple-500/10" },
+  consultivo:  { label: "Consultivo", icon: BookOpen, color: "text-indigo-500", bg: "bg-indigo-500/10" },
 };
 
 const statusColor = (s: string) =>
@@ -158,6 +159,7 @@ export default function Agenda() {
     { value: "prazo", label: "Prazos" },
     { value: "atendimento", label: "Atendimentos" },
     { value: "tarefa", label: "Tarefas" },
+    { value: "consultivo", label: "Consultivos" },
   ];
 
   return (
@@ -211,6 +213,7 @@ export default function Agenda() {
           { label: "Prazos", c: "bg-rose-500" },
           { label: "Atendimentos", c: "bg-blue-500" },
           { label: "Tarefas", c: "bg-purple-500" },
+          { label: "Consultivos", c: "bg-indigo-500" },
         ].map(l => (
           <span key={l.label} className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground">
             <span className={cn("h-2.5 w-2.5 rounded-full", l.c)} /> {l.label}

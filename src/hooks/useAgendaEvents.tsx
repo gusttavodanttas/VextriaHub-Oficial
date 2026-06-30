@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { startOfMonth, endOfMonth, format, isSameDay } from "date-fns";
 
-export type EventType = "audiencia" | "reuniao" | "atendimento" | "prazo" | "tarefa";
+export type EventType = "audiencia" | "reuniao" | "atendimento" | "prazo" | "tarefa" | "consultivo";
 export type EventStatus = "confirmado" | "pendente" | "cancelado" | "concluido";
 
 export interface AgendaEvent {
@@ -75,8 +75,17 @@ export const useAgendaEvents = (targetDate: Date) => {
         .lte("data_vencimento", format(end, "yyyy-MM-dd"))
         .eq("deletado", false);
 
-      if (audError || praError || ateError || tarError) {
-        console.error("Erro ao buscar eventos da agenda:", { audError, praError, ateError, tarError });
+      // 5. Buscar Consultivos com prazo definido (data DATE → compara com strings de data)
+      const { data: consultivos, error: conError } = await supabase
+        .from("consultivos")
+        .select("*, clientes!cliente_id(nome)")
+        .eq("office_id", user.office_id)
+        .eq("deletado", false)
+        .gte("prazo", format(start, "yyyy-MM-dd"))
+        .lte("prazo", format(end, "yyyy-MM-dd"));
+
+      if (audError || praError || ateError || tarError || conError) {
+        console.error("Erro ao buscar eventos da agenda:", { audError, praError, ateError, tarError, conError });
       }
 
       const allEvents: AgendaEvent[] = [
@@ -120,6 +129,16 @@ export const useAgendaEvents = (targetDate: Date) => {
           client: (t as any).clientes?.nome || 'N/A',
           location: 'Interno',
           status: t.concluida ? 'concluido' as const : 'pendente' as const
+        })),
+        ...(consultivos || []).map((c: any) => ({
+          id: c.id,
+          name: c.titulo || 'Consultivo',
+          time: 'Dia todo',
+          datetime: c.prazo ? `${String(c.prazo).slice(0, 10)}T12:00:00` : new Date().toISOString(),
+          type: 'consultivo' as const,
+          client: c.clientes?.nome || 'N/A',
+          location: 'Consultivo',
+          status: (c.status === 'concluido' ? 'concluido' : 'pendente') as EventStatus
         }))
       ];
 
