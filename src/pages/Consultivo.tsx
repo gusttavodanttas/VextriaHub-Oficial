@@ -352,7 +352,7 @@ function CatFormInline({ form, setForm, saving, onSave, onCancel, isNew }: {
 
 const BLANK_FORM = {
   titulo: "", descricao: "", categoria: "", prioridade: "media",
-  status: "pendente", tags: "", observacoes: "", cliente_id: "", responsavel_id: "",
+  status: "pendente", tags: "", observacoes: "", cliente_id: "", responsavel_id: "", prazo: "",
 };
 
 export default function ConsultivoPage() {
@@ -443,6 +443,7 @@ export default function ConsultivoPage() {
       observacoes: item.observacoes || "",
       cliente_id: item.cliente_id || "",
       responsavel_id: (item as any).responsavel_id || user?.id || "",
+      prazo: (item as any).prazo || "",
     });
     setDialogOpen(true);
   };
@@ -466,6 +467,7 @@ export default function ConsultivoPage() {
       observacoes: form.observacoes || null,
       cliente_id: form.cliente_id || null,
       responsavel_id: form.responsavel_id || user?.id || null,
+      prazo: form.prazo || null,
     };
     const ok = editItem ? await update(editItem.id, payload as any) : await create(payload as any);
     setSaving(false);
@@ -723,6 +725,12 @@ export default function ConsultivoPage() {
                   </Select>
                 </div>
               )}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground">Prazo (aparece na agenda)</Label>
+              <Input type="date" value={form.prazo} onChange={e => setForm(f => ({ ...f, prazo: e.target.value }))}
+                className="rounded-xl border-black/8 dark:border-border" />
             </div>
 
             <div className="space-y-1.5">

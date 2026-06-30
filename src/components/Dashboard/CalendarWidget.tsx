@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarDays, Clock, AlertCircle, CheckSquare, Headphones } from "lucide-react";
+import { CalendarDays, Clock, AlertCircle, CheckSquare, Headphones, BookOpen } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO } from "date-fns";
@@ -9,7 +9,7 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
 interface DayEvent {
-  type: "prazo" | "audiencia" | "tarefa" | "atendimento";
+  type: "prazo" | "audiencia" | "tarefa" | "atendimento" | "consultivo";
   titulo: string;
   hora?: string;
 }
@@ -20,6 +20,7 @@ const EVENT_STYLE: Record<DayEvent["type"], { cls: string; Icon: any }> = {
   audiencia: { cls: "border-orange-500/15 bg-orange-500/5 text-orange-600 dark:text-orange-400", Icon: Clock },
   tarefa: { cls: "border-violet-500/15 bg-violet-500/5 text-violet-600 dark:text-violet-400", Icon: CheckSquare },
   atendimento: { cls: "border-cyan-500/15 bg-cyan-500/5 text-cyan-600 dark:text-cyan-400", Icon: Headphones },
+  consultivo: { cls: "border-indigo-500/15 bg-indigo-500/5 text-indigo-600 dark:text-indigo-400", Icon: BookOpen },
 };
 
 // Para onde cada evento leva ao clicar
@@ -28,6 +29,7 @@ const EVENT_ROUTE: Record<DayEvent["type"], string> = {
   audiencia: "/audiencias",
   tarefa: "/tarefas",
   atendimento: "/atendimentos",
+  consultivo: "/consultivo",
 };
 
 export function CalendarWidget() {
@@ -44,7 +46,7 @@ export function CalendarWidget() {
       const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
       const end = new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString().split("T")[0];
 
-      const [{ data: prazos }, { data: audiencias }, { data: tarefas }, { data: atendimentos }] = await Promise.all([
+      const [{ data: prazos }, { data: audiencias }, { data: tarefas }, { data: atendimentos }, { data: consultivos }] = await Promise.all([
         supabase.from("prazos").select("tipo_prazo, numero_processo, data_fim_prazo, publicacoes(titulo)")
           .eq("office_id", user.office_id)
           .gte("data_fim_prazo", start).lte("data_fim_prazo", end),
@@ -59,6 +61,11 @@ export function CalendarWidget() {
         supabase.from("atendimentos").select("tipo_atendimento, data_atendimento, status")
           .eq("deletado", false).eq("status", "agendado")
           .gte("data_atendimento", start).lte("data_atendimento", end),
+        // consultivos com prazo definido (que não estejam concluídos)
+        supabase.from("consultivos").select("titulo, prazo, status")
+          .eq("office_id", user.office_id).eq("deletado", false)
+          .neq("status", "concluido")
+          .gte("prazo", start).lte("prazo", end),
       ]);
 
       const map: Record<string, DayEvent[]> = {};
@@ -85,6 +92,12 @@ export function CalendarWidget() {
         const k = at.data_atendimento.split("T")[0];
         if (!map[k]) map[k] = [];
         map[k].push({ type: "atendimento", titulo: at.tipo_atendimento || "Atendimento", hora: at.data_atendimento.split("T")[1]?.slice(0, 5) });
+      }
+      for (const co of (consultivos as any[]) || []) {
+        if (!co.prazo) continue;
+        const k = co.prazo.split("T")[0];
+        if (!map[k]) map[k] = [];
+        map[k].push({ type: "consultivo", titulo: co.titulo || "Consultivo" });
       }
       setEventMap(map);
       setLoading(false);
