@@ -38,7 +38,7 @@ export interface TarefaInput {
   recorrencia_regra?: string | null;
   recorrencia_restantes?: number | null;
   responsavel_id?: string | null;
-  aviso_dias?: number | null;
+  avisos_dias?: number[] | null;
 }
 
 // Monta o payload de insert/update incluindo atendimento_id só quando há valor
@@ -56,7 +56,7 @@ function buildPayload(input: Partial<TarefaInput>) {
   if (input.recorrencia_regra) p.recorrencia_regra = input.recorrencia_regra;
   if (input.recorrencia_restantes !== undefined && input.recorrencia_restantes !== null) p.recorrencia_restantes = input.recorrencia_restantes;
   if (input.responsavel_id !== undefined) p.responsavel_id = input.responsavel_id;
-  if (input.aviso_dias !== undefined) p.aviso_dias = input.aviso_dias;
+  if (input.avisos_dias !== undefined) p.avisos_dias = input.avisos_dias;
   return p;
 }
 

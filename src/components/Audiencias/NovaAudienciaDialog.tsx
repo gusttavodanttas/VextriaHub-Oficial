@@ -37,7 +37,7 @@ const statusOptions = [
 ];
 
 const NONE = "__none__";
-const empty = { titulo: "", cliente_id: "", processo_id: NONE, data: "", hora: "", tipo: "", local: "", observacao: "", status: "agendada", responsavel_id: "", aviso_dias: null as number | null };
+const empty = { titulo: "", cliente_id: "", processo_id: NONE, data: "", hora: "", tipo: "", local: "", observacao: "", status: "agendada", responsavel_id: "", avisos_dias: null as number[] | null };
 
 export const NovaAudienciaDialog = ({ open, onOpenChange, tipos, membros = [], processos = [], existentes = [], audiencia, onSubmit, onManageTipos }: NovaAudienciaDialogProps) => {
   const { user } = useAuth();
@@ -62,7 +62,7 @@ export const NovaAudienciaDialog = ({ open, onOpenChange, tipos, membros = [], p
         observacao: audiencia.observacoes || "",
         status: audiencia.status || "agendada",
         responsavel_id: (audiencia as any).responsavel_id || user?.id || "",
-        aviso_dias: (audiencia as any).aviso_dias ?? null,
+        avisos_dias: (audiencia as any).avisos_dias ?? null,
       });
     } else {
       setFormData({ ...empty, responsavel_id: user?.id || "" });
@@ -117,7 +117,7 @@ export const NovaAudienciaDialog = ({ open, onOpenChange, tipos, membros = [], p
       responsavel_id: formData.responsavel_id || user?.id || null,
     };
     // só envia aviso_dias quando definido (ou ao editar) — evita depender da coluna no uso padrão
-    if (formData.aviso_dias != null || isEdit) (input as any).aviso_dias = formData.aviso_dias;
+    if (formData.avisos_dias != null || isEdit) (input as any).avisos_dias = formData.avisos_dias;
     setSaving(true);
     try {
       await onSubmit(input, audiencia?.id);
@@ -238,7 +238,7 @@ export const NovaAudienciaDialog = ({ open, onOpenChange, tipos, membros = [], p
             </div>
             <div className="space-y-2">
               <Label>Avisar</Label>
-              <AvisoDiasSelect value={formData.aviso_dias} onChange={(v) => setFormData({ ...formData, aviso_dias: v })} />
+              <AvisoDiasSelect value={formData.avisos_dias} onChange={(v) => setFormData({ ...formData, avisos_dias: v })} />
             </div>
           </div>
 

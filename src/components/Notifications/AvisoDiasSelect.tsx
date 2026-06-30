@@ -1,29 +1,51 @@
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 
-const PADRAO = "padrao";
+const OPCOES = [1, 2, 3, 5, 7, 15, 30];
 
-// Seletor de antecedência do aviso POR ITEM.
-// value: null = usa o padrão geral do usuário; 0 = não avisar; N = N dias antes.
-export function AvisoDiasSelect({ value, onChange, className }: {
-  value: number | null | undefined;
-  onChange: (v: number | null) => void;
-  className?: string;
+/**
+ * Seletor de antecedências do aviso POR ITEM, com MÚLTIPLOS marcos.
+ * value: null = usa o padrão geral do usuário; [] = não avisar; [15,7] = avisar nesses dias antes.
+ */
+export function AvisoDiasSelect({ value, onChange }: {
+  value: number[] | null | undefined;
+  onChange: (v: number[] | null) => void;
 }) {
-  const v = value == null ? PADRAO : String(value);
+  const usarPadrao = value == null;
+  const dias = value || [];
+
+  const toggle = (d: number) => {
+    const set = new Set(dias);
+    set.has(d) ? set.delete(d) : set.add(d);
+    onChange(Array.from(set).sort((a, b) => a - b));
+  };
+
   return (
-    <Select value={v} onValueChange={(s) => onChange(s === PADRAO ? null : Number(s))}>
-      <SelectTrigger className={className || "rounded-xl"}><SelectValue /></SelectTrigger>
-      <SelectContent className="rounded-xl">
-        <SelectItem value={PADRAO}>Padrão (config. geral)</SelectItem>
-        <SelectItem value="0">Não avisar</SelectItem>
-        <SelectItem value="1">1 dia antes</SelectItem>
-        <SelectItem value="2">2 dias antes</SelectItem>
-        <SelectItem value="3">3 dias antes</SelectItem>
-        <SelectItem value="5">5 dias antes</SelectItem>
-        <SelectItem value="7">7 dias antes</SelectItem>
-        <SelectItem value="15">15 dias antes</SelectItem>
-        <SelectItem value="30">30 dias antes</SelectItem>
-      </SelectContent>
-    </Select>
+    <div className="space-y-2">
+      <label className="flex items-center gap-2 cursor-pointer">
+        <Switch checked={usarPadrao} onCheckedChange={(v) => onChange(v ? null : [])} />
+        <span className="text-xs font-semibold text-muted-foreground">Usar padrão geral</span>
+      </label>
+      {!usarPadrao && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {OPCOES.map((d) => {
+            const on = dias.includes(d);
+            return (
+              <button key={d} type="button" onClick={() => toggle(d)}
+                className={cn(
+                  "px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all",
+                  on ? "bg-primary text-primary-foreground border-primary" : "bg-card border-black/10 dark:border-border text-muted-foreground hover:border-primary/40"
+                )}>
+                {d}d
+              </button>
+            );
+          })}
+          {dias.length === 0 && <span className="text-[11px] text-muted-foreground/70 ml-1">Nenhum marcado = não avisar</span>}
+        </div>
+      )}
+    </div>
   );
 }
+
+// Componente extra: permite escolher vários marcos (ex.: 15 e 7 dias) simultaneamente.
+export const AvisoDiasMulti = AvisoDiasSelect;

@@ -40,12 +40,11 @@ export function useProximityNotifications() {
       const startDate = format(start, "yyyy-MM-dd");
       const endDate = format(end, "yyyy-MM-dd");
 
-      // Decide se o item deve gerar aviso hoje, conforme a antecedência dele
-      const deveAvisar = (avisoDias: number | null | undefined, dateStr: string) => {
-        const lead = avisoDias == null ? padrao : avisoDias;
-        if (lead <= 0) return false; // 0 = não avisar
-        const d = diasAte(dateStr);
-        return d >= 0 && d <= lead;
+      // Marcos de antecedência do item: array avisos_dias; senão o legado aviso_dias; senão o padrão global
+      const marcosDe = (it: any): number[] => {
+        if (Array.isArray(it.avisos_dias)) return it.avisos_dias.filter((d: number) => d > 0);
+        if (it.aviso_dias != null) return it.aviso_dias > 0 ? [it.aviso_dias] : [];
+        return [padrao];
       };
 
       const candidatos: any[] = [];
@@ -57,12 +56,15 @@ export function useProximityNotifications() {
           .not("status", "in", "(realizada,cancelada)")
           .gte("data_audiencia", start.toISOString()).lte("data_audiencia", end.toISOString());
         (data || []).forEach((a: any) => {
-          if (!deveAvisar(a.aviso_dias, a.data_audiencia)) return;
-          candidatos.push({
-            user_id: user.id, type: "warning",
-            title: `Audiência ${proxLabel(a.data_audiencia)}`,
-            message: `${a.titulo} — ${proxLabel(a.data_audiencia)} às ${format(new Date(a.data_audiencia), "HH:mm")}`,
-            action_url: `/audiencias?openId=${a.id}`, action_label: "Ver audiência", read: false,
+          const d = diasAte(a.data_audiencia);
+          marcosDe(a).forEach((D) => {
+            if (d < 0 || d > D) return;
+            candidatos.push({
+              user_id: user.id, type: "warning",
+              title: `Audiência ${proxLabel(a.data_audiencia)}`,
+              message: `${a.titulo} — ${proxLabel(a.data_audiencia)} às ${format(new Date(a.data_audiencia), "HH:mm")}`,
+              action_url: `/audiencias?openId=${a.id}&d=${D}`, action_label: "Ver audiência", read: false,
+            });
           });
         });
       }
@@ -73,12 +75,15 @@ export function useProximityNotifications() {
           .eq("office_id", user.office_id).neq("status", "concluido")
           .gte("data_fim_prazo", startDate).lte("data_fim_prazo", endDate);
         (data || []).forEach((p: any) => {
-          if (!deveAvisar(p.aviso_dias, p.data_fim_prazo)) return;
-          candidatos.push({
-            user_id: user.id, type: "warning",
-            title: `Prazo ${proxLabel(p.data_fim_prazo)}`,
-            message: `${p.publicacoes?.titulo || p.tipo_prazo || p.numero_processo || "Prazo"} — vence ${proxLabel(p.data_fim_prazo)}`,
-            action_url: `/prazos?openId=${p.id}`, action_label: "Ver prazo", read: false,
+          const d = diasAte(p.data_fim_prazo);
+          marcosDe(p).forEach((D) => {
+            if (d < 0 || d > D) return;
+            candidatos.push({
+              user_id: user.id, type: "warning",
+              title: `Prazo ${proxLabel(p.data_fim_prazo)}`,
+              message: `${p.publicacoes?.titulo || p.tipo_prazo || p.numero_processo || "Prazo"} — vence ${proxLabel(p.data_fim_prazo)}`,
+              action_url: `/prazos?openId=${p.id}&d=${D}`, action_label: "Ver prazo", read: false,
+            });
           });
         });
       }
@@ -89,12 +94,15 @@ export function useProximityNotifications() {
           .eq("office_id", user.office_id).eq("deletado", false).eq("concluida", false)
           .gte("data_vencimento", startDate).lte("data_vencimento", endDate);
         (data || []).forEach((t: any) => {
-          if (!deveAvisar(t.aviso_dias, t.data_vencimento)) return;
-          candidatos.push({
-            user_id: user.id, type: "info",
-            title: `Tarefa ${proxLabel(t.data_vencimento)}`,
-            message: `${t.titulo} — vence ${proxLabel(t.data_vencimento)}`,
-            action_url: `/tarefas?openId=${t.id}`, action_label: "Ver tarefa", read: false,
+          const d = diasAte(t.data_vencimento);
+          marcosDe(t).forEach((D) => {
+            if (d < 0 || d > D) return;
+            candidatos.push({
+              user_id: user.id, type: "info",
+              title: `Tarefa ${proxLabel(t.data_vencimento)}`,
+              message: `${t.titulo} — vence ${proxLabel(t.data_vencimento)}`,
+              action_url: `/tarefas?openId=${t.id}&d=${D}`, action_label: "Ver tarefa", read: false,
+            });
           });
         });
       }

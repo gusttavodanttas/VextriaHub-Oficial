@@ -26,7 +26,7 @@ export interface AudienciaInput {
   cliente_id: string | null;
   processo_id?: string | null;
   responsavel_id?: string | null;
-  aviso_dias?: number | null;
+  avisos_dias?: number[] | null;
 }
 
 export function useAudiencias() {

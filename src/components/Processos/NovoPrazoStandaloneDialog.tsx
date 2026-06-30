@@ -40,7 +40,7 @@ export interface PrazoFormData {
   processo_id?: string | null;
   office_id?: string | null;
   user_id?: string;
-  aviso_dias?: number | null;
+  avisos_dias?: number[] | null;
 }
 
 interface NovoPrazoStandaloneDialogProps {
@@ -181,7 +181,7 @@ type FormState = {
   dataPrazoFatal: string;
   prioridade: string;
   responsavel_id: string;
-  avisoDias: number | null;
+  avisosDias: number[] | null;
 };
 
 function emptyForm(tituloSugerido?: string, numeroProcesso?: string, userId = ""): FormState {
@@ -190,7 +190,7 @@ function emptyForm(tituloSugerido?: string, numeroProcesso?: string, userId = ""
     descricao: numeroProcesso ? `Prazo vinculado à publicação do processo ${numeroProcesso}` : "",
     dataPublicacao: "", dataPrazoInterno: "", dataPrazoFatal: "", prioridade: "media",
     responsavel_id: userId,
-    avisoDias: null,
+    avisosDias: null,
   };
 }
 function prazoToForm(p: PrazoFormData, userId = ""): FormState {
@@ -202,7 +202,7 @@ function prazoToForm(p: PrazoFormData, userId = ""): FormState {
     dataPrazoFatal: p.data_fim_prazo || "",
     prioridade: p.prioridade || "media",
     responsavel_id: (p as any).responsavel_id || userId,
-    avisoDias: (p as any).aviso_dias ?? null,
+    avisosDias: (p as any).avisos_dias ?? null,
   };
 }
 
@@ -539,7 +539,7 @@ export const NovoPrazoStandaloneDialog = ({
           data_prazo_interno: formData.dataPrazoInterno || null,
           responsavel_id: formData.responsavel_id || user?.id || null,
         };
-        if (formData.avisoDias != null) updates.aviso_dias = formData.avisoDias;
+        if (formData.avisosDias != null) updates.avisos_dias = formData.avisosDias;
         const { error } = await supabase.from('prazos').update(updates).eq('id', prazoParaEditar!.id!);
         if (error) throw error;
         toast({ title: "Prazo atualizado", description: "As alterações foram salvas." });
@@ -559,7 +559,7 @@ export const NovoPrazoStandaloneDialog = ({
         };
         if (formData.dataPublicacao) payload.data_publicacao = formData.dataPublicacao;
         if (formData.dataPrazoInterno) payload.data_prazo_interno = formData.dataPrazoInterno;
-        if (formData.avisoDias != null) payload.aviso_dias = formData.avisoDias;
+        if (formData.avisosDias != null) payload.avisos_dias = formData.avisosDias;
         const { error } = await supabase.from('prazos').insert(payload);
         if (error) throw error;
         toast({ title: "Prazo adicionado", description: "O prazo foi salvo com sucesso." });
@@ -753,7 +753,7 @@ export const NovoPrazoStandaloneDialog = ({
             {/* Avisar (antecedência do lembrete) */}
             <div className="space-y-1.5">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Avisar</Label>
-              <AvisoDiasSelect value={formData.avisoDias} onChange={v => setFormData(p => ({ ...p, avisoDias: v }))} className="rounded-xl h-10" />
+              <AvisoDiasSelect value={formData.avisosDias} onChange={v => setFormData(p => ({ ...p, avisosDias: v }))} />
             </div>
 
             {/* Responsável */}

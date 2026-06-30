@@ -233,7 +233,7 @@ export default function Prazos() {
     processo_id: p.processo_id,
     office_id: p.office_id,
     user_id: p.user_id,
-    aviso_dias: (p as any).aviso_dias ?? null,
+    avisos_dias: (p as any).avisos_dias ?? null,
   });
 
   return (
