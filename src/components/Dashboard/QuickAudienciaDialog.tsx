@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAudiencias } from "@/hooks/useAudiencias";
 import { useAudienciaTipos } from "@/hooks/useAudienciaTipos";
+import { ClientSelect } from "@/components/Clientes/ClientSelect";
 
 interface Props { open: boolean; onOpenChange: (o: boolean) => void; onSuccess?: () => void; }
 
@@ -17,16 +18,13 @@ export function QuickAudienciaDialog({ open, onOpenChange, onSuccess }: Props) {
   const { user } = useAuth();
   const { create } = useAudiencias();
   const { tipos = [] } = useAudienciaTipos();
-  const [clientes, setClientes] = useState<{ id: string; nome: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ titulo: "", tipo: "", data: "", local: "", cliente_id: "", obs: "" });
 
   useEffect(() => {
-    if (!open || !user?.office_id) return;
-    supabase.from("clientes").select("id, nome").eq("office_id", user.office_id).eq("deletado", false).order("nome")
-      .then(({ data }) => setClientes((data as any) || []));
+    if (!open) return;
     setForm({ titulo: "", tipo: "", data: "", local: "", cliente_id: "", obs: "" });
-  }, [open, user?.office_id]);
+  }, [open]);
 
   const salvar = () => {
     if (!form.titulo.trim() || !form.data) return;
@@ -80,10 +78,7 @@ export function QuickAudienciaDialog({ open, onOpenChange, onSuccess }: Props) {
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs font-bold">Cliente</Label>
-            <Select value={form.cliente_id} onValueChange={(v) => setForm({ ...form, cliente_id: v })}>
-              <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Selecione o cliente" /></SelectTrigger>
-              <SelectContent className="max-h-[240px]">{clientes.map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}</SelectContent>
-            </Select>
+            <ClientSelect value={form.cliente_id} onValueChange={(id) => setForm({ ...form, cliente_id: id })} placeholder="Selecione o cliente" />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs font-bold">Local</Label>

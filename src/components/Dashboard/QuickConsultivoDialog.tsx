@@ -9,6 +9,7 @@ import { Loader2, MessageSquareText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useConsultivos } from "@/hooks/useConsultivos";
+import { ClientSelect } from "@/components/Clientes/ClientSelect";
 
 interface Props { open: boolean; onOpenChange: (o: boolean) => void; onSuccess?: () => void; }
 
@@ -17,16 +18,13 @@ const PRIORIDADES = [{ v: "baixa", l: "Baixa" }, { v: "media", l: "Média" }, { 
 export function QuickConsultivoDialog({ open, onOpenChange, onSuccess }: Props) {
   const { user } = useAuth();
   const { create } = useConsultivos();
-  const [clientes, setClientes] = useState<{ id: string; nome: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ titulo: "", categoria: "", prioridade: "media", cliente_id: "", descricao: "" });
 
   useEffect(() => {
-    if (!open || !user?.office_id) return;
-    supabase.from("clientes").select("id, nome").eq("office_id", user.office_id).eq("deletado", false).order("nome")
-      .then(({ data }) => setClientes((data as any) || []));
+    if (!open) return;
     setForm({ titulo: "", categoria: "", prioridade: "media", cliente_id: "", descricao: "" });
-  }, [open, user?.office_id]);
+  }, [open]);
 
   const salvar = async () => {
     if (!form.titulo.trim()) return;
@@ -74,10 +72,7 @@ export function QuickConsultivoDialog({ open, onOpenChange, onSuccess }: Props) 
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs font-bold">Cliente (opcional)</Label>
-            <Select value={form.cliente_id} onValueChange={(v) => setForm({ ...form, cliente_id: v })}>
-              <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Sem cliente" /></SelectTrigger>
-              <SelectContent className="max-h-[240px]">{clientes.map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}</SelectContent>
-            </Select>
+            <ClientSelect value={form.cliente_id} onValueChange={(id) => setForm({ ...form, cliente_id: id })} placeholder="Sem cliente" />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs font-bold">Descrição</Label>
