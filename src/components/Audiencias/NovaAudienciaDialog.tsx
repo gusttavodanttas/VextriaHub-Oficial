@@ -1,24 +1,27 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarPlus, Loader2 } from "lucide-react";
+import { CalendarPlus, Loader2, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Audiencia, AudienciaInput } from "@/hooks/useAudiencias";
 import { useAuth } from "@/contexts/AuthContext";
+import { ClientSelect } from "@/components/Clientes/ClientSelect";
+import { format } from "date-fns";
 
-interface ClienteOption { id: string; nome: string; }
 interface MembroOption { id: string; label: string; }
+interface ProcessoOption { id: string; label: string; cliente_id: string | null; }
 
 interface NovaAudienciaDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  clientes: ClienteOption[];
   tipos: string[];
   membros?: MembroOption[];
+  processos?: ProcessoOption[];
+  existentes?: { id: string; data_audiencia: string }[];
   audiencia?: Audiencia | null;
   onSubmit: (input: AudienciaInput, id?: string) => Promise<void>;
   onManageTipos?: () => void;
@@ -32,9 +35,10 @@ const statusOptions = [
   { value: "cancelada", label: "Cancelada" },
 ];
 
-const empty = { titulo: "", cliente_id: "", data: "", hora: "", tipo: "", local: "", observacao: "", status: "agendada", responsavel_id: "" };
+const NONE = "__none__";
+const empty = { titulo: "", cliente_id: "", processo_id: NONE, data: "", hora: "", tipo: "", local: "", observacao: "", status: "agendada", responsavel_id: "" };
 
-export const NovaAudienciaDialog = ({ open, onOpenChange, clientes, tipos, membros = [], audiencia, onSubmit, onManageTipos }: NovaAudienciaDialogProps) => {
+export const NovaAudienciaDialog = ({ open, onOpenChange, tipos, membros = [], processos = [], existentes = [], audiencia, onSubmit, onManageTipos }: NovaAudienciaDialogProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
@@ -49,17 +53,48 @@ export const NovaAudienciaDialog = ({ open, onOpenChange, clientes, tipos, membr
       setFormData({
         titulo: audiencia.titulo || "",
         cliente_id: audiencia.cliente_id || "",
-        data: dt ? dt.toISOString().split("T")[0] : "",
-        hora: dt ? dt.toTimeString().slice(0, 5) : "",
+        processo_id: (audiencia as any).processo_id || NONE,
+        data: dt ? format(dt, "yyyy-MM-dd") : "",
+        hora: dt ? format(dt, "HH:mm") : "",
         tipo: audiencia.tipo || "",
         local: audiencia.local || "",
         observacao: audiencia.observacoes || "",
         status: audiencia.status || "agendada",
+        responsavel_id: (audiencia as any).responsavel_id || user?.id || "",
       });
     } else {
       setFormData({ ...empty, responsavel_id: user?.id || "" });
     }
   }, [open, audiencia, user?.id]);
+
+  // Processos do cliente selecionado
+  const processosFiltrados = useMemo(
+    () => formData.cliente_id ? processos.filter((p) => p.cliente_id === formData.cliente_id) : processos,
+    [processos, formData.cliente_id]
+  );
+
+  // Alerta de conflito: já existe audiência no mesmo dia + horário?
+  const conflito = useMemo(() => {
+    if (!formData.data || !formData.hora) return null;
+    const alvo = `${formData.data}T${formData.hora}`;
+    return existentes.find((e) => e.id !== audiencia?.id && format(new Date(e.data_audiencia), "yyyy-MM-dd'T'HH:mm") === alvo) || null;
+  }, [existentes, formData.data, formData.hora, audiencia?.id]);
+
+  const handleClienteChange = (cliente_id: string) => {
+    setFormData((prev) => {
+      const valido = prev.processo_id !== NONE && processos.some((p) => p.id === prev.processo_id && p.cliente_id === cliente_id);
+      return { ...prev, cliente_id, processo_id: valido ? prev.processo_id : NONE };
+    });
+  };
+
+  const handleProcessoChange = (processo_id: string) => {
+    setFormData((prev) => {
+      const proc = processos.find((p) => p.id === processo_id);
+      const next = { ...prev, processo_id };
+      if (processo_id !== NONE && proc?.cliente_id && !prev.cliente_id) next.cliente_id = proc.cliente_id;
+      return next;
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,6 +111,7 @@ export const NovaAudienciaDialog = ({ open, onOpenChange, clientes, tipos, membr
       status: formData.status,
       observacoes: formData.observacao || null,
       cliente_id: formData.cliente_id || null,
+      processo_id: formData.processo_id === NONE ? null : formData.processo_id,
       responsavel_id: formData.responsavel_id || user?.id || null,
     };
     setSaving(true);
@@ -89,7 +125,7 @@ export const NovaAudienciaDialog = ({ open, onOpenChange, clientes, tipos, membr
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl rounded-3xl">
+      <DialogContent className="max-w-2xl rounded-3xl max-h-[92vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl font-black">
             <div className="p-1.5 rounded-lg bg-orange-500/10 text-orange-500"><CalendarPlus className="h-5 w-5" /></div>
@@ -109,28 +145,40 @@ export const NovaAudienciaDialog = ({ open, onOpenChange, clientes, tipos, membr
                 placeholder="Ex: Audiência de Conciliação" className="rounded-xl" required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cliente">Cliente</Label>
-              <Select value={formData.cliente_id} onValueChange={(v) => setFormData({ ...formData, cliente_id: v })}>
-                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Selecionar cliente" /></SelectTrigger>
-                <SelectContent className="rounded-xl">
-                  {clientes.length === 0 && <SelectItem value="none" disabled>Nenhum cliente cadastrado</SelectItem>}
-                  {clientes.map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Label>Cliente</Label>
+              <ClientSelect value={formData.cliente_id} onValueChange={(id) => handleClienteChange(id)} placeholder="Selecionar cliente" />
             </div>
           </div>
 
-          {membros.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Responsável</Label>
-              <Select value={formData.responsavel_id} onValueChange={(v) => setFormData({ ...formData, responsavel_id: v })}>
-                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Selecionar responsável" /></SelectTrigger>
+              <Label>
+                Processo
+                {formData.cliente_id && <span className="ml-1 text-[10px] font-bold text-muted-foreground/50">({processosFiltrados.length} do cliente)</span>}
+              </Label>
+              <Select value={formData.processo_id} onValueChange={handleProcessoChange}>
+                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Vincular processo (opcional)" /></SelectTrigger>
                 <SelectContent className="rounded-xl">
-                  {membros.map((m) => <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>)}
+                  <SelectItem value={NONE}>Nenhum</SelectItem>
+                  {processosFiltrados.map((p) => <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>)}
+                  {formData.cliente_id && processosFiltrados.length === 0 && (
+                    <div className="px-2 py-1.5 text-xs text-muted-foreground/60">Nenhum processo deste cliente</div>
+                  )}
                 </SelectContent>
               </Select>
             </div>
-          )}
+            {membros.length > 0 && (
+              <div className="space-y-2">
+                <Label>Responsável</Label>
+                <Select value={formData.responsavel_id} onValueChange={(v) => setFormData({ ...formData, responsavel_id: v })}>
+                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Selecionar responsável" /></SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    {membros.map((m) => <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
@@ -147,8 +195,7 @@ export const NovaAudienciaDialog = ({ open, onOpenChange, clientes, tipos, membr
               <div className="flex items-center justify-between">
                 <Label htmlFor="tipo">Tipo *</Label>
                 {onManageTipos && (
-                  <button type="button" onClick={onManageTipos}
-                    className="text-[11px] font-bold text-primary hover:underline">
+                  <button type="button" onClick={onManageTipos} className="text-[11px] font-bold text-primary hover:underline">
                     Gerenciar tipos
                   </button>
                 )}
@@ -162,6 +209,12 @@ export const NovaAudienciaDialog = ({ open, onOpenChange, clientes, tipos, membr
               </Select>
             </div>
           </div>
+
+          {conflito && (
+            <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] font-semibold text-amber-700 dark:text-amber-400">
+              <AlertTriangle className="h-4 w-4 shrink-0" /> Já existe uma audiência neste dia e horário. Confira para não marcar em conflito.
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">

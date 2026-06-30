@@ -24,6 +24,7 @@ export interface AudienciaInput {
   status: string;
   observacoes: string | null;
   cliente_id: string | null;
+  processo_id?: string | null;
   responsavel_id?: string | null;
 }
 

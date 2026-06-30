@@ -7,7 +7,7 @@ import { Calendar as CalendarUI } from "@/components/ui/calendar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Calendar, Clock, MapPin, User, Users, Plus, Search, Trash2, Pencil,
-  CheckCircle2, XCircle, MoreHorizontal, CalendarCheck, CalendarClock, Gavel, Loader2, AlertTriangle,
+  CheckCircle2, XCircle, MoreHorizontal, CalendarCheck, CalendarClock, Gavel, Loader2, AlertTriangle, FileText,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
@@ -22,6 +22,7 @@ import { useMultiSelect } from "@/hooks/useMultiSelect";
 import { useAudiencias, type Audiencia, type AudienciaInput } from "@/hooks/useAudiencias";
 import { useOpenItemFromSearch } from "@/hooks/useOpenItemFromSearch";
 import { useClientes } from "@/hooks/useClientes";
+import { useProcessosV2 } from "@/hooks/useProcessosV2";
 import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 import { cn } from "@/lib/utils";
 import { format, isToday, isTomorrow, isThisWeek, isPast, parseISO } from "date-fns";
@@ -50,10 +51,17 @@ function StatCard({ icon: Icon, label, value, color, bg }: { icon: React.Element
 const Audiencias = () => {
   const { audiencias, isLoading, create, update, updateStatus, remove } = useAudiencias();
   const { data: clientesData } = useClientes();
+  const { data: processosData } = useProcessosV2();
   const { tipos: tiposCadastrados } = useAudienciaTipos();
   const { users: officeUsers } = useOfficeUsers();
-  const clientes = useMemo(() => (clientesData || []).map((c: any) => ({ id: c.id, nome: c.nome })), [clientesData]);
   const membros = useMemo(() => officeUsers.map(u => ({ id: u.user_id, label: u.profile?.full_name || u.profile?.email || "Membro" })), [officeUsers]);
+  const processosOpts = useMemo(
+    () => (processosData || [])
+      .map((p: any) => ({ id: p.id, label: p.numeroProcesso ? `${p.titulo} · ${p.numeroProcesso}` : p.titulo, cliente_id: p.clienteId || p.cliente_id || null }))
+      .sort((a, b) => a.label.localeCompare(b.label, "pt-BR")),
+    [processosData]
+  );
+  const processoMap = useMemo(() => Object.fromEntries(processosOpts.map(p => [p.id, p.label])), [processosOpts]);
 
   const [searchTerm, setSearchTerm] = useState("");
   const dSearch = useDeferredValue(searchTerm);
@@ -157,6 +165,14 @@ const Audiencias = () => {
     const d = parseISO(a.data_audiencia);
     const meta = statusMeta[a.status || "agendada"] || statusMeta.agendada;
     const selected = multiSelect.isSelected(a.id);
+    // Aviso de proximidade (futuras, não baixadas)
+    const ativa = !["realizada", "cancelada"].includes(a.status || "");
+    const diffDias = Math.ceil((d.getTime() - Date.now()) / 86400000);
+    const prox = !ativa || d.getTime() < Date.now() ? null
+      : isToday(d) ? { label: "Hoje", cls: "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30" }
+      : isTomorrow(d) ? { label: "Amanhã", cls: "bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-500/30" }
+      : diffDias <= 3 ? { label: `Em ${diffDias} dias`, cls: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30" }
+      : null;
     return (
       <div key={a.id} id={`item-${a.id}`}
         className={cn(
@@ -179,12 +195,16 @@ const Audiencias = () => {
                 <h3 className="font-black tracking-tight truncate group-hover:text-primary transition-colors">{a.titulo}</h3>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-[11px] text-muted-foreground font-medium">
                   {a.cliente_nome && <span className="flex items-center gap-1 truncate"><User className="h-3 w-3 shrink-0" />{a.cliente_nome}</span>}
+                  {a.processo_id && processoMap[a.processo_id] && <span className="flex items-center gap-1 truncate max-w-[200px]"><FileText className="h-3 w-3 shrink-0" />{processoMap[a.processo_id]}</span>}
                   {a.local && <span className="flex items-center gap-1 truncate"><MapPin className="h-3 w-3 shrink-0" />{a.local}</span>}
                   <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{format(d, "EEEE", { locale: ptBR })}</span>
                 </div>
               </div>
             </div>
-            <Badge variant="outline" className={cn("shrink-0 rounded-lg px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest", meta.cls)}>{meta.label}</Badge>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {prox && <Badge variant="outline" className={cn("rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-widest border", prox.cls)}>{prox.label}</Badge>}
+              <Badge variant="outline" className={cn("rounded-lg px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest", meta.cls)}>{meta.label}</Badge>
+            </div>
           </div>
 
           <div className="flex items-center justify-between gap-2 pt-1">
@@ -366,8 +386,8 @@ const Audiencias = () => {
         </TabsContent>
       </Tabs>
 
-      <NovaAudienciaDialog open={dialogOpen} onOpenChange={setDialogOpen} clientes={clientes} tipos={tiposCadastrados}
-        membros={membros} audiencia={editTarget} onSubmit={handleSubmit}
+      <NovaAudienciaDialog open={dialogOpen} onOpenChange={setDialogOpen} tipos={tiposCadastrados}
+        membros={membros} processos={processosOpts} existentes={audiencias} audiencia={editTarget} onSubmit={handleSubmit}
         onManageTipos={() => { setDialogOpen(false); setTiposDialogOpen(true); }} />
 
       <GerenciarTiposDialog open={tiposDialogOpen} onOpenChange={setTiposDialogOpen} />
