@@ -29,8 +29,9 @@ import {
   FileText, Scale, Briefcase, Users, Tag, Calendar,
   TrendingUp, Clock, CheckCircle2, AlertTriangle, Trash2,
   ChevronRight, User, Settings, Pencil, GripVertical,
-  BookOpen, Star, Landmark, Shield, Gavel,
+  BookOpen, Star, Landmark, Shield, Gavel, CalendarClock,
 } from "lucide-react";
+import { prazoStatus } from "@/lib/prazo";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -637,6 +638,17 @@ export default function ConsultivoPage() {
                             <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                               <Calendar className="h-3 w-3" />{fmtDate(item.created_at)}
                             </span>
+                            {(item as any).prazo && item.status !== "concluido" && (() => {
+                              const ps = prazoStatus((item as any).prazo);
+                              return ps ? (
+                                <>
+                                  <span className="text-muted-foreground/30 text-xs">·</span>
+                                  <span className={cn("text-[11px] flex items-center gap-1", ps.cls)}>
+                                    <CalendarClock className="h-3 w-3" />{ps.label}
+                                  </span>
+                                </>
+                              ) : null;
+                            })()}
                           </div>
                           {item.descricao && (
                             <p className="text-xs text-muted-foreground/70 mt-1.5 line-clamp-2">{item.descricao}</p>
