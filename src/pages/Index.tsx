@@ -26,7 +26,6 @@ import { useDashboardPrefs } from "@/hooks/useDashboardPrefs";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useClientes } from "@/hooks/useClientes";
 import { useToast } from "@/hooks/use-toast";
-import { useDailyOabRobot } from "@/hooks/useDailyOabRobot";
 import { cn } from "@/lib/utils";
 
 type ModalKey = "processo" | "prazo" | "agendar" | "cliente" | "atendimento" | "audiencia" | "timesheet" | "tarefa" | "consultivo";
@@ -112,8 +111,9 @@ const Index = () => {
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [openModal, setOpenModal] = useState<ModalKey | null>(null);
 
-  // Robô diário: busca nacional pela OAB e enche a caixa "Encontrados"
-  useDailyOabRobot();
+  // Robô de busca por OAB roda só no SERVIDOR (cron robo-oab-diario), que filtra
+  // os descartados com service role. O robô do front-end foi desativado para
+  // evitar re-adicionar processos descartados.
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
