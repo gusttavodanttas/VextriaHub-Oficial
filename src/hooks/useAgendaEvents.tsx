@@ -66,13 +66,13 @@ export const useAgendaEvents = (targetDate: Date) => {
         .lte("data_atendimento", end.toISOString())
         .eq("deletado", false);
 
-      // 4. Buscar Tarefas
+      // 4. Buscar Tarefas (data_vencimento é DATE → compara com strings de data)
       const { data: tarefas, error: tarError } = await supabase
         .from("tarefas")
         .select("*, clientes!cliente_id(nome)")
         .eq("office_id", user.office_id)
-        .gte("data_vencimento", start.toISOString())
-        .lte("data_vencimento", end.toISOString())
+        .gte("data_vencimento", format(start, "yyyy-MM-dd"))
+        .lte("data_vencimento", format(end, "yyyy-MM-dd"))
         .eq("deletado", false);
 
       if (audError || praError || ateError || tarError) {
@@ -113,8 +113,9 @@ export const useAgendaEvents = (targetDate: Date) => {
         ...(tarefas || []).map(t => ({
           id: t.id,
           name: t.titulo,
-          time: t.data_vencimento ? format(new Date(t.data_vencimento), 'HH:mm') : '00:00',
-          datetime: t.data_vencimento || new Date().toISOString(),
+          // Tarefa não tem horário específico → "Dia todo"; usa T12:00:00 p/ não escorregar de dia (fuso)
+          time: 'Dia todo',
+          datetime: t.data_vencimento ? `${String(t.data_vencimento).slice(0, 10)}T12:00:00` : new Date().toISOString(),
           type: 'tarefa' as const,
           client: (t as any).clientes?.nome || 'N/A',
           location: 'Interno',

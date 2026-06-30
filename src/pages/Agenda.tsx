@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { format, isToday, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useAgendaEvents, AgendaEvent } from "@/hooks/useAgendaEvents";
+import { AgendaItemDialog, AgendaType } from "@/components/Dashboard/AgendaItemDialog";
 
 const typeMeta: Record<string, { label: string; icon: React.ElementType; color: string; bg: string }> = {
   audiencia:   { label: "Audiência", icon: Users, color: "text-orange-500", bg: "bg-orange-500/10" },
@@ -45,6 +46,7 @@ export default function Agenda() {
   const [typeFilter, setTypeFilter] = useState<string>("todos");
   const [search, setSearch] = useState("");
   const [dayDetail, setDayDetail] = useState<Date | null>(null);
+  const [openItem, setOpenItem] = useState<{ type: AgendaType; id: string } | null>(null);
 
   const [searchParams] = useSearchParams();
   const location = useLocation();
@@ -122,11 +124,10 @@ export default function Agenda() {
     };
   }, [events]);
 
+  // Clicar num evento abre o modal in-place (não navega) — igual ao dashboard
   const goToSource = (e: AgendaEvent) => {
-    if (e.type === "audiencia") navigate(`/audiencias?openId=${e.id}&date=${encodeURIComponent(e.datetime)}`);
-    else if (e.type === "prazo") navigate(`/prazos?openId=${e.id}`);
-    else if (e.type === "tarefa") navigate(`/tarefas?openId=${e.id}`);
-    else navigate("/atendimentos"); // atendimento / reuniao
+    const type = (e.type === "reuniao" ? "atendimento" : e.type) as AgendaType;
+    setOpenItem({ type, id: String(e.id) });
   };
 
   const handleNewEvent = (date: Date) => { setSelectedDateForNew(date); setNovoOpen(true); };
@@ -262,6 +263,8 @@ export default function Agenda() {
       </Tabs>
 
       <NovoCompromissoDialog open={novoOpen} onOpenChange={setNovoOpen} selectedDate={selectedDateForNew} onCreated={refresh} />
+
+      <AgendaItemDialog item={openItem} onOpenChange={(o) => !o && setOpenItem(null)} onChanged={refresh} />
 
       {/* Detalhe do dia (ao clicar num dia / "+N mais" no calendário) */}
       <Dialog open={!!dayDetail} onOpenChange={(o) => !o && setDayDetail(null)}>
