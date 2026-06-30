@@ -11,6 +11,7 @@ import { format } from "date-fns";
 import { RECORRENCIAS, generateOccurrences, type RecRule } from "@/lib/recorrencia";
 import type { Tarefa, TarefaInput } from "@/hooks/useTarefas";
 import { useAuth } from "@/contexts/AuthContext";
+import { AvisoDiasSelect } from "@/components/Notifications/AvisoDiasSelect";
 
 interface Option { id: string; label: string; cliente_id?: string | null; }
 
@@ -33,7 +34,7 @@ const prioridades = [
 ];
 
 const NONE = "__none__";
-const empty = { titulo: "", descricao: "", data_vencimento: "", prioridade: "media", cliente_id: NONE, processo_id: NONE, atendimento_id: NONE, recorrencia: "nenhuma", ocorrencias: "4", responsavel_id: NONE };
+const empty = { titulo: "", descricao: "", data_vencimento: "", prioridade: "media", cliente_id: NONE, processo_id: NONE, atendimento_id: NONE, recorrencia: "nenhuma", ocorrencias: "4", responsavel_id: NONE, aviso_dias: null as number | null };
 
 export const NovaTarefaDialog = ({ open, onOpenChange, clientes, processos, atendimentos, membros = [], tarefa, onSubmit, onSubmitMany }: NovaTarefaDialogProps) => {
   const { user } = useAuth();
@@ -84,6 +85,7 @@ export const NovaTarefaDialog = ({ open, onOpenChange, clientes, processos, aten
         recorrencia: "nenhuma",
         ocorrencias: "4",
         responsavel_id: tarefa.responsavel_id || user?.id || NONE,
+        aviso_dias: (tarefa as any).aviso_dias ?? null,
       });
     } else {
       setFormData({ ...empty, responsavel_id: user?.id || NONE });
@@ -111,6 +113,7 @@ export const NovaTarefaDialog = ({ open, onOpenChange, clientes, processos, aten
       processo_id: formData.processo_id === NONE ? null : formData.processo_id,
       atendimento_id: formData.atendimento_id === NONE ? null : formData.atendimento_id,
       responsavel_id: formData.responsavel_id === NONE ? (user?.id || null) : formData.responsavel_id,
+      ...((formData.aviso_dias != null || isEdit) ? { aviso_dias: formData.aviso_dias } : {}),
     };
 
     setSaving(true);
@@ -155,7 +158,7 @@ export const NovaTarefaDialog = ({ open, onOpenChange, clientes, processos, aten
               placeholder="Ex: Protocolar petição inicial" className="rounded-xl" required />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="data">Vencimento</Label>
               <Input id="data" type="date" value={formData.data_vencimento}
@@ -169,6 +172,10 @@ export const NovaTarefaDialog = ({ open, onOpenChange, clientes, processos, aten
                   {prioridades.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Avisar</Label>
+              <AvisoDiasSelect value={formData.aviso_dias} onChange={(v) => setFormData({ ...formData, aviso_dias: v })} />
             </div>
           </div>
 

@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { Audiencia, AudienciaInput } from "@/hooks/useAudiencias";
 import { useAuth } from "@/contexts/AuthContext";
 import { ClientSelect } from "@/components/Clientes/ClientSelect";
+import { AvisoDiasSelect } from "@/components/Notifications/AvisoDiasSelect";
 import { format } from "date-fns";
 
 interface MembroOption { id: string; label: string; }
@@ -36,7 +37,7 @@ const statusOptions = [
 ];
 
 const NONE = "__none__";
-const empty = { titulo: "", cliente_id: "", processo_id: NONE, data: "", hora: "", tipo: "", local: "", observacao: "", status: "agendada", responsavel_id: "" };
+const empty = { titulo: "", cliente_id: "", processo_id: NONE, data: "", hora: "", tipo: "", local: "", observacao: "", status: "agendada", responsavel_id: "", aviso_dias: null as number | null };
 
 export const NovaAudienciaDialog = ({ open, onOpenChange, tipos, membros = [], processos = [], existentes = [], audiencia, onSubmit, onManageTipos }: NovaAudienciaDialogProps) => {
   const { user } = useAuth();
@@ -61,6 +62,7 @@ export const NovaAudienciaDialog = ({ open, onOpenChange, tipos, membros = [], p
         observacao: audiencia.observacoes || "",
         status: audiencia.status || "agendada",
         responsavel_id: (audiencia as any).responsavel_id || user?.id || "",
+        aviso_dias: (audiencia as any).aviso_dias ?? null,
       });
     } else {
       setFormData({ ...empty, responsavel_id: user?.id || "" });
@@ -114,6 +116,8 @@ export const NovaAudienciaDialog = ({ open, onOpenChange, tipos, membros = [], p
       processo_id: formData.processo_id === NONE ? null : formData.processo_id,
       responsavel_id: formData.responsavel_id || user?.id || null,
     };
+    // só envia aviso_dias quando definido (ou ao editar) — evita depender da coluna no uso padrão
+    if (formData.aviso_dias != null || isEdit) (input as any).aviso_dias = formData.aviso_dias;
     setSaving(true);
     try {
       await onSubmit(input, audiencia?.id);
@@ -216,7 +220,7 @@ export const NovaAudienciaDialog = ({ open, onOpenChange, tipos, membros = [], p
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="local">Local</Label>
               <Input id="local" value={formData.local}
@@ -231,6 +235,10 @@ export const NovaAudienciaDialog = ({ open, onOpenChange, tipos, membros = [], p
                   {statusOptions.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Avisar</Label>
+              <AvisoDiasSelect value={formData.aviso_dias} onChange={(v) => setFormData({ ...formData, aviso_dias: v })} />
             </div>
           </div>
 
