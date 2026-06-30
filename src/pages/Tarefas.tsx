@@ -65,9 +65,19 @@ const Tarefas = () => {
     enabled: !!user?.office_id,
   });
 
-  const clientes = useMemo(() => (clientesData || []).map((c: any) => ({ id: c.id, label: c.nome })), [clientesData]);
+  const clientes = useMemo(
+    () => (clientesData || [])
+      .map((c: any) => ({ id: c.id, label: c.nome }))
+      .sort((a, b) => a.label.localeCompare(b.label, "pt-BR")),
+    [clientesData]
+  );
   const membros = useMemo(() => officeUsers.map(u => ({ id: u.user_id, label: u.profile?.full_name || u.profile?.email || "Membro" })), [officeUsers]);
-  const processos = useMemo(() => (processosData || []).map((p: any) => ({ id: p.id, label: p.numeroProcesso ? `${p.titulo} · ${p.numeroProcesso}` : p.titulo })), [processosData]);
+  const processos = useMemo(
+    () => (processosData || [])
+      .map((p: any) => ({ id: p.id, label: p.numeroProcesso ? `${p.titulo} · ${p.numeroProcesso}` : p.titulo, cliente_id: p.clienteId || p.cliente_id || null }))
+      .sort((a, b) => a.label.localeCompare(b.label, "pt-BR")),
+    [processosData]
+  );
   const atendimentos = useMemo(() => (atendimentosData || []).map((a: any) => ({ id: a.id, label: `${a.tipo_atendimento}${a.data_atendimento ? " · " + format(parseISO(a.data_atendimento), "dd/MM/yy") : ""}` })), [atendimentosData]);
   const processoMap = useMemo(() => Object.fromEntries(processos.map(p => [p.id, p.label])), [processos]);
   const atendimentoMap = useMemo(() => Object.fromEntries(atendimentos.map(a => [a.id, a.label])), [atendimentos]);

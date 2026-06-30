@@ -34,6 +34,8 @@ import { formatCNJ, unformatCNJ } from '@/lib/formatters';
 import { tribunalFromCNJ } from '@/utils/tribunalCNJ';
 import { JudicialSyncDialog, JudicialSyncContent } from './JudicialSyncDialog';
 import { useProcessosV2 } from '@/hooks/useProcessosV2';
+import { useClientes } from '@/hooks/useClientes';
+import { ClientSelect } from '@/components/Clientes/ClientSelect';
 import { supabase } from '@/integrations/supabase/client';
 
 interface NovoProcessoDialogProps {
@@ -63,6 +65,20 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
   const { users: teamMembers } = useOfficeUsers();
   const { teams: officeTeams } = useOfficeTeams();
   const { addMovimentacao, create } = useProcessosV2();
+  const { data: clientesData = [] } = useClientes();
+
+  // Auto-vínculo: se a parte autora/ré bate com um cliente do cadastro, vincula sozinho
+  React.useEffect(() => {
+    if ((formData as any).clienteId) return;
+    const autor = ((formData as any).parteAutora || '').toLowerCase().trim();
+    const reu = (formData.requerido || '').toLowerCase().trim();
+    if (!autor && !reu) return;
+    const match = (clientesData as any[]).find((c) => {
+      const n = (c.nome || '').toLowerCase().trim();
+      return n && (n === autor || n === reu || (autor && autor.includes(n)) || (reu && reu.includes(n)));
+    });
+    if (match) setFormData((prev) => ({ ...prev, clienteId: match.id, cliente: match.nome } as any));
+  }, [clientesData, (formData as any).parteAutora, formData.requerido]);
 
   // Wrapper: usa o callback do pai se existir; senão chama create() direto.
   const addProcesso = async (proc: any) => {
@@ -531,15 +547,17 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="cliente">Cliente / Autor *</Label>
-                            <Input
-                              id="cliente"
-                              required
-                              value={formData.cliente}
-                              onChange={(e) => handleChange('cliente', e.target.value)}
-                              placeholder="Nome do cliente"
-                              className="h-11 rounded-xl"
+                            <Label>Cliente (vincular ao cadastro) *</Label>
+                            <ClientSelect
+                              value={(formData as any).clienteId || ''}
+                              onValueChange={(id, name) => setFormData((prev) => ({ ...prev, clienteId: id, cliente: name } as any))}
+                              placeholder="Selecionar cliente do cadastro..."
                             />
+                            {((formData as any).parteAutora || formData.requerido) && !(formData as any).clienteId && (
+                              <p className="text-[11px] text-muted-foreground/70">
+                                Partes: <span className="font-semibold">{(formData as any).parteAutora || '—'}</span> × <span className="font-semibold">{formData.requerido || '—'}</span>. Selecione qual é o seu cliente.
+                              </p>
+                            )}
                           </div>
                           {officeTeams.length > 0 && (
                             <div className="space-y-2">

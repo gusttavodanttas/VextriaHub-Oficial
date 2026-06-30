@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarDays, Clock, AlertCircle } from "lucide-react";
+import { CalendarDays, Clock, AlertCircle, CheckSquare } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO } from "date-fns";
@@ -8,10 +8,17 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
 interface DayEvent {
-  type: "prazo" | "audiencia";
+  type: "prazo" | "audiencia" | "tarefa";
   titulo: string;
   hora?: string;
 }
+
+// Estilo/ícone por tipo de evento da agenda
+const EVENT_STYLE: Record<DayEvent["type"], { cls: string; Icon: any }> = {
+  prazo: { cls: "border-rose-500/15 bg-rose-500/5 text-rose-600 dark:text-rose-400", Icon: AlertCircle },
+  audiencia: { cls: "border-orange-500/15 bg-orange-500/5 text-orange-600 dark:text-orange-400", Icon: Clock },
+  tarefa: { cls: "border-violet-500/15 bg-violet-500/5 text-violet-600 dark:text-violet-400", Icon: CheckSquare },
+};
 
 export function CalendarWidget() {
   const { user } = useAuth();
@@ -26,13 +33,17 @@ export function CalendarWidget() {
       const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
       const end = new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString().split("T")[0];
 
-      const [{ data: prazos }, { data: audiencias }] = await Promise.all([
+      const [{ data: prazos }, { data: audiencias }, { data: tarefas }] = await Promise.all([
         supabase.from("prazos").select("tipo_prazo, numero_processo, data_fim_prazo, publicacoes(titulo)")
           .eq("office_id", user.office_id)
           .gte("data_fim_prazo", start).lte("data_fim_prazo", end),
         supabase.from("audiencias").select("titulo, data_audiencia")
           .eq("office_id", user.office_id).eq("deletado", false)
           .gte("data_audiencia", start).lte("data_audiencia", end),
+        // tarefas não têm office_id — a RLS já limita ao escritório/usuário
+        supabase.from("tarefas").select("titulo, data_vencimento, concluida")
+          .eq("deletado", false).eq("concluida", false)
+          .gte("data_vencimento", start).lte("data_vencimento", end),
       ]);
 
       const map: Record<string, DayEvent[]> = {};
@@ -47,6 +58,12 @@ export function CalendarWidget() {
         const k = a.data_audiencia.split("T")[0];
         if (!map[k]) map[k] = [];
         map[k].push({ type: "audiencia", titulo: a.titulo || "Audiência", hora: a.data_audiencia.split("T")[1]?.slice(0, 5) });
+      }
+      for (const t of (tarefas as any[]) || []) {
+        if (!t.data_vencimento) continue;
+        const k = t.data_vencimento.split("T")[0];
+        if (!map[k]) map[k] = [];
+        map[k].push({ type: "tarefa", titulo: t.titulo || "Tarefa" });
       }
       setEventMap(map);
       setLoading(false);
@@ -103,18 +120,16 @@ export function CalendarWidget() {
               upcoming.length > 0 ? (
                 <div className="space-y-1.5">
                   <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 px-1 pt-1">Próximos eventos</p>
-                  {upcoming.map((e, i) => (
-                    <div key={i} className={cn(
-                      "flex items-center gap-2.5 px-3 py-2 rounded-xl border text-xs",
-                      e.type === "prazo"
-                        ? "border-rose-500/15 bg-rose-500/5 text-rose-600 dark:text-rose-400"
-                        : "border-orange-500/15 bg-orange-500/5 text-orange-600 dark:text-orange-400"
-                    )}>
-                      {e.type === "prazo" ? <AlertCircle className="h-3 w-3 shrink-0" /> : <Clock className="h-3 w-3 shrink-0" />}
-                      <span className="font-semibold truncate flex-1">{e.titulo}</span>
-                      <span className="text-[10px] opacity-60 shrink-0">{format(parseISO(e.dateKey), "dd/MM")}{e.hora ? ` ${e.hora}` : ""}</span>
-                    </div>
-                  ))}
+                  {upcoming.map((e, i) => {
+                    const st = EVENT_STYLE[e.type];
+                    return (
+                      <div key={i} className={cn("flex items-center gap-2.5 px-3 py-2 rounded-xl border text-xs", st.cls)}>
+                        <st.Icon className="h-3 w-3 shrink-0" />
+                        <span className="font-semibold truncate flex-1">{e.titulo}</span>
+                        <span className="text-[10px] opacity-60 shrink-0">{format(parseISO(e.dateKey), "dd/MM")}{e.hora ? ` ${e.hora}` : ""}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center text-center py-8 gap-2 text-muted-foreground/40">
@@ -123,21 +138,16 @@ export function CalendarWidget() {
                 </div>
               )
             ) : (
-              dayEvents.map((e, i) => (
-                <div key={i} className={cn(
-                  "flex items-center gap-2.5 px-3 py-2 rounded-xl border text-xs",
-                  e.type === "prazo"
-                    ? "border-rose-500/15 bg-rose-500/5 text-rose-600 dark:text-rose-400"
-                    : "border-orange-500/15 bg-orange-500/5 text-orange-600 dark:text-orange-400"
-                )}>
-                  {e.type === "prazo"
-                    ? <AlertCircle className="h-3 w-3 shrink-0" />
-                    : <Clock className="h-3 w-3 shrink-0" />
-                  }
-                  <span className="font-semibold truncate flex-1">{e.titulo}</span>
-                  {e.hora && <span className="text-[10px] opacity-60 shrink-0">{e.hora}</span>}
-                </div>
-              ))
+              dayEvents.map((e, i) => {
+                const st = EVENT_STYLE[e.type];
+                return (
+                  <div key={i} className={cn("flex items-center gap-2.5 px-3 py-2 rounded-xl border text-xs", st.cls)}>
+                    <st.Icon className="h-3 w-3 shrink-0" />
+                    <span className="font-semibold truncate flex-1">{e.titulo}</span>
+                    {e.hora && <span className="text-[10px] opacity-60 shrink-0">{e.hora}</span>}
+                  </div>
+                );
+              })
             )}
           </div>
         )}

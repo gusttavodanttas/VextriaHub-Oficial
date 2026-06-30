@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ import { RECORRENCIAS, generateOccurrences, type RecRule } from "@/lib/recorrenc
 import type { Tarefa, TarefaInput } from "@/hooks/useTarefas";
 import { useAuth } from "@/contexts/AuthContext";
 
-interface Option { id: string; label: string; }
+interface Option { id: string; label: string; cliente_id?: string | null; }
 
 interface NovaTarefaDialogProps {
   open: boolean;
@@ -41,6 +41,22 @@ export const NovaTarefaDialog = ({ open, onOpenChange, clientes, processos, aten
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({ ...empty, responsavel_id: user?.id || NONE });
   const isEdit = !!tarefa;
+
+  // Processos do cliente selecionado (se nenhum cliente, mostra todos)
+  const processosFiltrados = useMemo(() => {
+    if (formData.cliente_id === NONE) return processos;
+    return processos.filter((p) => p.cliente_id === formData.cliente_id);
+  }, [processos, formData.cliente_id]);
+
+  // Ao trocar de cliente, limpa o processo se ele não pertence ao novo cliente
+  const handleClienteChange = (cliente_id: string) => {
+    setFormData((prev) => {
+      const aindaValido = cliente_id !== NONE
+        && prev.processo_id !== NONE
+        && processos.some((p) => p.id === prev.processo_id && p.cliente_id === cliente_id);
+      return { ...prev, cliente_id, processo_id: aindaValido ? prev.processo_id : NONE };
+    });
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -163,7 +179,7 @@ export const NovaTarefaDialog = ({ open, onOpenChange, clientes, processos, aten
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>Cliente</Label>
-              <Select value={formData.cliente_id} onValueChange={(v) => setFormData({ ...formData, cliente_id: v })}>
+              <Select value={formData.cliente_id} onValueChange={handleClienteChange}>
                 <SelectTrigger className="rounded-xl"><SelectValue placeholder="Nenhum" /></SelectTrigger>
                 <SelectContent className="rounded-xl">
                   <SelectItem value={NONE}>Nenhum</SelectItem>
@@ -172,12 +188,20 @@ export const NovaTarefaDialog = ({ open, onOpenChange, clientes, processos, aten
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Processo</Label>
+              <Label>
+                Processo
+                {formData.cliente_id !== NONE && (
+                  <span className="ml-1 text-[10px] font-bold text-muted-foreground/50">({processosFiltrados.length} do cliente)</span>
+                )}
+              </Label>
               <Select value={formData.processo_id} onValueChange={(v) => setFormData({ ...formData, processo_id: v })}>
                 <SelectTrigger className="rounded-xl"><SelectValue placeholder="Nenhum" /></SelectTrigger>
                 <SelectContent className="rounded-xl">
                   <SelectItem value={NONE}>Nenhum</SelectItem>
-                  {processos.map((p) => <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>)}
+                  {processosFiltrados.map((p) => <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>)}
+                  {formData.cliente_id !== NONE && processosFiltrados.length === 0 && (
+                    <div className="px-2 py-1.5 text-xs text-muted-foreground/60">Nenhum processo deste cliente</div>
+                  )}
                 </SelectContent>
               </Select>
             </div>
