@@ -1,7 +1,9 @@
 import React, { useState, useMemo, useEffect, useCallback, useDeferredValue } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { RECORRENCIAS, continueOccurrences, type RecRule } from "@/lib/recorrencia";
 import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 import { useOpenItemFromSearch } from "@/hooks/useOpenItemFromSearch";
 import { useTarefas } from "@/hooks/useTarefas";
@@ -53,8 +55,13 @@ import {
   ListTodo,
   PhoneCall,
   ArrowRight,
+  Repeat,
+  CalendarDays,
+  LayoutGrid,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
-import { format, parseISO, formatDistanceToNow, addDays } from "date-fns";
+import { format, parseISO, formatDistanceToNow, addDays, startOfWeek, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
@@ -138,6 +145,11 @@ interface Atendimento {
   deletado: boolean;
   duracao?: number | null;
   avisos_dias?: number[] | null;
+  resultado?: string | null;
+  responsavel_id?: string | null;
+  recorrencia_grupo?: string | null;
+  recorrencia_regra?: string | null;
+  recorrencia_restantes?: number | null;
   clientes?: { nome: string } | null;
 }
 
@@ -155,6 +167,9 @@ interface FormState {
   responsavel_id: string;
   duracao: string;
   avisos_dias: number[] | null;
+  resultado: string;
+  recorrencia: string;
+  ocorrencias: string;
 }
 
 const toNull = (v: string | null | undefined) =>
@@ -171,6 +186,9 @@ const defaultForm = (userId = ""): FormState => ({
   responsavel_id: userId,
   duracao: "",
   avisos_dias: null,
+  resultado: "",
+  recorrencia: "nenhuma",
+  ocorrencias: "4",
 });
 
 const tipoInfo = (tipo: string, extras: string[] = []) => {
@@ -340,9 +358,35 @@ const useAtendimentos = (officeId: string | null | undefined) => {
   });
 
   const markRealizado = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("atendimentos").update({ status: "realizado" }).eq("id", id);
+    mutationFn: async (item: Atendimento) => {
+      const { error } = await supabase.from("atendimentos").update({ status: "realizado" }).eq("id", item.id);
       if (error) throw error;
+
+      // Recorrência encadeada: ao concluir, gera a PRÓXIMA ocorrência (best-effort)
+      const rule = item.recorrencia_regra as RecRule | null;
+      const restantes = item.recorrencia_restantes ?? 0;
+      if (rule && restantes > 0 && item.data_atendimento) {
+        const base = parseISO(item.data_atendimento);
+        const next = continueOccurrences(base, rule, 1)[0];
+        const row: any = {
+          tipo_atendimento: item.tipo_atendimento,
+          data_atendimento: format(next, "yyyy-MM-dd'T'HH:mm:ss"),
+          observacoes: item.observacoes ?? null,
+          status: "agendado",
+          cliente_id: item.cliente_id ?? null,
+          processo_id: item.processo_id ?? null,
+          user_id: item.user_id,
+          office_id: item.office_id,
+          deletado: false,
+          responsavel_id: item.responsavel_id ?? null,
+          duracao: item.duracao ?? null,
+          recorrencia_grupo: item.recorrencia_grupo ?? null,
+          recorrencia_regra: rule,
+          recorrencia_restantes: restantes - 1,
+          ...(Array.isArray(item.avisos_dias) ? { avisos_dias: item.avisos_dias } : {}),
+        };
+        await supabase.from("atendimentos").insert(row);
+      }
     },
     onSuccess: () => { invalidate(); toast({ title: "Marcado como realizado!" }); },
     onError: (e: Error) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
@@ -424,7 +468,8 @@ const FormDialog: React.FC<{
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const datetime = `${form.data_atendimento}T${form.hora_atendimento}:00`;
-    const payload = {
+    const recorrente = !editId && form.recorrencia !== "nenhuma";
+    const payload: any = {
       tipo_atendimento: toNull(form.tipo_atendimento),
       data_atendimento: datetime,
       observacoes: form.observacoes.trim() || null,
@@ -437,7 +482,14 @@ const FormDialog: React.FC<{
       responsavel_id: form.responsavel_id || userId || null,
       duracao: form.duracao ? Number(form.duracao) : null,
       ...((form.avisos_dias != null || editId) ? { avisos_dias: form.avisos_dias } : {}),
+      ...((form.resultado.trim() || (editId && form.status === "realizado")) ? { resultado: form.resultado.trim() || null } : {}),
     };
+    if (recorrente) {
+      const n = Math.max(1, Math.min(52, parseInt(form.ocorrencias) || 1));
+      payload.recorrencia_grupo = (crypto as any).randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+      payload.recorrencia_regra = form.recorrencia;
+      payload.recorrencia_restantes = n - 1;
+    }
     if (editId) onUpdate({ id: editId, ...payload });
     else onSave(payload);
   };
@@ -600,6 +652,46 @@ const FormDialog: React.FC<{
               placeholder="Detalhes do atendimento..." />
           </div>
 
+          {/* Resultado (somente quando realizado) */}
+          {form.status === "realizado" && (
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Resultado / desfecho</Label>
+              <Textarea value={form.resultado} onChange={(e) => set("resultado", e.target.value)}
+                className="rounded-xl text-sm resize-none" rows={2}
+                placeholder="O que ficou decidido?" />
+            </div>
+          )}
+
+          {/* Recorrência (somente em novo atendimento) */}
+          {!editId && (
+            <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-3 space-y-2">
+              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground/70">
+                <Repeat className="h-3.5 w-3.5" /> Recorrência
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Select value={form.recorrencia} onValueChange={(v) => set("recorrencia", v)}>
+                  <SelectTrigger className="rounded-xl h-9 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {RECORRENCIAS.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                {form.recorrencia !== "nenhuma" && (
+                  <div className="flex items-center gap-2">
+                    <Input type="number" min={1} max={52} value={form.ocorrencias}
+                      onChange={(e) => set("ocorrencias", e.target.value)}
+                      className="rounded-xl h-9 text-sm" />
+                    <span className="text-[11px] text-muted-foreground font-semibold whitespace-nowrap">vezes</span>
+                  </div>
+                )}
+              </div>
+              {form.recorrencia !== "nenhuma" && (
+                <p className="text-[11px] text-muted-foreground/70">
+                  Cria o 1º atendimento; ao concluí-lo, o próximo é gerado automaticamente (até {Math.max(1, Math.min(52, parseInt(form.ocorrencias) || 1))} ocorrências).
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Botões */}
           <div className="flex gap-2 pt-1">
             <Button type="button" variant="outline" onClick={onClose}
@@ -626,9 +718,11 @@ const FollowUpDialog: React.FC<{
 }> = ({ item, onClose, onAgendarProximo }) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { create: createTarefa } = useTarefas();
 
   const [modo, setModo] = useState<null | "tarefa" | "contato">(null);
+  const [resultado, setResultado] = useState("");
   const [tarefaTitulo, setTarefaTitulo] = useState("");
   const [tarefaData, setTarefaData] = useState("");
   const [contatoData, setContatoData] = useState("");
@@ -637,6 +731,7 @@ const FollowUpDialog: React.FC<{
   useEffect(() => {
     if (item) {
       setModo(null);
+      setResultado(item.resultado ?? "");
       setTarefaTitulo(`Follow-up — ${item.clientes?.nome || tipoInfo(item.tipo_atendimento).label}`);
       setTarefaData(format(addDays(new Date(), 3), "yyyy-MM-dd"));
       setContatoData(format(addDays(new Date(), 30), "yyyy-MM-dd"));
@@ -645,9 +740,21 @@ const FollowUpDialog: React.FC<{
 
   if (!item) return null;
 
-  const salvarTarefa = () => {
+  // Salva o desfecho no atendimento (best-effort) se houve mudança
+  const persistResultado = async () => {
+    const val = resultado.trim();
+    if (val === (item.resultado ?? "").trim()) return;
+    await supabase.from("atendimentos").update({ resultado: val || null }).eq("id", item.id);
+    queryClient.invalidateQueries({ queryKey: ["atendimentos"] });
+  };
+
+  const fechar = async () => { await persistResultado(); onClose(); };
+  const irProximo = async () => { await persistResultado(); onAgendarProximo(item); };
+
+  const salvarTarefa = async () => {
     if (!tarefaTitulo.trim()) return;
     setSaving(true);
+    await persistResultado();
     createTarefa.mutate(
       {
         titulo: tarefaTitulo.trim(),
@@ -657,7 +764,7 @@ const FollowUpDialog: React.FC<{
         cliente_id: item.cliente_id ?? null,
         processo_id: item.processo_id ?? null,
         atendimento_id: item.id,
-        responsavel_id: (item as any).responsavel_id ?? user?.id ?? null,
+        responsavel_id: item.responsavel_id ?? user?.id ?? null,
       },
       { onSuccess: () => { setSaving(false); onClose(); }, onError: () => setSaving(false) }
     );
@@ -666,6 +773,7 @@ const FollowUpDialog: React.FC<{
   const salvarContato = async () => {
     if (!item.cliente_id || !contatoData) return;
     setSaving(true);
+    await persistResultado();
     const { error } = await supabase.from("clientes")
       .update({ proximo_contato: contatoData }).eq("id", item.cliente_id);
     setSaving(false);
@@ -675,8 +783,8 @@ const FollowUpDialog: React.FC<{
   };
 
   return (
-    <Dialog open={!!item} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent aria-describedby={undefined} className="sm:max-w-sm p-0 rounded-3xl border border-black/5 dark:border-border shadow-premium overflow-hidden">
+    <Dialog open={!!item} onOpenChange={(o) => { if (!o) fechar(); }}>
+      <DialogContent aria-describedby={undefined} className="sm:max-w-sm p-0 rounded-3xl border border-black/5 dark:border-border shadow-premium overflow-hidden" style={{maxHeight:"88vh",overflowY:"auto"}}>
         <div className="px-5 pt-4 pb-3 bg-gradient-to-br from-emerald-500/10 via-emerald-500/4 to-transparent">
           <DialogHeader>
             <div className="flex items-center gap-2.5">
@@ -691,9 +799,17 @@ const FollowUpDialog: React.FC<{
           </p>
         </div>
 
-        <div className="px-5 pb-5 pt-1 space-y-2">
+        <div className="px-5 pb-5 pt-3 space-y-2">
+          {/* Resultado / desfecho */}
+          <div className="space-y-1 pb-1">
+            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Resultado / desfecho (opcional)</Label>
+            <Textarea value={resultado} onChange={(e) => setResultado(e.target.value)}
+              rows={2} className="rounded-xl text-sm resize-none"
+              placeholder="O que ficou decidido neste atendimento?" />
+          </div>
+
           {/* Próximo atendimento */}
-          <button onClick={() => onAgendarProximo(item)}
+          <button onClick={irProximo}
             className="w-full flex items-center gap-3 rounded-xl border border-black/8 dark:border-border px-3 py-2.5 text-left hover:border-primary/40 hover:bg-primary/5 transition-all group">
             <span className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0"><CalendarPlus className="h-4 w-4" /></span>
             <span className="flex-1 min-w-0">
@@ -757,9 +873,9 @@ const FollowUpDialog: React.FC<{
             </div>
           ))}
 
-          <Button variant="ghost" onClick={onClose}
+          <Button variant="ghost" onClick={fechar}
             className="w-full rounded-xl h-9 mt-1 font-black uppercase text-[10px] tracking-widest text-muted-foreground/60">
-            Pular por agora
+            {resultado.trim() ? "Salvar e fechar" : "Pular por agora"}
           </Button>
         </div>
       </DialogContent>
@@ -775,8 +891,9 @@ const AtendimentoCard: React.FC<{
   onDelete: (id: string) => void;
   onMarkRealizado: (id: string) => void;
   onRemarcar: (item: Atendimento) => void;
+  onClientClick: (clienteId: string) => void;
   loadingId: string | null;
-}> = ({ item, onEdit, onDelete, onMarkRealizado, onRemarcar, loadingId }) => {
+}> = ({ item, onEdit, onDelete, onMarkRealizado, onRemarcar, onClientClick, loadingId }) => {
   const cfg = STATUS_CONFIG[item.status] ?? STATUS_CONFIG.pendente;
   const { Icon: StatusIcon } = cfg;
   const { label: tipoLabel, Icon: TipoIcon } = tipoInfo(item.tipo_atendimento);
@@ -808,6 +925,11 @@ const AtendimentoCard: React.FC<{
               {prox.label}
             </Badge>
           )}
+          {item.recorrencia_regra && (
+            <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-muted-foreground/50" title="Atendimento recorrente">
+              <Repeat className="h-2.5 w-2.5" /> Recorrente
+            </span>
+          )}
         </div>
       </div>
 
@@ -823,7 +945,14 @@ const AtendimentoCard: React.FC<{
       {item.clientes?.nome && (
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <User className="h-3.5 w-3.5 text-primary/60" />
-          <span className="font-semibold">{item.clientes.nome}</span>
+          {item.cliente_id ? (
+            <button onClick={() => onClientClick(item.cliente_id!)}
+              className="font-semibold hover:text-primary hover:underline transition-colors text-left" title="Abrir ficha do cliente">
+              {item.clientes.nome}
+            </button>
+          ) : (
+            <span className="font-semibold">{item.clientes.nome}</span>
+          )}
         </div>
       )}
 
@@ -832,6 +961,14 @@ const AtendimentoCard: React.FC<{
         <p className="text-xs text-muted-foreground/80 leading-relaxed line-clamp-2 border-l-2 border-primary/20 pl-3">
           {item.observacoes}
         </p>
+      )}
+
+      {/* Resultado / desfecho */}
+      {item.resultado && (
+        <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/20 px-3 py-2">
+          <p className="text-[9px] font-black uppercase tracking-widest text-emerald-600/80 mb-0.5">Resultado</p>
+          <p className="text-xs text-muted-foreground/90 leading-relaxed line-clamp-2">{item.resultado}</p>
+        </div>
       )}
 
       {/* Rodapé: tempo relativo + ações */}
@@ -885,10 +1022,89 @@ const StatCard: React.FC<{ label: string; value: number | string; Icon: React.FC
   </div>
 );
 
+// ─── Week View (agenda semanal) ───────────────────────────────────────────────
+
+const WeekView: React.FC<{
+  items: Atendimento[];
+  refDate: Date;
+  onPrev: () => void;
+  onNext: () => void;
+  onHoje: () => void;
+  onSelect: (item: Atendimento) => void;
+  onNovo: (date: Date) => void;
+}> = ({ items, refDate, onPrev, onNext, onHoje, onSelect, onNovo }) => {
+  const inicio = startOfWeek(refDate, { weekStartsOn: 0 });
+  const dias = Array.from({ length: 7 }, (_, i) => addDays(inicio, i));
+  const fim = dias[6];
+  const hoje = new Date();
+  const porDia = (d: Date) =>
+    items
+      .filter((it) => isSameDay(parseISO(it.data_atendimento), d))
+      .sort((a, b) => parseISO(a.data_atendimento).getTime() - parseISO(b.data_atendimento).getTime());
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          <Button size="icon" variant="outline" className="h-9 w-9 rounded-xl" onClick={onPrev} title="Semana anterior"><ChevronLeft className="h-4 w-4" /></Button>
+          <Button size="icon" variant="outline" className="h-9 w-9 rounded-xl" onClick={onNext} title="Próxima semana"><ChevronRight className="h-4 w-4" /></Button>
+          <Button variant="outline" className="h-9 rounded-xl px-3 text-[10px] font-black uppercase tracking-widest" onClick={onHoje}>Hoje</Button>
+        </div>
+        <p className="text-sm font-black tracking-tight capitalize">
+          {format(inicio, "dd MMM", { locale: ptBR })} – {format(fim, "dd MMM yyyy", { locale: ptBR })}
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-7 gap-2">
+        {dias.map((d) => {
+          const list = porDia(d);
+          const isHoje = isSameDay(d, hoje);
+          return (
+            <div key={d.toISOString()}
+              className={cn("rounded-2xl border p-2 min-h-[150px] flex flex-col gap-1.5 transition-colors",
+                isHoje ? "border-primary/40 bg-primary/5" : "border-black/5 dark:border-border bg-card/40")}>
+              <div className="flex items-center justify-between px-1">
+                <div>
+                  <p className={cn("text-[10px] font-black uppercase tracking-widest", isHoje ? "text-primary" : "text-muted-foreground/60")}>
+                    {format(d, "EEE", { locale: ptBR })}
+                  </p>
+                  <p className={cn("text-lg font-black leading-none", isHoje && "text-primary")}>{format(d, "dd")}</p>
+                </div>
+                <button onClick={() => onNovo(d)}
+                  className="h-6 w-6 rounded-lg hover:bg-primary/10 text-muted-foreground/40 hover:text-primary flex items-center justify-center transition-colors"
+                  title="Novo atendimento neste dia">
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <div className="flex flex-col gap-1 overflow-y-auto">
+                {list.length === 0 ? (
+                  <p className="text-[10px] text-muted-foreground/30 px-1 py-3 text-center">—</p>
+                ) : list.map((it) => {
+                  const c = STATUS_CONFIG[it.status] ?? STATUS_CONFIG.pendente;
+                  return (
+                    <button key={it.id} onClick={() => onSelect(it)}
+                      className={cn("text-left rounded-lg border px-2 py-1 transition-all hover:shadow-sm", c.className)}>
+                      <p className="text-[10px] font-black leading-tight">{format(parseISO(it.data_atendimento), "HH:mm")}</p>
+                      <p className="text-[10px] font-semibold truncate leading-tight">
+                        {it.clientes?.nome || tipoInfo(it.tipo_atendimento).label}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 const Atendimentos = () => {
   const { user, office } = useAuth();
+  const navigate = useNavigate();
   const officeId = office?.id ?? user?.office_id ?? "";
 
   const { query, create, update, remove, markRealizado } = useAtendimentos(officeId);
@@ -904,6 +1120,10 @@ const Atendimentos = () => {
   const dBusca = useDeferredValue(busca);
   const [filtroStatus, setFiltroStatus] = useState("todos");
   const [filtroTipo, setFiltroTipo] = useState("todos");
+  const [filtroResp, setFiltroResp] = useState("todos");
+  const [filtroPeriodo, setFiltroPeriodo] = useState("todos");
+  const [view, setView] = useState<"lista" | "semana">("lista");
+  const [semanaRef, setSemanaRef] = useState(new Date());
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [tiposDialogOpen, setTiposDialogOpen] = useState(false);
@@ -936,7 +1156,8 @@ const Atendimentos = () => {
       .sort((a, b) => parseISO(a.data_atendimento).getTime() - parseISO(b.data_atendimento).getTime());
   }, [items]);
 
-  const filtered = useMemo(() => items.filter((i) => {
+  // Filtros base (busca, status, tipo, responsável) — usados na lista E na semana
+  const baseFiltered = useMemo(() => items.filter((i) => {
     const q = dBusca.toLowerCase();
     const matchBusca = !dBusca
       || i.tipo_atendimento.toLowerCase().includes(q)
@@ -944,8 +1165,24 @@ const Atendimentos = () => {
       || (i.observacoes?.toLowerCase().includes(q) ?? false);
     const matchStatus = filtroStatus === "todos" || i.status === filtroStatus;
     const matchTipo = filtroTipo === "todos" || i.tipo_atendimento === filtroTipo;
-    return matchBusca && matchStatus && matchTipo;
-  }), [items, dBusca, filtroStatus, filtroTipo]);
+    const matchResp = filtroResp === "todos" || (i.responsavel_id ?? "") === filtroResp;
+    return matchBusca && matchStatus && matchTipo && matchResp;
+  }), [items, dBusca, filtroStatus, filtroTipo, filtroResp]);
+
+  // Período só se aplica à lista (a visão semanal navega pelas datas)
+  const filtered = useMemo(() => baseFiltered.filter((i) => {
+    if (filtroPeriodo === "todos") return true;
+    const d = diasAteData(parseISO(i.data_atendimento));
+    if (filtroPeriodo === "hoje") return d === 0;
+    if (filtroPeriodo === "7dias") return d >= 0 && d <= 7;
+    if (filtroPeriodo === "futuros") return d > 0;
+    if (filtroPeriodo === "passados") return d < 0;
+    if (filtroPeriodo === "mes") {
+      const dt = parseISO(i.data_atendimento); const n = new Date();
+      return dt.getMonth() === n.getMonth() && dt.getFullYear() === n.getFullYear();
+    }
+    return true;
+  }), [baseFiltered, filtroPeriodo]);
 
   // Agrupa os cards por janela temporal (Hoje · Esta semana · Próximos · Passados)
   const grupos = useMemo(() => {
@@ -1001,11 +1238,22 @@ const Atendimentos = () => {
   const handleDelete = (id: string) => setDeleteId(id);
 
   const handleMarkRealizado = (id: string) => {
+    const it = items.find((x) => x.id === id);
+    if (!it) return;
     setLoadingId(id);
-    markRealizado.mutate(id, {
-      onSuccess: () => { const it = items.find((x) => x.id === id); if (it) setFollowUpItem(it); },
+    markRealizado.mutate(it, {
+      onSuccess: () => setFollowUpItem(it),
       onSettled: () => setLoadingId(null),
     });
+  };
+
+  const handleClientClick = (clienteId: string) => navigate(`/clientes?openId=${clienteId}`);
+
+  // Novo atendimento já com a data do dia clicado (visão semanal)
+  const novoNoDia = (date: Date) => {
+    setEditItem(null);
+    setPrefill({ data_atendimento: format(date, "yyyy-MM-dd") });
+    setDialogOpen(true);
   };
 
   const handleMarkCancelado = (id: string) => {
@@ -1022,9 +1270,12 @@ const Atendimentos = () => {
         status: editItem.status,
         cliente_id: editItem.cliente_id ?? NONE,
         processo_id: editItem.processo_id ?? NONE,
-        responsavel_id: (editItem as any).responsavel_id ?? user?.id ?? "",
+        responsavel_id: editItem.responsavel_id ?? user?.id ?? "",
         duracao: editItem.duracao != null ? String(editItem.duracao) : "",
-        avisos_dias: (editItem as any).avisos_dias ?? null,
+        avisos_dias: editItem.avisos_dias ?? null,
+        resultado: editItem.resultado ?? "",
+        recorrencia: "nenhuma",
+        ocorrencias: "4",
       }
     : { ...defaultForm(user?.id ?? ""), ...(prefill ?? {}) };
 
@@ -1044,6 +1295,17 @@ const Atendimentos = () => {
           </div>
         </div>
         <div className="flex gap-2">
+          {/* Alternar visão */}
+          <div className="flex items-center rounded-xl border border-black/8 dark:border-border bg-card/60 p-0.5">
+            <Button size="icon" variant={view === "lista" ? "secondary" : "ghost"}
+              onClick={() => setView("lista")} className="h-10 w-10 rounded-lg" title="Visão em lista">
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+            <Button size="icon" variant={view === "semana" ? "secondary" : "ghost"}
+              onClick={() => setView("semana")} className="h-10 w-10 rounded-lg" title="Visão semanal">
+              <CalendarDays className="h-4 w-4" />
+            </Button>
+          </div>
           <Button size="icon" variant="outline" onClick={() => setTiposDialogOpen(true)}
             className="h-11 w-11 rounded-xl" title="Gerenciar tipos de atendimento">
             <Settings2 className="h-4 w-4" />
@@ -1117,15 +1379,15 @@ const Atendimentos = () => {
       )}
 
       {/* Filtros */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3">
+        <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
           <Input value={busca} onChange={(e) => setBusca(e.target.value)}
             placeholder="Buscar por cliente, tipo ou observação..."
             className="pl-10 rounded-xl h-11 bg-card/60 border-black/8 dark:border-border" />
         </div>
         <Select value={filtroStatus} onValueChange={setFiltroStatus}>
-          <SelectTrigger className="w-full sm:w-44 rounded-xl h-11 bg-card/60 border-black/8 dark:border-border text-sm">
+          <SelectTrigger className="w-full sm:w-40 rounded-xl h-11 bg-card/60 border-black/8 dark:border-border text-sm">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -1137,7 +1399,7 @@ const Atendimentos = () => {
           </SelectContent>
         </Select>
         <Select value={filtroTipo} onValueChange={setFiltroTipo}>
-          <SelectTrigger className="w-full sm:w-48 rounded-xl h-11 bg-card/60 border-black/8 dark:border-border text-sm">
+          <SelectTrigger className="w-full sm:w-40 rounded-xl h-11 bg-card/60 border-black/8 dark:border-border text-sm">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -1150,21 +1412,57 @@ const Atendimentos = () => {
             ))}
           </SelectContent>
         </Select>
+        {membros.length > 0 && (
+          <Select value={filtroResp} onValueChange={setFiltroResp}>
+            <SelectTrigger className="w-full sm:w-44 rounded-xl h-11 bg-card/60 border-black/8 dark:border-border text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos responsáveis</SelectItem>
+              {membros.map((m) => <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+        {view === "lista" && (
+          <Select value={filtroPeriodo} onValueChange={setFiltroPeriodo}>
+            <SelectTrigger className="w-full sm:w-40 rounded-xl h-11 bg-card/60 border-black/8 dark:border-border text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Qualquer período</SelectItem>
+              <SelectItem value="hoje">Hoje</SelectItem>
+              <SelectItem value="7dias">Próximos 7 dias</SelectItem>
+              <SelectItem value="mes">Este mês</SelectItem>
+              <SelectItem value="futuros">Futuros</SelectItem>
+              <SelectItem value="passados">Passados</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {/* Contagem */}
-      {!query.isLoading && (
+      {!query.isLoading && view === "lista" && (
         <p className="text-xs text-muted-foreground/60 font-bold uppercase tracking-widest -mt-4">
           {filtered.length} atendimento{filtered.length !== 1 ? "s" : ""}
-          {(filtroStatus !== "todos" || filtroTipo !== "todos" || busca) ? " encontrado" + (filtered.length !== 1 ? "s" : "") : ""}
+          {(filtroStatus !== "todos" || filtroTipo !== "todos" || filtroResp !== "todos" || filtroPeriodo !== "todos" || busca) ? " encontrado" + (filtered.length !== 1 ? "s" : "") : ""}
         </p>
       )}
 
-      {/* Grid */}
+      {/* Conteúdo */}
       {query.isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {[1,2,3,4,5,6].map((i) => <Skeleton key={i} className="h-44 w-full rounded-2xl" />)}
         </div>
+      ) : view === "semana" ? (
+        <WeekView
+          items={baseFiltered}
+          refDate={semanaRef}
+          onPrev={() => setSemanaRef((d) => addDays(d, -7))}
+          onNext={() => setSemanaRef((d) => addDays(d, 7))}
+          onHoje={() => setSemanaRef(new Date())}
+          onSelect={openEdit}
+          onNovo={novoNoDia}
+        />
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
           <div className="h-16 w-16 rounded-3xl bg-muted/30 flex items-center justify-center">
@@ -1202,6 +1500,7 @@ const Atendimentos = () => {
                   <AtendimentoCard key={item.id} item={item}
                     onEdit={openEdit} onDelete={handleDelete}
                     onMarkRealizado={handleMarkRealizado} onRemarcar={openRemarcar}
+                    onClientClick={handleClientClick}
                     loadingId={loadingId} />
                 ))}
               </div>
