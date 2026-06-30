@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useCallback } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarDays, Clock, AlertCircle, CheckSquare, Headphones, BookOpen } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -7,9 +6,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { AgendaItemDialog, AgendaType } from "@/components/Dashboard/AgendaItemDialog";
 
 interface DayEvent {
-  type: "prazo" | "audiencia" | "tarefa" | "atendimento" | "consultivo";
+  type: AgendaType;
+  id: string;
   titulo: string;
   hora?: string;
 }
@@ -23,46 +24,36 @@ const EVENT_STYLE: Record<DayEvent["type"], { cls: string; Icon: any }> = {
   consultivo: { cls: "border-indigo-500/15 bg-indigo-500/5 text-indigo-600 dark:text-indigo-400", Icon: BookOpen },
 };
 
-// Para onde cada evento leva ao clicar
-const EVENT_ROUTE: Record<DayEvent["type"], string> = {
-  prazo: "/prazos",
-  audiencia: "/audiencias",
-  tarefa: "/tarefas",
-  atendimento: "/atendimentos",
-  consultivo: "/consultivo",
-};
-
 export function CalendarWidget() {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [selected, setSelected] = useState<Date | undefined>(new Date());
   const [eventMap, setEventMap] = useState<Record<string, DayEvent[]>>({});
   const [loading, setLoading] = useState(true);
+  const [openItem, setOpenItem] = useState<{ type: AgendaType; id: string } | null>(null);
 
-  useEffect(() => {
-    if (!user?.office_id) return;
-    const load = async () => {
+  const load = useCallback(async () => {
+      if (!user?.office_id) return;
       const now = new Date();
       const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
       const end = new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString().split("T")[0];
 
       const [{ data: prazos }, { data: audiencias }, { data: tarefas }, { data: atendimentos }, { data: consultivos }] = await Promise.all([
-        supabase.from("prazos").select("tipo_prazo, numero_processo, data_fim_prazo, publicacoes(titulo)")
+        supabase.from("prazos").select("id, tipo_prazo, numero_processo, data_fim_prazo, publicacoes(titulo)")
           .eq("office_id", user.office_id).neq("status", "concluido")
           .gte("data_fim_prazo", start).lte("data_fim_prazo", end),
-        supabase.from("audiencias").select("titulo, data_audiencia")
+        supabase.from("audiencias").select("id, titulo, data_audiencia")
           .eq("office_id", user.office_id).eq("deletado", false).neq("status", "cancelada")
           .gte("data_audiencia", start).lte("data_audiencia", end),
         // tarefas não têm office_id — a RLS já limita ao escritório/usuário
-        supabase.from("tarefas").select("titulo, data_vencimento, concluida")
+        supabase.from("tarefas").select("id, titulo, data_vencimento, concluida")
           .eq("deletado", false).eq("concluida", false)
           .gte("data_vencimento", start).lte("data_vencimento", end),
         // atendimentos agendados (sem office_id — RLS limita)
-        supabase.from("atendimentos").select("tipo_atendimento, data_atendimento, status")
+        supabase.from("atendimentos").select("id, tipo_atendimento, data_atendimento, status")
           .eq("deletado", false).eq("status", "agendado")
           .gte("data_atendimento", start).lte("data_atendimento", end),
         // consultivos com prazo definido (que não estejam concluídos)
-        supabase.from("consultivos").select("titulo, prazo, status")
+        supabase.from("consultivos").select("id, titulo, prazo, status")
           .eq("office_id", user.office_id).eq("deletado", false)
           .neq("status", "concluido")
           .gte("prazo", start).lte("prazo", end),
@@ -73,37 +64,37 @@ export function CalendarWidget() {
         if (!p.data_fim_prazo) continue;
         const k = p.data_fim_prazo;
         if (!map[k]) map[k] = [];
-        map[k].push({ type: "prazo", titulo: p.publicacoes?.titulo || p.tipo_prazo || p.numero_processo || "Prazo" });
+        map[k].push({ type: "prazo", id: p.id, titulo: p.publicacoes?.titulo || p.tipo_prazo || p.numero_processo || "Prazo" });
       }
       for (const a of audiencias || []) {
         if (!a.data_audiencia) continue;
         const k = a.data_audiencia.split("T")[0];
         if (!map[k]) map[k] = [];
-        map[k].push({ type: "audiencia", titulo: a.titulo || "Audiência", hora: a.data_audiencia.split("T")[1]?.slice(0, 5) });
+        map[k].push({ type: "audiencia", id: a.id, titulo: a.titulo || "Audiência", hora: a.data_audiencia.split("T")[1]?.slice(0, 5) });
       }
       for (const t of (tarefas as any[]) || []) {
         if (!t.data_vencimento) continue;
         const k = t.data_vencimento.split("T")[0];
         if (!map[k]) map[k] = [];
-        map[k].push({ type: "tarefa", titulo: t.titulo || "Tarefa" });
+        map[k].push({ type: "tarefa", id: t.id, titulo: t.titulo || "Tarefa" });
       }
       for (const at of (atendimentos as any[]) || []) {
         if (!at.data_atendimento) continue;
         const k = at.data_atendimento.split("T")[0];
         if (!map[k]) map[k] = [];
-        map[k].push({ type: "atendimento", titulo: at.tipo_atendimento || "Atendimento", hora: at.data_atendimento.split("T")[1]?.slice(0, 5) });
+        map[k].push({ type: "atendimento", id: at.id, titulo: at.tipo_atendimento || "Atendimento", hora: at.data_atendimento.split("T")[1]?.slice(0, 5) });
       }
       for (const co of (consultivos as any[]) || []) {
         if (!co.prazo) continue;
         const k = co.prazo.split("T")[0];
         if (!map[k]) map[k] = [];
-        map[k].push({ type: "consultivo", titulo: co.titulo || "Consultivo" });
+        map[k].push({ type: "consultivo", id: co.id, titulo: co.titulo || "Consultivo" });
       }
       setEventMap(map);
       setLoading(false);
-    };
-    load();
   }, [user?.office_id]);
+
+  useEffect(() => { load(); }, [load]);
 
   const markedDates = Object.keys(eventMap).map(k => parseISO(k));
   const selectedKey = selected ? format(selected, "yyyy-MM-dd") : null;
@@ -157,7 +148,7 @@ export function CalendarWidget() {
                   {upcoming.map((e, i) => {
                     const st = EVENT_STYLE[e.type];
                     return (
-                      <button key={i} onClick={() => navigate(EVENT_ROUTE[e.type])}
+                      <button key={i} onClick={() => setOpenItem({ type: e.type, id: e.id })}
                         className={cn("w-full flex items-center gap-2.5 px-3 py-2 rounded-xl border text-xs text-left hover:brightness-95 dark:hover:brightness-125 transition-all", st.cls)}>
                         <st.Icon className="h-3 w-3 shrink-0" />
                         <span className="font-semibold truncate flex-1">{e.titulo}</span>
@@ -176,7 +167,7 @@ export function CalendarWidget() {
               dayEvents.map((e, i) => {
                 const st = EVENT_STYLE[e.type];
                 return (
-                  <button key={i} onClick={() => navigate(EVENT_ROUTE[e.type])}
+                  <button key={i} onClick={() => setOpenItem({ type: e.type, id: e.id })}
                     className={cn("w-full flex items-center gap-2.5 px-3 py-2 rounded-xl border text-xs text-left hover:brightness-95 dark:hover:brightness-125 transition-all", st.cls)}>
                     <st.Icon className="h-3 w-3 shrink-0" />
                     <span className="font-semibold truncate flex-1">{e.titulo}</span>
@@ -188,6 +179,8 @@ export function CalendarWidget() {
           </div>
         )}
       </div>
+
+      <AgendaItemDialog item={openItem} onOpenChange={(o) => !o && setOpenItem(null)} onChanged={load} />
     </div>
   );
 }
