@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarDays, Clock, AlertCircle, CheckSquare } from "lucide-react";
+import { CalendarDays, Clock, AlertCircle, CheckSquare, Headphones } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO } from "date-fns";
@@ -8,7 +9,7 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
 interface DayEvent {
-  type: "prazo" | "audiencia" | "tarefa";
+  type: "prazo" | "audiencia" | "tarefa" | "atendimento";
   titulo: string;
   hora?: string;
 }
@@ -18,10 +19,20 @@ const EVENT_STYLE: Record<DayEvent["type"], { cls: string; Icon: any }> = {
   prazo: { cls: "border-rose-500/15 bg-rose-500/5 text-rose-600 dark:text-rose-400", Icon: AlertCircle },
   audiencia: { cls: "border-orange-500/15 bg-orange-500/5 text-orange-600 dark:text-orange-400", Icon: Clock },
   tarefa: { cls: "border-violet-500/15 bg-violet-500/5 text-violet-600 dark:text-violet-400", Icon: CheckSquare },
+  atendimento: { cls: "border-cyan-500/15 bg-cyan-500/5 text-cyan-600 dark:text-cyan-400", Icon: Headphones },
+};
+
+// Para onde cada evento leva ao clicar
+const EVENT_ROUTE: Record<DayEvent["type"], string> = {
+  prazo: "/prazos",
+  audiencia: "/audiencias",
+  tarefa: "/tarefas",
+  atendimento: "/atendimentos",
 };
 
 export function CalendarWidget() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [selected, setSelected] = useState<Date | undefined>(new Date());
   const [eventMap, setEventMap] = useState<Record<string, DayEvent[]>>({});
   const [loading, setLoading] = useState(true);
@@ -33,7 +44,7 @@ export function CalendarWidget() {
       const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
       const end = new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString().split("T")[0];
 
-      const [{ data: prazos }, { data: audiencias }, { data: tarefas }] = await Promise.all([
+      const [{ data: prazos }, { data: audiencias }, { data: tarefas }, { data: atendimentos }] = await Promise.all([
         supabase.from("prazos").select("tipo_prazo, numero_processo, data_fim_prazo, publicacoes(titulo)")
           .eq("office_id", user.office_id)
           .gte("data_fim_prazo", start).lte("data_fim_prazo", end),
@@ -44,6 +55,10 @@ export function CalendarWidget() {
         supabase.from("tarefas").select("titulo, data_vencimento, concluida")
           .eq("deletado", false).eq("concluida", false)
           .gte("data_vencimento", start).lte("data_vencimento", end),
+        // atendimentos agendados (sem office_id — RLS limita)
+        supabase.from("atendimentos").select("tipo_atendimento, data_atendimento, status")
+          .eq("deletado", false).eq("status", "agendado")
+          .gte("data_atendimento", start).lte("data_atendimento", end),
       ]);
 
       const map: Record<string, DayEvent[]> = {};
@@ -64,6 +79,12 @@ export function CalendarWidget() {
         const k = t.data_vencimento.split("T")[0];
         if (!map[k]) map[k] = [];
         map[k].push({ type: "tarefa", titulo: t.titulo || "Tarefa" });
+      }
+      for (const at of (atendimentos as any[]) || []) {
+        if (!at.data_atendimento) continue;
+        const k = at.data_atendimento.split("T")[0];
+        if (!map[k]) map[k] = [];
+        map[k].push({ type: "atendimento", titulo: at.tipo_atendimento || "Atendimento", hora: at.data_atendimento.split("T")[1]?.slice(0, 5) });
       }
       setEventMap(map);
       setLoading(false);
@@ -123,11 +144,12 @@ export function CalendarWidget() {
                   {upcoming.map((e, i) => {
                     const st = EVENT_STYLE[e.type];
                     return (
-                      <div key={i} className={cn("flex items-center gap-2.5 px-3 py-2 rounded-xl border text-xs", st.cls)}>
+                      <button key={i} onClick={() => navigate(EVENT_ROUTE[e.type])}
+                        className={cn("w-full flex items-center gap-2.5 px-3 py-2 rounded-xl border text-xs text-left hover:brightness-95 dark:hover:brightness-125 transition-all", st.cls)}>
                         <st.Icon className="h-3 w-3 shrink-0" />
                         <span className="font-semibold truncate flex-1">{e.titulo}</span>
                         <span className="text-[10px] opacity-60 shrink-0">{format(parseISO(e.dateKey), "dd/MM")}{e.hora ? ` ${e.hora}` : ""}</span>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -141,11 +163,12 @@ export function CalendarWidget() {
               dayEvents.map((e, i) => {
                 const st = EVENT_STYLE[e.type];
                 return (
-                  <div key={i} className={cn("flex items-center gap-2.5 px-3 py-2 rounded-xl border text-xs", st.cls)}>
+                  <button key={i} onClick={() => navigate(EVENT_ROUTE[e.type])}
+                    className={cn("w-full flex items-center gap-2.5 px-3 py-2 rounded-xl border text-xs text-left hover:brightness-95 dark:hover:brightness-125 transition-all", st.cls)}>
                     <st.Icon className="h-3 w-3 shrink-0" />
                     <span className="font-semibold truncate flex-1">{e.titulo}</span>
                     {e.hora && <span className="text-[10px] opacity-60 shrink-0">{e.hora}</span>}
-                  </div>
+                  </button>
                 );
               })
             )}
