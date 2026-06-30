@@ -1,19 +1,25 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Clock, Play, Pause, Square, Timer, Plus, TrendingUp,
   FileText, Users, Phone, Gavel, Scale, Search, BookOpen,
   CalendarDays, CalendarClock, AlertCircle, CheckSquare,
-  UserCircle, MessageSquareText, ExternalLink, ArrowRight
+  UserCircle, MessageSquareText, ExternalLink, ArrowRight,
+  Pencil, Trash2, MoreVertical, DollarSign, Receipt, PlayCircle, PenLine,
 } from "lucide-react";
 import { useTimesheet } from "@/hooks/useTimesheet";
+import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { TIMESHEET_CATEGORIAS, type TimesheetCategoria } from "@/types/timesheet";
@@ -41,24 +47,21 @@ const REFERENCIA_CONFIG: Record<ReferenciaTipo, {
 }> = {
   atendimento: { label: "Atendimento", Icon: Phone,             color: "bg-blue-500/10 text-blue-600 dark:text-blue-400",          table: "atendimentos", labelField: "observacoes", dateField: "data_atendimento", clienteField: "cliente_id", route: "/atendimentos" },
   audiencia:   { label: "Audiência",   Icon: Gavel,             color: "bg-red-500/10 text-red-600 dark:text-red-400",             table: "audiencias",   labelField: "titulo",      dateField: "data_audiencia",   clienteField: "cliente_id", route: "/audiencias" },
-  prazo:       { label: "Prazo",       Icon: AlertCircle,       color: "bg-orange-500/10 text-orange-600 dark:text-orange-400",    table: "prazos",       labelField: "titulo",      dateField: "data_vencimento",  /* prazos filtram via processo */ route: "/prazos" },
+  prazo:       { label: "Prazo",       Icon: AlertCircle,       color: "bg-orange-500/10 text-orange-600 dark:text-orange-400",    table: "prazos",       labelField: "titulo",      dateField: "data_vencimento",  route: "/prazos" },
   tarefa:      { label: "Tarefa",      Icon: CheckSquare,       color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400", table: "tarefas",      labelField: "titulo",      dateField: "data_vencimento",  clienteField: "cliente_id", route: "/tarefas" },
   consultivo:  { label: "Consultivo",  Icon: MessageSquareText, color: "bg-teal-500/10 text-teal-600 dark:text-teal-400",          table: "processos",    labelField: "titulo",      dateField: "created_at",       clienteField: "cliente_id", route: "/consultivo" },
 };
 
 interface ReferenciaItem { id: string; label: string; sublabel?: string }
 
-// Categorias que mapeiam diretamente a um tipo de vínculo
 const CATEGORIA_TO_REF: Partial<Record<TimesheetCategoria, ReferenciaTipo>> = {
-  atendimento: "atendimento",
-  audiencia:   "audiencia",
-  processo:    "consultivo",
-  peticao:     "consultivo",
-  consulta:    "atendimento",
+  atendimento: "atendimento", audiencia: "audiencia", processo: "consultivo", peticao: "consultivo", consulta: "atendimento",
 };
-
-// Categorias sem mapeamento direto — usuário escolhe entre prazo ou tarefa
 const REF_LIVRES: ReferenciaTipo[] = ["prazo", "tarefa"];
+
+const PERIODOS = [
+  { v: 7, l: "7 dias" }, { v: 30, l: "30 dias" }, { v: 90, l: "90 dias" }, { v: 365, l: "1 ano" },
+];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -72,6 +75,10 @@ function formatMinutes(min: number) {
   if (h > 0) return `${h}h`;
   return `${m}m`;
 }
+const formatBRL = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const valorDe = (t: any) =>
+  t.faturavel !== false && t.valor_hora && t.duracao_minutos ? (t.duracao_minutos / 60) * t.valor_hora : 0;
+
 function formatDateHeader(dateStr: string) {
   const d = new Date(dateStr), today = new Date(), yst = new Date(today);
   yst.setDate(today.getDate() - 1);
@@ -86,23 +93,37 @@ function StatCard({ label, value, sub, Icon, color }: { label: string; value: st
       <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center shrink-0", color)}>
         <Icon className="h-5 w-5" />
       </div>
-      <div>
+      <div className="min-w-0">
         <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">{label}</p>
-        <p className="text-2xl font-black tracking-tight">{value}</p>
+        <p className="text-2xl font-black tracking-tight truncate">{value}</p>
         {sub && <p className="text-[10px] text-muted-foreground/50 mt-0.5">{sub}</p>}
       </div>
     </div>
   );
 }
 
+const NONE = "__none__";
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function Timesheet() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { data: timesheets, loading, activeTimer, startTimer, pauseTimer, stopTimer, getTodayStats, getWeekStats } = useTimesheet();
+  const {
+    data: timesheets, loading, activeTimer,
+    periodDays, setPeriodDays, scope, setScope,
+    startTimer, pauseTimer, resumeTimer, stopTimer, addManual, update, remove,
+    getTodayStats, getWeekStats,
+  } = useTimesheet();
+
+  const { users: officeUsers } = useOfficeUsers();
+  const membroMap = useMemo(() => Object.fromEntries(officeUsers.map(u => [u.user_id, u.profile?.full_name || u.profile?.email || "Membro"])), [officeUsers]);
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<any | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [removing, setRemoving] = useState(false);
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("new")) {
@@ -113,12 +134,13 @@ export default function Timesheet() {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [saving, setSaving] = useState(false);
 
-  // Form fields
+  // Form: timer ao vivo
   const [descricao, setDescricao] = useState("");
   const [categoria, setCategoria] = useState<TimesheetCategoria | "">("");
   const [clienteId, setClienteId] = useState("");
+  const [faturavel, setFaturavel] = useState(true);
+  const [valorHora, setValorHora] = useState("");
   const [clientes, setClientes] = useState<{ id: string; nome: string }[]>([]);
-  const [clientesLoading, setClientesLoading] = useState(false);
 
   // Vinculação
   const [refTipo, setRefTipo] = useState<ReferenciaTipo | "">("");
@@ -126,6 +148,11 @@ export default function Timesheet() {
   const [refLoading, setRefLoading] = useState(false);
   const [refId, setRefId] = useState("");
   const [refLabel, setRefLabel] = useState("");
+
+  // Filtros
+  const [fSearch, setFSearch] = useState("");
+  const [fCategoria, setFCategoria] = useState("todas");
+  const [fCliente, setFCliente] = useState("todos");
 
   // Cronômetro
   useEffect(() => {
@@ -136,79 +163,50 @@ export default function Timesheet() {
     return () => clearInterval(id);
   }, [activeTimer]);
 
-  // Clientes
+  // Clientes (carregados ao montar, para filtros e formulários)
   useEffect(() => {
-    if (!dialogOpen || !user || clientes.length > 0) return;
-    setClientesLoading(true);
+    if (!user?.office_id) return;
     supabase.from("clientes").select("id, nome")
       .eq("office_id", user.office_id).eq("deletado", false)
-      .order("nome").limit(100)
-      .then(({ data }) => { setClientes(data || []); setClientesLoading(false); });
-  }, [dialogOpen, user]);
+      .order("nome").limit(500)
+      .then(({ data }) => setClientes(data || []));
+  }, [user?.office_id]);
 
-  // Items de referência — com fix de prazos via join de processos
+  // Itens de referência (timer ao vivo)
   useEffect(() => {
     if (!refTipo || !user) return;
     const cfg = REFERENCIA_CONFIG[refTipo];
     setRefItems([]); setRefId(""); setRefLabel(""); setRefLoading(true);
-
     const fetchItems = async () => {
       try {
-        // Prazos: filtrar via processos do cliente (sem cliente_id direto)
         if (refTipo === "prazo" && clienteId) {
-          const { data: processos } = await supabase
-            .from("processos").select("id")
-            .eq("cliente_id", clienteId).eq("deletado", false);
-
+          const { data: processos } = await supabase.from("processos").select("id").eq("cliente_id", clienteId).eq("deletado", false);
           const ids = (processos || []).map((p: any) => p.id);
-
-          if (ids.length === 0) { setRefItems([]); setRefLoading(false); return; }
-
-          const { data } = await supabase
-            .from("prazos").select("id, titulo, data_vencimento")
-            .in("processo_id", ids).eq("deletado", false)
-            .order("data_vencimento", { ascending: true }).limit(50);
-
-          setRefItems((data || []).map((r: any) => ({
-            id: r.id,
-            label: r.titulo || "Sem título",
-            sublabel: r.data_vencimento ? `Vence ${new Date(r.data_vencimento).toLocaleDateString("pt-BR")}` : undefined,
-          })));
+          if (ids.length === 0) { setRefItems([]); return; }
+          const { data } = await supabase.from("prazos").select("id, titulo, data_vencimento")
+            .in("processo_id", ids).eq("deletado", false).order("data_vencimento", { ascending: true }).limit(50);
+          setRefItems((data || []).map((r: any) => ({ id: r.id, label: r.titulo || "Sem título", sublabel: r.data_vencimento ? `Vence ${new Date(r.data_vencimento).toLocaleDateString("pt-BR")}` : undefined })));
           return;
         }
-
-        // Demais tipos
-        let q = (supabase as any)
-          .from(cfg.table)
+        let q = (supabase as any).from(cfg.table)
           .select(`id, ${cfg.labelField}${cfg.dateField ? `, ${cfg.dateField}` : ""}`)
           .eq("user_id", user.id).eq("deletado", false)
           .order(cfg.dateField || "created_at", { ascending: false }).limit(50);
-
         if (clienteId && cfg.clienteField) q = q.eq(cfg.clienteField, clienteId);
-
         const { data } = await q;
-        setRefItems((data || []).map((r: any) => ({
-          id: r.id,
-          label: r[cfg.labelField] || "Sem título",
-          sublabel: cfg.dateField ? new Date(r[cfg.dateField]).toLocaleDateString("pt-BR") : undefined,
-        })));
-      } finally {
-        setRefLoading(false);
-      }
+        setRefItems((data || []).map((r: any) => ({ id: r.id, label: r[cfg.labelField] || "Sem título", sublabel: cfg.dateField ? new Date(r[cfg.dateField]).toLocaleDateString("pt-BR") : undefined })));
+      } finally { setRefLoading(false); }
     };
     fetchItems();
   }, [refTipo, clienteId, user]);
 
-  // Auto-mapear categoria → refTipo
   const handleSetCategoria = (cat: TimesheetCategoria) => {
-    setCategoria(cat);
-    setRefId(""); setRefLabel(""); setRefItems([]);
-    const mapped = CATEGORIA_TO_REF[cat];
-    setRefTipo(mapped ?? "");
+    setCategoria(cat); setRefId(""); setRefLabel(""); setRefItems([]);
+    setRefTipo(CATEGORIA_TO_REF[cat] ?? "");
   };
 
   const resetDialog = () => {
-    setDescricao(""); setCategoria(""); setClienteId("");
+    setDescricao(""); setCategoria(""); setClienteId(""); setFaturavel(true); setValorHora("");
     setRefTipo(""); setRefItems([]); setRefId(""); setRefLabel("");
   };
 
@@ -216,31 +214,114 @@ export default function Timesheet() {
     if (!descricao || !categoria) return;
     setSaving(true);
     await startTimer(descricao, categoria as TimesheetCategoria, clienteId || undefined, undefined,
-      refTipo || undefined, refId || undefined, refLabel || undefined);
+      refTipo || undefined, refId || undefined, refLabel || undefined,
+      { faturavel, valor_hora: valorHora ? Number(valorHora) : null });
     resetDialog(); setDialogOpen(false); setSaving(false);
   };
 
-  const navigateToRef = (tipo: string, clientNome?: string, clientId?: string) => {
+  const navigateToRef = (tipo: string, refId?: string | null) => {
     const cfg = REFERENCIA_CONFIG[tipo as ReferenciaTipo];
     if (!cfg) return;
-    navigate(cfg.route, { state: { clientFilter: clientNome, clientId } });
+    navigate(refId ? `${cfg.route}?openId=${refId}` : cfg.route);
   };
 
   const todayStats = getTodayStats();
   const weekStats = getWeekStats();
 
-  const grouped = timesheets
-    .filter(t => t.status !== "ativo")
-    .reduce<Record<string, typeof timesheets>>((acc, t) => {
-      const day = new Date(t.data_inicio).toDateString();
-      if (!acc[day]) acc[day] = [];
-      acc[day].push(t);
-      return acc;
-    }, {});
-  const groupedEntries = Object.entries(grouped).sort(([a],[b]) => new Date(b).getTime() - new Date(a).getTime());
+  // Faturamento do período
+  const billing = useMemo(() => {
+    let totalValor = 0, totalMin = 0;
+    const porCliente: Record<string, number> = {};
+    timesheets.filter(t => t.status === "finalizado").forEach((t: any) => {
+      const v = valorDe(t);
+      if (v <= 0) return;
+      totalValor += v; totalMin += t.duracao_minutos || 0;
+      const nome = t.clientes?.nome || "Sem cliente";
+      porCliente[nome] = (porCliente[nome] || 0) + v;
+    });
+    return { totalValor, totalMin, porCliente: Object.entries(porCliente).sort((a, b) => b[1] - a[1]) };
+  }, [timesheets]);
+
+  // Registros filtrados + agrupados por dia
+  const grouped = useMemo(() => {
+    const q = fSearch.toLowerCase();
+    const recs = timesheets.filter(t => {
+      if (t.status === "ativo") return false;
+      const matchSearch = !q || t.tarefa_descricao?.toLowerCase().includes(q) || ((t as any).clientes?.nome || "").toLowerCase().includes(q);
+      const matchCat = fCategoria === "todas" || t.categoria === fCategoria;
+      const matchCli = fCliente === "todos" || t.cliente_id === fCliente;
+      return matchSearch && matchCat && matchCli;
+    });
+    const acc: Record<string, any[]> = {};
+    recs.forEach(t => { const day = new Date(t.data_inicio).toDateString(); (acc[day] ||= []).push(t); });
+    return Object.entries(acc).sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime());
+  }, [timesheets, fSearch, fCategoria, fCliente]);
 
   const catCfg = activeTimer ? CATEGORIA_CONFIG[activeTimer.categoria as TimesheetCategoria] : null;
   const activeRefCfg = activeTimer?.referencia_tipo ? REFERENCIA_CONFIG[activeTimer.referencia_tipo as ReferenciaTipo] : null;
+
+  // ── Lançamento manual / edição ──
+  const [mDesc, setMDesc] = useState("");
+  const [mCat, setMCat] = useState<TimesheetCategoria | "">("");
+  const [mCli, setMCli] = useState("");
+  const [mData, setMData] = useState("");
+  const [mInicio, setMInicio] = useState("");
+  const [mFim, setMFim] = useState("");
+  const [mFat, setMFat] = useState(true);
+  const [mValor, setMValor] = useState("");
+  const [mObs, setMObs] = useState("");
+  const [mSaving, setMSaving] = useState(false);
+
+  const openManual = () => {
+    setEditTarget(null);
+    const now = new Date();
+    setMDesc(""); setMCat(""); setMCli(""); setMFat(true); setMValor(""); setMObs("");
+    setMData(now.toISOString().slice(0, 10));
+    setMInicio("09:00"); setMFim("10:00");
+    setManualOpen(true);
+  };
+
+  const openEdit = (t: any) => {
+    setEditTarget(t);
+    const ini = new Date(t.data_inicio);
+    const fim = t.data_fim ? new Date(t.data_fim) : new Date(ini.getTime() + (t.duracao_minutos || 0) * 60000);
+    setMDesc(t.tarefa_descricao || "");
+    setMCat((t.categoria as TimesheetCategoria) || "");
+    setMCli(t.cliente_id || "");
+    setMData(ini.toISOString().slice(0, 10));
+    setMInicio(ini.toTimeString().slice(0, 5));
+    setMFim(fim.toTimeString().slice(0, 5));
+    setMFat(t.faturavel !== false);
+    setMValor(t.valor_hora != null ? String(t.valor_hora) : "");
+    setMObs(t.observacoes || "");
+    setManualOpen(true);
+  };
+
+  const saveManual = async () => {
+    if (!mDesc.trim() || !mCat || !mData || !mInicio || !mFim) return;
+    const inicioISO = `${mData}T${mInicio}:00`;
+    const fimISO = `${mData}T${mFim}:00`;
+    const dur = Math.round((new Date(fimISO).getTime() - new Date(inicioISO).getTime()) / 60000);
+    if (dur <= 0) return;
+    setMSaving(true);
+    const billingFields: any = {};
+    if (mValor) billingFields.valor_hora = Number(mValor);
+    if (!mFat) billingFields.faturavel = false;
+    if (editTarget) {
+      await update(editTarget.id, {
+        tarefa_descricao: mDesc.trim(), categoria: mCat, cliente_id: mCli || null,
+        data_inicio: inicioISO, data_fim: fimISO, duracao_minutos: dur,
+        observacoes: mObs.trim() || null, ...billingFields,
+      });
+    } else {
+      await addManual({
+        tarefa_descricao: mDesc.trim(), categoria: mCat as TimesheetCategoria, cliente_id: mCli || null,
+        data_inicio: inicioISO, data_fim: fimISO, duracao_minutos: dur,
+        observacoes: mObs.trim() || null, faturavel: mFat, valor_hora: mValor ? Number(mValor) : null,
+      });
+    }
+    setMSaving(false); setManualOpen(false);
+  };
 
   return (
     <div className="flex-1 p-4 md:p-8 space-y-8 overflow-x-hidden entry-animate">
@@ -256,22 +337,29 @@ export default function Timesheet() {
             <p className="text-sm text-muted-foreground mt-0.5">Controle o tempo gasto em suas atividades jurídicas.</p>
           </div>
         </div>
-        <Button size="lg" onClick={() => setDialogOpen(true)} disabled={!!activeTimer}
-          className="rounded-xl h-11 px-6 font-black uppercase text-xs tracking-widest shadow-premium">
-          <Plus className="mr-2 h-4 w-4" />Novo Timer
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="lg" onClick={openManual}
+            className="rounded-xl h-11 px-5 font-black uppercase text-xs tracking-widest">
+            <PenLine className="mr-2 h-4 w-4" />Lançar manual
+          </Button>
+          <Button size="lg" onClick={() => setDialogOpen(true)} disabled={!!activeTimer}
+            className="rounded-xl h-11 px-6 font-black uppercase text-xs tracking-widest shadow-premium">
+            <Plus className="mr-2 h-4 w-4" />Novo Timer
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {[1,2,3].map(i => <Skeleton key={i} className="h-20 rounded-2xl" />)}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1,2,3,4].map(i => <Skeleton key={i} className="h-20 rounded-2xl" />)}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard label="Hoje" value={formatMinutes(todayStats.totalMinutos) || "0m"} sub={`${todayStats.totalRegistros} registro${todayStats.totalRegistros !== 1 ? "s" : ""}`} Icon={CalendarDays} color="bg-primary/10 text-primary" />
           <StatCard label="Esta semana" value={formatMinutes(weekStats.totalMinutos) || "0m"} sub={`${weekStats.totalRegistros} registros`} Icon={CalendarClock} color="bg-violet-500/10 text-violet-500" />
           <StatCard label="Média diária" value={weekStats.totalRegistros > 0 ? formatMinutes(Math.round(weekStats.totalMinutos / 7)) : "0m"} sub="Últimos 7 dias" Icon={TrendingUp} color="bg-emerald-500/10 text-emerald-500" />
+          <StatCard label="Faturável" value={formatBRL(billing.totalValor)} sub={`${formatMinutes(billing.totalMin)} no período`} Icon={DollarSign} color="bg-amber-500/10 text-amber-600" />
         </div>
       )}
 
@@ -282,7 +370,6 @@ export default function Timesheet() {
       )}>
         {activeTimer ? (
           <div className="p-8 flex flex-col items-center gap-5">
-            {/* Contexto: categoria + cliente + vínculo */}
             <div className="flex items-center gap-2 flex-wrap justify-center">
               {catCfg && (
                 <div className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest", catCfg.color)}>
@@ -290,19 +377,15 @@ export default function Timesheet() {
                 </div>
               )}
               {(activeTimer as any).clientes?.nome && (
-                <button
-                  onClick={() => navigate("/clientes", { state: { openId: activeTimer.cliente_id } })}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20 transition-colors"
-                >
+                <button onClick={() => navigate(`/clientes?openId=${activeTimer.cliente_id}`)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20 transition-colors">
                   <UserCircle className="h-3.5 w-3.5" />{(activeTimer as any).clientes.nome}
                   <ExternalLink className="h-2.5 w-2.5 opacity-60" />
                 </button>
               )}
               {activeRefCfg && activeTimer.referencia_label && (
-                <button
-                  onClick={() => navigateToRef(activeTimer.referencia_tipo!, (activeTimer as any).clientes?.nome, activeTimer.cliente_id!)}
-                  className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest hover:opacity-80 transition-opacity", activeRefCfg.color)}
-                >
+                <button onClick={() => navigateToRef(activeTimer.referencia_tipo!, activeTimer.referencia_id)}
+                  className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest hover:opacity-80 transition-opacity", activeRefCfg.color)}>
                   <activeRefCfg.Icon className="h-3.5 w-3.5" />{activeTimer.referencia_label}
                   <ExternalLink className="h-2.5 w-2.5 opacity-60" />
                 </button>
@@ -311,10 +394,9 @@ export default function Timesheet() {
 
             <p className="text-base font-bold text-center text-foreground/70 max-w-md">{activeTimer.tarefa_descricao}</p>
 
-            {/* Cronômetro */}
             <div className="relative py-2">
               <div className="absolute inset-0 bg-primary/15 blur-3xl rounded-full" />
-              <span className="relative text-7xl md:text-9xl font-black tracking-tighter tabular-nums text-foreground drop-shadow-[0_0_20px_rgba(var(--primary),0.2)]">
+              <span className="relative text-7xl md:text-9xl font-black tracking-tighter tabular-nums text-foreground">
                 {formatSeconds(elapsedTime)}
               </span>
             </div>
@@ -330,12 +412,10 @@ export default function Timesheet() {
             )}
 
             <div className="flex items-center gap-3">
-              {activeTimer.status === "ativo" && (
-                <Button variant="outline" onClick={() => pauseTimer(activeTimer.id)}
-                  className="h-11 px-6 rounded-xl font-black text-xs uppercase tracking-wider border-black/10 dark:border-border">
-                  <Pause className="h-4 w-4 mr-2" />Pausar
-                </Button>
-              )}
+              <Button variant="outline" onClick={() => pauseTimer(activeTimer.id)}
+                className="h-11 px-6 rounded-xl font-black text-xs uppercase tracking-wider border-black/10 dark:border-border">
+                <Pause className="h-4 w-4 mr-2" />Pausar
+              </Button>
               <Button variant="destructive" onClick={() => stopTimer(activeTimer.id)}
                 className="h-11 px-8 rounded-xl font-black text-xs uppercase tracking-wider shadow-premium">
                 <Square className="h-4 w-4 mr-2 fill-current" />Finalizar
@@ -359,84 +439,117 @@ export default function Timesheet() {
         )}
       </div>
 
+      {/* Resumo para cobrança */}
+      {billing.totalValor > 0 && (
+        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/[0.04] p-5 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-sm font-black"><Receipt className="h-4 w-4 text-amber-600" /> Resumo para cobrança</div>
+            <div className="text-sm font-black text-amber-700 dark:text-amber-400">{formatBRL(billing.totalValor)} · {formatMinutes(billing.totalMin)}</div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
+            {billing.porCliente.slice(0, 6).map(([nome, valor]) => (
+              <div key={nome} className="flex items-center justify-between text-xs border-b border-black/5 dark:border-border/50 py-1">
+                <span className="text-muted-foreground truncate">{nome}</span>
+                <span className="font-bold tabular-nums">{formatBRL(valor)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Filtros */}
+      <div className="flex flex-col lg:flex-row gap-3">
+        <div className="flex items-center rounded-xl border border-black/8 dark:border-border bg-card/60 p-0.5 shrink-0">
+          <Button size="sm" variant={scope === "me" ? "secondary" : "ghost"} onClick={() => setScope("me")} className="h-9 rounded-lg px-3 text-xs font-black gap-1.5"><UserCircle className="h-3.5 w-3.5" />Eu</Button>
+          <Button size="sm" variant={scope === "office" ? "secondary" : "ghost"} onClick={() => setScope("office")} className="h-9 rounded-lg px-3 text-xs font-black gap-1.5"><Users className="h-3.5 w-3.5" />Equipe</Button>
+        </div>
+        <Select value={String(periodDays)} onValueChange={(v) => setPeriodDays(Number(v))}>
+          <SelectTrigger className="w-full lg:w-32 h-11 rounded-xl bg-card/60 border-black/8 dark:border-border text-sm font-bold"><SelectValue /></SelectTrigger>
+          <SelectContent>{PERIODOS.map(p => <SelectItem key={p.v} value={String(p.v)}>{p.l}</SelectItem>)}</SelectContent>
+        </Select>
+        <div className="relative flex-1 min-w-[180px]">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+          <Input value={fSearch} onChange={(e) => setFSearch(e.target.value)} placeholder="Buscar atividade ou cliente..." className="pl-10 rounded-xl h-11 bg-card/60 border-black/8 dark:border-border" />
+        </div>
+        <Select value={fCategoria} onValueChange={setFCategoria}>
+          <SelectTrigger className="w-full lg:w-40 h-11 rounded-xl bg-card/60 border-black/8 dark:border-border text-sm font-bold"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todas">Todas categorias</SelectItem>
+            {TIMESHEET_CATEGORIAS.map(c => <SelectItem key={c} value={c}>{CATEGORIA_CONFIG[c].label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={fCliente} onValueChange={setFCliente}>
+          <SelectTrigger className="w-full lg:w-44 h-11 rounded-xl bg-card/60 border-black/8 dark:border-border text-sm font-bold"><SelectValue /></SelectTrigger>
+          <SelectContent className="max-h-72">
+            <SelectItem value="todos">Todos clientes</SelectItem>
+            {clientes.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+
       {/* Registros */}
       <div className="space-y-6">
         <h2 className="text-lg font-black tracking-tight">Registros recentes</h2>
         {loading ? (
           <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-16 rounded-xl" />)}</div>
-        ) : groupedEntries.length === 0 ? (
+        ) : grouped.length === 0 ? (
           <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-10 text-center">
             <Clock className="h-10 w-10 text-muted-foreground/20 mx-auto mb-3" />
-            <p className="text-sm font-bold text-muted-foreground">Nenhum registro ainda</p>
-            <p className="text-xs text-muted-foreground/60 mt-1">Inicie o timer para registrar suas atividades</p>
+            <p className="text-sm font-bold text-muted-foreground">Nenhum registro encontrado</p>
+            <p className="text-xs text-muted-foreground/60 mt-1">Inicie o timer, lance manualmente ou ajuste os filtros</p>
           </div>
         ) : (
-          groupedEntries.map(([dayKey, entries]) => (
+          grouped.map(([dayKey, entries]) => (
             <div key={dayKey} className="space-y-2">
-              {/* Cabeçalho do dia */}
               <div className="flex items-center gap-3">
-                <p className="text-xs font-black uppercase tracking-widest text-muted-foreground/60 capitalize">
-                  {formatDateHeader(entries[0].data_inicio)}
-                </p>
+                <p className="text-xs font-black uppercase tracking-widest text-muted-foreground/60 capitalize">{formatDateHeader(entries[0].data_inicio)}</p>
                 <div className="flex-1 h-px bg-border" />
-                <p className="text-xs font-black tabular-nums text-muted-foreground/50">
-                  {formatMinutes(entries.reduce((s,e) => s + (e.duracao_minutos || 0), 0))}
-                </p>
+                <p className="text-xs font-black tabular-nums text-muted-foreground/50">{formatMinutes(entries.reduce((s, e) => s + (e.duracao_minutos || 0), 0))}</p>
               </div>
 
               {entries.map((t) => {
                 const cfg = CATEGORIA_CONFIG[t.categoria as TimesheetCategoria];
                 const rCfg = t.referencia_tipo ? REFERENCIA_CONFIG[t.referencia_tipo as ReferenciaTipo] : null;
                 const clienteNome = (t as any).clientes?.nome;
+                const v = valorDe(t);
+                const mine = t.user_id === user?.id;
 
                 return (
                   <div key={t.id}
-                    className={cn(
-                      "flex items-center gap-4 p-4 rounded-xl bg-card/60 border border-black/5 dark:border-border hover:border-primary/20 hover:shadow-sm transition-all border-l-4",
-                      cfg?.border ?? "border-l-muted"
-                    )}>
-                    {/* Ícone categoria */}
+                    className={cn("flex items-center gap-4 p-4 rounded-xl bg-card/60 border border-black/5 dark:border-border hover:border-primary/20 hover:shadow-sm transition-all border-l-4", cfg?.border ?? "border-l-muted")}>
                     {cfg ? (
-                      <div className={cn("h-9 w-9 rounded-lg flex items-center justify-center shrink-0", cfg.color)}>
-                        <cfg.Icon className="h-4 w-4" />
-                      </div>
+                      <div className={cn("h-9 w-9 rounded-lg flex items-center justify-center shrink-0", cfg.color)}><cfg.Icon className="h-4 w-4" /></div>
                     ) : (
-                      <div className="h-9 w-9 rounded-lg bg-muted/30 flex items-center justify-center shrink-0">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                      </div>
+                      <div className="h-9 w-9 rounded-lg bg-muted/30 flex items-center justify-center shrink-0"><Clock className="h-4 w-4 text-muted-foreground" /></div>
                     )}
 
-                    {/* Conteúdo */}
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-sm truncate">{t.tarefa_descricao}</p>
                       <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                        {cfg && (
-                          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">
-                            {cfg.label}
-                          </span>
+                        {cfg && <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">{cfg.label}</span>}
+
+                        {scope === "office" && (
+                          <>
+                            <span className="text-muted-foreground/30 text-[10px]">·</span>
+                            <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md bg-primary/10 text-primary">{membroMap[t.user_id] || "Membro"}</span>
+                          </>
                         )}
 
-                        {/* Cliente — clicável */}
                         {clienteNome && (
                           <>
                             <span className="text-muted-foreground/30 text-[10px]">·</span>
-                            <button
-                              onClick={() => navigate("/clientes", { state: { openId: t.cliente_id } })}
-                              className="flex items-center gap-1 text-[10px] font-black px-1.5 py-0.5 rounded-md bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20 transition-colors"
-                            >
+                            <button onClick={() => navigate(`/clientes?openId=${t.cliente_id}`)}
+                              className="flex items-center gap-1 text-[10px] font-black px-1.5 py-0.5 rounded-md bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20 transition-colors">
                               <UserCircle className="h-2.5 w-2.5" />{clienteNome}
                             </button>
                           </>
                         )}
 
-                        {/* Vínculo — clicável e navega para aba */}
                         {rCfg && t.referencia_label && (
                           <>
                             <ArrowRight className="h-2.5 w-2.5 text-muted-foreground/30" />
-                            <button
-                              onClick={() => navigateToRef(t.referencia_tipo!, clienteNome, t.cliente_id!)}
-                              className={cn("flex items-center gap-1 text-[10px] font-black px-1.5 py-0.5 rounded-md hover:opacity-80 transition-opacity", rCfg.color)}
-                            >
+                            <button onClick={() => navigateToRef(t.referencia_tipo!, t.referencia_id)}
+                              className={cn("flex items-center gap-1 text-[10px] font-black px-1.5 py-0.5 rounded-md hover:opacity-80 transition-opacity", rCfg.color)}>
                               <rCfg.Icon className="h-2.5 w-2.5" />{t.referencia_label}
                               <ExternalLink className="h-2 w-2 opacity-60" />
                             </button>
@@ -444,22 +557,37 @@ export default function Timesheet() {
                         )}
 
                         {t.status === "pausado" && (
-                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-black uppercase border-amber-400/30 text-amber-600 dark:text-amber-400 bg-amber-500/10">
-                            Pausado
-                          </Badge>
+                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-black uppercase border-amber-400/30 text-amber-600 dark:text-amber-400 bg-amber-500/10">Pausado</Badge>
+                        )}
+                        {t.faturavel === false && (
+                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-black uppercase border-muted-foreground/20 text-muted-foreground/60">Não fat.</Badge>
                         )}
                       </div>
                     </div>
 
-                    {/* Duração + horário */}
                     <div className="text-right shrink-0">
-                      <p className="font-mono font-black text-sm tabular-nums">
-                        {t.duracao_minutos ? formatMinutes(t.duracao_minutos) : "—"}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground/50 mt-0.5">
-                        {new Date(t.data_inicio).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                      </p>
+                      <p className="font-mono font-black text-sm tabular-nums">{t.duracao_minutos ? formatMinutes(t.duracao_minutos) : "—"}</p>
+                      {v > 0
+                        ? <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 mt-0.5">{formatBRL(v)}</p>
+                        : <p className="text-[10px] text-muted-foreground/50 mt-0.5">{new Date(t.data_inicio).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>}
                     </div>
+
+                    {mine && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg shrink-0"><MoreVertical className="h-4 w-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="rounded-xl w-40">
+                          {t.status === "pausado" && (
+                            <DropdownMenuItem className="rounded-lg gap-2" disabled={!!activeTimer} onClick={() => resumeTimer(t.id)}>
+                              <PlayCircle className="h-4 w-4" /> Retomar
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem className="rounded-lg gap-2" onClick={() => openEdit(t)}><Pencil className="h-4 w-4" /> Editar</DropdownMenuItem>
+                          <DropdownMenuItem className="rounded-lg gap-2 text-destructive focus:text-destructive" onClick={() => setDeleteTarget(t.id)}><Trash2 className="h-4 w-4" /> Excluir</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </div>
                 );
               })}
@@ -471,159 +599,195 @@ export default function Timesheet() {
       {/* ── Dialog Novo Timer ───────────────────────────────────────────────── */}
       <Dialog open={dialogOpen} onOpenChange={(v) => { setDialogOpen(v); if (!v) resetDialog(); }}>
         <DialogContent aria-describedby={undefined} className="sm:max-w-md rounded-2xl p-0 overflow-hidden max-h-[90vh] flex flex-col">
-
-          {/* Header gradient */}
           <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent px-5 pt-5 pb-4 border-b border-black/5 dark:border-border shrink-0">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 font-black text-base">
-                <div className="h-7 w-7 rounded-lg bg-primary/15 flex items-center justify-center">
-                  <Timer className="h-3.5 w-3.5 text-primary" />
-                </div>
+                <div className="h-7 w-7 rounded-lg bg-primary/15 flex items-center justify-center"><Timer className="h-3.5 w-3.5 text-primary" /></div>
                 Iniciar Timer
               </DialogTitle>
             </DialogHeader>
           </div>
 
           <div className="px-5 py-4 space-y-4 overflow-y-auto flex-1">
-
-            {/* ① Atividade */}
             <div className="space-y-1.5">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 flex items-center gap-1.5">
-                <span className="h-4 w-4 rounded bg-primary/15 text-primary text-[9px] font-black flex items-center justify-center">1</span>
-                Atividade
-              </Label>
-              <Input placeholder="Ex: Elaboração de petição inicial..." value={descricao}
-                onChange={e => setDescricao(e.target.value)} className="h-10 rounded-xl"
-                onKeyDown={e => e.key === "Enter" && handleStart()} autoFocus />
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 flex items-center gap-1.5"><span className="h-4 w-4 rounded bg-primary/15 text-primary text-[9px] font-black flex items-center justify-center">1</span> Atividade</Label>
+              <Input placeholder="Ex: Elaboração de petição inicial..." value={descricao} onChange={e => setDescricao(e.target.value)} className="h-10 rounded-xl" onKeyDown={e => e.key === "Enter" && handleStart()} autoFocus />
             </div>
 
-            {/* ② Categoria — grid de botões */}
             <div className="space-y-1.5">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 flex items-center gap-1.5">
-                <span className="h-4 w-4 rounded bg-primary/15 text-primary text-[9px] font-black flex items-center justify-center">2</span>
-                Categoria
-              </Label>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 flex items-center gap-1.5"><span className="h-4 w-4 rounded bg-primary/15 text-primary text-[9px] font-black flex items-center justify-center">2</span> Categoria</Label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                 {TIMESHEET_CATEGORIAS.map(cat => {
-                  const cfg = CATEGORIA_CONFIG[cat];
-                  const active = categoria === cat;
+                  const cfg = CATEGORIA_CONFIG[cat]; const active = categoria === cat;
                   return (
                     <button key={cat} type="button" onClick={() => handleSetCategoria(cat)}
-                      className={cn(
-                        "flex flex-col items-center gap-1 p-2 rounded-lg border text-center transition-all text-[8px] font-black uppercase tracking-wider",
-                        active
-                          ? cn("border-primary/40 shadow-sm", cfg.color)
-                          : "border-black/5 dark:border-border text-muted-foreground/60 hover:border-primary/20 hover:bg-black/[0.02]"
-                      )}>
-                      <cfg.Icon className="h-3.5 w-3.5" />
-                      {cfg.label}
+                      className={cn("flex flex-col items-center gap-1 p-2 rounded-lg border text-center transition-all text-[8px] font-black uppercase tracking-wider", active ? cn("border-primary/40 shadow-sm", cfg.color) : "border-black/5 dark:border-border text-muted-foreground/60 hover:border-primary/20 hover:bg-black/[0.02]")}>
+                      <cfg.Icon className="h-3.5 w-3.5" />{cfg.label}
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            {/* ③ Cliente */}
             <div className="space-y-1.5">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 flex items-center gap-1.5">
-                <span className="h-4 w-4 rounded bg-primary/15 text-primary text-[9px] font-black flex items-center justify-center">3</span>
-                Cliente / Lead
-                <span className="text-muted-foreground/40 normal-case font-medium tracking-normal">— opcional</span>
-              </Label>
-              {clientesLoading ? <Skeleton className="h-10 rounded-xl" /> : (
-                <Select value={clienteId} onValueChange={v => { setClienteId(v); setRefTipo(""); setRefItems([]); setRefId(""); setRefLabel(""); }}>
-                  <SelectTrigger className="h-10 rounded-xl">
-                    <SelectValue placeholder="Selecionar cliente..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clientes.map(c => (
-                      <SelectItem key={c.id} value={c.id}>
-                        <div className="flex items-center gap-2">
-                          <UserCircle className="h-3.5 w-3.5 text-muted-foreground" />{c.nome}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 flex items-center gap-1.5"><span className="h-4 w-4 rounded bg-primary/15 text-primary text-[9px] font-black flex items-center justify-center">3</span> Cliente / Lead <span className="text-muted-foreground/40 normal-case font-medium tracking-normal">— opcional</span></Label>
+              <Select value={clienteId || NONE} onValueChange={v => { const id = v === NONE ? "" : v; setClienteId(id); setRefTipo(CATEGORIA_TO_REF[categoria as TimesheetCategoria] ?? ""); setRefItems([]); setRefId(""); setRefLabel(""); }}>
+                <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Selecionar cliente..." /></SelectTrigger>
+                <SelectContent className="max-h-72">
+                  <SelectItem value={NONE}>Sem cliente</SelectItem>
+                  {clientes.map(c => <SelectItem key={c.id} value={c.id}><div className="flex items-center gap-2"><UserCircle className="h-3.5 w-3.5 text-muted-foreground" />{c.nome}</div></SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
 
-            {/* ④ Vincular — condicional à categoria */}
             {categoria && (
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 flex items-center gap-1.5">
-                  <span className="h-4 w-4 rounded bg-primary/15 text-primary text-[9px] font-black flex items-center justify-center">4</span>
-                  {CATEGORIA_TO_REF[categoria as TimesheetCategoria]
-                    ? `Vincular ${REFERENCIA_CONFIG[CATEGORIA_TO_REF[categoria as TimesheetCategoria]!].label}`
-                    : "Vincular a"}
-                  <span className="text-muted-foreground/40 normal-case font-medium tracking-normal">— opcional</span>
-                </Label>
-
-                {/* Categorias sem mapeamento direto: pills de prazo/tarefa */}
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 flex items-center gap-1.5"><span className="h-4 w-4 rounded bg-primary/15 text-primary text-[9px] font-black flex items-center justify-center">4</span> {CATEGORIA_TO_REF[categoria as TimesheetCategoria] ? `Vincular ${REFERENCIA_CONFIG[CATEGORIA_TO_REF[categoria as TimesheetCategoria]!].label}` : "Vincular a"} <span className="text-muted-foreground/40 normal-case font-medium tracking-normal">— opcional</span></Label>
                 {!CATEGORIA_TO_REF[categoria as TimesheetCategoria] && (
                   <div className="flex gap-1.5">
                     {REF_LIVRES.map(key => {
-                      const cfg = REFERENCIA_CONFIG[key];
-                      const active = refTipo === key;
+                      const cfg = REFERENCIA_CONFIG[key]; const active = refTipo === key;
                       return (
-                        <button key={key} type="button"
-                          onClick={() => { setRefTipo(active ? "" : key); setRefId(""); setRefLabel(""); setRefItems([]); }}
-                          className={cn(
-                            "flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all",
-                            active ? cn("border-transparent shadow-sm", cfg.color) : "border-black/8 dark:border-border text-muted-foreground/60 hover:border-primary/20"
-                          )}>
+                        <button key={key} type="button" onClick={() => { setRefTipo(active ? "" : key); setRefId(""); setRefLabel(""); setRefItems([]); }}
+                          className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all", active ? cn("border-transparent shadow-sm", cfg.color) : "border-black/8 dark:border-border text-muted-foreground/60 hover:border-primary/20")}>
                           <cfg.Icon className="h-3 w-3" />{cfg.label}
                         </button>
                       );
                     })}
                   </div>
                 )}
-
-                {/* Selector do item específico */}
                 {refTipo && (
                   refLoading ? <Skeleton className="h-10 rounded-xl" /> :
                   refItems.length === 0 ? (
-                    <p className="text-xs text-muted-foreground/60 py-2.5 px-3 rounded-xl bg-muted/10 border border-black/5 dark:border-border text-center">
-                      {clienteId ? "Nenhum item encontrado para este cliente" : "Nenhum item encontrado"}
-                    </p>
+                    <p className="text-xs text-muted-foreground/60 py-2.5 px-3 rounded-xl bg-muted/10 border border-black/5 dark:border-border text-center">{clienteId ? "Nenhum item encontrado para este cliente" : "Nenhum item encontrado"}</p>
                   ) : (
-                    <Select value={refId} onValueChange={v => {
-                      setRefId(v);
-                      setRefLabel(refItems.find(i => i.id === v)?.label ?? "");
-                    }}>
-                      <SelectTrigger className="h-10 rounded-xl">
-                        <SelectValue placeholder={`Selecionar ${REFERENCIA_CONFIG[refTipo].label.toLowerCase()}...`} />
-                      </SelectTrigger>
+                    <Select value={refId} onValueChange={v => { setRefId(v); setRefLabel(refItems.find(i => i.id === v)?.label ?? ""); }}>
+                      <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder={`Selecionar ${REFERENCIA_CONFIG[refTipo].label.toLowerCase()}...`} /></SelectTrigger>
                       <SelectContent>
-                        {refItems.map(item => (
-                          <SelectItem key={item.id} value={item.id}>
-                            <div className="flex flex-col">
-                              <span className="text-xs font-semibold">{item.label}</span>
-                              {item.sublabel && <span className="text-[10px] text-muted-foreground">{item.sublabel}</span>}
-                            </div>
-                          </SelectItem>
-                        ))}
+                        {refItems.map(item => <SelectItem key={item.id} value={item.id}><div className="flex flex-col"><span className="text-xs font-semibold">{item.label}</span>{item.sublabel && <span className="text-[10px] text-muted-foreground">{item.sublabel}</span>}</div></SelectItem>)}
                       </SelectContent>
                     </Select>
                   )
                 )}
               </div>
             )}
+
+            {/* ⑤ Faturamento */}
+            <div className="space-y-2 rounded-xl border border-black/5 dark:border-border bg-card/40 p-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 flex items-center gap-1.5"><DollarSign className="h-3.5 w-3.5" /> Faturável</Label>
+                <Switch checked={faturavel} onCheckedChange={setFaturavel} />
+              </div>
+              {faturavel && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-muted-foreground">R$/hora</span>
+                  <Input type="number" min={0} step="0.01" value={valorHora} onChange={e => setValorHora(e.target.value)} placeholder="Ex: 350" className="h-9 rounded-lg text-sm" />
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Footer */}
           <div className="px-5 pb-5 flex gap-2 justify-end border-t border-black/5 dark:border-border pt-3 shrink-0">
-            <Button variant="ghost" onClick={() => { setDialogOpen(false); resetDialog(); }} className="rounded-xl">
-              Cancelar
-            </Button>
-            <Button onClick={handleStart} disabled={!descricao || !categoria || saving}
-              className="rounded-xl font-black shadow-premium px-6">
-              <Play className="h-4 w-4 mr-2 fill-current" />
-              {saving ? "Iniciando..." : "Iniciar Timer"}
-            </Button>
+            <Button variant="ghost" onClick={() => { setDialogOpen(false); resetDialog(); }} className="rounded-xl">Cancelar</Button>
+            <Button onClick={handleStart} disabled={!descricao || !categoria || saving} className="rounded-xl font-black shadow-premium px-6"><Play className="h-4 w-4 mr-2 fill-current" />{saving ? "Iniciando..." : "Iniciar Timer"}</Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ── Dialog Lançar / Editar manual ───────────────────────────────────── */}
+      <Dialog open={manualOpen} onOpenChange={setManualOpen}>
+        <DialogContent aria-describedby={undefined} className="sm:max-w-md rounded-2xl p-0 overflow-hidden max-h-[90vh] flex flex-col">
+          <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent px-5 pt-5 pb-4 border-b border-black/5 dark:border-border shrink-0">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 font-black text-base">
+                <div className="h-7 w-7 rounded-lg bg-primary/15 flex items-center justify-center"><PenLine className="h-3.5 w-3.5 text-primary" /></div>
+                {editTarget ? "Editar registro" : "Lançar manualmente"}
+              </DialogTitle>
+            </DialogHeader>
+          </div>
+
+          <div className="px-5 py-4 space-y-4 overflow-y-auto flex-1">
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Atividade</Label>
+              <Input value={mDesc} onChange={e => setMDesc(e.target.value)} placeholder="Descrição da atividade" className="h-10 rounded-xl" />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Categoria</Label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                {TIMESHEET_CATEGORIAS.map(cat => {
+                  const cfg = CATEGORIA_CONFIG[cat]; const active = mCat === cat;
+                  return (
+                    <button key={cat} type="button" onClick={() => setMCat(cat)}
+                      className={cn("flex flex-col items-center gap-1 p-2 rounded-lg border text-center transition-all text-[8px] font-black uppercase tracking-wider", active ? cn("border-primary/40 shadow-sm", cfg.color) : "border-black/5 dark:border-border text-muted-foreground/60 hover:border-primary/20")}>
+                      <cfg.Icon className="h-3.5 w-3.5" />{cfg.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Data</Label>
+                <Input type="date" value={mData} onChange={e => setMData(e.target.value)} className="h-10 rounded-xl text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Início</Label>
+                <Input type="time" value={mInicio} onChange={e => setMInicio(e.target.value)} className="h-10 rounded-xl text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Fim</Label>
+                <Input type="time" value={mFim} onChange={e => setMFim(e.target.value)} className="h-10 rounded-xl text-sm" />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Cliente <span className="text-muted-foreground/40 normal-case font-medium tracking-normal">— opcional</span></Label>
+              <Select value={mCli || NONE} onValueChange={v => setMCli(v === NONE ? "" : v)}>
+                <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Sem cliente" /></SelectTrigger>
+                <SelectContent className="max-h-72">
+                  <SelectItem value={NONE}>Sem cliente</SelectItem>
+                  {clientes.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2 rounded-xl border border-black/5 dark:border-border bg-card/40 p-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 flex items-center gap-1.5"><DollarSign className="h-3.5 w-3.5" /> Faturável</Label>
+                <Switch checked={mFat} onCheckedChange={setMFat} />
+              </div>
+              {mFat && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-muted-foreground">R$/hora</span>
+                  <Input type="number" min={0} step="0.01" value={mValor} onChange={e => setMValor(e.target.value)} placeholder="Ex: 350" className="h-9 rounded-lg text-sm" />
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Observações</Label>
+              <Textarea value={mObs} onChange={e => setMObs(e.target.value)} rows={2} className="rounded-xl text-sm resize-none" placeholder="Opcional" />
+            </div>
+          </div>
+
+          <div className="px-5 pb-5 flex gap-2 justify-end border-t border-black/5 dark:border-border pt-3 shrink-0">
+            <Button variant="ghost" onClick={() => setManualOpen(false)} className="rounded-xl">Cancelar</Button>
+            <Button onClick={saveManual} disabled={!mDesc.trim() || !mCat || mSaving} className="rounded-xl font-black shadow-premium px-6">{mSaving ? "Salvando..." : editTarget ? "Salvar" : "Lançar"}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmar exclusão */}
+      <DeleteConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}
+        onConfirm={async () => { if (deleteTarget) { setRemoving(true); await remove(deleteTarget); setRemoving(false); setDeleteTarget(null); } }}
+        isLoading={removing}
+        title="Excluir registro"
+        description="Esta ação não pode ser desfeita. O registro de tempo será removido."
+      />
     </div>
   );
 }
