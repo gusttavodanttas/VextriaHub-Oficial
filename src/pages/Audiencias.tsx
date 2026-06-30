@@ -7,7 +7,7 @@ import { Calendar as CalendarUI } from "@/components/ui/calendar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Calendar, Clock, MapPin, User, Users, Plus, Search, Trash2, Pencil,
-  CheckCircle2, XCircle, MoreHorizontal, CalendarCheck, CalendarClock, Gavel, Loader2,
+  CheckCircle2, XCircle, MoreHorizontal, CalendarCheck, CalendarClock, Gavel, Loader2, AlertTriangle,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
@@ -101,6 +101,15 @@ const Audiencias = () => {
       realizadasMes: audiencias.filter(a => a.status === "realizada" && parseISO(a.data_audiencia) >= monthStart).length,
     };
   }, [audiencias]);
+
+  // Audiências passadas que não foram baixadas (realizada/cancelada)
+  const pendentesBaixa = useMemo(
+    () => audiencias.filter(a => {
+      const d = parseISO(a.data_audiencia);
+      return isPast(d) && !isToday(d) && !["realizada", "cancelada"].includes(a.status || "");
+    }),
+    [audiencias]
+  );
 
   // Agrupamento por período (apenas não-passadas em "agenda", passadas no fim)
   const groups = useMemo(() => {
@@ -268,6 +277,28 @@ const Audiencias = () => {
           </Select>
         </div>
       </div>
+
+      {pendentesBaixa.length > 0 && (
+        <div className="rounded-2xl border border-rose-500/25 bg-rose-500/5 p-4 space-y-2.5">
+          <p className="text-[11px] font-black uppercase tracking-widest text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+            <AlertTriangle className="h-3.5 w-3.5" /> {pendentesBaixa.length} audiência(s) pendente(s) de baixa
+          </p>
+          <div className="space-y-2">
+            {pendentesBaixa.map(a => (
+              <div key={a.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-xl bg-card border border-black/5 dark:border-border">
+                <div className="min-w-0">
+                  <p className="font-bold text-sm truncate">{a.titulo}</p>
+                  <p className="text-[11px] text-muted-foreground">{format(parseISO(a.data_audiencia), "dd/MM/yy 'às' HH:mm", { locale: ptBR })}</p>
+                </div>
+                <div className="flex gap-1.5 shrink-0">
+                  <Button size="sm" onClick={() => updateStatus.mutate({ id: a.id, status: "realizada" })} className="h-8 rounded-lg text-[11px] font-bold gap-1"><Gavel className="h-3.5 w-3.5" /> Realizada</Button>
+                  <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ id: a.id, status: "cancelada" })} className="h-8 rounded-lg text-[11px] font-bold">Cancelada</Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <Tabs defaultValue="lista" className="space-y-4">
         <TabsList className="rounded-xl bg-card/40 border border-black/5 dark:border-border p-1 h-auto">

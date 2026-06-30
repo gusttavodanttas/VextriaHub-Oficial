@@ -8,6 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { continueOccurrences, RecRule } from "@/lib/recorrencia";
 
 export type AgendaType = "prazo" | "audiencia" | "tarefa" | "atendimento" | "consultivo";
 
@@ -62,8 +64,20 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
     const now = new Date().toISOString();
     let error: any = null;
     if (item.type === "tarefa") {
-      ({ error } = await supabase.from("tarefas").update({ concluida: true, concluida_em: now, concluida_por: user?.id } as any).eq("id", item.id));
+      ({ error } = await supabase.from("tarefas").update({ concluida: true, concluida_em: now, concluida_por: user?.id, recorrencia_restantes: 0 } as any).eq("id", item.id));
       if (error) ({ error } = await supabase.from("tarefas").update({ concluida: true }).eq("id", item.id));
+      // recorrência encadeada: gera a próxima ocorrência
+      if (!error && row?.recorrencia_regra && (row.recorrencia_restantes ?? 0) > 0 && row.data_vencimento) {
+        const next = continueOccurrences(new Date(`${row.data_vencimento}T12:00:00`), row.recorrencia_regra as RecRule, 1)[0];
+        await supabase.from("tarefas").insert([{
+          titulo: row.titulo, descricao: row.descricao ?? null, prioridade: row.prioridade ?? "media",
+          cliente_id: row.cliente_id ?? null, processo_id: row.processo_id ?? null, atendimento_id: row.atendimento_id ?? null,
+          responsavel_id: row.responsavel_id ?? null, recorrencia_grupo: row.recorrencia_grupo ?? null,
+          recorrencia_regra: row.recorrencia_regra, recorrencia_restantes: (row.recorrencia_restantes ?? 0) - 1,
+          data_vencimento: format(next, "yyyy-MM-dd"), office_id: row.office_id, user_id: row.user_id ?? user?.id,
+          concluida: false, deletado: false,
+        }]);
+      }
     } else if (item.type === "prazo") {
       ({ error } = await supabase.from("prazos").update({ status: "concluido", concluido_em: now, concluido_por: user?.id } as any).eq("id", item.id));
       if (error) ({ error } = await supabase.from("prazos").update({ status: "concluido" }).eq("id", item.id));
