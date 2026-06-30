@@ -17,8 +17,10 @@ import {
   CalendarDays, CalendarClock, AlertCircle, CheckSquare,
   UserCircle, MessageSquareText, ExternalLink, ArrowRight,
   Pencil, Trash2, MoreVertical, DollarSign, Receipt, PlayCircle, PenLine,
+  Settings2, BadgeCheck, Layers, AlertTriangle, Loader2,
 } from "lucide-react";
 import { useTimesheet } from "@/hooks/useTimesheet";
+import { useTimesheetConfig, roundMinutes, type Arredondamento, type TimesheetConfig } from "@/hooks/useTimesheetConfig";
 import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -76,8 +78,10 @@ function formatMinutes(min: number) {
   return `${m}m`;
 }
 const formatBRL = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-const valorDe = (t: any) =>
-  t.faturavel !== false && t.valor_hora && t.duracao_minutos ? (t.duracao_minutos / 60) * t.valor_hora : 0;
+const valorDe = (t: any, arred: Arredondamento = "nenhum") =>
+  t.faturavel !== false && t.valor_hora && t.duracao_minutos
+    ? (roundMinutes(t.duracao_minutos, arred) / 60) * t.valor_hora
+    : 0;
 
 function formatDateHeader(dateStr: string) {
   const d = new Date(dateStr), today = new Date(), yst = new Date(today);
@@ -104,6 +108,97 @@ function StatCard({ label, value, sub, Icon, color }: { label: string; value: st
 
 const NONE = "__none__";
 
+// ─── Settings Dialog (faturamento) ──────────────────────────────────────────────
+
+const TimesheetSettingsDialog: React.FC<{
+  open: boolean; onClose: () => void;
+  config: TimesheetConfig; clientes: { id: string; nome: string }[];
+  onSave: (cfg: Partial<TimesheetConfig>) => Promise<void>;
+}> = ({ open, onClose, config, clientes, onSave }) => {
+  const [padrao, setPadrao] = useState("");
+  const [arred, setArred] = useState<Arredondamento>("nenhum");
+  const [mapa, setMapa] = useState<Record<string, number>>({});
+  const [novoCli, setNovoCli] = useState("");
+  const [novoRate, setNovoRate] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setPadrao(config.valorPadrao != null ? String(config.valorPadrao) : "");
+    setArred(config.arredondamento);
+    setMapa({ ...config.valorClientes });
+    setNovoCli(""); setNovoRate("");
+  }, [open, config]);
+
+  const nomeCli = (id: string) => clientes.find(c => c.id === id)?.nome || id;
+  const addRate = () => { if (!novoCli || !novoRate) return; setMapa(m => ({ ...m, [novoCli]: Number(novoRate) })); setNovoCli(""); setNovoRate(""); };
+  const salvar = async () => { setSaving(true); await onSave({ valorPadrao: padrao ? Number(padrao) : null, arredondamento: arred, valorClientes: mapa }); setSaving(false); onClose(); };
+
+  const disponiveis = clientes.filter(c => mapa[c.id] == null);
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent aria-describedby={undefined} className="sm:max-w-md rounded-2xl p-0 overflow-hidden max-h-[90vh] flex flex-col">
+        <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent px-5 pt-5 pb-4 border-b border-black/5 dark:border-border shrink-0">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-black text-base">
+              <div className="h-7 w-7 rounded-lg bg-primary/15 flex items-center justify-center"><Settings2 className="h-3.5 w-3.5 text-primary" /></div>
+              Configurações de faturamento
+            </DialogTitle>
+          </DialogHeader>
+        </div>
+
+        <div className="px-5 py-4 space-y-4 overflow-y-auto flex-1">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Valor/hora padrão</Label>
+              <Input type="number" min={0} step="0.01" value={padrao} onChange={e => setPadrao(e.target.value)} placeholder="Ex: 350" className="h-10 rounded-xl text-sm" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Arredondamento</Label>
+              <Select value={arred} onValueChange={(v) => setArred(v as Arredondamento)}>
+                <SelectTrigger className="h-10 rounded-xl text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="nenhum">Sem arredondar</SelectItem>
+                  <SelectItem value="6">6 min (0,1h)</SelectItem>
+                  <SelectItem value="15">15 min</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Valor/hora por cliente</Label>
+            {Object.keys(mapa).length === 0 && <p className="text-xs text-muted-foreground/40 italic">Nenhum valor específico. Usa o padrão.</p>}
+            <div className="space-y-1.5">
+              {Object.entries(mapa).map(([cid, rate]) => (
+                <div key={cid} className="flex items-center gap-2 rounded-lg border border-black/5 dark:border-border px-3 py-1.5">
+                  <span className="flex-1 text-sm font-semibold truncate">{nomeCli(cid)}</span>
+                  <span className="text-sm font-bold tabular-nums">{rate.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}/h</span>
+                  <button onClick={() => setMapa(m => { const n = { ...m }; delete n[cid]; return n; })} className="text-muted-foreground/40 hover:text-rose-500"><Trash2 className="h-3.5 w-3.5" /></button>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Select value={novoCli} onValueChange={setNovoCli}>
+                <SelectTrigger className="h-9 rounded-lg text-sm flex-1"><SelectValue placeholder="Cliente" /></SelectTrigger>
+                <SelectContent className="max-h-60">{disponiveis.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}</SelectContent>
+              </Select>
+              <Input type="number" min={0} step="0.01" value={novoRate} onChange={e => setNovoRate(e.target.value)} placeholder="R$/h" className="h-9 rounded-lg text-sm w-24" />
+              <Button size="sm" onClick={addRate} disabled={!novoCli || !novoRate} className="h-9 rounded-lg px-3"><Plus className="h-4 w-4" /></Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-5 pb-5 flex gap-2 justify-end border-t border-black/5 dark:border-border pt-3 shrink-0">
+          <Button variant="ghost" onClick={onClose} className="rounded-xl">Cancelar</Button>
+          <Button onClick={salvar} disabled={saving} className="rounded-xl font-black px-6">{saving ? "Salvando..." : "Salvar"}</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function Timesheet() {
@@ -112,12 +207,27 @@ export default function Timesheet() {
   const {
     data: timesheets, loading, activeTimer,
     periodDays, setPeriodDays, scope, setScope,
-    startTimer, pauseTimer, resumeTimer, stopTimer, addManual, update, remove,
+    startTimer, pauseTimer, resumeTimer, stopTimer, addManual, update, remove, marcarFaturado,
     getTodayStats, getWeekStats,
   } = useTimesheet();
 
+  const officeId = user?.office_id ?? "";
+  const { config, save: saveConfig } = useTimesheetConfig(officeId);
+  const arred = config.arredondamento;
+
   const { users: officeUsers } = useOfficeUsers();
   const membroMap = useMemo(() => Object.fromEntries(officeUsers.map(u => [u.user_id, u.profile?.full_name || u.profile?.email || "Membro"])), [officeUsers]);
+
+  // Config / cobrança / faturamento
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [breakdown, setBreakdown] = useState<"cliente" | "categoria" | "vinculo" | "membro">("cliente");
+  const [cobrarOpen, setCobrarOpen] = useState(false);
+  const [cobrando, setCobrando] = useState(false);
+  const [finalizeId, setFinalizeId] = useState<string | null>(null);
+  const [finalizeObs, setFinalizeObs] = useState("");
+
+  const rateParaCliente = (cid?: string | null) =>
+    (cid && config.valorClientes[cid] != null) ? config.valorClientes[cid] : config.valorPadrao;
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
@@ -210,6 +320,11 @@ export default function Timesheet() {
     setRefTipo(""); setRefItems([]); setRefId(""); setRefLabel("");
   };
 
+  const openTimer = () => {
+    setValorHora(config.valorPadrao != null ? String(config.valorPadrao) : "");
+    setDialogOpen(true);
+  };
+
   const handleStart = async () => {
     if (!descricao || !categoria) return;
     setSaving(true);
@@ -228,19 +343,54 @@ export default function Timesheet() {
   const todayStats = getTodayStats();
   const weekStats = getWeekStats();
 
-  // Faturamento do período
+  // Faturamento pendente do período (exclui já faturados; aplica arredondamento)
   const billing = useMemo(() => {
+    const pend = timesheets.filter((t: any) => t.status === "finalizado" && t.faturado !== true && valorDe(t, arred) > 0);
     let totalValor = 0, totalMin = 0;
-    const porCliente: Record<string, number> = {};
-    timesheets.filter(t => t.status === "finalizado").forEach((t: any) => {
-      const v = valorDe(t);
-      if (v <= 0) return;
-      totalValor += v; totalMin += t.duracao_minutos || 0;
-      const nome = t.clientes?.nome || "Sem cliente";
-      porCliente[nome] = (porCliente[nome] || 0) + v;
+    const grupos: Record<string, number> = {};
+    pend.forEach((t: any) => {
+      const v = valorDe(t, arred);
+      totalValor += v; totalMin += roundMinutes(t.duracao_minutos || 0, arred);
+      let key: string;
+      if (breakdown === "categoria") key = CATEGORIA_CONFIG[t.categoria as TimesheetCategoria]?.label || t.categoria || "—";
+      else if (breakdown === "vinculo") key = t.referencia_label || "Sem vínculo";
+      else if (breakdown === "membro") key = membroMap[t.user_id] || "Membro";
+      else key = (t as any).clientes?.nome || "Sem cliente";
+      grupos[key] = (grupos[key] || 0) + v;
     });
-    return { totalValor, totalMin, porCliente: Object.entries(porCliente).sort((a, b) => b[1] - a[1]) };
-  }, [timesheets]);
+    return { totalValor, totalMin, pend, grupos: Object.entries(grupos).sort((a, b) => b[1] - a[1]) };
+  }, [timesheets, arred, breakdown, membroMap]);
+
+  // Gera lançamentos de receita no Financeiro a partir das horas faturáveis pendentes
+  const gerarCobranca = async () => {
+    setCobrando(true);
+    try {
+      const porCliente: Record<string, { valor: number; min: number; ids: string[] }> = {};
+      billing.pend.forEach((t: any) => {
+        const cid = t.cliente_id || "__sem__";
+        const g = (porCliente[cid] ||= { valor: 0, min: 0, ids: [] });
+        g.valor += valorDe(t, arred); g.min += roundMinutes(t.duracao_minutos || 0, arred); g.ids.push(t.id);
+      });
+      for (const [cid, g] of Object.entries(porCliente)) {
+        const valor = Math.round(g.valor * 100) / 100;
+        if (valor <= 0) continue;
+        const { data: novo } = await supabase.from("financeiro").insert({
+          tipo: "receita",
+          descricao: `Honorários — Timesheet (${formatMinutes(g.min)})`,
+          valor,
+          data_vencimento: new Date().toISOString().slice(0, 10),
+          status: "pendente",
+          categoria: "Honorários",
+          cliente_id: cid === "__sem__" ? null : cid,
+          office_id: officeId,
+          user_id: user!.id,
+        } as any).select("id").single();
+        await marcarFaturado(g.ids, true, (novo as any)?.id ?? null);
+      }
+    } finally {
+      setCobrando(false); setCobrarOpen(false);
+    }
+  };
 
   // Registros filtrados + agrupados por dia
   const grouped = useMemo(() => {
@@ -275,7 +425,8 @@ export default function Timesheet() {
   const openManual = () => {
     setEditTarget(null);
     const now = new Date();
-    setMDesc(""); setMCat(""); setMCli(""); setMFat(true); setMValor(""); setMObs("");
+    setMDesc(""); setMCat(""); setMCli(""); setMFat(true); setMObs("");
+    setMValor(config.valorPadrao != null ? String(config.valorPadrao) : "");
     setMData(now.toISOString().slice(0, 10));
     setMInicio("09:00"); setMFim("10:00");
     setManualOpen(true);
@@ -338,11 +489,15 @@ export default function Timesheet() {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="icon" onClick={() => setSettingsOpen(true)}
+            className="rounded-xl h-11 w-11" title="Configurações de faturamento">
+            <Settings2 className="h-4 w-4" />
+          </Button>
           <Button variant="outline" size="lg" onClick={openManual}
             className="rounded-xl h-11 px-5 font-black uppercase text-xs tracking-widest">
             <PenLine className="mr-2 h-4 w-4" />Lançar manual
           </Button>
-          <Button size="lg" onClick={() => setDialogOpen(true)} disabled={!!activeTimer}
+          <Button size="lg" onClick={openTimer} disabled={!!activeTimer}
             className="rounded-xl h-11 px-6 font-black uppercase text-xs tracking-widest shadow-premium">
             <Plus className="mr-2 h-4 w-4" />Novo Timer
           </Button>
@@ -411,12 +566,19 @@ export default function Timesheet() {
               </div>
             )}
 
+            {activeTimer.status === "ativo" && elapsedTime > 28800 && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-xs font-bold">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                Este timer já passa de 8h — confira se esqueceu de finalizar.
+              </div>
+            )}
+
             <div className="flex items-center gap-3">
               <Button variant="outline" onClick={() => pauseTimer(activeTimer.id)}
                 className="h-11 px-6 rounded-xl font-black text-xs uppercase tracking-wider border-black/10 dark:border-border">
                 <Pause className="h-4 w-4 mr-2" />Pausar
               </Button>
-              <Button variant="destructive" onClick={() => stopTimer(activeTimer.id)}
+              <Button variant="destructive" onClick={() => { setFinalizeId(activeTimer.id); setFinalizeObs(""); }}
                 className="h-11 px-8 rounded-xl font-black text-xs uppercase tracking-wider shadow-premium">
                 <Square className="h-4 w-4 mr-2 fill-current" />Finalizar
               </Button>
@@ -431,7 +593,7 @@ export default function Timesheet() {
               <p className="font-bold text-muted-foreground">Nenhum timer ativo</p>
               <p className="text-xs text-muted-foreground/60 mt-1">Clique em "Novo Timer" para começar a registrar</p>
             </div>
-            <Button onClick={() => setDialogOpen(true)} size="lg"
+            <Button onClick={openTimer} size="lg"
               className="mt-2 h-11 px-8 rounded-xl font-black text-xs uppercase tracking-widest shadow-premium">
               <Play className="h-4 w-4 mr-2 fill-current" />Iniciar Atividade
             </Button>
@@ -442,12 +604,25 @@ export default function Timesheet() {
       {/* Resumo para cobrança */}
       {billing.totalValor > 0 && (
         <div className="rounded-2xl border border-amber-500/20 bg-amber-500/[0.04] p-5 space-y-3">
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-sm font-black"><Receipt className="h-4 w-4 text-amber-600" /> Resumo para cobrança</div>
-            <div className="text-sm font-black text-amber-700 dark:text-amber-400">{formatBRL(billing.totalValor)} · {formatMinutes(billing.totalMin)}</div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-black text-amber-700 dark:text-amber-400">{formatBRL(billing.totalValor)} · {formatMinutes(billing.totalMin)}</span>
+              <Button size="sm" onClick={() => setCobrarOpen(true)} className="rounded-lg h-8 px-3 font-black uppercase text-[10px] tracking-widest bg-amber-500 hover:bg-amber-600 text-white gap-1.5">
+                <DollarSign className="h-3.5 w-3.5" />Gerar cobrança
+              </Button>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 flex-wrap">
+            {([{ k: "cliente", l: "Cliente" }, { k: "categoria", l: "Categoria" }, { k: "vinculo", l: "Vínculo" }, ...(scope === "office" ? [{ k: "membro", l: "Membro" }] : [])] as const).map(opt => (
+              <button key={opt.k} onClick={() => setBreakdown(opt.k as any)}
+                className={cn("px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors", breakdown === opt.k ? "bg-amber-500/20 text-amber-700 dark:text-amber-400" : "text-muted-foreground/60 hover:bg-muted/40")}>
+                {opt.l}
+              </button>
+            ))}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
-            {billing.porCliente.slice(0, 6).map(([nome, valor]) => (
+            {billing.grupos.slice(0, 8).map(([nome, valor]) => (
               <div key={nome} className="flex items-center justify-between text-xs border-b border-black/5 dark:border-border/50 py-1">
                 <span className="text-muted-foreground truncate">{nome}</span>
                 <span className="font-bold tabular-nums">{formatBRL(valor)}</span>
@@ -511,7 +686,7 @@ export default function Timesheet() {
                 const cfg = CATEGORIA_CONFIG[t.categoria as TimesheetCategoria];
                 const rCfg = t.referencia_tipo ? REFERENCIA_CONFIG[t.referencia_tipo as ReferenciaTipo] : null;
                 const clienteNome = (t as any).clientes?.nome;
-                const v = valorDe(t);
+                const v = valorDe(t, arred);
                 const mine = t.user_id === user?.id;
 
                 return (
@@ -562,6 +737,9 @@ export default function Timesheet() {
                         {t.faturavel === false && (
                           <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-black uppercase border-muted-foreground/20 text-muted-foreground/60">Não fat.</Badge>
                         )}
+                        {(t as any).faturado && (
+                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-black uppercase border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 gap-1"><BadgeCheck className="h-2.5 w-2.5" />Faturado</Badge>
+                        )}
                       </div>
                     </div>
 
@@ -581,6 +759,11 @@ export default function Timesheet() {
                           {t.status === "pausado" && (
                             <DropdownMenuItem className="rounded-lg gap-2" disabled={!!activeTimer} onClick={() => resumeTimer(t.id)}>
                               <PlayCircle className="h-4 w-4" /> Retomar
+                            </DropdownMenuItem>
+                          )}
+                          {t.status === "finalizado" && (
+                            <DropdownMenuItem className="rounded-lg gap-2" onClick={() => marcarFaturado([t.id], !(t as any).faturado)}>
+                              <BadgeCheck className="h-4 w-4" /> {(t as any).faturado ? "Reabrir faturamento" : "Marcar faturado"}
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuItem className="rounded-lg gap-2" onClick={() => openEdit(t)}><Pencil className="h-4 w-4" /> Editar</DropdownMenuItem>
@@ -631,7 +814,7 @@ export default function Timesheet() {
 
             <div className="space-y-1.5">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 flex items-center gap-1.5"><span className="h-4 w-4 rounded bg-primary/15 text-primary text-[9px] font-black flex items-center justify-center">3</span> Cliente / Lead <span className="text-muted-foreground/40 normal-case font-medium tracking-normal">— opcional</span></Label>
-              <Select value={clienteId || NONE} onValueChange={v => { const id = v === NONE ? "" : v; setClienteId(id); setRefTipo(CATEGORIA_TO_REF[categoria as TimesheetCategoria] ?? ""); setRefItems([]); setRefId(""); setRefLabel(""); }}>
+              <Select value={clienteId || NONE} onValueChange={v => { const id = v === NONE ? "" : v; setClienteId(id); const r = rateParaCliente(id); if (r != null) setValorHora(String(r)); setRefTipo(CATEGORIA_TO_REF[categoria as TimesheetCategoria] ?? ""); setRefItems([]); setRefId(""); setRefLabel(""); }}>
                 <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Selecionar cliente..." /></SelectTrigger>
                 <SelectContent className="max-h-72">
                   <SelectItem value={NONE}>Sem cliente</SelectItem>
@@ -744,7 +927,7 @@ export default function Timesheet() {
 
             <div className="space-y-1.5">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Cliente <span className="text-muted-foreground/40 normal-case font-medium tracking-normal">— opcional</span></Label>
-              <Select value={mCli || NONE} onValueChange={v => setMCli(v === NONE ? "" : v)}>
+              <Select value={mCli || NONE} onValueChange={v => { const id = v === NONE ? "" : v; setMCli(id); const r = rateParaCliente(id); if (r != null) setMValor(String(r)); }}>
                 <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Sem cliente" /></SelectTrigger>
                 <SelectContent className="max-h-72">
                   <SelectItem value={NONE}>Sem cliente</SelectItem>
@@ -775,6 +958,58 @@ export default function Timesheet() {
           <div className="px-5 pb-5 flex gap-2 justify-end border-t border-black/5 dark:border-border pt-3 shrink-0">
             <Button variant="ghost" onClick={() => setManualOpen(false)} className="rounded-xl">Cancelar</Button>
             <Button onClick={saveManual} disabled={!mDesc.trim() || !mCat || mSaving} className="rounded-xl font-black shadow-premium px-6">{mSaving ? "Salvando..." : editTarget ? "Salvar" : "Lançar"}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Configurações de faturamento */}
+      <TimesheetSettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} config={config} clientes={clientes} onSave={saveConfig} />
+
+      {/* Confirmar geração de cobrança */}
+      <Dialog open={cobrarOpen} onOpenChange={(o) => { if (!o && !cobrando) setCobrarOpen(false); }}>
+        <DialogContent aria-describedby={undefined} className="sm:max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-black text-base">
+              <div className="h-7 w-7 rounded-lg bg-amber-500/15 flex items-center justify-center"><Receipt className="h-3.5 w-3.5 text-amber-600" /></div>
+              Gerar cobrança no Financeiro
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-1">
+            <p className="text-sm text-muted-foreground">
+              Serão criadas receitas pendentes no Financeiro (categoria <strong>Honorários</strong>), uma por cliente, totalizando{" "}
+              <strong className="text-amber-600">{formatBRL(billing.totalValor)}</strong> ({billing.pend.length} registro{billing.pend.length !== 1 ? "s" : ""}). Os registros são marcados como <strong>faturados</strong>.
+            </p>
+            <div className="flex gap-2 justify-end pt-1">
+              <Button variant="ghost" onClick={() => setCobrarOpen(false)} disabled={cobrando} className="rounded-xl">Cancelar</Button>
+              <Button onClick={gerarCobranca} disabled={cobrando} className="rounded-xl font-black px-5 bg-amber-500 hover:bg-amber-600 text-white">
+                {cobrando ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <DollarSign className="h-4 w-4 mr-2" />}Gerar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Finalizar com observação */}
+      <Dialog open={!!finalizeId} onOpenChange={(o) => { if (!o) setFinalizeId(null); }}>
+        <DialogContent aria-describedby={undefined} className="sm:max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-black text-base">
+              <div className="h-7 w-7 rounded-lg bg-primary/15 flex items-center justify-center"><Square className="h-3.5 w-3.5 text-primary fill-current" /></div>
+              Finalizar timer
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-1">
+            <div className="text-center text-2xl font-black tabular-nums">{formatSeconds(elapsedTime)}</div>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Observação <span className="text-muted-foreground/40 normal-case font-medium tracking-normal">— opcional</span></Label>
+              <Textarea value={finalizeObs} onChange={e => setFinalizeObs(e.target.value)} rows={2} className="rounded-xl text-sm resize-none" placeholder="O que foi feito?" />
+            </div>
+            <div className="flex gap-2 justify-end pt-1">
+              <Button variant="ghost" onClick={() => setFinalizeId(null)} className="rounded-xl">Cancelar</Button>
+              <Button variant="destructive" onClick={async () => { const id = finalizeId!; setFinalizeId(null); await stopTimer(id, finalizeObs.trim() || undefined); }} className="rounded-xl font-black px-5">
+                <Square className="h-4 w-4 mr-2 fill-current" />Finalizar
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

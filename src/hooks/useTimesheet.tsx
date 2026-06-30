@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { timesheetService, Timesheet } from '@/services/timesheetService';
 import { TimesheetCategoria } from '@/types/timesheet';
 
@@ -184,6 +185,21 @@ export function useTimesheet() {
     }
   };
 
+  const marcarFaturado = async (ids: string[], faturado: boolean, financeiroId?: string | null): Promise<boolean> => {
+    if (!user || ids.length === 0) return false;
+    try {
+      const patch: any = { faturado, faturado_em: faturado ? new Date().toISOString() : null, updated_at: new Date().toISOString() };
+      if (financeiroId !== undefined) patch.financeiro_id = financeiroId;
+      const { error } = await supabase.from("timesheets").update(patch).in("id", ids);
+      if (error) throw error;
+      await fetchData();
+      return true;
+    } catch {
+      toast({ title: "Erro ao atualizar faturamento", variant: "destructive" });
+      return false;
+    }
+  };
+
   const remove = async (id: string): Promise<boolean> => {
     if (!user) return false;
     try {
@@ -220,7 +236,7 @@ export function useTimesheet() {
     data, loading, error, activeTimer,
     periodDays, setPeriodDays, scope, setScope,
     fetchData, startTimer, pauseTimer, resumeTimer, stopTimer,
-    addManual, update, remove,
+    addManual, update, remove, marcarFaturado,
     getActiveTimer: () => timesheetService.getActiveTimer(user?.id || ''),
     getTodayStats, getWeekStats,
   };
