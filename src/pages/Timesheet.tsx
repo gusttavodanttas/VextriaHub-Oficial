@@ -93,14 +93,14 @@ function formatDateHeader(dateStr: string) {
 
 function StatCard({ label, value, sub, Icon, color }: { label: string; value: string; sub?: string; Icon: React.FC<any>; color: string }) {
   return (
-    <div className="glass-card rounded-2xl border border-black/5 dark:border-border bg-card/40 shadow-premium p-5 flex items-center gap-4">
-      <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center shrink-0", color)}>
-        <Icon className="h-5 w-5" />
+    <div className="glass-card rounded-2xl border border-black/5 dark:border-border bg-card/40 shadow-premium p-3.5 sm:p-5 flex items-center gap-3 sm:gap-4">
+      <div className={cn("h-9 w-9 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center shrink-0", color)}>
+        <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
       </div>
       <div className="min-w-0">
-        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">{label}</p>
-        <p className="text-2xl font-black tracking-tight truncate">{value}</p>
-        {sub && <p className="text-[10px] text-muted-foreground/50 mt-0.5">{sub}</p>}
+        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 truncate">{label}</p>
+        <p className="text-lg sm:text-2xl font-black tracking-tight truncate">{value}</p>
+        {sub && <p className="text-[10px] text-muted-foreground/50 mt-0.5 truncate">{sub}</p>}
       </div>
     </div>
   );
@@ -479,42 +479,42 @@ export default function Timesheet() {
   };
 
   return (
-    <div className="flex-1 p-4 md:p-8 space-y-8 overflow-x-hidden entry-animate">
+    <div className="flex-1 p-4 md:p-8 space-y-6 md:space-y-8 overflow-x-hidden entry-animate">
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="h-11 w-11 sm:h-12 sm:w-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
             <Clock className="h-6 w-6 text-primary" />
           </div>
-          <div>
-            <h1 className="text-3xl font-black tracking-tight">Timesheet</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Controle o tempo gasto em suas atividades jurídicas.</p>
+          <div className="min-w-0">
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight">Timesheet</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">Controle o tempo gasto em suas atividades jurídicas.</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 w-full sm:w-auto">
           <Button variant="outline" size="icon" onClick={() => setSettingsOpen(true)}
-            className="rounded-xl h-11 w-11" title="Configurações de faturamento">
+            className="rounded-xl h-11 w-11 shrink-0" title="Configurações de faturamento">
             <Settings2 className="h-4 w-4" />
           </Button>
           <Button variant="outline" size="lg" onClick={openManual}
-            className="rounded-xl h-11 px-5 font-black uppercase text-xs tracking-widest">
-            <PenLine className="mr-2 h-4 w-4" />Lançar manual
+            className="flex-1 sm:flex-none rounded-xl h-11 px-3 sm:px-5 font-black uppercase text-xs tracking-widest">
+            <PenLine className="mr-1.5 sm:mr-2 h-4 w-4" />Manual
           </Button>
           <Button size="lg" onClick={openTimer} disabled={!!activeTimer}
-            className="rounded-xl h-11 px-6 font-black uppercase text-xs tracking-widest shadow-premium">
-            <Plus className="mr-2 h-4 w-4" />Novo Timer
+            className="flex-1 sm:flex-none rounded-xl h-11 px-3 sm:px-6 font-black uppercase text-xs tracking-widest shadow-premium">
+            <Plus className="mr-1.5 sm:mr-2 h-4 w-4" />Novo Timer
           </Button>
         </div>
       </div>
 
       {/* Stats */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {[1,2,3,4].map(i => <Skeleton key={i} className="h-20 rounded-2xl" />)}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <StatCard label="Hoje" value={formatMinutes(todayStats.totalMinutos) || "0m"} sub={`${todayStats.totalRegistros} registro${todayStats.totalRegistros !== 1 ? "s" : ""}`} Icon={CalendarDays} color="bg-primary/10 text-primary" />
           <StatCard label="Esta semana" value={formatMinutes(weekStats.totalMinutos) || "0m"} sub={`${weekStats.totalRegistros} registros`} Icon={CalendarClock} color="bg-violet-500/10 text-violet-500" />
           <StatCard label="Média diária" value={weekStats.totalRegistros > 0 ? formatMinutes(Math.round(weekStats.totalMinutos / 7)) : "0m"} sub="Últimos 7 dias" Icon={TrendingUp} color="bg-emerald-500/10 text-emerald-500" />
@@ -528,7 +528,7 @@ export default function Timesheet() {
         activeTimer ? "border-primary/30 bg-gradient-to-br from-primary/[0.04] via-transparent to-transparent" : "border-black/5 dark:border-border bg-card/40"
       )}>
         {activeTimer ? (
-          <div className="p-8 flex flex-col items-center gap-5">
+          <div className="p-5 sm:p-8 flex flex-col items-center gap-4 sm:gap-5">
             <div className="flex items-center gap-2 flex-wrap justify-center">
               {catCfg && (
                 <div className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest", catCfg.color)}>
@@ -551,11 +551,11 @@ export default function Timesheet() {
               )}
             </div>
 
-            <p className="text-base font-bold text-center text-foreground/70 max-w-md">{activeTimer.tarefa_descricao}</p>
+            <p className="text-sm sm:text-base font-bold text-center text-foreground/70 max-w-md px-2">{activeTimer.tarefa_descricao}</p>
 
             <div className="relative py-2">
               <div className="absolute inset-0 bg-primary/15 blur-3xl rounded-full" />
-              <span className="relative text-7xl md:text-9xl font-black tracking-tighter tabular-nums text-foreground">
+              <span className="relative text-5xl sm:text-7xl md:text-9xl font-black tracking-tighter tabular-nums text-foreground">
                 {formatSeconds(elapsedTime)}
               </span>
             </div>
@@ -577,13 +577,13 @@ export default function Timesheet() {
               </div>
             )}
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 w-full sm:w-auto max-w-xs sm:max-w-none">
               <Button variant="outline" onClick={() => pauseTimer(activeTimer.id)}
-                className="h-11 px-6 rounded-xl font-black text-xs uppercase tracking-wider border-black/10 dark:border-border">
+                className="flex-1 sm:flex-none h-11 px-4 sm:px-6 rounded-xl font-black text-xs uppercase tracking-wider border-black/10 dark:border-border">
                 <Pause className="h-4 w-4 mr-2" />Pausar
               </Button>
               <Button variant="destructive" onClick={() => { setFinalizeId(activeTimer.id); setFinalizeObs(""); }}
-                className="h-11 px-8 rounded-xl font-black text-xs uppercase tracking-wider shadow-premium">
+                className="flex-1 sm:flex-none h-11 px-4 sm:px-8 rounded-xl font-black text-xs uppercase tracking-wider shadow-premium">
                 <Square className="h-4 w-4 mr-2 fill-current" />Finalizar
               </Button>
             </div>
@@ -637,41 +637,47 @@ export default function Timesheet() {
       )}
 
       {/* Filtros */}
-      <div className="flex flex-col lg:flex-row gap-3">
-        <div className="flex items-center rounded-xl border border-black/8 dark:border-border bg-card/60 p-0.5 shrink-0">
-          <Button size="sm" variant={scope === "me" ? "secondary" : "ghost"} onClick={() => setScope("me")} className="h-9 rounded-lg px-3 text-xs font-black gap-1.5"><UserCircle className="h-3.5 w-3.5" />Eu</Button>
-          <Button size="sm" variant={scope === "office" ? "secondary" : "ghost"} onClick={() => setScope("office")} className="h-9 rounded-lg px-3 text-xs font-black gap-1.5"><Users className="h-3.5 w-3.5" />Equipe</Button>
+      <div className="space-y-3">
+        {/* Linha 1: escopo + período + busca */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center rounded-xl border border-black/8 dark:border-border bg-card/60 p-0.5 w-full sm:w-auto">
+            <Button size="sm" variant={scope === "me" ? "secondary" : "ghost"} onClick={() => setScope("me")} className="flex-1 sm:flex-none h-9 rounded-lg px-3 text-xs font-black gap-1.5"><UserCircle className="h-3.5 w-3.5" />Eu</Button>
+            <Button size="sm" variant={scope === "office" ? "secondary" : "ghost"} onClick={() => setScope("office")} className="flex-1 sm:flex-none h-9 rounded-lg px-3 text-xs font-black gap-1.5"><Users className="h-3.5 w-3.5" />Equipe</Button>
+          </div>
+          <Select value={String(periodDays)} onValueChange={(v) => setPeriodDays(Number(v))}>
+            <SelectTrigger className="w-full sm:w-32 h-11 rounded-xl bg-card/60 border-black/8 dark:border-border text-sm font-bold"><SelectValue /></SelectTrigger>
+            <SelectContent>{PERIODOS.map(p => <SelectItem key={p.v} value={String(p.v)}>{p.l}</SelectItem>)}</SelectContent>
+          </Select>
+          <div className="relative w-full sm:flex-1 sm:min-w-[180px]">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+            <Input value={fSearch} onChange={(e) => setFSearch(e.target.value)} placeholder="Buscar atividade ou cliente..." className="pl-10 rounded-xl h-11 bg-card/60 border-black/8 dark:border-border" />
+          </div>
         </div>
-        <Select value={String(periodDays)} onValueChange={(v) => setPeriodDays(Number(v))}>
-          <SelectTrigger className="w-full lg:w-32 h-11 rounded-xl bg-card/60 border-black/8 dark:border-border text-sm font-bold"><SelectValue /></SelectTrigger>
-          <SelectContent>{PERIODOS.map(p => <SelectItem key={p.v} value={String(p.v)}>{p.l}</SelectItem>)}</SelectContent>
-        </Select>
-        <div className="relative flex-1 min-w-[180px]">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
-          <Input value={fSearch} onChange={(e) => setFSearch(e.target.value)} placeholder="Buscar atividade ou cliente..." className="pl-10 rounded-xl h-11 bg-card/60 border-black/8 dark:border-border" />
+        {/* Linha 2: categoria + cliente + faturamento */}
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+          <Select value={fCategoria} onValueChange={setFCategoria}>
+            <SelectTrigger className="h-11 rounded-xl bg-card/60 border-black/8 dark:border-border text-sm font-bold"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Todas categorias</SelectItem>
+              {TIMESHEET_CATEGORIAS.map(c => <SelectItem key={c} value={c}>{CATEGORIA_CONFIG[c].label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={fCliente} onValueChange={setFCliente}>
+            <SelectTrigger className="h-11 rounded-xl bg-card/60 border-black/8 dark:border-border text-sm font-bold"><SelectValue /></SelectTrigger>
+            <SelectContent className="max-h-72">
+              <SelectItem value="todos">Todos clientes</SelectItem>
+              {clientes.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={fFaturado} onValueChange={setFFaturado}>
+            <SelectTrigger className="col-span-2 lg:col-span-1 h-11 rounded-xl bg-card/60 border-black/8 dark:border-border text-sm font-bold"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Faturados e não</SelectItem>
+              <SelectItem value="pendente">Não faturados</SelectItem>
+              <SelectItem value="faturado">Faturados</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-        <Select value={fCategoria} onValueChange={setFCategoria}>
-          <SelectTrigger className="w-full lg:w-40 h-11 rounded-xl bg-card/60 border-black/8 dark:border-border text-sm font-bold"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todas">Todas categorias</SelectItem>
-            {TIMESHEET_CATEGORIAS.map(c => <SelectItem key={c} value={c}>{CATEGORIA_CONFIG[c].label}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={fCliente} onValueChange={setFCliente}>
-          <SelectTrigger className="w-full lg:w-44 h-11 rounded-xl bg-card/60 border-black/8 dark:border-border text-sm font-bold"><SelectValue /></SelectTrigger>
-          <SelectContent className="max-h-72">
-            <SelectItem value="todos">Todos clientes</SelectItem>
-            {clientes.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={fFaturado} onValueChange={setFFaturado}>
-          <SelectTrigger className="w-full lg:w-40 h-11 rounded-xl bg-card/60 border-black/8 dark:border-border text-sm font-bold"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Faturados e não</SelectItem>
-            <SelectItem value="pendente">Não faturados</SelectItem>
-            <SelectItem value="faturado">Faturados</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
       {/* Registros */}
@@ -703,7 +709,7 @@ export default function Timesheet() {
 
                 return (
                   <div key={t.id}
-                    className={cn("flex items-center gap-4 p-4 rounded-xl bg-card/60 border border-black/5 dark:border-border hover:border-primary/20 hover:shadow-sm transition-all border-l-4", cfg?.border ?? "border-l-muted")}>
+                    className={cn("flex items-center gap-2.5 sm:gap-4 p-3 sm:p-4 rounded-xl bg-card/60 border border-black/5 dark:border-border hover:border-primary/20 hover:shadow-sm transition-all border-l-4", cfg?.border ?? "border-l-muted")}>
                     {cfg ? (
                       <div className={cn("h-9 w-9 rounded-lg flex items-center justify-center shrink-0", cfg.color)}><cfg.Icon className="h-4 w-4" /></div>
                     ) : (
@@ -932,8 +938,8 @@ export default function Timesheet() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
-              <div className="space-y-1.5">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5 col-span-2 sm:col-span-1">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Data</Label>
                 <Input type="date" value={mData} onChange={e => setMData(e.target.value)} className="h-10 rounded-xl text-sm" />
               </div>
