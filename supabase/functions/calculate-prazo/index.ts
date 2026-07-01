@@ -45,6 +45,9 @@ serve(async (req) => {
           numero_processo: pub.numero_processo,
           tipo_prazo: tipo_documento ?? 'Desconhecido',
           data_disponibilizacao,
+          // Espelha em data_publicacao (coluna canônica usada pela tela e relatórios).
+          // Idempotente: mesmo valor a cada re-execução, sem risco de sobrescrever edição manual.
+          data_publicacao: data_disponibilizacao,
           data_intimacao: resultado.data_intimacao,
           data_fim_prazo: resultado.data_fim_prazo,
           dias_uteis: resultado.dias_uteis,

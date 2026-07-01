@@ -46,6 +46,21 @@ interface Prazo {
   office_id?: string | null;
   concluido_em?: string | null;
   concluido_por?: string | null;
+  // Campos gravados pelo robô (OAB/DJEN)
+  data_disponibilizacao?: string | null;
+  data_intimacao?: string | null;
+  base_legal?: string | null;
+  tipo_prazo?: string | null;
+  eh_juizado?: boolean | null;
+}
+
+// Título de exibição (prazos do robô podem vir sem título)
+function tituloPrazo(p: Prazo): string {
+  return (p.titulo && p.titulo.trim()) || p.tipo_prazo || 'Prazo processual';
+}
+// Data de publicação: manual (data_publicacao) ou robô (data_disponibilizacao)
+function getDataPublicacao(p: Prazo): string | null {
+  return p.data_publicacao || p.data_disponibilizacao || null;
 }
 
 // Prazo fatal: data_fim_prazo (novo padrão) ou data_vencimento (legado)
@@ -238,7 +253,7 @@ export default function Prazos() {
   });
 
   const filtered = useMemo(() => prazos.filter(p => {
-    const matchSearch = !dSearch || p.titulo.toLowerCase().includes(dSearch.toLowerCase()) || (p.descricao || '').toLowerCase().includes(dSearch.toLowerCase());
+    const matchSearch = !dSearch || tituloPrazo(p).toLowerCase().includes(dSearch.toLowerCase()) || (p.descricao || '').toLowerCase().includes(dSearch.toLowerCase());
     const matchPriority = filterPriority === 'all' || p.prioridade === filterPriority;
     const matchConcluido = showConcluidos || p.status !== 'concluido';
     const matchUrgency = filterUrgency === 'all' || getUrgency(p) === filterUrgency;
@@ -505,7 +520,7 @@ export default function Prazos() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span className={cn('font-black text-sm', isConcluido && 'line-through text-muted-foreground')}>
-                          {prazo.titulo}
+                          {tituloPrazo(prazo)}
                         </span>
                         <Badge variant="outline" className={cn('text-[9px] font-black uppercase tracking-widest border px-2 py-0.5', priCfg.color)}>
                           {priCfg.label}
@@ -521,11 +536,18 @@ export default function Prazos() {
                             <User className="h-3 w-3" />{clienteNomeDoPrazo(prazo)}
                           </span>
                         )}
-                        {prazo.data_publicacao && (
+                        {getDataPublicacao(prazo) && (
                           <span className="flex items-center gap-1 text-sky-600">
                             <Newspaper className="h-3 w-3" />
                             <span className="text-muted-foreground">Publicação:</span>
-                            {format(toLocalDate(prazo.data_publicacao), 'dd/MM/yy', { locale: ptBR })}
+                            {format(toLocalDate(getDataPublicacao(prazo)!), 'dd/MM/yy', { locale: ptBR })}
+                          </span>
+                        )}
+                        {prazo.data_intimacao && (
+                          <span className="flex items-center gap-1 text-violet-600">
+                            <Clock className="h-3 w-3" />
+                            <span className="text-muted-foreground">Intimação:</span>
+                            {format(toLocalDate(prazo.data_intimacao), 'dd/MM/yy', { locale: ptBR })}
                           </span>
                         )}
                         {prazo.data_prazo_interno && (
@@ -541,6 +563,12 @@ export default function Prazos() {
                             <span className="text-muted-foreground font-normal">Fatal:</span>
                             {format(toLocalDate(getDataPrazo(prazo)!), 'dd/MM/yy', { locale: ptBR })}
                           </span>
+                        )}
+                        {prazo.eh_juizado && (
+                          <span className="px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-600 text-[9px] font-black uppercase tracking-widest">Juizado</span>
+                        )}
+                        {prazo.base_legal && (
+                          <span className="text-muted-foreground/50 text-[10px]">{prazo.base_legal}</span>
                         )}
                         {/* Link para processo */}
                         {prazo.processo_id && (
