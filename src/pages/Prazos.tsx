@@ -45,6 +45,7 @@ interface Prazo {
   user_id: string;
   office_id?: string | null;
   responsavel_id?: string | null;
+  titular?: string | null;
   concluido_em?: string | null;
   concluido_por?: string | null;
   // Campos gravados pelo robô (OAB/DJEN)
@@ -210,6 +211,7 @@ export default function Prazos() {
   const [filterUrgency, setFilterUrgency] = useState<Urgency | 'all'>('all');
   const [filterResp, setFilterResp] = useState('all');
   const [filterCliente, setFilterCliente] = useState('all');
+  const [filterTitular, setFilterTitular] = useState('all');
   const [showConcluidos, setShowConcluidos] = useState(false);
   const [view, setView] = useState<'lista' | 'calendario'>('lista');
   const [mesRef, setMesRef] = useState(new Date());
@@ -314,8 +316,9 @@ export default function Prazos() {
     const matchResp = filterResp === 'all'
       || (filterResp === '__none__' ? !p.responsavel_id : p.responsavel_id === filterResp);
     const matchCliente = filterCliente === 'all' || clienteDoPrazo(p) === filterCliente;
-    return matchSearch && matchPriority && matchConcluido && matchUrgency && matchResp && matchCliente;
-  }), [prazos, dSearch, filterPriority, filterUrgency, showConcluidos, filterResp, filterCliente, processoInfo]);
+    const matchTitular = filterTitular === 'all' || (p.titular || 'nosso') === filterTitular;
+    return matchSearch && matchPriority && matchConcluido && matchUrgency && matchResp && matchCliente && matchTitular;
+  }), [prazos, dSearch, filterPriority, filterUrgency, showConcluidos, filterResp, filterCliente, filterTitular, processoInfo]);
 
   // Clientes que possuem prazos (para o filtro)
   const clienteOptions = useMemo(() => {
@@ -383,6 +386,7 @@ export default function Prazos() {
     office_id: p.office_id,
     user_id: p.user_id,
     avisos_dias: (p as any).avisos_dias ?? null,
+    titular: p.titular ?? 'nosso',
   });
 
   return (
@@ -511,6 +515,14 @@ export default function Prazos() {
             </SelectContent>
           </Select>
         )}
+        <Select value={filterTitular} onValueChange={setFilterTitular}>
+          <SelectTrigger className="h-10 rounded-xl w-full sm:w-40 bg-background border-border text-sm font-bold"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os prazos</SelectItem>
+            <SelectItem value="nosso">Nossos</SelectItem>
+            <SelectItem value="contraria">Parte contrária</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Barra de ações em lote */}
@@ -631,6 +643,11 @@ export default function Prazos() {
                         {!prazo.responsavel_id && (
                           <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest border px-2 py-0.5 bg-fuchsia-500/10 text-fuchsia-600 border-fuchsia-500/20">
                             Sem responsável
+                          </Badge>
+                        )}
+                        {prazo.titular === 'contraria' && (
+                          <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest border px-2 py-0.5 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20">
+                            Parte contrária
                           </Badge>
                         )}
                       </div>

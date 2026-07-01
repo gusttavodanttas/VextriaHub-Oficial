@@ -75,6 +75,7 @@ export function useProximityNotifications() {
           .eq("office_id", user.office_id).neq("status", "concluido")
           .gte("data_fim_prazo", startDate).lte("data_fim_prazo", endDate);
         (data || []).forEach((p: any) => {
+          if (p.titular === "contraria") return; // prazo da parte contrária: só monitoramento
           const d = diasAte(p.data_fim_prazo);
           marcosDe(p).forEach((D) => {
             if (d < 0 || d > D) return;

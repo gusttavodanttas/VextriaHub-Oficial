@@ -41,6 +41,7 @@ export interface PrazoFormData {
   office_id?: string | null;
   user_id?: string;
   avisos_dias?: number[] | null;
+  titular?: string | null;
 }
 
 interface NovoPrazoStandaloneDialogProps {
@@ -231,6 +232,7 @@ type FormState = {
   prioridade: string;
   responsavel_id: string;
   avisosDias: number[] | null;
+  titular: string;
 };
 
 function emptyForm(tituloSugerido?: string, numeroProcesso?: string, userId = ""): FormState {
@@ -240,6 +242,7 @@ function emptyForm(tituloSugerido?: string, numeroProcesso?: string, userId = ""
     dataPublicacao: "", dataPrazoInterno: "", dataPrazoFatal: "", prioridade: "media",
     responsavel_id: userId,
     avisosDias: null,
+    titular: "nosso",
   };
 }
 function prazoToForm(p: PrazoFormData, userId = ""): FormState {
@@ -252,6 +255,7 @@ function prazoToForm(p: PrazoFormData, userId = ""): FormState {
     prioridade: p.prioridade || "media",
     responsavel_id: (p as any).responsavel_id || userId,
     avisosDias: (p as any).avisos_dias ?? null,
+    titular: (p as any).titular || "nosso",
   };
 }
 
@@ -653,9 +657,14 @@ export const NovoPrazoStandaloneDialog = ({
           data_publicacao: formData.dataPublicacao || null,
           data_prazo_interno: formData.dataPrazoInterno || null,
           responsavel_id: formData.responsavel_id || user?.id || null,
+          titular: formData.titular,
         };
         if (formData.avisosDias != null) updates.avisos_dias = formData.avisosDias;
-        const { error } = await supabase.from('prazos').update(updates).eq('id', prazoParaEditar!.id!);
+        let { error } = await supabase.from('prazos').update(updates).eq('id', prazoParaEditar!.id!);
+        if (error && /titular/.test(error.message || '')) { // coluna ainda não criada
+          const { titular: _t, ...semTitular } = updates;
+          ({ error } = await supabase.from('prazos').update(semTitular).eq('id', prazoParaEditar!.id!));
+        }
         if (error) throw error;
         toast({ title: "Prazo atualizado", description: "As alterações foram salvas." });
       } else {
@@ -675,7 +684,12 @@ export const NovoPrazoStandaloneDialog = ({
         if (formData.dataPublicacao) payload.data_publicacao = formData.dataPublicacao;
         if (formData.dataPrazoInterno) payload.data_prazo_interno = formData.dataPrazoInterno;
         if (formData.avisosDias != null) payload.avisos_dias = formData.avisosDias;
-        const { error } = await supabase.from('prazos').insert(payload);
+        payload.titular = formData.titular;
+        let { error } = await supabase.from('prazos').insert(payload);
+        if (error && /titular/.test(error.message || '')) { // coluna ainda não criada
+          const { titular: _t, ...semTitular } = payload;
+          ({ error } = await supabase.from('prazos').insert(semTitular));
+        }
         if (error) throw error;
         toast({ title: "Prazo adicionado", description: "O prazo foi salvo com sucesso." });
       }
@@ -859,6 +873,26 @@ export const NovoPrazoStandaloneDialog = ({
                   )
                 )}
               </div>
+            </div>
+
+            {/* De quem é o prazo */}
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">De quem é o prazo?</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setFormData(p => ({ ...p, titular: 'nosso' }))}
+                  className={cn("h-10 rounded-xl border text-[11px] font-black uppercase tracking-widest transition-all",
+                    formData.titular === 'nosso' ? "bg-primary/10 border-primary/40 text-primary" : "border-border text-muted-foreground hover:border-foreground/20")}>
+                  Nosso escritório
+                </button>
+                <button type="button" onClick={() => setFormData(p => ({ ...p, titular: 'contraria' }))}
+                  className={cn("h-10 rounded-xl border text-[11px] font-black uppercase tracking-widest transition-all",
+                    formData.titular === 'contraria' ? "bg-indigo-500/10 border-indigo-500/40 text-indigo-600 dark:text-indigo-400" : "border-border text-muted-foreground hover:border-foreground/20")}>
+                  Parte contrária
+                </button>
+              </div>
+              {formData.titular === 'contraria' && (
+                <p className="text-[10px] text-muted-foreground/60">Somente acompanhamento — não gera alertas no sino.</p>
+              )}
             </div>
 
             {/* Prioridade */}
