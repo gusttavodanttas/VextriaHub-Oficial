@@ -2,6 +2,9 @@ import { useState, useMemo, useDeferredValue } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useMultiSelect } from "@/hooks/useMultiSelect";
 import { useToast } from "@/hooks/use-toast";
 import { NovoPrazoStandaloneDialog, PrazoFormData } from "@/components/Processos/NovoPrazoStandaloneDialog";
 import { useOpenItemFromSearch } from "@/hooks/useOpenItemFromSearch";
@@ -17,6 +20,7 @@ import {
   Plus, Search, AlertTriangle, Clock, CalendarClock, CheckCircle2,
   ChevronRight, Flame, Calendar, Inbox, MoreHorizontal, Pencil, Trash2,
   CheckCheck, Timer, Newspaper, Shield, AlertOctagon, Eye, EyeOff, RotateCcw,
+  User, X,
 } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -49,6 +53,12 @@ function getDataPrazo(prazo: Prazo): string | null {
   return prazo.data_fim_prazo || prazo.data_vencimento || null;
 }
 
+// Datas só-data (YYYY-MM-DD) devem ser interpretadas no fuso local (meio-dia),
+// senão viram o dia anterior em UTC-3. Timestamps completos passam direto.
+function toLocalDate(s: string): Date {
+  return new Date(s.length <= 10 ? `${s}T12:00:00` : s);
+}
+
 type Urgency = 'vencido' | 'hoje' | 'critico' | 'normal' | 'concluido';
 
 const PRIORIDADE_RANK: Record<string, number> = { alta: 0, media: 1, baixa: 2 };
@@ -57,7 +67,7 @@ function getUrgency(prazo: Prazo): Urgency {
   if (prazo.status === 'concluido') return 'concluido';
   const data = getDataPrazo(prazo);
   if (!data) return 'normal';
-  const days = differenceInCalendarDays(new Date(data), startOfDay(new Date()));
+  const days = differenceInCalendarDays(toLocalDate(data), startOfDay(new Date()));
   if (days < 0) return 'vencido';
   if (days === 0) return 'hoje';
   if (days <= 3) return 'critico';
@@ -84,24 +94,29 @@ function getDaysLabel(prazo: Prazo): string {
   if (prazo.status === 'concluido') return 'Concluído';
   const data = getDataPrazo(prazo);
   if (!data) return '—';
-  const days = differenceInCalendarDays(new Date(data), startOfDay(new Date()));
+  const days = differenceInCalendarDays(toLocalDate(data), startOfDay(new Date()));
   if (days < 0) return `Vencido há ${Math.abs(days)}d`;
   if (days === 0) return 'Vence hoje';
   if (days === 1) return 'Amanhã';
   return `${days} dias`;
 }
 
-function sortPrazos(items: Prazo[]): Prazo[] {
-  return [...items].sort((a, b) => {
-    const prioA = PRIORIDADE_RANK[a.prioridade] ?? 1;
-    const prioB = PRIORIDADE_RANK[b.prioridade] ?? 1;
-    if (prioA !== prioB) return prioA - prioB;
+function sortPrazos(items: Prazo[], dateFirst = false): Prazo[] {
+  const dateCmp = (a: Prazo, b: Prazo) => {
     const dateA = getDataPrazo(a);
     const dateB = getDataPrazo(b);
     if (!dateA && !dateB) return 0;
     if (!dateA) return 1;
     if (!dateB) return -1;
     return dateA.localeCompare(dateB);
+  };
+  return [...items].sort((a, b) => {
+    // Vencidos: mais atrasado (data mais antiga) primeiro
+    if (dateFirst) { const d = dateCmp(a, b); if (d !== 0) return d; }
+    const prioA = PRIORIDADE_RANK[a.prioridade] ?? 1;
+    const prioB = PRIORIDADE_RANK[b.prioridade] ?? 1;
+    if (prioA !== prioB) return prioA - prioB;
+    return dateCmp(a, b);
   });
 }
 
@@ -126,10 +141,13 @@ export default function Prazos() {
   const dSearch = useDeferredValue(search);
   const [filterPriority, setFilterPriority] = useState<'all' | 'alta' | 'media' | 'baixa'>('all');
   const [filterUrgency, setFilterUrgency] = useState<Urgency | 'all'>('all');
+  const [filterResp, setFilterResp] = useState('all');
+  const [filterCliente, setFilterCliente] = useState('all');
   const [showConcluidos, setShowConcluidos] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Prazo | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Prazo | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
   const { data: prazos = [], isLoading } = useQuery<Prazo[]>({
     queryKey: ['prazos', user?.office_id, user?.id],
@@ -146,11 +164,29 @@ export default function Prazos() {
       }
       const { data, error } = await query;
       if (error) throw error;
-      return (data || []) as Prazo[];
+      // Filtra soft-deletados em JS (resiliente caso a coluna ainda não exista)
+      return (data || []).filter((p: any) => !p.deletado) as Prazo[];
     },
     enabled: !!user?.id,
     refetchInterval: 60_000,
   });
+
+  // Mapa processo → cliente (para filtrar/exibir por cliente)
+  const { data: processoInfo = {} } = useQuery<Record<string, { clienteId: string | null; clienteNome: string | null }>>({
+    queryKey: ['prazos-processos', user?.office_id],
+    enabled: !!user?.office_id,
+    queryFn: async () => {
+      const { data } = await supabase.from('processos')
+        .select('id, cliente_id, clientes(nome)')
+        .eq('office_id', user!.office_id).eq('deletado', false);
+      const m: Record<string, { clienteId: string | null; clienteNome: string | null }> = {};
+      (data || []).forEach((p: any) => { m[p.id] = { clienteId: p.cliente_id ?? null, clienteNome: p.clientes?.nome ?? null }; });
+      return m;
+    },
+  });
+
+  const clienteDoPrazo = (p: Prazo) => p.processo_id ? (processoInfo[p.processo_id]?.clienteId ?? null) : null;
+  const clienteNomeDoPrazo = (p: Prazo) => p.processo_id ? (processoInfo[p.processo_id]?.clienteNome ?? null) : null;
 
   // Busca global: rola até o prazo e abre o detalhe/edição
   useOpenItemFromSearch('/prazos', !isLoading && prazos.length > 0, (openId) => {
@@ -189,14 +225,16 @@ export default function Prazos() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('prazos').delete().eq('id', id);
+      // Soft delete → vai para a Lixeira (recuperável)
+      const { error } = await supabase.from('prazos').update({ deletado: true }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['prazos'] });
-      toast({ title: 'Prazo excluído' });
+      toast({ title: 'Prazo excluído', description: 'Movido para a lixeira.' });
       setDeleteTarget(null);
     },
+    onError: (e: any) => toast({ title: 'Erro ao excluir', description: e.message, variant: 'destructive' }),
   });
 
   const filtered = useMemo(() => prazos.filter(p => {
@@ -204,14 +242,46 @@ export default function Prazos() {
     const matchPriority = filterPriority === 'all' || p.prioridade === filterPriority;
     const matchConcluido = showConcluidos || p.status !== 'concluido';
     const matchUrgency = filterUrgency === 'all' || getUrgency(p) === filterUrgency;
-    return matchSearch && matchPriority && matchConcluido && matchUrgency;
-  }), [prazos, dSearch, filterPriority, filterUrgency, showConcluidos]);
+    const matchResp = filterResp === 'all' || (p as any).responsavel_id === filterResp;
+    const matchCliente = filterCliente === 'all' || clienteDoPrazo(p) === filterCliente;
+    return matchSearch && matchPriority && matchConcluido && matchUrgency && matchResp && matchCliente;
+  }), [prazos, dSearch, filterPriority, filterUrgency, showConcluidos, filterResp, filterCliente, processoInfo]);
+
+  // Clientes que possuem prazos (para o filtro)
+  const clienteOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    prazos.forEach(p => { const cid = clienteDoPrazo(p); if (cid) seen.set(cid, clienteNomeDoPrazo(p) || 'Cliente'); });
+    return [...seen.entries()].map(([id, nome]) => ({ id, nome })).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  }, [prazos, processoInfo]);
+
+  const multiSelect = useMultiSelect(filtered);
+
+  const bulkConcludeMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      let { error } = await supabase.from('prazos')
+        .update({ status: 'concluido', concluido_em: new Date().toISOString(), concluido_por: user?.id } as any)
+        .in('id', ids);
+      if (error) ({ error } = await supabase.from('prazos').update({ status: 'concluido' }).in('id', ids));
+      if (error) throw error;
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['prazos'] }); multiSelect.clearSelection(); toast({ title: 'Prazos concluídos' }); },
+    onError: (e: any) => toast({ title: 'Erro', description: e.message, variant: 'destructive' }),
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase.from('prazos').update({ deletado: true }).in('id', ids);
+      if (error) throw error;
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['prazos'] }); multiSelect.clearSelection(); setBulkDeleteOpen(false); toast({ title: 'Prazos excluídos', description: 'Movidos para a lixeira.' }); },
+    onError: (e: any) => toast({ title: 'Erro ao excluir', description: e.message, variant: 'destructive' }),
+  });
 
   const grouped = useMemo(() => {
     const map: Record<Urgency, Prazo[]> = { vencido: [], hoje: [], critico: [], normal: [], concluido: [] };
     filtered.forEach(p => map[getUrgency(p)].push(p));
-    // Sort each section: prioridade then data
-    (Object.keys(map) as Urgency[]).forEach(k => { map[k] = sortPrazos(map[k]); });
+    // Vencidos: mais atrasado primeiro; demais: prioridade e depois data
+    (Object.keys(map) as Urgency[]).forEach(k => { map[k] = sortPrazos(map[k], k === 'vencido'); });
     return map;
   }, [filtered]);
 
@@ -335,7 +405,47 @@ export default function Prazos() {
             Concluídos
           </button>
         </div>
+        {officeUsers.length > 0 && (
+          <Select value={filterResp} onValueChange={setFilterResp}>
+            <SelectTrigger className="h-10 rounded-xl w-full sm:w-44 bg-background border-border text-sm font-bold"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos responsáveis</SelectItem>
+              {officeUsers.map((u: any) => <SelectItem key={u.user_id} value={u.user_id}>{membroMap[u.user_id]}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+        {clienteOptions.length > 0 && (
+          <Select value={filterCliente} onValueChange={setFilterCliente}>
+            <SelectTrigger className="h-10 rounded-xl w-full sm:w-44 bg-background border-border text-sm font-bold"><SelectValue /></SelectTrigger>
+            <SelectContent className="max-h-72">
+              <SelectItem value="all">Todos clientes</SelectItem>
+              {clienteOptions.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
       </div>
+
+      {/* Barra de ações em lote */}
+      {multiSelect.selectedCount > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-primary/20 bg-primary/[0.04] px-3 py-2">
+          <span className="text-[11px] font-black uppercase tracking-widest text-muted-foreground px-1">
+            {multiSelect.selectedCount} selecionado{multiSelect.selectedCount !== 1 ? 's' : ''}
+          </span>
+          <Button size="sm" variant="outline" disabled={bulkConcludeMutation.isPending}
+            onClick={() => bulkConcludeMutation.mutate(multiSelect.getSelectedItems().map(i => i.id))}
+            className="h-8 rounded-lg gap-1.5 font-bold text-emerald-600">
+            <CheckCheck className="h-3.5 w-3.5" /> Concluir
+          </Button>
+          <Button size="sm" variant="outline" disabled={bulkDeleteMutation.isPending}
+            onClick={() => setBulkDeleteOpen(true)}
+            className="h-8 rounded-lg gap-1.5 font-bold text-red-600">
+            <Trash2 className="h-3.5 w-3.5" /> Excluir
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => multiSelect.clearSelection()} className="h-8 w-8 p-0 rounded-lg ml-auto" title="Limpar seleção">
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
 
       {/* Loading */}
       {isLoading && (
@@ -383,12 +493,14 @@ export default function Prazos() {
                     key={prazo.id}
                     id={`item-${prazo.id}`}
                     className={cn(
-                      'group relative flex items-center gap-4 bg-background border border-border/60 rounded-2xl px-5 py-4 border-l-4 transition-all hover:border-border hover:shadow-sm',
+                      'group relative flex items-center gap-3 sm:gap-4 bg-background border border-border/60 rounded-2xl px-4 sm:px-5 py-4 border-l-4 transition-all hover:border-border hover:shadow-sm',
                       cfg.border,
+                      multiSelect.isSelected(prazo.id) && 'ring-2 ring-primary/20 border-primary/40',
                       isConcluido && 'opacity-60'
                     )}
                   >
-                    <div className={cn('w-2 h-2 rounded-full shrink-0', cfg.dot)} />
+                    <Checkbox checked={multiSelect.isSelected(prazo.id)} onCheckedChange={() => multiSelect.toggleItem(prazo.id)} className="rounded-md shrink-0" />
+                    <div className={cn('w-2 h-2 rounded-full shrink-0 hidden sm:block', cfg.dot)} />
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -404,25 +516,30 @@ export default function Prazos() {
                       )}
                       {/* 3 datas */}
                       <div className="flex flex-wrap items-center gap-3 text-[11px]">
+                        {clienteNomeDoPrazo(prazo) && (
+                          <span className="flex items-center gap-1 text-muted-foreground font-semibold">
+                            <User className="h-3 w-3" />{clienteNomeDoPrazo(prazo)}
+                          </span>
+                        )}
                         {prazo.data_publicacao && (
                           <span className="flex items-center gap-1 text-sky-600">
                             <Newspaper className="h-3 w-3" />
                             <span className="text-muted-foreground">Publicação:</span>
-                            {format(new Date(prazo.data_publicacao), 'dd/MM/yy', { locale: ptBR })}
+                            {format(toLocalDate(prazo.data_publicacao), 'dd/MM/yy', { locale: ptBR })}
                           </span>
                         )}
                         {prazo.data_prazo_interno && (
                           <span className="flex items-center gap-1 text-amber-600">
                             <Shield className="h-3 w-3" />
                             <span className="text-muted-foreground">Interno:</span>
-                            {format(new Date(prazo.data_prazo_interno), 'dd/MM/yy', { locale: ptBR })}
+                            {format(toLocalDate(prazo.data_prazo_interno), 'dd/MM/yy', { locale: ptBR })}
                           </span>
                         )}
                         {getDataPrazo(prazo) && (
                           <span className="flex items-center gap-1 text-red-600 font-bold">
                             <AlertOctagon className="h-3 w-3" />
                             <span className="text-muted-foreground font-normal">Fatal:</span>
-                            {format(new Date(getDataPrazo(prazo)!), 'dd/MM/yy', { locale: ptBR })}
+                            {format(toLocalDate(getDataPrazo(prazo)!), 'dd/MM/yy', { locale: ptBR })}
                           </span>
                         )}
                         {/* Link para processo */}
@@ -458,7 +575,7 @@ export default function Prazos() {
                           size="sm"
                           onClick={() => concludeMutation.mutate(prazo.id)}
                           disabled={concludeMutation.isPending}
-                          className="h-8 w-8 p-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-700"
+                          className="h-8 w-8 p-0 rounded-xl max-sm:opacity-100 opacity-0 group-hover:opacity-100 transition-opacity text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-700"
                           title="Marcar como concluído"
                         >
                           <CheckCheck className="h-4 w-4" />
@@ -469,7 +586,7 @@ export default function Prazos() {
                           size="sm"
                           onClick={() => reopenMutation.mutate(prazo.id)}
                           disabled={reopenMutation.isPending}
-                          className="h-8 w-8 p-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity text-sky-600 hover:bg-sky-500/10 hover:text-sky-700"
+                          className="h-8 w-8 p-0 rounded-xl max-sm:opacity-100 opacity-0 group-hover:opacity-100 transition-opacity text-sky-600 hover:bg-sky-500/10 hover:text-sky-700"
                           title="Reabrir prazo"
                         >
                           <RotateCcw className="h-4 w-4" />
@@ -481,7 +598,7 @@ export default function Prazos() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-8 w-8 p-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="h-8 w-8 p-0 rounded-xl max-sm:opacity-100 opacity-0 group-hover:opacity-100 transition-opacity"
                           >
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
@@ -570,6 +687,30 @@ export default function Prazos() {
             <AlertDialogAction
               onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
               disabled={deleteMutation.isPending}
+              className="rounded-xl bg-red-600 hover:bg-red-700 text-white"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Delete Confirm */}
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" /> Excluir {multiSelect.selectedCount} prazo{multiSelect.selectedCount !== 1 ? 's' : ''}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Os prazos selecionados serão movidos para a lixeira (recuperáveis).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => bulkDeleteMutation.mutate(multiSelect.getSelectedItems().map(i => i.id))}
+              disabled={bulkDeleteMutation.isPending}
               className="rounded-xl bg-red-600 hover:bg-red-700 text-white"
             >
               Excluir
