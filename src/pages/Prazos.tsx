@@ -58,10 +58,6 @@ interface Prazo {
 function tituloPrazo(p: Prazo): string {
   return (p.titulo && p.titulo.trim()) || p.tipo_prazo || 'Prazo processual';
 }
-// Data de publicação: manual (data_publicacao) ou robô (data_disponibilizacao)
-function getDataPublicacao(p: Prazo): string | null {
-  return p.data_publicacao || p.data_disponibilizacao || null;
-}
 
 // Prazo fatal: data_fim_prazo (novo padrão) ou data_vencimento (legado)
 function getDataPrazo(prazo: Prazo): string | null {
@@ -360,18 +356,18 @@ export default function Prazos() {
                 setFilterUrgency(prev => prev === urgency ? 'all' : urgency);
               }}
               className={cn(
-                'rounded-2xl border p-4 flex items-center gap-3 text-left transition-all',
+                'rounded-2xl border p-3 sm:p-4 flex items-center gap-2.5 sm:gap-3 text-left transition-all',
                 bg,
                 urgency ? 'cursor-pointer hover:scale-[1.02] active:scale-[0.98]' : 'cursor-default',
                 isActive && activeBg,
               )}
             >
-              <div className={cn('p-2 rounded-xl bg-background/60', color)}>
+              <div className={cn('p-2 rounded-xl bg-background/60 shrink-0', color)}>
                 <Icon className="h-4 w-4" />
               </div>
-              <div>
-                <p className={cn('text-2xl font-black', color)}>{value}</p>
-                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest">
+              <div className="min-w-0">
+                <p className={cn('text-xl sm:text-2xl font-black', color)}>{value}</p>
+                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest truncate">
                   {label}{isActive && ' ✕'}
                 </p>
               </div>
@@ -536,11 +532,18 @@ export default function Prazos() {
                             <User className="h-3 w-3" />{clienteNomeDoPrazo(prazo)}
                           </span>
                         )}
-                        {getDataPublicacao(prazo) && (
+                        {prazo.data_publicacao && (
                           <span className="flex items-center gap-1 text-sky-600">
                             <Newspaper className="h-3 w-3" />
                             <span className="text-muted-foreground">Publicação:</span>
-                            {format(toLocalDate(getDataPublicacao(prazo)!), 'dd/MM/yy', { locale: ptBR })}
+                            {format(toLocalDate(prazo.data_publicacao), 'dd/MM/yy', { locale: ptBR })}
+                          </span>
+                        )}
+                        {prazo.data_disponibilizacao && (
+                          <span className="flex items-center gap-1 text-cyan-600">
+                            <Newspaper className="h-3 w-3" />
+                            <span className="text-muted-foreground">Disponibilização:</span>
+                            {format(toLocalDate(prazo.data_disponibilizacao), 'dd/MM/yy', { locale: ptBR })}
                           </span>
                         )}
                         {prazo.data_intimacao && (
