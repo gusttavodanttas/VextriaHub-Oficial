@@ -10,6 +10,10 @@ alter table public.prazos add column if not exists data_vencimento    date;
 alter table public.prazos add column if not exists processo_id        uuid;
 alter table public.prazos add column if not exists user_id            uuid;
 alter table public.prazos add column if not exists responsavel_id     uuid;
+alter table public.prazos add column if not exists office_id          uuid;
+-- Auditoria de conclusão (concluir/reabrir dependem destas)
+alter table public.prazos add column if not exists concluido_em       timestamptz;
+alter table public.prazos add column if not exists concluido_por      uuid;
 
 -- Corrige a cópia indevida anterior: publicação NÃO é disponibilização
 -- (Lei 11.419/2006 art. 4º §3º — publicação = 1º dia útil seguinte).
