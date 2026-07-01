@@ -474,13 +474,13 @@ const Tarefas = () => {
             <p className="text-sm text-muted-foreground">Organize e acompanhe seus afazeres.</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           {view === "lista" && !multiSelect.isNoneSelected && (
-            <Button variant="destructive" onClick={() => setDeleteDialogOpen(true)} className="rounded-xl h-10 gap-2 font-bold">
-              <Trash2 className="h-4 w-4" /> Excluir ({multiSelect.selectedCount})
+            <Button variant="destructive" onClick={() => setDeleteDialogOpen(true)} className="rounded-xl h-10 gap-2 font-bold shrink-0">
+              <Trash2 className="h-4 w-4" /> <span className="hidden sm:inline">Excluir </span>({multiSelect.selectedCount})
             </Button>
           )}
-          <div className="flex items-center rounded-xl border border-black/8 dark:border-border bg-card/60 p-0.5">
+          <div className="flex items-center rounded-xl border border-black/8 dark:border-border bg-card/60 p-0.5 shrink-0">
             <Button size="icon" variant={view === "lista" ? "secondary" : "ghost"}
               onClick={() => setView("lista")} className="h-9 w-9 rounded-lg" title="Lista">
               <List className="h-4 w-4" />
@@ -490,7 +490,7 @@ const Tarefas = () => {
               <Columns3 className="h-4 w-4" />
             </Button>
           </div>
-          <Button onClick={openNew} className="rounded-xl h-10 gap-2 font-bold shadow-sm">
+          <Button onClick={openNew} className="flex-1 sm:flex-none rounded-xl h-10 gap-2 font-bold shadow-sm">
             <Plus className="h-4 w-4" /> Nova Tarefa
           </Button>
         </div>
@@ -565,7 +565,7 @@ const Tarefas = () => {
           <Input placeholder="Buscar por título, cliente ou descrição..." value={search}
             onChange={(e) => setSearch(e.target.value)} className="pl-10 h-11 rounded-xl bg-card/40 border-black/5 dark:border-border" />
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-2 md:flex md:flex-wrap gap-2">
           {view === "lista" && (
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-full md:w-32 h-11 rounded-xl bg-card/40 border-black/5 dark:border-border font-bold"><SelectValue /></SelectTrigger>

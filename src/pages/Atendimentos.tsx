@@ -1011,13 +1011,13 @@ const AtendimentoCard: React.FC<{
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 
 const StatCard: React.FC<{ label: string; value: number | string; Icon: React.FC<any>; color: string }> = ({ label, value, Icon, color }) => (
-  <div className="glass-card rounded-2xl border border-black/5 dark:border-border bg-card/40 shadow-premium p-5 flex items-center gap-4">
-    <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center shrink-0", color)}>
-      <Icon className="h-5 w-5" />
+  <div className="glass-card rounded-2xl border border-black/5 dark:border-border bg-card/40 shadow-premium p-3.5 sm:p-5 flex items-center gap-3 sm:gap-4">
+    <div className={cn("h-9 w-9 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center shrink-0", color)}>
+      <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
     </div>
-    <div>
-      <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">{label}</p>
-      <p className="text-2xl font-black tracking-tight">{value}</p>
+    <div className="min-w-0">
+      <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 truncate">{label}</p>
+      <p className="text-lg sm:text-2xl font-black tracking-tight">{value}</p>
     </div>
   </div>
 );
@@ -1280,23 +1280,23 @@ const Atendimentos = () => {
     : { ...defaultForm(user?.id ?? ""), ...(prefill ?? {}) };
 
   return (
-    <div className="flex-1 p-4 md:p-8 space-y-8 overflow-x-hidden entry-animate">
+    <div className="flex-1 p-4 md:p-8 space-y-6 md:space-y-8 overflow-x-hidden entry-animate">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="h-11 w-11 sm:h-12 sm:w-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
             <MessageSquare className="h-6 w-6 text-primary" />
           </div>
-          <div>
-            <h1 className="text-3xl font-black tracking-tight">Atendimentos</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
+          <div className="min-w-0">
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight">Atendimentos</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
               Registre e acompanhe todos os atendimentos do escritório.
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 w-full sm:w-auto">
           {/* Alternar visão */}
-          <div className="flex items-center rounded-xl border border-black/8 dark:border-border bg-card/60 p-0.5">
+          <div className="flex items-center rounded-xl border border-black/8 dark:border-border bg-card/60 p-0.5 shrink-0">
             <Button size="icon" variant={view === "lista" ? "secondary" : "ghost"}
               onClick={() => setView("lista")} className="h-10 w-10 rounded-lg" title="Visão em lista">
               <LayoutGrid className="h-4 w-4" />
@@ -1307,12 +1307,12 @@ const Atendimentos = () => {
             </Button>
           </div>
           <Button size="icon" variant="outline" onClick={() => setTiposDialogOpen(true)}
-            className="h-11 w-11 rounded-xl" title="Gerenciar tipos de atendimento">
+            className="h-11 w-11 rounded-xl shrink-0" title="Gerenciar tipos de atendimento">
             <Settings2 className="h-4 w-4" />
           </Button>
           <Button size="lg" onClick={openNew}
-            className="rounded-xl h-11 px-6 font-black uppercase text-xs tracking-widest shadow-premium">
-            <Plus className="mr-2 h-4 w-4" />Novo Atendimento
+            className="flex-1 sm:flex-none rounded-xl h-11 px-3 sm:px-6 font-black uppercase text-xs tracking-widest shadow-premium">
+            <Plus className="mr-1.5 sm:mr-2 h-4 w-4" /><span className="sm:hidden">Novo</span><span className="hidden sm:inline">Novo Atendimento</span>
           </Button>
         </div>
       </div>
@@ -1379,65 +1379,67 @@ const Atendimentos = () => {
       )}
 
       {/* Filtros */}
-      <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3">
-        <div className="relative flex-1 min-w-[200px]">
+      <div className="space-y-3">
+        <div className="relative">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
           <Input value={busca} onChange={(e) => setBusca(e.target.value)}
             placeholder="Buscar por cliente, tipo ou observação..."
             className="pl-10 rounded-xl h-11 bg-card/60 border-black/8 dark:border-border" />
         </div>
-        <Select value={filtroStatus} onValueChange={setFiltroStatus}>
-          <SelectTrigger className="w-full sm:w-40 rounded-xl h-11 bg-card/60 border-black/8 dark:border-border text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos os status</SelectItem>
-            <SelectItem value="agendado">Agendado</SelectItem>
-            <SelectItem value="realizado">Realizado</SelectItem>
-            <SelectItem value="pendente">Pendente</SelectItem>
-            <SelectItem value="cancelado">Cancelado</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={filtroTipo} onValueChange={setFiltroTipo}>
-          <SelectTrigger className="w-full sm:w-40 rounded-xl h-11 bg-card/60 border-black/8 dark:border-border text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos os tipos</SelectItem>
-            {TIPOS_FIXOS.map((t) => (
-              <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-            ))}
-            {extras.map((t) => (
-              <SelectItem key={t} value={t}>{t}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {membros.length > 0 && (
-          <Select value={filtroResp} onValueChange={setFiltroResp}>
-            <SelectTrigger className="w-full sm:w-44 rounded-xl h-11 bg-card/60 border-black/8 dark:border-border text-sm">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+            <SelectTrigger className="rounded-xl h-11 bg-card/60 border-black/8 dark:border-border text-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="todos">Todos responsáveis</SelectItem>
-              {membros.map((m) => <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>)}
+              <SelectItem value="todos">Todos os status</SelectItem>
+              <SelectItem value="agendado">Agendado</SelectItem>
+              <SelectItem value="realizado">Realizado</SelectItem>
+              <SelectItem value="pendente">Pendente</SelectItem>
+              <SelectItem value="cancelado">Cancelado</SelectItem>
             </SelectContent>
           </Select>
-        )}
-        {view === "lista" && (
-          <Select value={filtroPeriodo} onValueChange={setFiltroPeriodo}>
-            <SelectTrigger className="w-full sm:w-40 rounded-xl h-11 bg-card/60 border-black/8 dark:border-border text-sm">
+          <Select value={filtroTipo} onValueChange={setFiltroTipo}>
+            <SelectTrigger className="rounded-xl h-11 bg-card/60 border-black/8 dark:border-border text-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="todos">Qualquer período</SelectItem>
-              <SelectItem value="hoje">Hoje</SelectItem>
-              <SelectItem value="7dias">Próximos 7 dias</SelectItem>
-              <SelectItem value="mes">Este mês</SelectItem>
-              <SelectItem value="futuros">Futuros</SelectItem>
-              <SelectItem value="passados">Passados</SelectItem>
+              <SelectItem value="todos">Todos os tipos</SelectItem>
+              {TIPOS_FIXOS.map((t) => (
+                <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+              ))}
+              {extras.map((t) => (
+                <SelectItem key={t} value={t}>{t}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
-        )}
+          {membros.length > 0 && (
+            <Select value={filtroResp} onValueChange={setFiltroResp}>
+              <SelectTrigger className="rounded-xl h-11 bg-card/60 border-black/8 dark:border-border text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos responsáveis</SelectItem>
+                {membros.map((m) => <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+          {view === "lista" && (
+            <Select value={filtroPeriodo} onValueChange={setFiltroPeriodo}>
+              <SelectTrigger className="rounded-xl h-11 bg-card/60 border-black/8 dark:border-border text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Qualquer período</SelectItem>
+                <SelectItem value="hoje">Hoje</SelectItem>
+                <SelectItem value="7dias">Próximos 7 dias</SelectItem>
+                <SelectItem value="mes">Este mês</SelectItem>
+                <SelectItem value="futuros">Futuros</SelectItem>
+                <SelectItem value="passados">Passados</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+        </div>
       </div>
 
       {/* Contagem */}
