@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,36 +24,33 @@ export interface ManualEntry {
 }
 
 export function useTimesheet() {
-  const [data, setData] = useState<Timesheet[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [activeTimer, setActiveTimer] = useState<Timesheet | null>(null);
-  const [periodDays, setPeriodDays] = useState(7);
-  const [scope, setScope] = useState<TimesheetScope>('me');
   const { user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [periodDays, setPeriodDays] = useState(7);
+  const [scope, setScope] = useState<TimesheetScope>('me');
 
-  const fetchData = useCallback(async () => {
-    if (!user) { setData([]); setLoading(false); return; }
-    try {
-      setLoading(true);
-      const result = await timesheetService.fetchTimesheets({ userId: user.id, officeId: user.office_id, days: periodDays, scope });
-      setData(result);
-      setError(null);
-      const active = await timesheetService.getActiveTimer(user.id);
-      setActiveTimer(active || null);
-    } catch (err) {
-      console.error('useTimesheet: fetchData error:', err);
-      setError(err instanceof Error ? err.message : 'Erro desconhecido');
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.id, user?.office_id, periodDays, scope]);
+  // Cache compartilhado entre instâncias (página + atalho do dashboard)
+  const dataQuery = useQuery({
+    queryKey: ['timesheets', user?.id, periodDays, scope],
+    enabled: !!user?.id,
+    queryFn: () => timesheetService.fetchTimesheets({ userId: user!.id, officeId: user!.office_id, days: periodDays, scope }),
+  });
+  const activeQuery = useQuery({
+    queryKey: ['timesheet-active', user?.id],
+    enabled: !!user?.id,
+    queryFn: () => timesheetService.getActiveTimer(user!.id),
+  });
 
-  useEffect(() => {
-    if (user) fetchData();
-    else { setData([]); setLoading(false); setActiveTimer(null); }
-  }, [user?.id, periodDays, scope, fetchData]);
+  const data: Timesheet[] = dataQuery.data ?? [];
+  const activeTimer = activeQuery.data ?? null;
+  const loading = dataQuery.isLoading;
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['timesheets'] });
+    queryClient.invalidateQueries({ queryKey: ['timesheet-active'] });
+  };
+  const fetchData = async () => { await Promise.all([dataQuery.refetch(), activeQuery.refetch()]); };
 
   const startTimer = async (
     tarefa_descricao: string,
@@ -90,8 +88,7 @@ export function useTimesheet() {
         data_inicio: new Date().toISOString(),
         status: 'ativo',
       });
-      setActiveTimer(result);
-      setData(prev => [result, ...prev]);
+      invalidate();
       toast({ title: 'Timer iniciado', description: `Iniciado para: ${tarefa_descricao}` });
       return result;
     } catch {
@@ -105,8 +102,7 @@ export function useTimesheet() {
     try {
       const rec = activeTimer && activeTimer.id === id ? activeTimer : data.find(t => t.id === id);
       await timesheetService.pauseTimer(id, user.id, rec?.data_inicio || new Date().toISOString());
-      setActiveTimer(null);
-      await fetchData();
+      invalidate();
       toast({ title: 'Timer pausado' });
       return true;
     } catch {
@@ -121,9 +117,8 @@ export function useTimesheet() {
       const current = await timesheetService.getActiveTimer(user.id);
       if (current) { toast({ title: 'Timer já ativo', description: 'Finalize ou pause o atual antes de retomar outro.', variant: 'destructive' }); return false; }
       const rec = data.find(t => t.id === id);
-      const result = await timesheetService.resumeTimer(id, user.id, rec?.duracao_minutos ?? 0);
-      setActiveTimer(result);
-      await fetchData();
+      await timesheetService.resumeTimer(id, user.id, rec?.duracao_minutos ?? 0);
+      invalidate();
       toast({ title: 'Timer retomado' });
       return true;
     } catch {
@@ -138,8 +133,7 @@ export function useTimesheet() {
       const timerRecord = data.find(t => t.id === id) || activeTimer;
       if (!timerRecord) return false;
       const { duracaoMinutos } = await timesheetService.stopTimer(id, user.id, timerRecord.data_inicio, observacoes);
-      setActiveTimer(null);
-      await fetchData();
+      invalidate();
       toast({ title: 'Timer finalizado', description: `Duração: ${Math.floor(duracaoMinutos / 60)}h ${duracaoMinutos % 60}m` });
       return true;
     } catch {
@@ -163,24 +157,11 @@ export function useTimesheet() {
         cliente_id: entry.cliente_id || null,
         ...billing,
       });
-      await fetchData();
+      invalidate();
       toast({ title: 'Lançamento registrado' });
       return true;
     } catch {
       toast({ title: 'Erro ao lançar', variant: 'destructive' });
-      return false;
-    }
-  };
-
-  const update = async (id: string, updates: any): Promise<boolean> => {
-    if (!user) return false;
-    try {
-      await timesheetService.update(id, user.id, updates);
-      await fetchData();
-      toast({ title: 'Registro atualizado' });
-      return true;
-    } catch {
-      toast({ title: 'Erro ao atualizar', variant: 'destructive' });
       return false;
     }
   };
@@ -190,12 +171,44 @@ export function useTimesheet() {
     try {
       const patch: any = { faturado, faturado_em: faturado ? new Date().toISOString() : null, updated_at: new Date().toISOString() };
       if (financeiroId !== undefined) patch.financeiro_id = financeiroId;
-      const { error } = await supabase.from("timesheets").update(patch).in("id", ids);
+      const { error } = await supabase.from('timesheets').update(patch).in('id', ids);
       if (error) throw error;
-      await fetchData();
+      invalidate();
       return true;
     } catch {
-      toast({ title: "Erro ao atualizar faturamento", variant: "destructive" });
+      toast({ title: 'Erro ao atualizar faturamento', variant: 'destructive' });
+      return false;
+    }
+  };
+
+  /** Estorna uma cobrança: remove a receita gerada e reabre os timesheets ligados a ela. */
+  const estornarCobranca = async (financeiroId: string): Promise<boolean> => {
+    if (!user) return false;
+    try {
+      await supabase.from('financeiro').update({ deletado: true }).eq('id', financeiroId);
+      const { error } = await supabase.from('timesheets')
+        .update({ faturado: false, faturado_em: null, financeiro_id: null, updated_at: new Date().toISOString() })
+        .eq('financeiro_id', financeiroId);
+      if (error) throw error;
+      invalidate();
+      queryClient.invalidateQueries({ queryKey: ['financeiro'] });
+      toast({ title: 'Cobrança estornada', description: 'Receita removida e registros reabertos.' });
+      return true;
+    } catch {
+      toast({ title: 'Erro ao estornar', variant: 'destructive' });
+      return false;
+    }
+  };
+
+  const update = async (id: string, updates: any): Promise<boolean> => {
+    if (!user) return false;
+    try {
+      await timesheetService.update(id, user.id, updates);
+      invalidate();
+      toast({ title: 'Registro atualizado' });
+      return true;
+    } catch {
+      toast({ title: 'Erro ao atualizar', variant: 'destructive' });
       return false;
     }
   };
@@ -204,7 +217,7 @@ export function useTimesheet() {
     if (!user) return false;
     try {
       await timesheetService.remove(id, user.id);
-      setData(prev => prev.filter(item => item.id !== id));
+      invalidate();
       toast({ title: 'Registro removido' });
       return true;
     } catch {
@@ -233,10 +246,10 @@ export function useTimesheet() {
   };
 
   return {
-    data, loading, error, activeTimer,
+    data, loading, error: dataQuery.error ? (dataQuery.error as Error).message : null, activeTimer,
     periodDays, setPeriodDays, scope, setScope,
     fetchData, startTimer, pauseTimer, resumeTimer, stopTimer,
-    addManual, update, remove, marcarFaturado,
+    addManual, update, remove, marcarFaturado, estornarCobranca,
     getActiveTimer: () => timesheetService.getActiveTimer(user?.id || ''),
     getTodayStats, getWeekStats,
   };

@@ -207,7 +207,7 @@ export default function Timesheet() {
   const {
     data: timesheets, loading, activeTimer,
     periodDays, setPeriodDays, scope, setScope,
-    startTimer, pauseTimer, resumeTimer, stopTimer, addManual, update, remove, marcarFaturado,
+    startTimer, pauseTimer, resumeTimer, stopTimer, addManual, update, remove, marcarFaturado, estornarCobranca,
     getTodayStats, getWeekStats,
   } = useTimesheet();
 
@@ -225,6 +225,7 @@ export default function Timesheet() {
   const [cobrando, setCobrando] = useState(false);
   const [finalizeId, setFinalizeId] = useState<string | null>(null);
   const [finalizeObs, setFinalizeObs] = useState("");
+  const [estornoId, setEstornoId] = useState<string | null>(null);
 
   const rateParaCliente = (cid?: string | null) =>
     (cid && config.valorClientes[cid] != null) ? config.valorClientes[cid] : config.valorPadrao;
@@ -263,6 +264,7 @@ export default function Timesheet() {
   const [fSearch, setFSearch] = useState("");
   const [fCategoria, setFCategoria] = useState("todas");
   const [fCliente, setFCliente] = useState("todos");
+  const [fFaturado, setFFaturado] = useState("todos");
 
   // Cronômetro
   useEffect(() => {
@@ -400,12 +402,14 @@ export default function Timesheet() {
       const matchSearch = !q || t.tarefa_descricao?.toLowerCase().includes(q) || ((t as any).clientes?.nome || "").toLowerCase().includes(q);
       const matchCat = fCategoria === "todas" || t.categoria === fCategoria;
       const matchCli = fCliente === "todos" || t.cliente_id === fCliente;
-      return matchSearch && matchCat && matchCli;
+      const matchFat = fFaturado === "todos"
+        || (fFaturado === "faturado" ? (t as any).faturado === true : (t as any).faturado !== true);
+      return matchSearch && matchCat && matchCli && matchFat;
     });
     const acc: Record<string, any[]> = {};
     recs.forEach(t => { const day = new Date(t.data_inicio).toDateString(); (acc[day] ||= []).push(t); });
     return Object.entries(acc).sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime());
-  }, [timesheets, fSearch, fCategoria, fCliente]);
+  }, [timesheets, fSearch, fCategoria, fCliente, fFaturado]);
 
   const catCfg = activeTimer ? CATEGORIA_CONFIG[activeTimer.categoria as TimesheetCategoria] : null;
   const activeRefCfg = activeTimer?.referencia_tipo ? REFERENCIA_CONFIG[activeTimer.referencia_tipo as ReferenciaTipo] : null;
@@ -660,6 +664,14 @@ export default function Timesheet() {
             {clientes.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Select value={fFaturado} onValueChange={setFFaturado}>
+          <SelectTrigger className="w-full lg:w-40 h-11 rounded-xl bg-card/60 border-black/8 dark:border-border text-sm font-bold"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Faturados e não</SelectItem>
+            <SelectItem value="pendente">Não faturados</SelectItem>
+            <SelectItem value="faturado">Faturados</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Registros */}
@@ -761,9 +773,19 @@ export default function Timesheet() {
                               <PlayCircle className="h-4 w-4" /> Retomar
                             </DropdownMenuItem>
                           )}
-                          {t.status === "finalizado" && (
-                            <DropdownMenuItem className="rounded-lg gap-2" onClick={() => marcarFaturado([t.id], !(t as any).faturado)}>
-                              <BadgeCheck className="h-4 w-4" /> {(t as any).faturado ? "Reabrir faturamento" : "Marcar faturado"}
+                          {t.status === "finalizado" && !(t as any).faturado && (
+                            <DropdownMenuItem className="rounded-lg gap-2" onClick={() => marcarFaturado([t.id], true)}>
+                              <BadgeCheck className="h-4 w-4" /> Marcar faturado
+                            </DropdownMenuItem>
+                          )}
+                          {(t as any).faturado && (t as any).financeiro_id && (
+                            <DropdownMenuItem className="rounded-lg gap-2" onClick={() => setEstornoId((t as any).financeiro_id)}>
+                              <Receipt className="h-4 w-4" /> Estornar cobrança
+                            </DropdownMenuItem>
+                          )}
+                          {(t as any).faturado && !(t as any).financeiro_id && (
+                            <DropdownMenuItem className="rounded-lg gap-2" onClick={() => marcarFaturado([t.id], false)}>
+                              <BadgeCheck className="h-4 w-4" /> Reabrir faturamento
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuItem className="rounded-lg gap-2" onClick={() => openEdit(t)}><Pencil className="h-4 w-4" /> Editar</DropdownMenuItem>
@@ -983,6 +1005,29 @@ export default function Timesheet() {
               <Button variant="ghost" onClick={() => setCobrarOpen(false)} disabled={cobrando} className="rounded-xl">Cancelar</Button>
               <Button onClick={gerarCobranca} disabled={cobrando} className="rounded-xl font-black px-5 bg-amber-500 hover:bg-amber-600 text-white">
                 {cobrando ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <DollarSign className="h-4 w-4 mr-2" />}Gerar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmar estorno de cobrança */}
+      <Dialog open={!!estornoId} onOpenChange={(o) => { if (!o) setEstornoId(null); }}>
+        <DialogContent aria-describedby={undefined} className="sm:max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-black text-base">
+              <div className="h-7 w-7 rounded-lg bg-rose-500/15 flex items-center justify-center"><Receipt className="h-3.5 w-3.5 text-rose-600" /></div>
+              Estornar cobrança
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-1">
+            <p className="text-sm text-muted-foreground">
+              A receita gerada no Financeiro será <strong>removida</strong> e os registros de timesheet ligados a ela voltam a ficar <strong>não faturados</strong>. Deseja continuar?
+            </p>
+            <div className="flex gap-2 justify-end pt-1">
+              <Button variant="ghost" onClick={() => setEstornoId(null)} className="rounded-xl">Cancelar</Button>
+              <Button variant="destructive" onClick={async () => { const id = estornoId!; setEstornoId(null); await estornarCobranca(id); }} className="rounded-xl font-black px-5">
+                Estornar
               </Button>
             </div>
           </div>
