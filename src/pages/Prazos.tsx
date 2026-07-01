@@ -12,7 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { format, differenceInCalendarDays, startOfDay } from 'date-fns';
+import { format, differenceInCalendarDays, startOfDay, startOfMonth, startOfWeek, addDays, addMonths, isSameDay, isSameMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
@@ -20,7 +20,7 @@ import {
   Plus, Search, AlertTriangle, Clock, CalendarClock, CheckCircle2,
   ChevronRight, Flame, Calendar, Inbox, MoreHorizontal, Pencil, Trash2,
   CheckCheck, Timer, Newspaper, Shield, AlertOctagon, Eye, EyeOff, RotateCcw,
-  User, X,
+  User, X, List, ChevronLeft, CalendarDays,
 } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -44,6 +44,7 @@ interface Prazo {
   processo_id?: string | null;
   user_id: string;
   office_id?: string | null;
+  responsavel_id?: string | null;
   concluido_em?: string | null;
   concluido_por?: string | null;
   // Campos gravados pelo robô (OAB/DJEN)
@@ -140,6 +141,61 @@ const SECTION_LABELS: Record<Urgency, string> = {
   concluido: 'Concluídos',
 };
 
+const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+function MonthView({ items, refDate, onPrev, onNext, onHoje, onSelect }: {
+  items: Prazo[]; refDate: Date;
+  onPrev: () => void; onNext: () => void; onHoje: () => void;
+  onSelect: (p: Prazo) => void;
+}) {
+  const inicio = startOfWeek(startOfMonth(refDate), { weekStartsOn: 0 });
+  const dias = Array.from({ length: 42 }, (_, i) => addDays(inicio, i));
+  const hoje = new Date();
+  const porDia = (d: Date) => items.filter(p => { const dt = getDataPrazo(p); return dt && isSameDay(toLocalDate(dt), d); });
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          <Button size="icon" variant="outline" className="h-9 w-9 rounded-xl" onClick={onPrev} title="Mês anterior"><ChevronLeft className="h-4 w-4" /></Button>
+          <Button size="icon" variant="outline" className="h-9 w-9 rounded-xl" onClick={onNext} title="Próximo mês"><ChevronRight className="h-4 w-4" /></Button>
+          <Button variant="outline" className="h-9 rounded-xl px-3 text-[10px] font-black uppercase tracking-widest" onClick={onHoje}>Hoje</Button>
+        </div>
+        <p className="text-sm font-black tracking-tight capitalize">{format(refDate, 'MMMM yyyy', { locale: ptBR })}</p>
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {WEEKDAYS.map(w => (
+          <div key={w} className="text-center text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 py-1">{w}</div>
+        ))}
+        {dias.map(d => {
+          const list = porDia(d);
+          const isHoje = isSameDay(d, hoje);
+          const isMes = isSameMonth(d, refDate);
+          return (
+            <div key={d.toISOString()}
+              className={cn('rounded-lg border p-1 min-h-[64px] sm:min-h-[92px] flex flex-col gap-0.5 overflow-hidden',
+                isHoje ? 'border-primary/40 bg-primary/5' : 'border-border/50', !isMes && 'opacity-40')}>
+              <span className={cn('text-[10px] font-bold px-0.5', isHoje && 'text-primary')}>{format(d, 'd')}</span>
+              <div className="flex flex-col gap-0.5 overflow-hidden">
+                {list.slice(0, 3).map(p => {
+                  const c = URGENCY_CONFIG[getUrgency(p)];
+                  return (
+                    <button key={p.id} onClick={() => onSelect(p)} title={tituloPrazo(p)}
+                      className={cn('text-left rounded px-1 py-0.5 text-[9px] font-bold truncate border', c.badge)}>
+                      {tituloPrazo(p)}
+                    </button>
+                  );
+                })}
+                {list.length > 3 && <span className="text-[9px] text-muted-foreground/50 px-1">+{list.length - 3}</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function Prazos() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -155,6 +211,8 @@ export default function Prazos() {
   const [filterResp, setFilterResp] = useState('all');
   const [filterCliente, setFilterCliente] = useState('all');
   const [showConcluidos, setShowConcluidos] = useState(false);
+  const [view, setView] = useState<'lista' | 'calendario'>('lista');
+  const [mesRef, setMesRef] = useState(new Date());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Prazo | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Prazo | null>(null);
@@ -253,7 +311,8 @@ export default function Prazos() {
     const matchPriority = filterPriority === 'all' || p.prioridade === filterPriority;
     const matchConcluido = showConcluidos || p.status !== 'concluido';
     const matchUrgency = filterUrgency === 'all' || getUrgency(p) === filterUrgency;
-    const matchResp = filterResp === 'all' || (p as any).responsavel_id === filterResp;
+    const matchResp = filterResp === 'all'
+      || (filterResp === '__none__' ? !p.responsavel_id : p.responsavel_id === filterResp);
     const matchCliente = filterCliente === 'all' || clienteDoPrazo(p) === filterCliente;
     return matchSearch && matchPriority && matchConcluido && matchUrgency && matchResp && matchCliente;
   }), [prazos, dSearch, filterPriority, filterUrgency, showConcluidos, filterResp, filterCliente, processoInfo]);
@@ -286,6 +345,15 @@ export default function Prazos() {
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['prazos'] }); multiSelect.clearSelection(); setBulkDeleteOpen(false); toast({ title: 'Prazos excluídos', description: 'Movidos para a lixeira.' }); },
     onError: (e: any) => toast({ title: 'Erro ao excluir', description: e.message, variant: 'destructive' }),
+  });
+
+  const bulkAssignMutation = useMutation({
+    mutationFn: async ({ ids, responsavel_id }: { ids: string[]; responsavel_id: string }) => {
+      const { error } = await supabase.from('prazos').update({ responsavel_id }).in('id', ids);
+      if (error) throw error;
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['prazos'] }); multiSelect.clearSelection(); toast({ title: 'Responsável atribuído' }); },
+    onError: (e: any) => toast({ title: 'Erro ao atribuir', description: e.message, variant: 'destructive' }),
   });
 
   const grouped = useMemo(() => {
@@ -331,12 +399,20 @@ export default function Prazos() {
           </h1>
           <p className="text-muted-foreground mt-1 text-sm ml-1">Monitore e gerencie seus prazos judiciais</p>
         </div>
-        <Button
-          onClick={() => setDialogOpen(true)}
-          className="rounded-2xl h-11 gap-2 px-6 font-black text-[11px] uppercase tracking-widest shadow-lg shadow-primary/20 w-full sm:w-auto"
-        >
-          <Plus className="h-4 w-4" /> Novo Prazo
-        </Button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <div className="flex items-center rounded-xl border border-black/8 dark:border-border bg-card/60 p-0.5 shrink-0">
+            <Button size="icon" variant={view === 'lista' ? 'secondary' : 'ghost'}
+              onClick={() => setView('lista')} className="h-9 w-9 rounded-lg" title="Lista"><List className="h-4 w-4" /></Button>
+            <Button size="icon" variant={view === 'calendario' ? 'secondary' : 'ghost'}
+              onClick={() => setView('calendario')} className="h-9 w-9 rounded-lg" title="Calendário"><CalendarDays className="h-4 w-4" /></Button>
+          </div>
+          <Button
+            onClick={() => setDialogOpen(true)}
+            className="flex-1 sm:flex-none rounded-2xl h-11 gap-2 px-4 sm:px-6 font-black text-[11px] uppercase tracking-widest shadow-lg shadow-primary/20"
+          >
+            <Plus className="h-4 w-4" /> Novo Prazo
+          </Button>
+        </div>
       </div>
 
       {/* KPI Strip — clicáveis como filtro rápido */}
@@ -421,6 +497,7 @@ export default function Prazos() {
             <SelectTrigger className="h-10 rounded-xl w-full sm:w-44 bg-background border-border text-sm font-bold"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos responsáveis</SelectItem>
+              <SelectItem value="__none__">Sem responsável</SelectItem>
               {officeUsers.map((u: any) => <SelectItem key={u.user_id} value={u.user_id}>{membroMap[u.user_id]}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -447,6 +524,24 @@ export default function Prazos() {
             className="h-8 rounded-lg gap-1.5 font-bold text-emerald-600">
             <CheckCheck className="h-3.5 w-3.5" /> Concluir
           </Button>
+          {officeUsers.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" disabled={bulkAssignMutation.isPending}
+                  className="h-8 rounded-lg gap-1.5 font-bold">
+                  <User className="h-3.5 w-3.5" /> Atribuir
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="rounded-xl w-48 max-h-64 overflow-y-auto">
+                {officeUsers.map((u: any) => (
+                  <DropdownMenuItem key={u.user_id} className="rounded-lg cursor-pointer"
+                    onClick={() => bulkAssignMutation.mutate({ ids: multiSelect.getSelectedItems().map(i => i.id), responsavel_id: u.user_id })}>
+                    {membroMap[u.user_id]}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           <Button size="sm" variant="outline" disabled={bulkDeleteMutation.isPending}
             onClick={() => setBulkDeleteOpen(true)}
             className="h-8 rounded-lg gap-1.5 font-bold text-red-600">
@@ -465,8 +560,20 @@ export default function Prazos() {
         </div>
       )}
 
+      {/* Calendário mensal */}
+      {!isLoading && view === 'calendario' && (
+        <MonthView
+          items={filtered}
+          refDate={mesRef}
+          onPrev={() => setMesRef(d => addMonths(d, -1))}
+          onNext={() => setMesRef(d => addMonths(d, 1))}
+          onHoje={() => setMesRef(new Date())}
+          onSelect={setEditTarget}
+        />
+      )}
+
       {/* Empty */}
-      {!isLoading && filtered.length === 0 && (
+      {!isLoading && view === 'lista' && filtered.length === 0 && (
         <div className="py-20 flex flex-col items-center justify-center text-center space-y-3 opacity-30">
           <Inbox className="h-14 w-14" />
           <p className="font-black uppercase tracking-widest text-sm">Nenhum prazo encontrado</p>
@@ -475,7 +582,7 @@ export default function Prazos() {
       )}
 
       {/* Sections */}
-      {!isLoading && SECTION_ORDER.map(urgency => {
+      {!isLoading && view === 'lista' && SECTION_ORDER.map(urgency => {
         const items = grouped[urgency];
         if (items.length === 0) return null;
         const cfg = URGENCY_CONFIG[urgency];
@@ -521,6 +628,11 @@ export default function Prazos() {
                         <Badge variant="outline" className={cn('text-[9px] font-black uppercase tracking-widest border px-2 py-0.5', priCfg.color)}>
                           {priCfg.label}
                         </Badge>
+                        {!prazo.responsavel_id && (
+                          <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest border px-2 py-0.5 bg-fuchsia-500/10 text-fuchsia-600 border-fuchsia-500/20">
+                            Sem responsável
+                          </Badge>
+                        )}
                       </div>
                       {prazo.descricao && (
                         <p className="text-xs text-muted-foreground truncate max-w-md mb-1.5">{prazo.descricao}</p>

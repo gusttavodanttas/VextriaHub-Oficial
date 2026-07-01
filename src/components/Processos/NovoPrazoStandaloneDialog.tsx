@@ -140,6 +140,18 @@ function isFeriado(d: Date) {
   return FERIADOS_FIXOS.has(mmdd) || movableFeriados(d.getFullYear()).has(mmdd);
 }
 function isUtil(d: Date) { const w = d.getDay(); return w !== 0 && w !== 6 && !isFeriado(d) && !isRecesso(d); }
+
+// Versões que consideram feriados do escritório (anuais MM-DD + específicos YYYY-MM-DD)
+const _ymdOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+function isUtilWith(d: Date, extraAnual: Set<string>, extraData: Set<string>) {
+  const w = d.getDay();
+  return w !== 0 && w !== 6 && !isFeriado(d) && !isRecesso(d) && !extraAnual.has(_mmddOf(d)) && !extraData.has(_ymdOf(d));
+}
+function addDiasUteisWith(from: Date, n: number, extraAnual: Set<string>, extraData: Set<string>): Date {
+  const d = new Date(from); let c = 0;
+  while (c < n) { d.setDate(d.getDate() + 1); if (isUtilWith(d, extraAnual, extraData)) c++; }
+  return d;
+}
 function addDiasUteis(from: Date, n: number): Date {
   const d = new Date(from); let c = 0;
   while (c < n) { d.setDate(d.getDate()+1); if (isUtil(d)) c++; }
@@ -302,6 +314,28 @@ function GerenciarTiposModal({ open, onClose, officeId }: GerenciarTiposProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Omit<TipoAto,'id'>>({ value: '', label: '', diasUteis: 15, corridos: false, margem: 3, ordem: 0 });
   const [adding, setAdding] = useState(false);
+  const [feriados, setFeriados] = useState<string[]>([]);
+  const [novoFeriado, setNovoFeriado] = useState('');
+  const [feriadoAnual, setFeriadoAnual] = useState(false);
+
+  const fetchFeriados = async () => {
+    const { data } = await supabase.from('offices').select('settings').eq('id', officeId).single();
+    setFeriados(((data?.settings as any)?.prazo_feriados as string[]) ?? []);
+  };
+  const saveFeriados = async (arr: string[]) => {
+    setFeriados(arr);
+    const { data: cur } = await supabase.from('offices').select('settings').eq('id', officeId).single();
+    const merged = { ...((cur?.settings as any) ?? {}), prazo_feriados: arr };
+    await supabase.from('offices').update({ settings: merged }).eq('id', officeId);
+  };
+  const addFeriado = () => {
+    if (!novoFeriado) return;
+    const val = feriadoAnual ? novoFeriado.slice(5) : novoFeriado; // MM-DD (anual) ou YYYY-MM-DD
+    if (feriados.includes(val)) return;
+    saveFeriados([...feriados, val].sort());
+    setNovoFeriado(''); setFeriadoAnual(false);
+  };
+  const removeFeriado = (f: string) => saveFeriados(feriados.filter(x => x !== f));
 
   const fetchTipos = async () => {
     setLoading(true);
@@ -315,7 +349,7 @@ function GerenciarTiposModal({ open, onClose, officeId }: GerenciarTiposProps) {
   };
 
   useEffect(() => {
-    if (open && officeId) { fetchTipos(); setEditingId(null); setAdding(false); }
+    if (open && officeId) { fetchTipos(); fetchFeriados(); setEditingId(null); setAdding(false); }
   }, [open, officeId]);
 
   const startEdit = (t: TipoAto) => {
@@ -426,6 +460,31 @@ function GerenciarTiposModal({ open, onClose, officeId }: GerenciarTiposProps) {
               )}
             </>
           )}
+
+          {/* Feriados do escritório */}
+          <div className="pt-3 mt-2 border-t border-border/60 space-y-2">
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/70 flex items-center gap-1.5">
+              <CalendarClock className="h-3 w-3" /> Feriados do escritório
+            </p>
+            <p className="text-[10px] text-muted-foreground/50 leading-tight">Feriados estaduais/municipais ou suspensões — entram no cálculo de dias úteis.</p>
+            <div className="flex flex-wrap gap-1.5">
+              {feriados.length === 0 && <span className="text-[11px] text-muted-foreground/40 italic">Nenhum feriado adicionado.</span>}
+              {feriados.map(f => (
+                <span key={f} className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-muted/40 text-[11px] font-bold">
+                  {f.length === 5 ? `${f.slice(3)}/${f.slice(0, 2)} · todo ano` : f.split('-').reverse().join('/')}
+                  <button type="button" onClick={() => removeFeriado(f)} className="hover:text-red-500 transition-colors"><X className="h-3 w-3" /></button>
+                </span>
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <input type="date" value={novoFeriado} onChange={e => setNovoFeriado(e.target.value)}
+                className="h-8 rounded-lg text-xs border border-border bg-background px-2 flex-1 focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer whitespace-nowrap">
+                <input type="checkbox" checked={feriadoAnual} onChange={e => setFeriadoAnual(e.target.checked)} className="accent-primary" /> todo ano
+              </label>
+              <Button type="button" size="sm" onClick={addFeriado} disabled={!novoFeriado} className="h-8 rounded-lg px-3"><Plus className="h-4 w-4" /></Button>
+            </div>
+          </div>
         </div>
 
         <div className="px-5 pb-5 pt-3 border-t border-border shrink-0 flex gap-2">
@@ -464,9 +523,21 @@ export const NovoPrazoStandaloneDialog = ({
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<FormState>(emptyForm(tituloSugerido, numeroProcesso, user?.id));
   const [tipoAto, setTipoAto] = useState('');
+  const [dobro, setDobro] = useState(false);
   const [calculoAplicado, setCalculoAplicado] = useState(false);
   const [gerenciarOpen, setGerenciarOpen] = useState(false);
   const [tipos, setTipos] = useState<TipoAto[]>([]);
+  const [feriadosAnual, setFeriadosAnual] = useState<Set<string>>(new Set());
+  const [feriadosData, setFeriadosData] = useState<Set<string>>(new Set());
+
+  const fetchFeriados = async () => {
+    if (!user?.office_id) return;
+    const { data } = await supabase.from('offices').select('settings').eq('id', user.office_id).single();
+    const arr = ((data?.settings as any)?.prazo_feriados as string[]) ?? [];
+    const anual = new Set<string>(); const esp = new Set<string>();
+    arr.forEach(s => { if (s.length === 5) anual.add(s); else if (s.length === 10) esp.add(s); });
+    setFeriadosAnual(anual); setFeriadosData(esp);
+  };
 
   const isEditing = !!prazoParaEditar?.id;
 
@@ -498,15 +569,15 @@ export const NovoPrazoStandaloneDialog = ({
   };
 
   useEffect(() => {
-    if (!gerenciarOpen) fetchTipos(); // recarrega após fechar modal de gerenciamento
+    if (!gerenciarOpen) { fetchTipos(); fetchFeriados(); } // recarrega após fechar modal de gerenciamento
   }, [gerenciarOpen, user?.office_id]);
 
   useEffect(() => {
     if (open) {
       setFormData(prazoParaEditar ? prazoToForm(prazoParaEditar, user?.id) : emptyForm(tituloSugerido, numeroProcesso, user?.id));
       setProcessoSearch(''); setSelectedProcesso(null); setProcessoOptions([]);
-      setTipoAto(''); setCalculoAplicado(false);
-      fetchTipos();
+      setTipoAto(''); setDobro(false); setCalculoAplicado(false);
+      fetchTipos(); fetchFeriados();
     }
   }, [open, prazoParaEditar, tituloSugerido, numeroProcesso]);
 
@@ -533,15 +604,17 @@ export const NovoPrazoStandaloneDialog = ({
     return () => clearTimeout(t);
   }, [processoSearch, user?.office_id]);
 
-  const calcularDatas = (tipo: string, pubDate: string) => {
+  const calcularDatas = (tipo: string, pubDate: string, emDobro = dobro) => {
     const ato = tipos.find(t => t.value === tipo);
     if (!ato || !pubDate) return;
+    const dias = emDobro ? ato.diasUteis * 2 : ato.diasUteis; // CPC 229/183/180/186
     const pub = new Date(`${pubDate}T12:00:00`);
-    const intimacao = addDiasUteis(pub, 1); // CPC art. 231
-    const fatal = ato.corridos ? addDiasCorridos(intimacao, ato.diasUteis) : addDiasUteis(intimacao, ato.diasUteis);
+    const intimacao = addDiasUteisWith(pub, 1, feriadosAnual, feriadosData); // CPC art. 231
+    const fatal = ato.corridos ? addDiasCorridos(intimacao, dias) : addDiasUteisWith(intimacao, dias, feriadosAnual, feriadosData);
+    const internoDias = Math.max(1, dias - ato.margem);
     const interno = ato.corridos
-      ? addDiasCorridos(intimacao, Math.max(1, ato.diasUteis - ato.margem))
-      : addDiasUteis(intimacao, Math.max(1, ato.diasUteis - ato.margem));
+      ? addDiasCorridos(intimacao, internoDias)
+      : addDiasUteisWith(intimacao, internoDias, feriadosAnual, feriadosData);
     setFormData(prev => ({ ...prev, dataPrazoFatal: toISO(fatal), dataPrazoInterno: toISO(interno) }));
     setCalculoAplicado(true);
   };
@@ -549,6 +622,11 @@ export const NovoPrazoStandaloneDialog = ({
   const handleTipoChange = (v: string) => {
     setTipoAto(v); setCalculoAplicado(false);
     if (formData.dataPublicacao && v) calcularDatas(v, formData.dataPublicacao);
+  };
+
+  const handleDobroChange = (v: boolean) => {
+    setDobro(v);
+    if (tipoAto && formData.dataPublicacao) calcularDatas(tipoAto, formData.dataPublicacao, v);
   };
 
   const handleDateChange = (field: string, v: string) => {
@@ -728,12 +806,23 @@ export const NovoPrazoStandaloneDialog = ({
                   </Select>
                 </div>
 
+                {/* Prazo em dobro */}
+                {tipoAto && (
+                  <label className="flex items-center gap-2 px-1 cursor-pointer select-none">
+                    <input type="checkbox" checked={dobro} onChange={e => handleDobroChange(e.target.checked)}
+                      className="h-3.5 w-3.5 rounded border-border accent-violet-500" />
+                    <span className="text-[11px] font-bold text-foreground/80">
+                      Prazo em dobro <span className="text-muted-foreground/60 font-normal">(litisconsortes / Fazenda / MP / Defensoria)</span>
+                    </span>
+                  </label>
+                )}
+
                 {/* Confirmação do cálculo */}
                 {calculoAplicado && atoSelecionado && (
                   <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
                     <Zap className="h-3 w-3 text-emerald-500 shrink-0 mt-0.5" />
                     <p className="text-[10px] text-emerald-600 font-bold leading-relaxed">
-                      Calculado: {atoSelecionado.diasUteis}d {atoSelecionado.corridos ? 'corridos' : 'úteis'} a partir da intimação.
+                      Calculado: {dobro ? atoSelecionado.diasUteis * 2 : atoSelecionado.diasUteis}d {atoSelecionado.corridos ? 'corridos' : 'úteis'}{dobro ? ' (em dobro)' : ''} a partir da intimação.
                       Prazo interno com {atoSelecionado.margem}d de antecedência.
                       Ajuste manualmente se necessário.
                     </p>
