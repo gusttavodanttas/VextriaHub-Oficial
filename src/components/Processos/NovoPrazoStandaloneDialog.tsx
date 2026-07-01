@@ -807,15 +807,13 @@ export const NovoPrazoStandaloneDialog = ({
                 </div>
 
                 {/* Prazo em dobro */}
-                {tipoAto && (
-                  <label className="flex items-center gap-2 px-1 cursor-pointer select-none">
-                    <input type="checkbox" checked={dobro} onChange={e => handleDobroChange(e.target.checked)}
-                      className="h-3.5 w-3.5 rounded border-border accent-violet-500" />
-                    <span className="text-[11px] font-bold text-foreground/80">
-                      Prazo em dobro <span className="text-muted-foreground/60 font-normal">(litisconsortes / Fazenda / MP / Defensoria)</span>
-                    </span>
-                  </label>
-                )}
+                <label className="flex items-center gap-2 px-2 py-2 rounded-lg border border-violet-500/20 bg-violet-500/5 cursor-pointer select-none">
+                  <input type="checkbox" checked={dobro} onChange={e => handleDobroChange(e.target.checked)}
+                    className="h-4 w-4 rounded border-border accent-violet-500" />
+                  <span className="text-[11px] font-bold text-foreground/80">
+                    Prazo em dobro <span className="text-muted-foreground/60 font-normal">(litisconsortes / Fazenda / MP / Defensoria)</span>
+                  </span>
+                </label>
 
                 {/* Confirmação do cálculo */}
                 {calculoAplicado && atoSelecionado && (
