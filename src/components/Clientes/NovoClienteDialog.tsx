@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,7 @@ interface NovoClienteDialogProps {
   onOpenChange: (open: boolean) => void;
   // Retorna true/undefined em sucesso, false para manter o modal aberto (ex.: duplicado)
   onSave: (client: ClientInput) => Promise<boolean | void> | boolean | void;
+  initialName?: string; // pré-preenche o nome (ex.: vindo da busca do ClientSelect)
 }
 
 const ORIGENS_DEFAULT = ["Indicação", "Marketing Digital", "Redes Sociais", "Site", "Telefone", "Presencial", "Outros"];
@@ -39,12 +40,15 @@ const EMPTY: ClientInput = {
 
 const emailOk = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
-export const NovoClienteDialog = ({ open, onOpenChange, onSave }: NovoClienteDialogProps) => {
+export const NovoClienteDialog = ({ open, onOpenChange, onSave, initialName }: NovoClienteDialogProps) => {
   const { toast } = useToast();
   const { items: origensCliente } = useOfficeSettingList<string>("origens_cliente", ORIGENS_DEFAULT);
   const [form, setForm] = useState<ClientInput>(EMPTY);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+
+  // Ao abrir, pré-preenche o nome com o que veio da busca (se houver)
+  useEffect(() => { if (open) setForm({ ...EMPTY, name: initialName || "" }); }, [open, initialName]);
 
   const set = (patch: Partial<ClientInput>) => setForm((p) => ({ ...p, ...patch }));
   const isPJ = form.tipoPessoa === "juridica";

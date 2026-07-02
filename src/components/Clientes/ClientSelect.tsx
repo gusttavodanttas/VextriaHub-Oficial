@@ -21,6 +21,7 @@ export const ClientSelect: React.FC<ClientSelectProps> = ({ value, onValueChange
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [createName, setCreateName] = useState('');
   const [clients, setClients] = useState<{ id: string, nome: string }[]>([]);
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -65,7 +66,7 @@ export const ClientSelect: React.FC<ClientSelectProps> = ({ value, onValueChange
 
   const pick = (id: string, nome: string) => { onValueChange(id, nome); setQuery(nome); setOpen(false); };
 
-  const openCreate = () => { setOpen(false); setCreateOpen(true); };
+  const openCreate = () => { setCreateName(query.trim()); setOpen(false); setCreateOpen(true); };
 
   // Cadastra um novo cliente na hora e já seleciona
   const handleCreate = async (c: any): Promise<boolean> => {
@@ -142,7 +143,7 @@ export const ClientSelect: React.FC<ClientSelectProps> = ({ value, onValueChange
         )}
       </div>
 
-      <NovoClienteDialog open={createOpen} onOpenChange={setCreateOpen} onSave={handleCreate} />
+      <NovoClienteDialog open={createOpen} onOpenChange={setCreateOpen} onSave={handleCreate} initialName={createName} />
     </>
   );
 };
