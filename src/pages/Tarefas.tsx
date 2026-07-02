@@ -243,7 +243,8 @@ const Tarefas = () => {
   // Abre a tarefa específica vinda de ?openId= (ex.: card do processo) em modo edição
   useOpenItemFromSearch("/tarefas", !isLoading && tarefas.length > 0, (openId) => {
     const t = tarefas.find(x => String(x.id) === openId);
-    if (t) openEdit(t);
+    if (t) { openEdit(t); return true; }
+    return false;
   });
 
   const handleSubmit = async (input: TarefaInput, id?: string) => {

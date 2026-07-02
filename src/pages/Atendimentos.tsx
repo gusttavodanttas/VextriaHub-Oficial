@@ -1224,7 +1224,8 @@ const Atendimentos = () => {
   // Abre o atendimento específico vindo de ?openId= (ex.: painel da equipe)
   useOpenItemFromSearch("/atendimentos", !query.isLoading && items.length > 0, (openId) => {
     const it = items.find(x => String(x.id) === openId);
-    if (it) openEdit(it);
+    if (it) { openEdit(it); return true; }
+    return false;
   });
 
   const handleSave = (data: any) => {

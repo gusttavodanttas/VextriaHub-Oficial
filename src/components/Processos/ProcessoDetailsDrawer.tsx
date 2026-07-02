@@ -427,7 +427,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
       status: 'pendente',
     });
     if (error) { toast({ title: 'Erro ao criar prazo', description: error.message, variant: 'destructive' }); }
-    else { toast({ title: 'Prazo criado' }); setShowAddPrazo(false); fetchSubData('prazos'); }
+    else { toast({ title: 'Prazo criado' }); setShowAddPrazo(false); fetchSubData('prazos'); queryClient.invalidateQueries({ queryKey: ['prazos'] }); }
     setAddLoading(false);
   };
 
@@ -449,10 +449,10 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
       local: fd.get('local') as string || null,
       tipo: fd.get('tipo') as string || null,
       observacoes: fd.get('observacoes') as string || null,
-      status: 'agendado',
+      status: 'agendada',
     });
     if (error) { toast({ title: 'Erro ao criar audiência', description: error.message, variant: 'destructive' }); }
-    else { toast({ title: 'Audiência criada' }); setShowAddAudiencia(false); fetchSubData('audiencias'); }
+    else { toast({ title: 'Audiência criada' }); setShowAddAudiencia(false); fetchSubData('audiencias'); queryClient.invalidateQueries({ queryKey: ['audiencias'] }); }
     setAddLoading(false);
   };
 
@@ -464,14 +464,14 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
     const titulo = (fd.get('titulo') as string || '').trim();
     if (!titulo) { toast({ title: 'Título obrigatório', variant: 'destructive' }); setAddLoading(false); return; }
     const { error } = await supabase.from('tarefas').insert({
-      user_id: user.id, processo_id: processo.id,
+      user_id: user.id, office_id: user.office_id, processo_id: processo.id,
       titulo, descricao: fd.get('descricao') as string || null,
       data_vencimento: fd.get('data_vencimento') as string || null,
       prioridade: fd.get('prioridade') as string || 'media',
       status: 'pendente',
     });
     if (error) { toast({ title: 'Erro ao criar tarefa', description: error.message, variant: 'destructive' }); }
-    else { toast({ title: 'Tarefa criada' }); setShowAddTarefa(false); fetchSubData('tarefas'); }
+    else { toast({ title: 'Tarefa criada' }); setShowAddTarefa(false); fetchSubData('tarefas'); queryClient.invalidateQueries({ queryKey: ['tarefas'] }); }
     setAddLoading(false);
   };
 
@@ -517,7 +517,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
       status: 'agendado',
     });
     if (error) { toast({ title: 'Erro ao criar atendimento', description: error.message, variant: 'destructive' }); }
-    else { toast({ title: 'Atendimento criado' }); setShowAddAtendimento(false); fetchSubData('atendimentos'); }
+    else { toast({ title: 'Atendimento criado' }); setShowAddAtendimento(false); fetchSubData('atendimentos'); queryClient.invalidateQueries({ queryKey: ['atendimentos'] }); }
     setAddLoading(false);
   };
 

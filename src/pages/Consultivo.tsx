@@ -452,7 +452,8 @@ export default function ConsultivoPage() {
   // Abre o consultivo específico vindo de ?openId= (ex.: painel da equipe)
   useOpenItemFromSearch("/consultivo", !loading && data.length > 0, (openId) => {
     const it = data.find(x => String(x.id) === openId);
-    if (it) openEdit(it);
+    if (it) { openEdit(it); return true; }
+    return false;
   });
 
   const handleSave = async () => {

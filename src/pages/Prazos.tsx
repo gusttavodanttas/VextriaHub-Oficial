@@ -262,7 +262,8 @@ export default function Prazos() {
   // Busca global: rola até o prazo e abre o detalhe/edição
   useOpenItemFromSearch('/prazos', !isLoading && prazos.length > 0, (openId) => {
     const prazo = prazos.find(p => String(p.id) === openId);
-    if (prazo) setEditTarget(prazo);
+    if (prazo) { setEditTarget(prazo); return true; }
+    return false;
   });
 
   const concludeMutation = useMutation({

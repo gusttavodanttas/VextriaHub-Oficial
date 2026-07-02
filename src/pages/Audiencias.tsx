@@ -151,7 +151,8 @@ const Audiencias = () => {
   // Abre a audiência específica vinda de ?openId= (ex.: painel da equipe)
   useOpenItemFromSearch("/audiencias", !isLoading && audiencias.length > 0, (openId) => {
     const a = audiencias.find(x => String(x.id) === openId);
-    if (a) openEdit(a);
+    if (a) { openEdit(a); return true; }
+    return false;
   });
 
   const handleConfirmDelete = async () => {
