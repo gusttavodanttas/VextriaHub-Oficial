@@ -36,8 +36,26 @@ serve(async (req) => {
   }
 
   const supa = createClient(SUPABASE_URL, SERVICE_ROLE);
-  const DAYS = 3; // janela de segurança (cobre fim de semana)
   const authHeaders = { "Content-Type": "application/json", "Authorization": `Bearer ${SERVICE_ROLE}`, "apikey": SERVICE_ROLE, "x-robot-secret": ROBOT_SECRET };
+
+  // Janela padrão 7 dias (cobre fins de semana/feriados); aceita override via body {"days":N}
+  const body = await req.json().catch(() => ({}));
+  const DAYS = Number((body as any)?.days) || 7;
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  // Chama o fetch-by-oab com retry/backoff (PJE-Comunica é instável / faz rate limit)
+  const fetchByOab = async (oab: string, uf: string) => {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const resp = await fetch(`${SUPABASE_URL}/functions/v1/fetch-by-oab`, {
+          method: "POST", headers: authHeaders, body: JSON.stringify({ oab, uf, days: DAYS }),
+        });
+        if (resp.ok) return await resp.json();
+      } catch (_e) { /* rede/timeout — tenta de novo */ }
+      if (attempt < 3) await sleep(attempt * 1500); // 1.5s, 3s
+    }
+    return null;
+  };
 
   try {
     const { data: offices } = await supa.from("offices").select("id, created_by, settings");
@@ -64,13 +82,10 @@ serve(async (req) => {
         const uf = (p as any).oab_uf;
         if (!oab || !uf) continue;
 
-        const resp = await fetch(`${SUPABASE_URL}/functions/v1/fetch-by-oab`, {
-          method: "POST", headers: authHeaders, body: JSON.stringify({ oab, uf, days: DAYS }),
-        });
-        if (!resp.ok) { detalhes.push({ oab, uf, erro: resp.status }); continue; }
-        const data = await resp.json();
+        const data = await fetchByOab(oab, uf);
+        if (!data) { detalhes.push({ oab, uf, erro: "sem_resposta" }); continue; }
         const items = Array.isArray(data) ? data : (data?.items ?? []);
-        if (!items.length) continue;
+        if (!items.length) { detalhes.push({ oab, uf, novas: 0 }); continue; }
 
         // Vínculo automático a processos já cadastrados
         const numeros = items.map((i: any) => onlyDigits(i.numeroProcesso)).filter(Boolean);
@@ -125,6 +140,7 @@ serve(async (req) => {
           }
         }
         detalhes.push({ oab, uf, novas: novasOab });
+        await sleep(800); // gentileza com o PJE entre OABs
       }
     }
 
