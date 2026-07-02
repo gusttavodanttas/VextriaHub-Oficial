@@ -21,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useMultiSelect } from "@/hooks/useMultiSelect";
 import { useAudiencias, type Audiencia, type AudienciaInput } from "@/hooks/useAudiencias";
 import { useOpenItemFromSearch } from "@/hooks/useOpenItemFromSearch";
+import { supabase } from "@/integrations/supabase/client";
 import { useClientes } from "@/hooks/useClientes";
 import { useProcessosV2 } from "@/hooks/useProcessosV2";
 import { useOfficeUsers } from "@/hooks/useOfficeUsers";
@@ -149,11 +150,20 @@ const Audiencias = () => {
   const openNew = () => { setEditTarget(null); setDialogOpen(true); };
   const openEdit = (a: Audiencia) => { setEditTarget(a); setDialogOpen(true); };
 
-  // Abre a audiência específica vinda de ?openId= (ex.: painel da equipe)
-  useOpenItemFromSearch("/audiencias", !isLoading && audiencias.length > 0, (openId) => {
+  // Abre a audiência específica vinda de ?openId= (busca global, notificação ou card do processo)
+  useOpenItemFromSearch("/audiencias", !isLoading, (openId) => {
     const a = audiencias.find(x => String(x.id) === openId);
     if (a) { openEdit(a); return true; }
-    return false;
+    // Fallback: a lista pode estar defasada/filtrada — busca a audiência direto por id
+    (async () => {
+      const { data } = await supabase
+        .from("audiencias")
+        .select("*, clientes!cliente_id(nome)")
+        .eq("id", openId)
+        .maybeSingle();
+      if (data) openEdit({ ...(data as any), cliente_nome: (data as any).clientes?.nome ?? null } as Audiencia);
+    })();
+    return true;
   });
 
   const handleConfirmDelete = async () => {
