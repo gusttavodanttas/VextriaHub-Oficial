@@ -84,7 +84,12 @@ export const NovaAudienciaDialog = ({ open, onOpenChange, tipos, membros = [], p
   const conflito = useMemo(() => {
     if (!formData.data || !formData.hora) return null;
     const alvo = `${formData.data}T${formData.hora}`;
-    return existentes.find((e) => e.id !== audiencia?.id && format(new Date(e.data_audiencia), "yyyy-MM-dd'T'HH:mm") === alvo) || null;
+    return existentes.find((e) => {
+      if (e.id === audiencia?.id) return false;
+      const d = new Date(e.data_audiencia);
+      if (isNaN(d.getTime())) return false; // data inválida nunca pode derrubar o render
+      return format(d, "yyyy-MM-dd'T'HH:mm") === alvo;
+    }) || null;
   }, [existentes, formData.data, formData.hora, audiencia?.id]);
 
   const handleClienteChange = (cliente_id: string) => {
