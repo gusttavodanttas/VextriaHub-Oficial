@@ -212,33 +212,26 @@ export const usePublicacoes = () => {
 
 
   useEffect(() => {
-    if (!user?.office_id) return;
+    // Auto-sync ao abrir: usa a OAB do USUÁRIO LOGADO (o robô server-side cobre o resto).
+    // Evita ler o perfil do dono (que dava 406 por RLS) e funciona para cada advogado.
+    const oab = (profile as any)?.oab;
+    const uf = (profile as any)?.oab_uf;
+    if (!user?.office_id || !oab || !uf) return;
 
     const runAutoSync = async () => {
-      // Buscar OAB do Proprietário do Escritório (Admin)
-      const ownerProfile = await getOfficeOwnerProfile();
-      
-      if (!ownerProfile?.oab || !ownerProfile?.oab_uf) return;
+      const sessionKey = `last_oab_sync_${user.office_id}_${oab}`;
+      if (sessionStorage.getItem(sessionKey)) return;
+      sessionStorage.setItem(sessionKey, new Date().toISOString());
 
-      const sessionKey = `last_office_oab_sync_${user.office_id}_${ownerProfile.oab}`;
-      const lastSync = sessionStorage.getItem(sessionKey);
-      
-      if (!lastSync) {
-        const news = await syncByOab(ownerProfile.oab, ownerProfile.oab_uf);
-        
-        if (news.length > 0) {
-          toast({
-            title: "Sincronização concluída",
-            description: `${news.length} novas publicações para Dr. ${ownerProfile.full_name} encontradas.`,
-          });
-          fetchPublicacoes();
-        }
-        sessionStorage.setItem(sessionKey, new Date().toISOString());
+      const news = await syncByOab(oab, uf);
+      if (news.length > 0) {
+        toast({ title: "Sincronização concluída", description: `${news.length} novas publicações encontradas.` });
+        fetchPublicacoes();
       }
     };
 
     runAutoSync();
-  }, [user?.office_id]);
+  }, [user?.office_id, (profile as any)?.oab, (profile as any)?.oab_uf]);
 
   // Vincula uma publicação a um processo já existente (e marca como tratada)
   const linkPublicacaoToProcesso = async (publicacaoId: string, processoId: string) => {
@@ -350,16 +343,16 @@ export const usePublicacoes = () => {
         .from('offices')
         .select('created_by')
         .eq('id', user.office_id)
-        .single();
+        .maybeSingle();
 
       if (officeError || !office?.created_by) return null;
 
-      // 2. Pegar o perfil do dono
+      // 2. Pegar o perfil do dono (maybeSingle evita 406 quando o RLS bloqueia a leitura)
       const { data: ownerProfile, error: profileError } = await supabase
         .from('profiles')
         .select('full_name, oab, oab_uf')
         .eq('user_id', office.created_by)
-        .single();
+        .maybeSingle();
 
       if (profileError) return null;
 
