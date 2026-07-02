@@ -89,6 +89,17 @@ const STATUS_CONFIG = {
 
 type StatusType = keyof typeof STATUS_CONFIG;
 
+// Parse seguro: uma data inválida nunca pode derrubar o render nem o preenchimento do form
+const safeParseISO = (s?: string | null): Date | null => {
+  if (!s) return null;
+  const d = parseISO(s);
+  return isNaN(d.getTime()) ? null : d;
+};
+const fmtSafe = (s: string | null | undefined, pattern: string, fallback = "") => {
+  const d = safeParseISO(s);
+  return d ? format(d, pattern) : fallback;
+};
+
 // Proximidade de atendimentos futuros agendados/pendentes
 const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
 const diasAteData = (data: Date) =>
@@ -569,7 +580,7 @@ const FormDialog: React.FC<{
               <p className="text-[11px] text-amber-700 dark:text-amber-500 font-semibold leading-snug">
                 Conflito de horário com {conflitos.length} atendimento{conflitos.length > 1 ? "s" : ""}:{" "}
                 {conflitos.slice(0, 2).map((c) =>
-                  `${c.clientes?.nome || tipoInfo(c.tipo_atendimento).label} (${format(parseISO(c.data_atendimento), "HH:mm")})`
+                  `${c.clientes?.nome || tipoInfo(c.tipo_atendimento).label} (${fmtSafe(c.data_atendimento, "HH:mm")})`
                 ).join(", ")}{conflitos.length > 2 ? "…" : ""}
               </p>
             </div>
@@ -1084,7 +1095,7 @@ const WeekView: React.FC<{
                   return (
                     <button key={it.id} onClick={() => onSelect(it)}
                       className={cn("text-left rounded-lg border px-2 py-1 transition-all hover:shadow-sm", c.className)}>
-                      <p className="text-[10px] font-black leading-tight">{format(parseISO(it.data_atendimento), "HH:mm")}</p>
+                      <p className="text-[10px] font-black leading-tight">{fmtSafe(it.data_atendimento, "HH:mm")}</p>
                       <p className="text-[10px] font-semibold truncate leading-tight">
                         {it.clientes?.nome || tipoInfo(it.tipo_atendimento).label}
                       </p>
@@ -1265,8 +1276,8 @@ const Atendimentos = () => {
   const formInitial: FormState = editItem
     ? {
         tipo_atendimento: editItem.tipo_atendimento || NONE,
-        data_atendimento: format(parseISO(editItem.data_atendimento), "yyyy-MM-dd"),
-        hora_atendimento: format(parseISO(editItem.data_atendimento), "HH:mm"),
+        data_atendimento: fmtSafe(editItem.data_atendimento, "yyyy-MM-dd"),
+        hora_atendimento: fmtSafe(editItem.data_atendimento, "HH:mm"),
         observacoes: editItem.observacoes ?? "",
         status: editItem.status,
         cliente_id: editItem.cliente_id ?? NONE,
@@ -1349,7 +1360,7 @@ const Atendimentos = () => {
                       {tLabel}{item.clientes?.nome ? ` · ${item.clientes.nome}` : ""}
                     </p>
                     <p className="text-[10px] text-muted-foreground/60 font-semibold uppercase tracking-wide">
-                      {format(parseISO(item.data_atendimento), "dd/MM/yyyy 'às' HH:mm")}
+                      {fmtSafe(item.data_atendimento, "dd/MM/yyyy 'às' HH:mm")}
                     </p>
                   </div>
                   <Button size="sm" variant="ghost" disabled={loadingId === item.id}
@@ -1515,6 +1526,7 @@ const Atendimentos = () => {
       {/* Dialog form */}
       {dialogOpen && (
         <FormDialog
+          key={editItem?.id ?? (prefill ? "prefill" : "new")}
           open={dialogOpen}
           onClose={() => setDialogOpen(false)}
           initial={formInitial}
