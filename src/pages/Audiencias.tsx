@@ -103,6 +103,7 @@ const Audiencias = () => {
     const in7 = new Date(Date.now() + 7 * 86400000);
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     return {
+      agendadas: audiencias.filter(a => { const d = parseISO(a.data_audiencia); return d >= now && !["cancelada", "realizada"].includes(a.status || ""); }).length,
       proximas: audiencias.filter(a => { const d = parseISO(a.data_audiencia); return d >= now && d <= in7 && a.status !== "cancelada"; }).length,
       hoje: audiencias.filter(a => isToday(parseISO(a.data_audiencia)) && a.status !== "cancelada").length,
       confirmadas: audiencias.filter(a => a.status === "confirmada").length,
@@ -267,7 +268,8 @@ const Audiencias = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5">
+        <StatCard icon={Calendar} label="Agendadas" value={stats.agendadas} color="text-indigo-500" bg="bg-indigo-500/10" />
         <StatCard icon={CalendarClock} label="Próximas 7 dias" value={stats.proximas} color="text-orange-500" bg="bg-orange-500/10" />
         <StatCard icon={Calendar} label="Hoje" value={stats.hoje} color="text-blue-500" bg="bg-blue-500/10" />
         <StatCard icon={CheckCircle2} label="Confirmadas" value={stats.confirmadas} color="text-emerald-500" bg="bg-emerald-500/10" />
@@ -387,7 +389,7 @@ const Audiencias = () => {
         </TabsContent>
       </Tabs>
 
-      <NovaAudienciaDialog open={dialogOpen} onOpenChange={setDialogOpen} tipos={tiposCadastrados}
+      <NovaAudienciaDialog key={editTarget?.id ?? 'new'} open={dialogOpen} onOpenChange={setDialogOpen} tipos={tiposCadastrados}
         membros={membros} processos={processosOpts} existentes={audiencias} audiencia={editTarget} onSubmit={handleSubmit}
         onManageTipos={() => { setDialogOpen(false); setTiposDialogOpen(true); }} />
 

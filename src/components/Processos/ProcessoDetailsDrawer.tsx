@@ -650,10 +650,17 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
   });
 
   const EmptySub = ({ icon: Icon, label }: { icon: any; label: string }) => (
-    <div className="py-16 flex flex-col items-center justify-center text-center space-y-3 opacity-30">
-      <Icon className="h-10 w-10" />
-      <p className="font-black uppercase tracking-widest text-xs">Nenhum(a) {label}</p>
-    </div>
+    loadingSub ? (
+      <div className="py-16 flex flex-col items-center justify-center text-center space-y-3 opacity-40">
+        <RotateCw className="h-6 w-6 animate-spin" />
+        <p className="font-black uppercase tracking-widest text-xs">Carregando…</p>
+      </div>
+    ) : (
+      <div className="py-16 flex flex-col items-center justify-center text-center space-y-3 opacity-30">
+        <Icon className="h-10 w-10" />
+        <p className="font-black uppercase tracking-widest text-xs">Nenhum(a) {label}</p>
+      </div>
+    )
   );
 
   const SectionHeader = ({ label, count, onAdd }: { label: string; count: number; onAdd?: () => void }) => (

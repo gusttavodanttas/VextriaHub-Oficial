@@ -50,13 +50,18 @@ export const NovaAudienciaDialog = ({ open, onOpenChange, tipos, membros = [], p
   useEffect(() => {
     if (!open) return;
     if (audiencia) {
-      const dt = audiencia.data_audiencia ? new Date(audiencia.data_audiencia) : null;
+      // Parse defensivo: uma data inválida NÃO pode derrubar o preenchimento do resto
+      let data = "", hora = "";
+      if (audiencia.data_audiencia) {
+        const dt = new Date(audiencia.data_audiencia);
+        if (!isNaN(dt.getTime())) { data = format(dt, "yyyy-MM-dd"); hora = format(dt, "HH:mm"); }
+      }
       setFormData({
         titulo: audiencia.titulo || "",
         cliente_id: audiencia.cliente_id || "",
         processo_id: (audiencia as any).processo_id || NONE,
-        data: dt ? format(dt, "yyyy-MM-dd") : "",
-        hora: dt ? format(dt, "HH:mm") : "",
+        data,
+        hora,
         tipo: audiencia.tipo || "",
         local: audiencia.local || "",
         observacao: audiencia.observacoes || "",
