@@ -23,6 +23,13 @@ export interface Publication {
   nome_orgao?: string;
 }
 
+// Urgência automática: publicação que dispara prazo/ato = alta
+export function deriveUrgencia(conteudo?: string | null, tipo?: string | null): 'alta' | 'media' {
+  const t = `${conteudo || ''} ${tipo || ''}`.toLowerCase();
+  return /(prazo|intim|manifest|contest|impugna|recurso|apelaç|agravo|embargos|contrarraz|cite-se|cita[çc]|r[ée]plica|cumprimento de senten|penhora|leil[aã]o|audi[êe]ncia)/.test(t)
+    ? 'alta' : 'media';
+}
+
 export interface PrazoInfo {
   data_intimacao: string;
   data_fim_prazo: string | null;
@@ -133,7 +140,7 @@ export const usePublicacoes = () => {
           data_publicacao: dataPublicacao,
           numero_processo: item.numeroProcesso,
           status: 'nova' as const,
-          urgencia: 'media' as const,
+          urgencia: deriveUrgencia(conteudo, item.tipo_documento || item.tipo_comunicacao),
           tags: [item.tribunal?.toUpperCase() || 'TRIBUNAL', 'pje_comunica'].filter(Boolean),
           tribunal: item.tribunal || null,
           comarca: item.comarca || null,
@@ -401,7 +408,7 @@ export const usePublicacoes = () => {
             data_publicacao: dataPublicacao,
             numero_processo: cnj,
             status: 'nova',
-            urgencia: 'media',
+            urgencia: deriveUrgencia(conteudo, item.tipo_documento || item.tipo_comunicacao),
             tags: [item.tribunal?.toUpperCase() || 'CNJ'],
             tribunal: item.tribunal || null,
             comarca: item.comarca || null,

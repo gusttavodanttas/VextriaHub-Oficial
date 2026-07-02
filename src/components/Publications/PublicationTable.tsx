@@ -257,7 +257,7 @@ export const PublicationTable = ({
                           <div className="flex items-center gap-2">
                             <Calendar className="h-3 w-3 text-muted-foreground/40" />
                             <span className="text-xs font-bold text-muted-foreground/80">
-                              {new Date(pub.data_publicacao).toLocaleDateString('pt-BR')}
+                              {pub.data_publicacao ? new Date(String(pub.data_publicacao).length <= 10 ? `${pub.data_publicacao}T12:00:00` : pub.data_publicacao).toLocaleDateString('pt-BR') : ''}
                             </span>
                           </div>
                         </TableCell>

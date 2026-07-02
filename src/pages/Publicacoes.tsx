@@ -61,6 +61,11 @@ import { NovoProcessoDialog } from "@/components/Processos/NovoProcessoDialog";
 import { AgendarPublicacaoDialog, AcaoTipo } from "@/components/Processos/AgendarPublicacaoDialog";
 import { supabase } from "@/integrations/supabase/client";
 
+// Datas só-data (YYYY-MM-DD) no fuso local (evita off-by-one em UTC-3)
+const parseDataPub = (s?: string | null) => s ? new Date(String(s).length <= 10 ? `${s}T12:00:00` : String(s)) : null;
+const fmtDataBR = (s?: string | null) => { const d = parseDataPub(s); return d ? d.toLocaleDateString('pt-BR') : ''; };
+const localYmd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 export default function Publicacoes() {
   const { toast } = useToast();
   const { user, profile } = useAuth();
@@ -197,7 +202,6 @@ export default function Publicacoes() {
 
   // Cálculo de Estatísticas
   const stats = useMemo(() => {
-    const todayStr = new Date().toISOString().split('T')[0];
     const tratadas = publications.filter(p => p.status === 'lida' || p.status === 'processada').length;
     return {
       prazosSemana: publications.filter(p => p.urgencia === 'alta').length,
@@ -205,9 +209,8 @@ export default function Publicacoes() {
       semVinculo: publications.filter(p => !p.processo_id).length,
       novosAndamentos: publications.filter(p => {
         try {
-          if (!p.data_publicacao) return false;
-          const dStr = new Date(p.data_publicacao).toISOString().split('T')[0];
-          return dStr === todayStr;
+          const d = parseDataPub(p.data_publicacao);
+          return d ? localYmd(d) === localYmd(new Date()) : false;
         } catch (e) {
           return false;
         }
@@ -286,7 +289,7 @@ export default function Publicacoes() {
         p.numero_processo,
         p.tribunal || '',
         p.comarca || '',
-        p.data_publicacao ? new Date(p.data_publicacao).toLocaleDateString('pt-BR') : '',
+        fmtDataBR(p.data_publicacao),
         p.status,
         p.urgencia,
       ]),
@@ -613,7 +616,7 @@ export default function Publicacoes() {
                               <span className="text-[10px] text-muted-foreground/60 font-bold uppercase">{publication.tribunal}</span>
                             )}
                             <span className="text-[10px] text-muted-foreground/50 font-bold">
-                              {new Date(publication.data_publicacao).toLocaleDateString('pt-BR')}
+                              {fmtDataBR(publication.data_publicacao)}
                             </span>
                           </div>
                         </div>
