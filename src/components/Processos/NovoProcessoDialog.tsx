@@ -119,12 +119,14 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
   // Auto-vínculo: se a parte autora/ré bate com um cliente do cadastro, vincula sozinho
   React.useEffect(() => {
     if ((formData as any).clienteId) return;
-    const autor = ((formData as any).parteAutora || '').toLowerCase().trim();
-    const reu = (formData.requerido || '').toLowerCase().trim();
+    const norm = (s: string) => (s || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/\s+/g, ' ').trim();
+    const autor = norm((formData as any).parteAutora);
+    const reu = norm(formData.requerido);
     if (!autor && !reu) return;
     const match = (clientesData as any[]).find((c) => {
-      const n = (c.nome || '').toLowerCase().trim();
-      return n && (n === autor || n === reu || (autor && autor.includes(n)) || (reu && reu.includes(n)));
+      const n = norm(c.nome);
+      if (!n || n.length < 4) return false; // evita match por nomes muito curtos
+      return n === autor || n === reu || (autor && autor.includes(n)) || (reu && reu.includes(n));
     });
     if (match) setFormData((prev) => ({ ...prev, clienteId: match.id, cliente: match.nome } as any));
   }, [clientesData, (formData as any).parteAutora, formData.requerido]);
