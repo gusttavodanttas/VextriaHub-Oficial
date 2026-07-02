@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Processo } from '@/types/processo';
@@ -135,6 +136,12 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
   const [lastSyncedProcessoId, setLastSyncedProcessoId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("resumo");
   const [editing, setEditing] = useState(false);
+  const navigate = useNavigate();
+  // Abre um item já criado na sua aba principal (modo edição), fechando o drawer
+  const openInTab = useCallback((route: string, id: string) => {
+    onOpenChange(false);
+    navigate(`${route}?openId=${id}`);
+  }, [navigate, onOpenChange]);
   const [saving, setSaving] = useState(false);
   const [savingCliente, setSavingCliente] = useState(false);
 
@@ -1125,7 +1132,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                   const dataFatal = p.data_fim_prazo || p.data_vencimento || null;
                   const vencido = p.status !== 'concluido' && dataFatal && new Date(dataFatal) < new Date();
                   return (
-                    <div key={p.id} className={cn("p-4 rounded-2xl border flex items-center gap-4", vencido ? 'border-rose-500/20 bg-rose-500/5' : 'border-border bg-muted/10')}>
+                    <div key={p.id} onClick={() => openInTab('/prazos', p.id)} title="Abrir para editar" className={cn("p-4 rounded-2xl border flex items-center gap-4 cursor-pointer hover:border-primary/40 hover:shadow-sm transition-all", vencido ? 'border-rose-500/20 bg-rose-500/5' : 'border-border bg-muted/10')}>
                       {vencido ? <AlertTriangle className="h-5 w-5 text-rose-500 shrink-0" /> : p.status === 'concluido' ? <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" /> : <CalendarClock className="h-5 w-5 text-amber-500 shrink-0" />}
                       <div className="flex-1 min-w-0">
                         <p className={cn("font-bold text-sm", p.status === 'concluido' && 'line-through opacity-50')}>{p.titulo}</p>
@@ -1158,7 +1165,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                   </AddForm>
                 )}
                 {audiencias.length > 0 ? audiencias.map(a => (
-                  <div key={a.id} className="p-4 rounded-2xl border border-border bg-muted/10 flex items-center gap-4">
+                  <div key={a.id} onClick={() => openInTab('/audiencias', a.id)} title="Abrir para editar" className="p-4 rounded-2xl border border-border bg-muted/10 flex items-center gap-4 cursor-pointer hover:border-primary/40 hover:shadow-sm transition-all">
                     <div className="p-2.5 rounded-xl bg-violet-500/10"><Gavel className="h-5 w-5 text-violet-500" /></div>
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-sm">{a.titulo}</p>
@@ -1189,7 +1196,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                   </AddForm>
                 )}
                 {atendimentos.length > 0 ? atendimentos.map(a => (
-                  <div key={a.id} className="p-4 rounded-2xl border border-border bg-muted/10 flex items-center gap-4">
+                  <div key={a.id} onClick={() => openInTab('/atendimentos', a.id)} title="Abrir para editar" className="p-4 rounded-2xl border border-border bg-muted/10 flex items-center gap-4 cursor-pointer hover:border-primary/40 hover:shadow-sm transition-all">
                     <div className="p-2.5 rounded-xl bg-sky-500/10"><Users className="h-5 w-5 text-sky-500" /></div>
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-sm capitalize">{a.tipo_atendimento}</p>
@@ -1223,8 +1230,8 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                   </AddForm>
                 )}
                 {tarefas.length > 0 ? tarefas.map(t => (
-                  <div key={t.id} className="p-4 rounded-2xl border border-border bg-muted/10 flex items-center gap-4">
-                    <button onClick={() => toggleTarefa(t)} className="shrink-0">
+                  <div key={t.id} onClick={() => openInTab('/tarefas', t.id)} title="Abrir para editar" className="p-4 rounded-2xl border border-border bg-muted/10 flex items-center gap-4 cursor-pointer hover:border-primary/40 hover:shadow-sm transition-all">
+                    <button onClick={(e) => { e.stopPropagation(); toggleTarefa(t); }} className="shrink-0">
                       {t.concluida ? <CheckCircle2 className="h-5 w-5 text-emerald-500" /> : <Circle className="h-5 w-5 text-muted-foreground/40 hover:text-primary transition-colors" />}
                     </button>
                     <div className="flex-1 min-w-0">

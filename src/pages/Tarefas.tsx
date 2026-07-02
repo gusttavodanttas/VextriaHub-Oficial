@@ -240,7 +240,11 @@ const Tarefas = () => {
     return { concluidasSemana, pontos, nivel, streak, metaSemanal, progresso: Math.min(100, Math.round((concluidasSemana / metaSemanal) * 100)) };
   }, [tarefas]);
 
-  useOpenItemFromSearch("/tarefas", !isLoading && tarefas.length > 0);
+  // Abre a tarefa específica vinda de ?openId= (ex.: card do processo) em modo edição
+  useOpenItemFromSearch("/tarefas", !isLoading && tarefas.length > 0, (openId) => {
+    const t = tarefas.find(x => String(x.id) === openId);
+    if (t) openEdit(t);
+  });
 
   const handleSubmit = async (input: TarefaInput, id?: string) => {
     if (id) await update.mutateAsync({ id, input });
