@@ -76,7 +76,9 @@ export const NovaAudienciaDialog = ({ open, onOpenChange, tipos, membros = [], p
   // Reforço: se a audiência/estado de abertura mudar sem remmontar, re-sincroniza.
   useEffect(() => {
     if (!open) return;
-    setFormData(buildForm(audiencia, user?.id));
+    const nova = buildForm(audiencia, user?.id);
+    console.log("[VX] dialog effect → open:", open, "| audiencia:", audiencia, "| form.titulo:", nova.titulo, "| form.data:", nova.data);
+    setFormData(nova);
   }, [open, audiencia, user?.id]);
 
   // Processos do cliente selecionado
