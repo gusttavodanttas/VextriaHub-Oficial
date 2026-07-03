@@ -187,8 +187,10 @@ const Audiencias = () => {
       : null;
     return (
       <div key={a.id} id={`item-${a.id}`}
+        onClick={() => openEdit(a)}
+        title="Clique para editar"
         className={cn(
-          "group flex items-stretch gap-4 p-4 rounded-2xl border bg-card/40 transition-all hover:shadow-md",
+          "group flex items-stretch gap-4 p-4 rounded-2xl border bg-card/40 transition-all hover:shadow-md cursor-pointer",
           selected ? "border-primary/40 ring-2 ring-primary/10 bg-primary/[0.02]" : "border-black/5 dark:border-border hover:border-black/10 dark:hover:border-white/15"
         )}>
         {/* Data */}
@@ -202,7 +204,9 @@ const Audiencias = () => {
         <div className="flex-1 min-w-0 space-y-2">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-2.5 min-w-0">
-              <Checkbox checked={selected} onCheckedChange={() => multiSelect.toggleItem(a.id)} className="rounded-md mt-1 shrink-0" />
+              <span onClick={(e) => e.stopPropagation()} className="mt-1 shrink-0">
+                <Checkbox checked={selected} onCheckedChange={() => multiSelect.toggleItem(a.id)} className="rounded-md" />
+              </span>
               <div className="min-w-0">
                 <h3 className="font-black tracking-tight truncate group-hover:text-primary transition-colors">{a.titulo}</h3>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-[11px] text-muted-foreground font-medium">
@@ -223,7 +227,7 @@ const Audiencias = () => {
             {a.tipo
               ? <Badge variant="outline" className="rounded-lg border-primary/20 text-primary bg-primary/5 text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5">{a.tipo}</Badge>
               : <span />}
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <Button variant="ghost" size="sm" className="h-8 px-2 rounded-lg gap-1 text-xs font-bold" onClick={() => openEdit(a)}>
                 <Pencil className="h-3.5 w-3.5" /> Editar
               </Button>

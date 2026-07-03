@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   Clock,
   Link2Off,
+  Link2,
   FilePlus,
   Inbox,
   CheckCircle,
@@ -56,12 +57,13 @@ interface PublicationSummaryProps {
     prazosSemana: number;
     naoTratadas: number;
     semVinculo: number;
+    comVinculo?: number;
     novosAndamentos: number;
     total?: number;
     tratadas?: number;
   };
   loading?: boolean;
-  onCardClick?: (type: 'prazos' | 'novas' | 'sem_vinculo' | 'hoje' | 'tratadas') => void;
+  onCardClick?: (type: 'prazos' | 'novas' | 'sem_vinculo' | 'com_vinculo' | 'hoje' | 'tratadas') => void;
 }
 
 export const PublicationSummary = ({ stats, loading, onCardClick }: PublicationSummaryProps) => {
@@ -70,7 +72,7 @@ export const PublicationSummary = ({ stats, loading, onCardClick }: PublicationS
     : null;
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
       <SummaryCard
         title="Urgentes"
         value={loading ? "…" : stats.prazosSemana}
@@ -110,6 +112,15 @@ export const PublicationSummary = ({ stats, loading, onCardClick }: PublicationS
         color="text-orange-500"
         bg="bg-orange-500"
         onClick={() => onCardClick?.('sem_vinculo')}
+      />
+      <SummaryCard
+        title="Vinculadas"
+        value={loading ? "…" : (stats.comVinculo ?? '—')}
+        description="Com processo associado"
+        icon={Link2}
+        color="text-blue-600"
+        bg="bg-blue-500"
+        onClick={() => onCardClick?.('com_vinculo')}
       />
       <SummaryCard
         title="Publicadas Hoje"

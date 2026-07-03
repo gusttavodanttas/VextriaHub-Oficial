@@ -81,21 +81,23 @@ export default function Publicacoes() {
   const [initialProcessData, setInitialProcessData] = useState<any>(null);
   const [registering, setRegistering] = useState(false);
   
-  const handleCardClick = (type: 'prazos' | 'novas' | 'sem_vinculo' | 'hoje' | 'tratadas') => {
+  const handleCardClick = (type: 'prazos' | 'novas' | 'sem_vinculo' | 'com_vinculo' | 'hoje' | 'tratadas') => {
     if (type === 'hoje') {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const to = new Date();
       to.setHours(23, 59, 59, 999);
-      setFilters({ ...filters, dateRange: { from: today, to }, status: 'all' });
+      setFilters({ ...filters, dateRange: { from: today, to }, status: 'all', vinculo: 'all' });
     } else if (type === 'novas') {
-      setFilters({ ...filters, status: 'nova', dateRange: { from: undefined, to: undefined } });
+      setFilters({ ...filters, status: 'nova', vinculo: 'all', dateRange: { from: undefined, to: undefined } });
     } else if (type === 'tratadas') {
-      setFilters({ ...filters, status: 'lida', dateRange: { from: undefined, to: undefined } });
+      setFilters({ ...filters, status: 'lida', vinculo: 'all', dateRange: { from: undefined, to: undefined } });
     } else if (type === 'prazos') {
-      setFilters({ ...filters, urgencia: 'alta', dateRange: { from: undefined, to: undefined } });
+      setFilters({ ...filters, urgencia: 'alta', vinculo: 'all', dateRange: { from: undefined, to: undefined } });
     } else if (type === 'sem_vinculo') {
-      setFilters({ ...filters, search: '', status: 'all', dateRange: { from: undefined, to: undefined } });
+      setFilters({ ...filters, search: '', status: 'all', urgencia: 'all', vinculo: 'sem', dateRange: { from: undefined, to: undefined } });
+    } else if (type === 'com_vinculo') {
+      setFilters({ ...filters, search: '', status: 'all', urgencia: 'all', vinculo: 'com', dateRange: { from: undefined, to: undefined } });
     }
   };
 
@@ -197,6 +199,7 @@ export default function Publicacoes() {
     status: 'all',
     urgencia: 'all',
     cnj: '',
+    vinculo: 'all' as 'all' | 'sem' | 'com',
     dateRange: { from: undefined as Date | undefined, to: undefined as Date | undefined }
   });
 
@@ -207,6 +210,7 @@ export default function Publicacoes() {
       prazosSemana: publications.filter(p => p.urgencia === 'alta').length,
       naoTratadas: publications.filter(p => p.status === 'nova' || p.status === 'pendente').length,
       semVinculo: publications.filter(p => !p.processo_id).length,
+      comVinculo: publications.filter(p => !!p.processo_id).length,
       novosAndamentos: publications.filter(p => {
         try {
           const d = parseDataPub(p.data_publicacao);
@@ -246,7 +250,9 @@ export default function Publicacoes() {
         ? pub.status !== 'arquivada'
         : pub.status === filters.status;
       const matchesUrgencia = filters.urgencia === 'all' || pub.urgencia === filters.urgencia;
-      
+      const matchesVinculo = filters.vinculo === 'all'
+        || (filters.vinculo === 'sem' ? !pub.processo_id : !!pub.processo_id);
+
       let matchesDate = true;
       if (filters.dateRange.from) {
         try {
@@ -268,15 +274,16 @@ export default function Publicacoes() {
         }
       }
       
-      return matchesSearch && matchesStatus && matchesUrgencia && matchesDate;
+      return matchesSearch && matchesStatus && matchesUrgencia && matchesVinculo && matchesDate;
     });
-  }, [publications, dSearch, filters.status, filters.urgencia, filters.dateRange]);
+  }, [publications, dSearch, filters.status, filters.urgencia, filters.vinculo, filters.dateRange]);
 
   const activeFiltersCount = useMemo(() => {
     return [
       filters.search !== '',
       filters.status !== 'all',
       filters.urgencia !== 'all',
+      filters.vinculo !== 'all',
       filters.dateRange.from !== undefined
     ].filter(Boolean).length;
   }, [filters]);
@@ -439,6 +446,7 @@ export default function Publicacoes() {
                 status: 'all',
                 urgencia: 'all',
                 cnj: '',
+                vinculo: 'all',
                 dateRange: { from: undefined, to: undefined }
               })}
             />
