@@ -39,25 +39,44 @@ const statusOptions = [
 const NONE = "__none__";
 const empty = { titulo: "", cliente_id: "", processo_id: NONE, data: "", hora: "", tipo: "", local: "", observacao: "", status: "agendada", responsavel_id: "", avisos_dias: null as number[] | null };
 
+const STATUS_VALUES = statusOptions.map((s) => s.value);
+// Normaliza o status para uma opção válida do select (aceita variações masculinas antigas)
+function normalizeStatus(s?: string | null): string {
+  const v = (s || "").toLowerCase().trim();
+  if (STATUS_VALUES.includes(v)) return v;
+  const map: Record<string, string> = {
+    agendado: "agendada", confirmado: "confirmada", realizado: "realizada",
+    cancelado: "cancelada", pendentes: "pendente",
+  };
+  return map[v] || "agendada";
+}
+
 // Monta o estado do formulário a partir de uma audiência (ou vazio para nova).
 // Parse de data defensivo: data inválida nunca pode derrubar o preenchimento do resto.
-function buildForm(audiencia: Audiencia | null | undefined, userId?: string): typeof empty {
+function buildForm(audiencia: Audiencia | null | undefined, userId?: string, processos: ProcessoOption[] = []): typeof empty {
   if (!audiencia) return { ...empty, responsavel_id: userId || "" };
   let data = "", hora = "";
   if (audiencia.data_audiencia) {
     const dt = new Date(audiencia.data_audiencia);
     if (!isNaN(dt.getTime())) { data = format(dt, "yyyy-MM-dd"); hora = format(dt, "HH:mm"); }
   }
+  const processo_id = (audiencia as any).processo_id || NONE;
+  // Se a audiência não tem cliente mas está ligada a um processo, puxa o cliente do processo
+  let cliente_id = audiencia.cliente_id || "";
+  if (!cliente_id && processo_id !== NONE) {
+    const proc = processos.find((p) => p.id === processo_id);
+    if (proc?.cliente_id) cliente_id = proc.cliente_id;
+  }
   return {
     titulo: audiencia.titulo || "",
-    cliente_id: audiencia.cliente_id || "",
-    processo_id: (audiencia as any).processo_id || NONE,
+    cliente_id,
+    processo_id,
     data,
     hora,
     tipo: audiencia.tipo || "",
     local: audiencia.local || "",
     observacao: audiencia.observacoes || "",
-    status: audiencia.status || "agendada",
+    status: normalizeStatus(audiencia.status),
     responsavel_id: (audiencia as any).responsavel_id || userId || "",
     avisos_dias: (audiencia as any).avisos_dias ?? null,
   };
@@ -69,14 +88,16 @@ export const NovaAudienciaDialog = ({ open, onOpenChange, tipos, membros = [], p
   const [saving, setSaving] = useState(false);
   // Preenche JÁ na montagem (síncrono) — não depende de efeito. Com o key de
   // remontagem no pai, cada edição recria o componente com a audiência certa.
-  const [formData, setFormData] = useState(() => buildForm(audiencia, user?.id));
+  const [formData, setFormData] = useState(() => buildForm(audiencia, user?.id, processos));
 
   const isEdit = !!audiencia;
 
-  // Reforço: se a audiência/estado de abertura mudar sem remmontar, re-sincroniza.
+  // Reforço: re-sincroniza ao abrir / trocar de audiência. NÃO depende de `processos`
+  // para não resetar edições do usuário caso a lista seja revalidada em segundo plano.
   useEffect(() => {
     if (!open) return;
-    setFormData(buildForm(audiencia, user?.id));
+    setFormData(buildForm(audiencia, user?.id, processos));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, audiencia, user?.id]);
 
   // Processos do cliente selecionado
