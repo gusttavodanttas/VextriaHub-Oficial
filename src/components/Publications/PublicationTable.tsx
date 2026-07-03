@@ -175,7 +175,7 @@ export const PublicationTable = ({
                     Expediente / Processo
                   </TableHead>
                   <TableHead className="text-[10px] uppercase font-black tracking-widest text-muted-foreground/60 py-5">
-                    Tribunal / Comarca
+                    Tribunal
                   </TableHead>
                   <TableHead className="text-[10px] uppercase font-black tracking-widest text-muted-foreground/60 py-5">
                     Data
@@ -189,7 +189,7 @@ export const PublicationTable = ({
                   <TableHead className="text-[10px] uppercase font-black tracking-widest text-muted-foreground/60 py-5">
                     Status
                   </TableHead>
-                  <TableHead className="text-[10px] uppercase font-black tracking-widest text-muted-foreground/60 py-5 text-right pr-8">
+                  <TableHead className="text-[10px] uppercase font-black tracking-widest text-muted-foreground/60 py-5 text-right pr-8 sticky right-0 z-20 bg-card border-l border-border/50">
                     Ações
                   </TableHead>
                 </TableRow>
@@ -302,7 +302,15 @@ export const PublicationTable = ({
                           </Badge>
                         </TableCell>
 
-                        <TableCell className="py-4 pr-6 text-right" onClick={(e) => e.stopPropagation()}>
+                        <TableCell
+                          className={cn(
+                            "py-4 pr-6 text-right sticky right-0 z-10 border-l border-border/50 bg-card",
+                            "group-hover:bg-muted/30",
+                            selectedIds.includes(pub.id) && "bg-primary/5 group-hover:bg-primary/10",
+                            isExpanded && "bg-muted/20"
+                          )}
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <div className="flex items-center gap-1 justify-end">
                             {/* Expand content */}
                             {pub.conteudo && (
