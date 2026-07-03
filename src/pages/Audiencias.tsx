@@ -148,11 +148,7 @@ const Audiencias = () => {
   };
 
   const openNew = () => { setEditTarget(null); setDialogOpen(true); };
-  const openEdit = (a: Audiencia) => {
-    console.log("[VX] openEdit → objeto recebido:", a, "| JSON:", JSON.stringify(a));
-    setEditTarget(a);
-    setDialogOpen(true);
-  };
+  const openEdit = (a: Audiencia) => { setEditTarget(a); setDialogOpen(true); };
 
   // Abre a audiência específica vinda de ?openId= (busca global, notificação ou card do processo)
   useOpenItemFromSearch("/audiencias", !isLoading, (openId) => {
