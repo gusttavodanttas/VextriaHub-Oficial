@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -122,6 +122,21 @@ export const PublicationTable = ({
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(25);
 
+  // Esconde a coluna "Tribunal" (menos essencial) quando o espaço aperta —
+  // ex.: menu lateral expandido — para Status e Ações continuarem visíveis.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver((entries) => {
+      setNarrow(entries[0].contentRect.width < 920);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const colCount = narrow ? 7 : 8;
+
   const totalPages = Math.ceil(publications.length / pageSize);
   const paginated = useMemo(() => publications.slice(page * pageSize, (page + 1) * pageSize), [publications, page, pageSize]);
 
@@ -160,7 +175,7 @@ export const PublicationTable = ({
     <TooltipProvider>
       <div className="space-y-4">
         <div className="rounded-[2.5rem] border border-border bg-card/30 backdrop-blur-md overflow-hidden shadow-premium">
-          <div className="overflow-x-auto">
+          <div ref={scrollRef} className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="border-border hover:bg-transparent">
@@ -174,9 +189,11 @@ export const PublicationTable = ({
                   <TableHead className="text-[10px] uppercase font-black tracking-widest text-muted-foreground/60 py-5">
                     Expediente / Processo
                   </TableHead>
-                  <TableHead className="text-[10px] uppercase font-black tracking-widest text-muted-foreground/60 py-5">
-                    Tribunal
-                  </TableHead>
+                  {!narrow && (
+                    <TableHead className="text-[10px] uppercase font-black tracking-widest text-muted-foreground/60 py-5">
+                      Tribunal
+                    </TableHead>
+                  )}
                   <TableHead className="text-[10px] uppercase font-black tracking-widest text-muted-foreground/60 py-5">
                     Data
                   </TableHead>
@@ -239,19 +256,21 @@ export const PublicationTable = ({
                           </div>
                         </TableCell>
 
-                        <TableCell className="py-4">
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-1.5">
-                              <Building2 className="h-3 w-3 text-primary/50" />
-                              <span className="text-[11px] font-bold">{pub.tribunal || 'TRIBUNAL'}</span>
+                        {!narrow && (
+                          <TableCell className="py-4">
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-1.5">
+                                <Building2 className="h-3 w-3 text-primary/50" />
+                                <span className="text-[11px] font-bold">{pub.tribunal || 'TRIBUNAL'}</span>
+                              </div>
+                              {pub.comarca && (
+                                <span className="text-[10px] text-muted-foreground/60 font-medium pl-4">
+                                  {pub.comarca}
+                                </span>
+                              )}
                             </div>
-                            {pub.comarca && (
-                              <span className="text-[10px] text-muted-foreground/60 font-medium pl-4">
-                                {pub.comarca}
-                              </span>
-                            )}
-                          </div>
-                        </TableCell>
+                          </TableCell>
+                        )}
 
                         <TableCell className="py-4">
                           <div className="flex items-center gap-2">
@@ -410,7 +429,7 @@ export const PublicationTable = ({
                       {/* Expanded content row */}
                       {isExpanded && (
                         <TableRow className="border-border bg-muted/10 hover:bg-muted/10">
-                          <TableCell colSpan={8} className="p-0">
+                          <TableCell colSpan={colCount} className="p-0">
                             <div className="px-8 py-6 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                               <div className="flex items-center justify-between">
                                 <span className="text-[10px] uppercase font-black tracking-[0.2em] text-muted-foreground/50">Teor da publicação</span>
