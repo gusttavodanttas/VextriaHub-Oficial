@@ -39,43 +39,44 @@ const statusOptions = [
 const NONE = "__none__";
 const empty = { titulo: "", cliente_id: "", processo_id: NONE, data: "", hora: "", tipo: "", local: "", observacao: "", status: "agendada", responsavel_id: "", avisos_dias: null as number[] | null };
 
+// Monta o estado do formulário a partir de uma audiência (ou vazio para nova).
+// Parse de data defensivo: data inválida nunca pode derrubar o preenchimento do resto.
+function buildForm(audiencia: Audiencia | null | undefined, userId?: string): typeof empty {
+  if (!audiencia) return { ...empty, responsavel_id: userId || "" };
+  let data = "", hora = "";
+  if (audiencia.data_audiencia) {
+    const dt = new Date(audiencia.data_audiencia);
+    if (!isNaN(dt.getTime())) { data = format(dt, "yyyy-MM-dd"); hora = format(dt, "HH:mm"); }
+  }
+  return {
+    titulo: audiencia.titulo || "",
+    cliente_id: audiencia.cliente_id || "",
+    processo_id: (audiencia as any).processo_id || NONE,
+    data,
+    hora,
+    tipo: audiencia.tipo || "",
+    local: audiencia.local || "",
+    observacao: audiencia.observacoes || "",
+    status: audiencia.status || "agendada",
+    responsavel_id: (audiencia as any).responsavel_id || userId || "",
+    avisos_dias: (audiencia as any).avisos_dias ?? null,
+  };
+}
+
 export const NovaAudienciaDialog = ({ open, onOpenChange, tipos, membros = [], processos = [], existentes = [], audiencia, onSubmit, onManageTipos }: NovaAudienciaDialogProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
-  const [formData, setFormData] = useState({ ...empty, responsavel_id: user?.id || "" });
+  // Preenche JÁ na montagem (síncrono) — não depende de efeito. Com o key de
+  // remontagem no pai, cada edição recria o componente com a audiência certa.
+  const [formData, setFormData] = useState(() => buildForm(audiencia, user?.id));
 
   const isEdit = !!audiencia;
 
-  useEffect(() => {
-    if (open) console.log("[VX-AUD] dialog aberto →", { isEdit, temAudiencia: !!audiencia, id: (audiencia as any)?.id, titulo: (audiencia as any)?.titulo });
-  }, [open, audiencia, isEdit]);
-
+  // Reforço: se a audiência/estado de abertura mudar sem remmontar, re-sincroniza.
   useEffect(() => {
     if (!open) return;
-    if (audiencia) {
-      // Parse defensivo: uma data inválida NÃO pode derrubar o preenchimento do resto
-      let data = "", hora = "";
-      if (audiencia.data_audiencia) {
-        const dt = new Date(audiencia.data_audiencia);
-        if (!isNaN(dt.getTime())) { data = format(dt, "yyyy-MM-dd"); hora = format(dt, "HH:mm"); }
-      }
-      setFormData({
-        titulo: audiencia.titulo || "",
-        cliente_id: audiencia.cliente_id || "",
-        processo_id: (audiencia as any).processo_id || NONE,
-        data,
-        hora,
-        tipo: audiencia.tipo || "",
-        local: audiencia.local || "",
-        observacao: audiencia.observacoes || "",
-        status: audiencia.status || "agendada",
-        responsavel_id: (audiencia as any).responsavel_id || user?.id || "",
-        avisos_dias: (audiencia as any).avisos_dias ?? null,
-      });
-    } else {
-      setFormData({ ...empty, responsavel_id: user?.id || "" });
-    }
+    setFormData(buildForm(audiencia, user?.id));
   }, [open, audiencia, user?.id]);
 
   // Processos do cliente selecionado
