@@ -72,6 +72,7 @@ const Audiencias = () => {
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("new")) {
+      console.log("[VX-AUD] efeito ?new disparou → abrindo dialog em modo NOVA");
       setDialogOpen(true);
       window.history.replaceState({}, "", "/audiencias");
     }
@@ -148,7 +149,11 @@ const Audiencias = () => {
   };
 
   const openNew = () => { setEditTarget(null); setDialogOpen(true); };
-  const openEdit = (a: Audiencia) => { setEditTarget(a); setDialogOpen(true); };
+  const openEdit = (a: Audiencia) => {
+    console.log("[VX-AUD] openEdit chamado →", { id: a?.id, titulo: a?.titulo, objetoValido: !!a });
+    setEditTarget(a);
+    setDialogOpen(true);
+  };
 
   // Abre a audiência específica vinda de ?openId= (busca global, notificação ou card do processo)
   useOpenItemFromSearch("/audiencias", !isLoading, (openId) => {

@@ -48,6 +48,10 @@ export const NovaAudienciaDialog = ({ open, onOpenChange, tipos, membros = [], p
   const isEdit = !!audiencia;
 
   useEffect(() => {
+    if (open) console.log("[VX-AUD] dialog aberto →", { isEdit, temAudiencia: !!audiencia, id: (audiencia as any)?.id, titulo: (audiencia as any)?.titulo });
+  }, [open, audiencia, isEdit]);
+
+  useEffect(() => {
     if (!open) return;
     if (audiencia) {
       // Parse defensivo: uma data inválida NÃO pode derrubar o preenchimento do resto
