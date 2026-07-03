@@ -430,6 +430,21 @@ const FormDialog: React.FC<{
 
   useEffect(() => { if (open) setForm(initial); }, [open]);
 
+  // Ao editar, se não há cliente mas há processo vinculado, puxa o cliente do processo
+  useEffect(() => {
+    if (!open || !editId) return;
+    const semCliente = initial.cliente_id === NONE || !initial.cliente_id;
+    const temProcesso = initial.processo_id !== NONE && !!initial.processo_id;
+    if (!semCliente || !temProcesso) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.from("processos").select("cliente_id").eq("id", initial.processo_id).maybeSingle();
+      if (!cancelled && data?.cliente_id) setForm((prev) => ({ ...prev, cliente_id: data.cliente_id as string }));
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editId]);
+
   const { data: clientes = [] } = useQuery<ClienteOpt[]>({
     queryKey: ["clientes-at", officeId],
     enabled: !!officeId,

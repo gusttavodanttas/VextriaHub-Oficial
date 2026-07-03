@@ -206,13 +206,20 @@ export const NovaTarefaDialog = ({ open, onOpenChange, clientes, processos, aten
   useEffect(() => {
     if (!open) return;
     if (tarefa) {
+      // Se a tarefa não tem cliente mas está ligada a um processo, puxa o cliente do processo
+      const processo_id = tarefa.processo_id || NONE;
+      let cliente_id = tarefa.cliente_id || NONE;
+      if (cliente_id === NONE && processo_id !== NONE) {
+        const proc = processos.find((p) => p.id === processo_id);
+        if (proc?.cliente_id) cliente_id = proc.cliente_id;
+      }
       setFormData({
         titulo: tarefa.titulo || "",
         descricao: tarefa.descricao || "",
         data_vencimento: tarefa.data_vencimento || "",
         prioridade: tarefa.prioridade || "media",
-        cliente_id: tarefa.cliente_id || NONE,
-        processo_id: tarefa.processo_id || NONE,
+        cliente_id,
+        processo_id,
         atendimento_id: tarefa.atendimento_id || NONE,
         recorrencia: tarefa.recorrencia_regra || "nenhuma",
         ocorrencias: tarefa.recorrencia_restantes != null ? String(tarefa.recorrencia_restantes + 1) : "4",
