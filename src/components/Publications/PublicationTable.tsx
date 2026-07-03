@@ -164,7 +164,7 @@ export const PublicationTable = ({
             <Table>
               <TableHeader>
                 <TableRow className="border-border hover:bg-transparent">
-                  <TableHead className="w-12 py-5 pl-8">
+                  <TableHead className="w-12 py-5 pl-4">
                     <Checkbox
                       checked={paginated.length > 0 && selectedIds.length === publications.length}
                       onCheckedChange={onToggleAll}
@@ -189,7 +189,7 @@ export const PublicationTable = ({
                   <TableHead className="text-[10px] uppercase font-black tracking-widest text-muted-foreground/60 py-5">
                     Status
                   </TableHead>
-                  <TableHead className="text-[10px] uppercase font-black tracking-widest text-muted-foreground/60 py-5 text-right pr-8 sticky right-0 z-20 bg-card border-l border-border/50">
+                  <TableHead className="text-[10px] uppercase font-black tracking-widest text-muted-foreground/60 py-5 text-right pr-4">
                     Ações
                   </TableHead>
                 </TableRow>
@@ -212,7 +212,7 @@ export const PublicationTable = ({
                         )}
                         onClick={() => onViewDetails(pub)}
                       >
-                        <TableCell className="py-4 pl-8" onClick={(e) => e.stopPropagation()}>
+                        <TableCell className="py-4 pl-4" onClick={(e) => e.stopPropagation()}>
                           <Checkbox
                             checked={selectedIds.includes(pub.id)}
                             onCheckedChange={() => onToggleSelection(pub.id)}
@@ -221,7 +221,7 @@ export const PublicationTable = ({
                         </TableCell>
 
                         <TableCell className="py-4">
-                          <div className="flex flex-col gap-1.5 max-w-[350px]">
+                          <div className="flex flex-col gap-1.5 max-w-[220px] xl:max-w-[300px]">
                             <span className="font-bold text-sm truncate group-hover:text-primary transition-colors">
                               {pub.titulo === pub.numero_processo ? `Expediente no ${pub.tribunal || 'Tribunal'}` : pub.titulo}
                             </span>
@@ -302,15 +302,7 @@ export const PublicationTable = ({
                           </Badge>
                         </TableCell>
 
-                        <TableCell
-                          className={cn(
-                            "py-4 pr-6 text-right sticky right-0 z-10 border-l border-border/50 bg-card",
-                            "group-hover:bg-muted/30",
-                            selectedIds.includes(pub.id) && "bg-primary/5 group-hover:bg-primary/10",
-                            isExpanded && "bg-muted/20"
-                          )}
-                          onClick={(e) => e.stopPropagation()}
-                        >
+                        <TableCell className="py-4 pr-4 text-right" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center gap-1 justify-end">
                             {/* Expand content */}
                             {pub.conteudo && (
