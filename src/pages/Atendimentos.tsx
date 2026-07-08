@@ -211,13 +211,13 @@ const useAtendimentoTipos = (officeId: string) => {
     queryKey: ["office-settings-at", officeId],
     enabled: !!officeId,
     queryFn: async () => {
-      const { data } = await supabase.from("offices").select("settings").eq("id", officeId).single();
+      const { data } = await supabase.from("offices").select("settings").eq("id", officeId).maybeSingle();
       return ((data?.settings as any)?.at_tipos_extras as string[]) ?? [];
     },
   });
 
   const save = useCallback(async (tipos: string[]) => {
-    const { data: cur } = await supabase.from("offices").select("settings").eq("id", officeId).single();
+    const { data: cur } = await supabase.from("offices").select("settings").eq("id", officeId).maybeSingle();
     const merged = { ...(cur?.settings as any ?? {}), at_tipos_extras: tipos };
     await supabase.from("offices").update({ settings: merged }).eq("id", officeId);
     queryClient.invalidateQueries({ queryKey: ["office-settings-at", officeId] });

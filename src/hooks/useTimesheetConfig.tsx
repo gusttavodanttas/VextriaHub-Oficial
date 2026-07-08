@@ -19,7 +19,7 @@ export function useTimesheetConfig(officeId: string) {
     queryKey: ["ts-config", officeId],
     enabled: !!officeId,
     queryFn: async () => {
-      const { data } = await supabase.from("offices").select("settings").eq("id", officeId).single();
+      const { data } = await supabase.from("offices").select("settings").eq("id", officeId).maybeSingle();
       const s = (data?.settings as any) ?? {};
       return {
         valorPadrao: s.ts_valor_hora_padrao ?? null,
@@ -30,7 +30,7 @@ export function useTimesheetConfig(officeId: string) {
   });
 
   const save = useCallback(async (cfg: Partial<TimesheetConfig>) => {
-    const { data: cur } = await supabase.from("offices").select("settings").eq("id", officeId).single();
+    const { data: cur } = await supabase.from("offices").select("settings").eq("id", officeId).maybeSingle();
     const merged: any = { ...((cur?.settings as any) ?? {}) };
     if (cfg.valorPadrao !== undefined) merged.ts_valor_hora_padrao = cfg.valorPadrao;
     if (cfg.valorClientes !== undefined) merged.ts_valor_hora_clientes = cfg.valorClientes;

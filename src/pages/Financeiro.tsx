@@ -858,7 +858,7 @@ const useFinanceiroCategorias = (officeId: string) => {
         .from("offices")
         .select("settings")
         .eq("id", officeId)
-        .single();
+        .maybeSingle();
       const s = (data?.settings as any) ?? {};
       return {
         receita: (s.fin_categorias_receita as string[]) ?? DEFAULT_CATEGORIAS_RECEITA,
@@ -868,7 +868,7 @@ const useFinanceiroCategorias = (officeId: string) => {
   });
 
   const save = useCallback(async (receita: string[], despesa: string[]) => {
-    const { data: cur } = await supabase.from("offices").select("settings").eq("id", officeId).single();
+    const { data: cur } = await supabase.from("offices").select("settings").eq("id", officeId).maybeSingle();
     const merged = { ...(cur?.settings as any ?? {}), fin_categorias_receita: receita, fin_categorias_despesa: despesa };
     await supabase.from("offices").update({ settings: merged }).eq("id", officeId);
     queryClient.invalidateQueries({ queryKey: ["office-settings", officeId] });

@@ -33,7 +33,7 @@ export const usePaymentValidation = () => {
         .from('profiles')
         .select('created_at, role, office_id')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
       if (profileError || !profile) {
         return {

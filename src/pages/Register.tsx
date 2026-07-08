@@ -44,7 +44,7 @@ const Register = () => {
         .from('plan_configs')
         .select('*')
         .eq('plan_type', selectedPlan)
-        .single();
+        .maybeSingle();
       
       if (data) {
         setPlanData(data);

@@ -132,7 +132,7 @@ export const useOfficeManagement = () => {
           .select('plan, status')
           .eq('office_id', officeId)
           .eq('status', 'active')
-          .single()
+          .maybeSingle()
       ]);
 
       const users = usersResult.data || [];

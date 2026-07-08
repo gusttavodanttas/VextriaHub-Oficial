@@ -91,7 +91,7 @@ export default function Lixeira() {
         const { data: offices } = await supabase.from('offices').select('id, name');
         (offices || []).forEach(o => { officeMap[o.id] = o.name; });
       } else if (officeId) {
-        const { data: office } = await supabase.from('offices').select('id, name').eq('id', officeId).single();
+        const { data: office } = await supabase.from('offices').select('id, name').eq('id', officeId).maybeSingle();
         if (office) officeMap[office.id] = office.name;
       }
 

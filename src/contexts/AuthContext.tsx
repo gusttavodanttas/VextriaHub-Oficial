@@ -91,7 +91,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .from('profiles')
           .select('*')
           .eq('user_id', userId)
-          .single(),
+          .maybeSingle(),
         new Promise((_, reject) => 
           setTimeout(() => reject(new Error('Profile fetch timeout')), 45000)
         )
@@ -157,7 +157,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             .from('profiles')
             .select('*')
             .eq('user_id', userId)
-            .single();
+            .maybeSingle();
           if (existing) return existing;
         }
         console.error('Error creating profile:', error);

@@ -46,7 +46,7 @@ function Pagamento() {
         .from('stripe_checkouts' as any)
         .select('*')
         .eq('id', checkoutId)
-        .single();
+        .maybeSingle();
 
       if (error || !data) {
         toast({

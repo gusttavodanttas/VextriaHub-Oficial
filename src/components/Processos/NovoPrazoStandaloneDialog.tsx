@@ -323,12 +323,12 @@ function GerenciarTiposModal({ open, onClose, officeId }: GerenciarTiposProps) {
   const [feriadoAnual, setFeriadoAnual] = useState(false);
 
   const fetchFeriados = async () => {
-    const { data } = await supabase.from('offices').select('settings').eq('id', officeId).single();
+    const { data } = await supabase.from('offices').select('settings').eq('id', officeId).maybeSingle();
     setFeriados(((data?.settings as any)?.prazo_feriados as string[]) ?? []);
   };
   const saveFeriados = async (arr: string[]) => {
     setFeriados(arr);
-    const { data: cur } = await supabase.from('offices').select('settings').eq('id', officeId).single();
+    const { data: cur } = await supabase.from('offices').select('settings').eq('id', officeId).maybeSingle();
     const merged = { ...((cur?.settings as any) ?? {}), prazo_feriados: arr };
     await supabase.from('offices').update({ settings: merged }).eq('id', officeId);
   };
@@ -536,7 +536,7 @@ export const NovoPrazoStandaloneDialog = ({
 
   const fetchFeriados = async () => {
     if (!user?.office_id) return;
-    const { data } = await supabase.from('offices').select('settings').eq('id', user.office_id).single();
+    const { data } = await supabase.from('offices').select('settings').eq('id', user.office_id).maybeSingle();
     const arr = ((data?.settings as any)?.prazo_feriados as string[]) ?? [];
     const anual = new Set<string>(); const esp = new Set<string>();
     arr.forEach(s => { if (s.length === 5) anual.add(s); else if (s.length === 10) esp.add(s); });
