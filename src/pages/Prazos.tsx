@@ -58,8 +58,8 @@ interface Prazo {
   base_legal?: string | null;
   tipo_prazo?: string | null;
   eh_juizado?: boolean | null;
-  dias_uteis?: number | null;
-  dias_corridos?: number | null;
+  dias_uteis?: number | null;      // quantidade de dias do prazo
+  dias_corridos?: boolean | null;  // true = contagem em dias corridos (Juizado)
 }
 
 const onlyDigits = (s?: string | null) => (s || '').replace(/\D/g, '');
@@ -782,9 +782,9 @@ export default function Prazos() {
                             {format(toLocalDate(getDataPrazo(prazo)!), 'dd/MM/yy', { locale: ptBR })}
                           </span>
                         )}
-                        {(prazo.dias_uteis || prazo.dias_corridos) && (
+                        {prazo.dias_uteis != null && (
                           <span className="px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-600 text-[9px] font-black uppercase tracking-widest">
-                            {prazo.dias_uteis ? `${prazo.dias_uteis} dias úteis` : `${prazo.dias_corridos} dias corridos`}
+                            {prazo.dias_uteis} {prazo.dias_corridos ? 'dias corridos' : 'dias úteis'}
                           </span>
                         )}
                         {prazo.eh_juizado && (
