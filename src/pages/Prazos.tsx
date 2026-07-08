@@ -513,7 +513,8 @@ export default function Prazos() {
     data_prazo_interno: p.data_prazo_interno,
     data_fim_prazo: p.data_fim_prazo || p.data_vencimento,
     prioridade: p.prioridade,
-    processo_id: p.processo_id,
+    // prazos do robô nascem sem processo_id — resolve pelo número do processo
+    processo_id: p.processo_id || procDoPrazo(p)?.id || null,
     office_id: p.office_id,
     user_id: p.user_id,
     avisos_dias: (p as any).avisos_dias ?? null,

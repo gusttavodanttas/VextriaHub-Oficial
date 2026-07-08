@@ -549,6 +549,9 @@ export const NovoPrazoStandaloneDialog = ({
   const [processoSearch, setProcessoSearch] = useState('');
   const [processoOptions, setProcessoOptions] = useState<ProcessoOption[]>([]);
   const [selectedProcesso, setSelectedProcesso] = useState<ProcessoOption | null>(null);
+  // O usuário mexeu no campo de processo? Se não mexeu, o vínculo original é preservado
+  // (evita desvincular caso o pré-preenchimento ainda não tenha carregado).
+  const [processoTocado, setProcessoTocado] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
@@ -580,10 +583,24 @@ export const NovoPrazoStandaloneDialog = ({
     if (open) {
       setFormData(prazoParaEditar ? prazoToForm(prazoParaEditar, user?.id) : emptyForm(tituloSugerido, numeroProcesso, user?.id));
       setProcessoSearch(''); setSelectedProcesso(null); setProcessoOptions([]);
+      setProcessoTocado(false);
       setTipoAto(''); setDobro(false); setCalculoAplicado(false);
       fetchTipos(); fetchFeriados();
     }
   }, [open, prazoParaEditar, tituloSugerido, numeroProcesso]);
+
+  // Ao editar, mostra o processo já vinculado no campo de busca
+  useEffect(() => {
+    const procId = prazoParaEditar?.processo_id;
+    if (!open || !procId) return;
+    let cancelado = false;
+    (async () => {
+      const { data } = await supabase.from('processos')
+        .select('id, titulo, numero_processo').eq('id', procId).maybeSingle();
+      if (!cancelado && data) setSelectedProcesso(data as ProcessoOption);
+    })();
+    return () => { cancelado = true; };
+  }, [open, prazoParaEditar?.processo_id]);
 
   useEffect(() => {
     const fn = (e: MouseEvent) => {
@@ -658,6 +675,10 @@ export const NovoPrazoStandaloneDialog = ({
           data_prazo_interno: formData.dataPrazoInterno || null,
           responsavel_id: formData.responsavel_id || user?.id || null,
           titular: formData.titular,
+          // só sobrescreve o vínculo se o usuário mexeu no campo
+          processo_id: processoTocado
+            ? (selectedProcesso?.id ?? null)
+            : (prazoParaEditar?.processo_id ?? selectedProcesso?.id ?? null),
         };
         if (formData.avisosDias != null) updates.avisos_dias = formData.avisosDias;
         let { error } = await supabase.from('prazos').update(updates).eq('id', prazoParaEditar!.id!);
@@ -745,7 +766,7 @@ export const NovoPrazoStandaloneDialog = ({
                       <p className="text-xs font-bold truncate">{selectedProcesso.titulo}</p>
                       <p className="text-[10px] text-muted-foreground font-mono">{selectedProcesso.numero_processo}</p>
                     </div>
-                    <button type="button" onClick={() => { setSelectedProcesso(null); setProcessoSearch(''); }}
+                    <button type="button" onClick={() => { setSelectedProcesso(null); setProcessoSearch(''); setProcessoTocado(true); }}
                       className="shrink-0 text-muted-foreground hover:text-foreground transition-colors">
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -760,7 +781,7 @@ export const NovoPrazoStandaloneDialog = ({
                       <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-xl shadow-lg overflow-hidden">
                         {processoOptions.map(p => (
                           <button key={p.id} type="button"
-                            onMouseDown={() => { setSelectedProcesso(p); setProcessoSearch(''); setShowOptions(false); }}
+                            onMouseDown={() => { setSelectedProcesso(p); setProcessoSearch(''); setShowOptions(false); setProcessoTocado(true); }}
                             className="w-full text-left px-4 py-2.5 hover:bg-muted/50 transition-colors border-b border-border/40 last:border-0">
                             <p className="text-xs font-bold truncate">{p.titulo}</p>
                             <p className="text-[10px] text-muted-foreground font-mono">{p.numero_processo}</p>
