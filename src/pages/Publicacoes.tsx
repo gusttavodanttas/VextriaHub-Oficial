@@ -61,10 +61,8 @@ import { NovoProcessoDialog } from "@/components/Processos/NovoProcessoDialog";
 import { AgendarPublicacaoDialog, AcaoTipo } from "@/components/Processos/AgendarPublicacaoDialog";
 import { supabase } from "@/integrations/supabase/client";
 
-// Datas só-data (YYYY-MM-DD) no fuso local (evita off-by-one em UTC-3)
-const parseDataPub = (s?: string | null) => s ? new Date(String(s).length <= 10 ? `${s}T12:00:00` : String(s)) : null;
-const fmtDataBR = (s?: string | null) => { const d = parseDataPub(s); return d ? d.toLocaleDateString('pt-BR') : ''; };
-const localYmd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+// Datas centralizadas em @/lib/dates (fuso local, parse defensivo)
+import { parseLocalDate as parseDataPub, fmtDataBR, localYmd } from "@/lib/dates";
 
 export default function Publicacoes() {
   const { toast } = useToast();

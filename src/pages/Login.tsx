@@ -34,7 +34,6 @@ const Login = () => {
   // Se já estiver logado, redirecionar para dashboard
   useEffect(() => {
     if (isAuthenticated && !loginInProgress && session) {
-      console.log('Already authenticated, redirecting...');
       
       // Verificar se estamos em processo de checkout para evitar redirecionamento
       const checkoutInProgress = localStorage.getItem('checkout_in_progress');
@@ -98,7 +97,6 @@ const Login = () => {
 
     // Prevenir múltiplas submissões
     if (isSubmitting || loginInProgress) {
-      console.log('🚫 Login already in progress, ignoring submit');
       return;
     }
     if (!email || !password) {

@@ -587,7 +587,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
       const { error } = await supabase.from('audiencias').insert({
         user_id: user.id, office_id: user.office_id, processo_id: processo.id,
         titulo, data_audiencia: new Date(`${fd.get('data_vencimento')}T${fd.get('horario') || '00:00'}`).toISOString(),
-        observacoes: `Originado da publicação de ${fmtDate(pub.data_publicacao)}`, status: 'agendado',
+        observacoes: `Originado da publicação de ${fmtDate(pub.data_publicacao)}`, status: 'agendada',
       });
       insertError = error;
       if (!error) toast({ title: 'Audiência criada a partir da publicação' });

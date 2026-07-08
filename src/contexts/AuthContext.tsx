@@ -412,7 +412,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const resendConfirmation = async (email: string) => {
-    console.log('Resending confirmation email for:', email);
     
     const currentUrl = window.location.origin;
     
@@ -427,7 +426,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (error) {
       console.error('Resend confirmation error:', error);
     } else {
-      console.log('Confirmation email resent to:', email);
     }
 
     return { error };

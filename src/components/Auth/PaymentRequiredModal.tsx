@@ -26,7 +26,6 @@ export const PaymentRequiredModal = () => {
 
   const handlePayment = () => {
     // Aqui você pode implementar a lógica de redirecionamento para pagamento
-    console.log('Redirecionando para pagamento...');
     toast.success('Redirecionando para o sistema de pagamento...');
   };
 

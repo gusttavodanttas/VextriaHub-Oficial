@@ -96,7 +96,6 @@ export const BuscaProcessoAPI: React.FC<BuscaProcessoAPIProps> = ({
         searchParam = searchValue;
       }
 
-      console.log('Buscando processo:', { searchType, searchParam, endpoint });
       
       // Fazer chamada real para a API
       const apiResult = await apiRequest(endpoint);

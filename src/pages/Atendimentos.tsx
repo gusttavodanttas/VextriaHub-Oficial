@@ -4,6 +4,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { RECORRENCIAS, continueOccurrences, type RecRule } from "@/lib/recorrencia";
+import { safeParseISO, fmtSafe } from "@/lib/dates";
+import { normalizeAtendimentoStatus } from "@/lib/status";
 import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 import { useOpenItemFromSearch } from "@/hooks/useOpenItemFromSearch";
 import { useTarefas } from "@/hooks/useTarefas";
@@ -89,16 +91,7 @@ const STATUS_CONFIG = {
 
 type StatusType = keyof typeof STATUS_CONFIG;
 
-// Parse seguro: uma data inválida nunca pode derrubar o render nem o preenchimento do form
-const safeParseISO = (s?: string | null): Date | null => {
-  if (!s) return null;
-  const d = parseISO(s);
-  return isNaN(d.getTime()) ? null : d;
-};
-const fmtSafe = (s: string | null | undefined, pattern: string, fallback = "") => {
-  const d = safeParseISO(s);
-  return d ? format(d, pattern) : fallback;
-};
+// Parse/format seguros centralizados em @/lib/dates (data inválida nunca derruba o render)
 
 // Proximidade de atendimentos futuros agendados/pendentes
 const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
@@ -920,7 +913,7 @@ const AtendimentoCard: React.FC<{
   onClientClick: (clienteId: string) => void;
   loadingId: string | null;
 }> = ({ item, onEdit, onDelete, onMarkRealizado, onRemarcar, onClientClick, loadingId }) => {
-  const cfg = STATUS_CONFIG[item.status] ?? STATUS_CONFIG.pendente;
+  const cfg = STATUS_CONFIG[normalizeAtendimentoStatus(item.status)];
   const { Icon: StatusIcon } = cfg;
   const { label: tipoLabel, Icon: TipoIcon } = tipoInfo(item.tipo_atendimento);
   const dataAt = parseISO(item.data_atendimento);
@@ -1106,7 +1099,7 @@ const WeekView: React.FC<{
                 {list.length === 0 ? (
                   <p className="text-[10px] text-muted-foreground/30 px-1 py-3 text-center">—</p>
                 ) : list.map((it) => {
-                  const c = STATUS_CONFIG[it.status] ?? STATUS_CONFIG.pendente;
+                  const c = STATUS_CONFIG[normalizeAtendimentoStatus(it.status)];
                   return (
                     <button key={it.id} onClick={() => onSelect(it)}
                       className={cn("text-left rounded-lg border px-2 py-1 transition-all hover:shadow-sm", c.className)}>

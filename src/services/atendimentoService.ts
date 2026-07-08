@@ -110,7 +110,6 @@ export class AtendimentoService {
    * Navega para o cliente do atendimento
    */
   navigateToClient(navigate: (path: string, options?: any) => void, clientId: number, clientName: string) {
-    console.log(`Navegando para cliente ${clientId} - ${clientName}`);
     navigate('/clientes', { 
       state: { 
         clientFilter: clientName,
@@ -128,7 +127,6 @@ export class AtendimentoService {
    * Navega para os processos do cliente
    */
   navigateToProcesses(navigate: (path: string, options?: any) => void, clientId: number, clientName: string) {
-    console.log(`Navegando para processos do cliente ${clientId} - ${clientName}`);
     navigate('/processos', { 
       state: { 
         clientFilter: clientName,

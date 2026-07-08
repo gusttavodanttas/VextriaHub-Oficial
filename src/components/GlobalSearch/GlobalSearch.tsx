@@ -144,7 +144,7 @@ export function GlobalSearchBar() {
           meta: a.data_audiencia
             ? format(parseISO(a.data_audiencia), "dd/MM · HH:mm", { locale: ptBR })
             : undefined,
-          url: `/agenda?openId=${a.id}${a.data_audiencia ? `&date=${encodeURIComponent(a.data_audiencia)}` : ""}`,
+          url: `/audiencias?openId=${a.id}`,
         })),
         ...(tar || []).map(t => ({
           id: t.id, group: "tarefas" as Group, label: t.titulo,

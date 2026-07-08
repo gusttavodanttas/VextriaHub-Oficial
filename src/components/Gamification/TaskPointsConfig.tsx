@@ -24,7 +24,6 @@ export function TaskPointsConfig() {
 
   const handleSave = () => {
     // Aqui você salvaria no banco de dados
-    console.log("Pontuações salvas:", taskPoints);
     setIsEditing(false);
   };
 

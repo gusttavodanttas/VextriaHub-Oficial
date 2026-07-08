@@ -37,7 +37,6 @@ export const usePerformanceMonitoring = () => {
         };
         
         // Em produção, enviar para serviço de analytics
-        console.log('Performance metrics:', metrics);
         // analyticsService.track('page_performance', metrics);
       }
     } catch (error) {
@@ -55,7 +54,6 @@ export const usePerformanceMonitoring = () => {
         route: location.pathname,
       };
       
-      console.log('User interaction:', interaction);
       // analyticsService.track('user_interaction', interaction);
     } catch (error) {
       console.warn('Error tracking user interaction:', error);
@@ -73,7 +71,6 @@ export const usePerformanceMonitoring = () => {
           try {
             const entries = list.getEntries();
             const lastEntry = entries[entries.length - 1];
-            console.log('LCP:', lastEntry.startTime);
             // analyticsService.track('web_vital', { metric: 'LCP', value: lastEntry.startTime });
           } catch (error) {
             console.warn('Error processing LCP entry:', error);
@@ -89,7 +86,6 @@ export const usePerformanceMonitoring = () => {
           try {
             const entries = list.getEntries();
             entries.forEach((entry: any) => {
-              console.log('FID:', entry.processingStart - entry.startTime);
               // analyticsService.track('web_vital', { metric: 'FID', value: entry.processingStart - entry.startTime });
             });
           } catch (error) {
@@ -111,7 +107,6 @@ export const usePerformanceMonitoring = () => {
                 clsValue += entry.value;
               }
             });
-            console.log('CLS:', clsValue);
             // analyticsService.track('web_vital', { metric: 'CLS', value: clsValue });
           } catch (error) {
             console.warn('Error processing CLS entry:', error);

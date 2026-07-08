@@ -16,6 +16,7 @@ import { format, differenceInCalendarDays, startOfDay, startOfMonth, startOfWeek
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { deepCleanHTML } from '@/lib/cleanHtml';
+import { parseLocalDate, fmtDate } from '@/lib/dates';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus, Search, AlertTriangle, Clock, CalendarClock, CheckCircle2,
@@ -97,10 +98,11 @@ function getDataPrazo(prazo: Prazo): string | null {
   return prazo.data_fim_prazo || prazo.data_vencimento || null;
 }
 
-// Datas só-data (YYYY-MM-DD) devem ser interpretadas no fuso local (meio-dia),
-// senão viram o dia anterior em UTC-3. Timestamps completos passam direto.
+// Datas só-data (YYYY-MM-DD) no fuso local — centralizado em @/lib/dates.
+// Mantém o retorno Date (Invalid Date para entrada ruim) por compatibilidade
+// com differenceInCalendarDays; a EXIBIÇÃO usa fmtDate, que nunca lança.
 function toLocalDate(s: string): Date {
-  return new Date(s.length <= 10 ? `${s}T12:00:00` : s);
+  return parseLocalDate(s) ?? new Date(NaN);
 }
 
 type Urgency = 'vencido' | 'hoje' | 'critico' | 'normal' | 'concluido';
@@ -829,35 +831,35 @@ export default function Prazos() {
                           <span className="flex items-center gap-1 text-sky-600">
                             <Newspaper className="h-3 w-3" />
                             <span className="text-muted-foreground">Publicação:</span>
-                            {format(toLocalDate(prazo.data_publicacao), 'dd/MM/yy', { locale: ptBR })}
+                            {fmtDate(prazo.data_publicacao, 'dd/MM/yy', { locale: ptBR })}
                           </span>
                         )}
                         {prazo.data_disponibilizacao && (
                           <span className="flex items-center gap-1 text-cyan-600">
                             <Newspaper className="h-3 w-3" />
                             <span className="text-muted-foreground">Disponibilização:</span>
-                            {format(toLocalDate(prazo.data_disponibilizacao), 'dd/MM/yy', { locale: ptBR })}
+                            {fmtDate(prazo.data_disponibilizacao, 'dd/MM/yy', { locale: ptBR })}
                           </span>
                         )}
                         {prazo.data_intimacao && (
                           <span className="flex items-center gap-1 text-violet-600">
                             <Clock className="h-3 w-3" />
                             <span className="text-muted-foreground">Intimação:</span>
-                            {format(toLocalDate(prazo.data_intimacao), 'dd/MM/yy', { locale: ptBR })}
+                            {fmtDate(prazo.data_intimacao, 'dd/MM/yy', { locale: ptBR })}
                           </span>
                         )}
                         {prazo.data_prazo_interno && (
                           <span className="flex items-center gap-1 text-amber-600">
                             <Shield className="h-3 w-3" />
                             <span className="text-muted-foreground">Interno:</span>
-                            {format(toLocalDate(prazo.data_prazo_interno), 'dd/MM/yy', { locale: ptBR })}
+                            {fmtDate(prazo.data_prazo_interno, 'dd/MM/yy', { locale: ptBR })}
                           </span>
                         )}
                         {getDataPrazo(prazo) && (
                           <span className="flex items-center gap-1 text-red-600 font-bold">
                             <AlertOctagon className="h-3 w-3" />
                             <span className="text-muted-foreground font-normal">Fatal:</span>
-                            {format(toLocalDate(getDataPrazo(prazo)!), 'dd/MM/yy', { locale: ptBR })}
+                            {fmtDate(getDataPrazo(prazo), 'dd/MM/yy', { locale: ptBR })}
                           </span>
                         )}
                         {prazo.dias_uteis != null && (
@@ -895,7 +897,7 @@ export default function Prazos() {
                         })()}
                         {isConcluido && prazo.concluido_em && (
                           <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                            <CheckCircle2 className="h-3 w-3" /> Concluído por {membroMap[prazo.concluido_por || ""] || "—"} · {format(new Date(prazo.concluido_em), "dd/MM/yy", { locale: ptBR })}
+                            <CheckCircle2 className="h-3 w-3" /> Concluído por {membroMap[prazo.concluido_por || ""] || "—"} · {fmtDate(prazo.concluido_em, "dd/MM/yy", { locale: ptBR })}
                           </span>
                         )}
                       </div>

@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ClientSelect } from "@/components/Clientes/ClientSelect";
 import { AvisoDiasSelect } from "@/components/Notifications/AvisoDiasSelect";
 import { format } from "date-fns";
+import { normalizeAudienciaStatus } from "@/lib/status";
 
 interface MembroOption { id: string; label: string; }
 interface ProcessoOption { id: string; label: string; cliente_id: string | null; }
@@ -39,17 +40,8 @@ const statusOptions = [
 const NONE = "__none__";
 const empty = { titulo: "", cliente_id: "", processo_id: NONE, data: "", hora: "", tipo: "", local: "", observacao: "", status: "agendada", responsavel_id: "", avisos_dias: null as number[] | null };
 
-const STATUS_VALUES = statusOptions.map((s) => s.value);
-// Normaliza o status para uma opção válida do select (aceita variações masculinas antigas)
-function normalizeStatus(s?: string | null): string {
-  const v = (s || "").toLowerCase().trim();
-  if (STATUS_VALUES.includes(v)) return v;
-  const map: Record<string, string> = {
-    agendado: "agendada", confirmado: "confirmada", realizado: "realizada",
-    cancelado: "cancelada", pendentes: "pendente",
-  };
-  return map[v] || "agendada";
-}
+// Normalização de status centralizada em @/lib/status (aceita variações antigas)
+const normalizeStatus = normalizeAudienciaStatus;
 
 // Monta o estado do formulário a partir de uma audiência (ou vazio para nova).
 // Parse de data defensivo: data inválida nunca pode derrubar o preenchimento do resto.

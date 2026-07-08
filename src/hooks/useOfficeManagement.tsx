@@ -34,7 +34,6 @@ export const useOfficeManagement = () => {
         throw fetchError;
       }
 
-      console.log('📊 [Office Data Loaded]:', data?.length || 0, 'registros');
       setOffices(data || []);
     } catch (err) {
       console.error('Error fetching offices:', err);

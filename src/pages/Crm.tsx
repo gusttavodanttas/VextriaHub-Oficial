@@ -548,7 +548,6 @@ export default function Crm() {
         onOpenChange={setShowNovoLeadDialog}
         onSave={() => {
           refresh();
-          console.log("Lead saved and refreshing");
         }}
       />
     </div>

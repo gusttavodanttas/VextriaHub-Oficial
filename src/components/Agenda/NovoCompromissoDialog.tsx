@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { normalizeAudienciaStatus, normalizeAtendimentoStatus } from "@/lib/status";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -154,7 +155,8 @@ export const NovoCompromissoDialog: React.FC<NovoCompromissoDialogProps> = ({
           data_audiencia: datetime.toISOString(),
           local: formData.local,
           observacoes: formData.descricao,
-          status: formData.status,
+          // audiências usam status no feminino (agendada/confirmada/...)
+          status: normalizeAudienciaStatus(formData.status),
         }));
       } else if (formData.tipo === "tarefa") {
         ({ error } = await supabase.from("tarefas").insert({
@@ -184,7 +186,8 @@ export const NovoCompromissoDialog: React.FC<NovoCompromissoDialogProps> = ({
           tipo_atendimento: formData.tipo,
           data_atendimento: datetime.toISOString(),
           observacoes: formData.descricao,
-          status: formData.status,
+          // atendimentos usam status no masculino (agendado/realizado/...)
+          status: normalizeAtendimentoStatus(formData.status),
         }));
       }
 

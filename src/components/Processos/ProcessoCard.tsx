@@ -133,7 +133,6 @@ export const ProcessoCard: React.FC<ProcessoCardProps> = ({
                 size="icon"
                 className="h-8 w-8 rounded-xl hover:bg-muted/30"
                 onClick={(e) => {
-                  console.log('🟦 [card] clicou no botão de ações (...)', processo.id);
                   e.stopPropagation();
                 }}
                 onPointerDown={(e) => e.stopPropagation()}
@@ -159,7 +158,6 @@ export const ProcessoCard: React.FC<ProcessoCardProps> = ({
                   <DropdownMenuItem
                     onClick={(e) => {
                       e.stopPropagation();
-                      console.log('🗑️ [card] clicou em Excluir', processo.id, processo.titulo);
                       handleDelete(processo);
                     }}
                     className="rounded-lg py-2 text-destructive focus:text-destructive"

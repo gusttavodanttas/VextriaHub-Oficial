@@ -172,7 +172,6 @@ export function ProcessoDetalhes({ processo, open, onOpenChange }: ProcessoDetal
   };
 
   const handleSave = () => {
-    console.log("Salvando informações:", editedInfo);
     setIsEditing(false);
     // Aqui você implementaria a lógica para salvar os dados
   };
