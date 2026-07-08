@@ -8,6 +8,25 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Converte o HTML do diário oficial em texto legível (teor do prazo)
+function limparHTML(html: string): string {
+  if (!html) return '';
+  let t = html;
+  t = t.replace(/<br\s*\/?>/gi, '\n');
+  t = t.replace(/<\/p>|<\/div>|<\/tr>/gi, '\n');
+  t = t.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, '');
+  t = t.replace(/<[^>]*>/g, '');
+  const ents: Record<string, string> = {
+    '&nbsp;': ' ', '&quot;': '"', '&amp;': '&', '&lt;': '<', '&gt;': '>',
+    '&ordm;': 'º', '&ordf;': 'ª', '&agrave;': 'à', '&aacute;': 'á',
+    '&acirc;': 'â', '&atilde;': 'ã', '&eacute;': 'é', '&ecirc;': 'ê',
+    '&iacute;': 'í', '&oacute;': 'ó', '&ocirc;': 'ô', '&otilde;': 'õ',
+    '&uacute;': 'ú', '&ccedil;': 'ç',
+  };
+  for (const [k, v] of Object.entries(ents)) t = t.replace(new RegExp(k, 'gi'), v);
+  return t.split('\n').map((l) => l.trim()).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 // ─────────────────────────── Cálculo de prazos ───────────────────────────
 interface PrazoResult {
   data_intimacao: string;
@@ -110,12 +129,22 @@ serve(async (req) => {
 
     if (publicacao_id) {
       const supabase = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
-      const { data: pub } = await supabase.from('publicacoes').select('office_id, numero_processo').eq('id', publicacao_id).single();
+      const { data: pub } = await supabase.from('publicacoes')
+        .select('office_id, numero_processo, processo_id, titulo, conteudo')
+        .eq('id', publicacao_id).single();
       if (pub) {
-        await supabase.from('prazos').upsert({
+        // Teor completo da publicação + título legível, para o prazo ser autoexplicativo
+        const teor = limparHTML(conteudo || pub.conteudo || '');
+        const titulo = (pub.titulo || '').trim()
+          || `${tipo_documento || 'Intimação'}${pub.numero_processo ? ` · ${pub.numero_processo}` : ''}`;
+
+        const payload: Record<string, unknown> = {
           publicacao_id,
           office_id: pub.office_id,
           numero_processo: pub.numero_processo,
+          processo_id: pub.processo_id ?? null,
+          titulo,
+          descricao: teor || null,
           tipo_prazo: tipo_documento ?? 'Desconhecido',
           data_disponibilizacao,
           data_intimacao: resultado.data_intimacao,
@@ -124,7 +153,14 @@ serve(async (req) => {
           base_legal: resultado.base_legal,
           eh_juizado: resultado.eh_juizado,
           dias_corridos: resultado.dias_corridos,
-        }, { onConflict: 'publicacao_id' });
+        };
+
+        const { error } = await supabase.from('prazos').upsert(payload, { onConflict: 'publicacao_id' });
+        if (error) {
+          // Resiliente: se alguma coluna nova não existir no schema, grava sem elas
+          const { titulo: _t, descricao: _d, processo_id: _p, ...base } = payload;
+          await supabase.from('prazos').upsert(base, { onConflict: 'publicacao_id' });
+        }
       }
     }
 

@@ -21,8 +21,9 @@ import {
   Plus, Search, AlertTriangle, Clock, CalendarClock, CheckCircle2,
   ChevronRight, Flame, Calendar, Inbox, MoreHorizontal, Pencil, Trash2,
   CheckCheck, Timer, Newspaper, Shield, AlertOctagon, Eye, EyeOff, RotateCcw,
-  User, X, List, ChevronLeft, CalendarDays,
+  User, X, List, ChevronLeft, CalendarDays, FileText,
 } from 'lucide-react';
+import { formatCNJ } from '@/utils/formatCNJ';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -51,12 +52,19 @@ interface Prazo {
   concluido_por?: string | null;
   // Campos gravados pelo robô (OAB/DJEN)
   publicacao_id?: string | null;
+  numero_processo?: string | null;
   data_disponibilizacao?: string | null;
   data_intimacao?: string | null;
   base_legal?: string | null;
   tipo_prazo?: string | null;
   eh_juizado?: boolean | null;
+  dias_uteis?: number | null;
+  dias_corridos?: number | null;
 }
+
+const onlyDigits = (s?: string | null) => (s || '').replace(/\D/g, '');
+
+type ProcInfo = { id: string; clienteId: string | null; clienteNome: string | null; numero: string | null };
 
 // Teor/título vindos da publicação vinculada (prazos do robô nascem sem eles)
 type PubInfo = { titulo: string | null; conteudo: string | null };
@@ -281,22 +289,35 @@ export default function Prazos() {
   }, [prazos, pubInfo]);
   const [teorAberto, setTeorAberto] = useState<string | null>(null);
 
-  // Mapa processo → cliente (para filtrar/exibir por cliente)
-  const { data: processoInfo = {} } = useQuery<Record<string, { clienteId: string | null; clienteNome: string | null }>>({
+  // Mapa processo → cliente. Indexado por id E por número, porque os prazos do
+  // robô guardam apenas `numero_processo` (sem processo_id).
+  const { data: processoInfo = { byId: {}, byNumero: {} } } = useQuery<{ byId: Record<string, ProcInfo>; byNumero: Record<string, ProcInfo> }>({
     queryKey: ['prazos-processos', user?.office_id],
     enabled: !!user?.office_id,
     queryFn: async () => {
       const { data } = await supabase.from('processos')
-        .select('id, cliente_id, clientes(nome)')
+        .select('id, numero_processo, cliente_id, clientes(nome)')
         .eq('office_id', user!.office_id).eq('deletado', false);
-      const m: Record<string, { clienteId: string | null; clienteNome: string | null }> = {};
-      (data || []).forEach((p: any) => { m[p.id] = { clienteId: p.cliente_id ?? null, clienteNome: p.clientes?.nome ?? null }; });
-      return m;
+      const byId: Record<string, ProcInfo> = {};
+      const byNumero: Record<string, ProcInfo> = {};
+      (data || []).forEach((p: any) => {
+        const info: ProcInfo = { id: p.id, clienteId: p.cliente_id ?? null, clienteNome: p.clientes?.nome ?? null, numero: p.numero_processo ?? null };
+        byId[p.id] = info;
+        const nd = onlyDigits(p.numero_processo);
+        if (nd) byNumero[nd] = info;
+      });
+      return { byId, byNumero };
     },
   });
 
-  const clienteDoPrazo = (p: Prazo) => p.processo_id ? (processoInfo[p.processo_id]?.clienteId ?? null) : null;
-  const clienteNomeDoPrazo = (p: Prazo) => p.processo_id ? (processoInfo[p.processo_id]?.clienteNome ?? null) : null;
+  // Resolve o processo do prazo: pelo vínculo direto ou pelo número (prazos do robô)
+  const procDoPrazo = (p: Prazo): ProcInfo | null => {
+    if (p.processo_id && processoInfo.byId[p.processo_id]) return processoInfo.byId[p.processo_id];
+    const nd = onlyDigits(p.numero_processo);
+    return nd ? (processoInfo.byNumero[nd] ?? null) : null;
+  };
+  const clienteDoPrazo = (p: Prazo) => procDoPrazo(p)?.clienteId ?? null;
+  const clienteNomeDoPrazo = (p: Prazo) => procDoPrazo(p)?.clienteNome ?? null;
 
   // Busca global: rola até o prazo e abre o detalhe/edição
   useOpenItemFromSearch('/prazos', !isLoading && prazos.length > 0, (openId) => {
@@ -761,22 +782,39 @@ export default function Prazos() {
                             {format(toLocalDate(getDataPrazo(prazo)!), 'dd/MM/yy', { locale: ptBR })}
                           </span>
                         )}
+                        {(prazo.dias_uteis || prazo.dias_corridos) && (
+                          <span className="px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-600 text-[9px] font-black uppercase tracking-widest">
+                            {prazo.dias_uteis ? `${prazo.dias_uteis} dias úteis` : `${prazo.dias_corridos} dias corridos`}
+                          </span>
+                        )}
                         {prazo.eh_juizado && (
                           <span className="px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-600 text-[9px] font-black uppercase tracking-widest">Juizado</span>
                         )}
                         {prazo.base_legal && (
                           <span className="text-muted-foreground/50 text-[10px]">{prazo.base_legal}</span>
                         )}
-                        {/* Link para processo */}
-                        {prazo.processo_id && (
-                          <button
-                            onClick={() => navigate(`/processos/${prazo.processo_id}`)}
-                            className="flex items-center gap-1 text-primary hover:text-primary/80 transition-colors ml-1"
-                          >
-                            <Clock className="h-3 w-3" />
-                            <span className="underline underline-offset-2 text-[11px]">Ver processo</span>
-                          </button>
-                        )}
+                        {/* De qual processo é — nº CNJ, clicável quando o processo está cadastrado */}
+                        {(() => {
+                          const proc = procDoPrazo(prazo);
+                          const numero = prazo.numero_processo || proc?.numero;
+                          if (!numero && !proc) return null;
+                          const label = numero ? formatCNJ(numero) : 'Ver processo';
+                          return proc ? (
+                            <button
+                              onClick={() => navigate(`/processos/${proc.id}`)}
+                              className="flex items-center gap-1 text-primary hover:text-primary/80 transition-colors ml-1"
+                              title="Abrir processo"
+                            >
+                              <FileText className="h-3 w-3 shrink-0" />
+                              <span className="underline underline-offset-2 text-[11px] font-mono">{label}</span>
+                            </button>
+                          ) : (
+                            <span className="flex items-center gap-1 text-muted-foreground/70 ml-1" title="Processo ainda não cadastrado">
+                              <FileText className="h-3 w-3 shrink-0" />
+                              <span className="text-[11px] font-mono">{label}</span>
+                            </span>
+                          );
+                        })()}
                         {isConcluido && prazo.concluido_em && (
                           <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
                             <CheckCircle2 className="h-3 w-3" /> Concluído por {membroMap[prazo.concluido_por || ""] || "—"} · {format(new Date(prazo.concluido_em), "dd/MM/yy", { locale: ptBR })}
