@@ -26,8 +26,10 @@ import {
 import { formatCNJ } from '@/utils/formatCNJ';
 import { AgendarPublicacaoDialog, type AcaoTipo } from '@/components/Processos/AgendarPublicacaoDialog';
 
-// O prazo veio do robô (nasceu de uma publicação capturada)?
-const ehSugestaoRobo = (p: { publicacao_id?: string | null }) => !!p.publicacao_id;
+// Sugestão pendente: nasceu de uma publicação capturada e ainda não foi aceita.
+// Ao aceitar (ou revisar e salvar), vira um prazo normal.
+const ehSugestaoRobo = (p: { publicacao_id?: string | null; confirmado_em?: string | null }) =>
+  !!p.publicacao_id && !p.confirmado_em;
 // O teor indica audiência? (para oferecer o agendamento em vez de um prazo)
 const pareceAudiencia = (teor: string) => /audi[êe]ncia/i.test(teor || '');
 import {
@@ -66,6 +68,8 @@ interface Prazo {
   eh_juizado?: boolean | null;
   dias_uteis?: number | null;      // quantidade de dias do prazo
   dias_corridos?: boolean | null;  // true = contagem em dias corridos (Juizado)
+  confirmado_em?: string | null;   // aceite da sugestão do robô
+  confirmado_por?: string | null;
 }
 
 const onlyDigits = (s?: string | null) => (s || '').replace(/\D/g, '');
@@ -333,6 +337,28 @@ export default function Prazos() {
     const prazo = prazos.find(p => String(p.id) === openId);
     if (prazo) { setEditTarget(prazo); return true; }
     return false;
+  });
+
+  // Aceitar a sugestão do robô: o prazo deixa de ser sugestão e passa a ser acompanhado
+  const aceitarMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const agora = new Date().toISOString();
+      let { error } = await supabase.from('prazos')
+        .update({ confirmado_em: agora, confirmado_por: user?.id } as any)
+        .eq('id', id);
+      // se a coluna de autor não existir, grava só a data
+      if (error) ({ error } = await supabase.from('prazos').update({ confirmado_em: agora } as any).eq('id', id));
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['prazos'] });
+      toast({ title: 'Sugestão aceita', description: 'O prazo foi confirmado e passa a ser acompanhado normalmente.' });
+    },
+    onError: (e: any) => toast({
+      title: 'Não foi possível aceitar',
+      description: `${e.message}. Se a coluna "confirmado_em" ainda não existe, rode a migration de confirmação de prazos.`,
+      variant: 'destructive',
+    }),
   });
 
   const concludeMutation = useMutation({
@@ -886,7 +912,19 @@ export default function Prazos() {
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="rounded-xl w-44">
+                        <DropdownMenuContent align="end" className="rounded-xl w-52">
+                          {ehSugestaoRobo(prazo) && (
+                            <>
+                              <DropdownMenuItem
+                                onClick={() => aceitarMutation.mutate(prazo.id)}
+                                disabled={aceitarMutation.isPending}
+                                className="rounded-lg cursor-pointer gap-2 text-emerald-600 focus:text-emerald-600 font-bold"
+                              >
+                                <CheckCircle2 className="h-4 w-4" /> Aceitar sugestão
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                            </>
+                          )}
                           {!isConcluido ? (
                             <DropdownMenuItem
                               onClick={() => concludeMutation.mutate(prazo.id)}
@@ -985,7 +1023,15 @@ export default function Prazos() {
           open={!!editTarget}
           onOpenChange={v => { if (!v) setEditTarget(null); }}
           prazoParaEditar={prazoToFormData(editTarget)}
-          onSuccess={() => {
+          onSuccess={async () => {
+            // Revisar e salvar uma sugestão do robô equivale a aceitá-la
+            if (ehSugestaoRobo(editTarget)) {
+              const agora = new Date().toISOString();
+              const { error } = await supabase.from('prazos')
+                .update({ confirmado_em: agora, confirmado_por: user?.id } as any)
+                .eq('id', editTarget.id);
+              if (error) await supabase.from('prazos').update({ confirmado_em: agora } as any).eq('id', editTarget.id);
+            }
             queryClient.invalidateQueries({ queryKey: ['prazos'] });
             setEditTarget(null);
           }}
