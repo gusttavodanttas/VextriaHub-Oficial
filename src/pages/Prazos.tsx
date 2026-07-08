@@ -15,6 +15,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, differenceInCalendarDays, startOfDay, startOfMonth, startOfWeek, addDays, addMonths, isSameDay, isSameMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { deepCleanHTML } from '@/lib/cleanHtml';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus, Search, AlertTriangle, Clock, CalendarClock, CheckCircle2,
@@ -49,6 +50,7 @@ interface Prazo {
   concluido_em?: string | null;
   concluido_por?: string | null;
   // Campos gravados pelo robô (OAB/DJEN)
+  publicacao_id?: string | null;
   data_disponibilizacao?: string | null;
   data_intimacao?: string | null;
   base_legal?: string | null;
@@ -56,9 +58,20 @@ interface Prazo {
   eh_juizado?: boolean | null;
 }
 
+// Teor/título vindos da publicação vinculada (prazos do robô nascem sem eles)
+type PubInfo = { titulo: string | null; conteudo: string | null };
+
 // Título de exibição (prazos do robô podem vir sem título)
-function tituloPrazo(p: Prazo): string {
-  return (p.titulo && p.titulo.trim()) || p.tipo_prazo || 'Prazo processual';
+function tituloPrazo(p: Prazo, pubs?: Record<string, PubInfo>): string {
+  const pub = p.publicacao_id ? pubs?.[p.publicacao_id] : undefined;
+  return (p.titulo && p.titulo.trim()) || (pub?.titulo || '').trim() || p.tipo_prazo || 'Prazo processual';
+}
+
+// Teor do prazo: descrição própria ou o conteúdo da publicação que o originou
+function teorPrazo(p: Prazo, pubs?: Record<string, PubInfo>): string {
+  if (p.descricao && p.descricao.trim()) return p.descricao.trim();
+  const pub = p.publicacao_id ? pubs?.[p.publicacao_id] : undefined;
+  return pub?.conteudo ? deepCleanHTML(pub.conteudo) : '';
 }
 
 // Prazo fatal: data_fim_prazo (novo padrão) ou data_vencimento (legado)
@@ -242,6 +255,32 @@ export default function Prazos() {
     refetchInterval: 60_000,
   });
 
+  // Teor dos prazos capturados pelo robô: vem da publicação que os originou
+  const pubIds = useMemo(
+    () => Array.from(new Set(prazos.map(p => p.publicacao_id).filter(Boolean))) as string[],
+    [prazos]
+  );
+  const { data: pubInfo = {} } = useQuery<Record<string, PubInfo>>({
+    queryKey: ['prazos-publicacoes', pubIds],
+    enabled: pubIds.length > 0,
+    queryFn: async () => {
+      const { data } = await supabase.from('publicacoes')
+        .select('id, titulo, conteudo')
+        .in('id', pubIds);
+      const map: Record<string, PubInfo> = {};
+      (data || []).forEach((p: any) => { map[p.id] = { titulo: p.titulo ?? null, conteudo: p.conteudo ?? null }; });
+      return map;
+    },
+  });
+
+  // Teor já limpo por prazo (evita reprocessar HTML a cada tecla da busca)
+  const teorMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    prazos.forEach(p => { m[p.id] = teorPrazo(p, pubInfo); });
+    return m;
+  }, [prazos, pubInfo]);
+  const [teorAberto, setTeorAberto] = useState<string | null>(null);
+
   // Mapa processo → cliente (para filtrar/exibir por cliente)
   const { data: processoInfo = {} } = useQuery<Record<string, { clienteId: string | null; clienteNome: string | null }>>({
     queryKey: ['prazos-processos', user?.office_id],
@@ -310,7 +349,10 @@ export default function Prazos() {
   });
 
   const filtered = useMemo(() => prazos.filter(p => {
-    const matchSearch = !dSearch || tituloPrazo(p).toLowerCase().includes(dSearch.toLowerCase()) || (p.descricao || '').toLowerCase().includes(dSearch.toLowerCase());
+    const q = dSearch.toLowerCase();
+    const matchSearch = !dSearch
+      || tituloPrazo(p, pubInfo).toLowerCase().includes(q)
+      || (teorMap[p.id] || '').toLowerCase().includes(q);
     const matchPriority = filterPriority === 'all' || p.prioridade === filterPriority;
     const matchConcluido = showConcluidos || p.status !== 'concluido';
     const matchUrgency = filterUrgency === 'all' || getUrgency(p) === filterUrgency;
@@ -319,7 +361,7 @@ export default function Prazos() {
     const matchCliente = filterCliente === 'all' || clienteDoPrazo(p) === filterCliente;
     const matchTitular = filterTitular === 'all' || (p.titular || 'nosso') === filterTitular;
     return matchSearch && matchPriority && matchConcluido && matchUrgency && matchResp && matchCliente && matchTitular;
-  }), [prazos, dSearch, filterPriority, filterUrgency, showConcluidos, filterResp, filterCliente, filterTitular, processoInfo]);
+  }), [prazos, dSearch, filterPriority, filterUrgency, showConcluidos, filterResp, filterCliente, filterTitular, processoInfo, pubInfo, teorMap]);
 
   // Clientes que possuem prazos (para o filtro)
   const clienteOptions = useMemo(() => {
@@ -636,7 +678,7 @@ export default function Prazos() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span className={cn('font-black text-sm', isConcluido && 'line-through text-muted-foreground')}>
-                          {tituloPrazo(prazo)}
+                          {tituloPrazo(prazo, pubInfo)}
                         </span>
                         <Badge variant="outline" className={cn('text-[9px] font-black uppercase tracking-widest border px-2 py-0.5', priCfg.color)}>
                           {priCfg.label}
@@ -652,9 +694,31 @@ export default function Prazos() {
                           </Badge>
                         )}
                       </div>
-                      {prazo.descricao && (
-                        <p className="text-xs text-muted-foreground truncate max-w-md mb-1.5">{prazo.descricao}</p>
-                      )}
+                      {/* Teor do prazo (descrição própria ou conteúdo da publicação de origem) */}
+                      {teorMap[prazo.id] && (() => {
+                        const teor = teorMap[prazo.id];
+                        const aberto = teorAberto === prazo.id;
+                        const longo = teor.length > 180;
+                        return (
+                          <div className="mb-1.5">
+                            <p className={cn(
+                              'text-xs text-muted-foreground whitespace-pre-wrap',
+                              aberto ? 'max-h-64 overflow-y-auto pr-1' : 'line-clamp-2'
+                            )}>
+                              {teor}
+                            </p>
+                            {longo && (
+                              <button
+                                type="button"
+                                onClick={() => setTeorAberto(aberto ? null : prazo.id)}
+                                className="mt-0.5 text-[11px] font-bold text-primary hover:underline"
+                              >
+                                {aberto ? 'Recolher teor' : 'Ver teor completo'}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })()}
                       {/* 3 datas */}
                       <div className="flex flex-wrap items-center gap-3 text-[11px]">
                         {clienteNomeDoPrazo(prazo) && (

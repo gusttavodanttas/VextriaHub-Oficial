@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { deepCleanHTML } from "@/lib/cleanHtml";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -56,25 +57,6 @@ interface PublicationDetailsDialogProps {
   onSchedule?: (publication: Publication, tipo?: 'prazo' | 'tarefa' | 'audiencia') => void;
 }
 
-const deepCleanHTML = (html: string): string => {
-  if (!html) return "";
-  let tmp = html;
-  tmp = tmp.replace(/<br\s*\/?>/gi, "\n");
-  tmp = tmp.replace(/<\/p>|<\/div>|<\/tr>/gi, "\n");
-  tmp = tmp.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, "");
-  tmp = tmp.replace(/<[^>]*>/g, "");
-  const entities: Record<string, string> = {
-    '&nbsp;': ' ', '&quot;': '"', '&amp;': '&', '&lt;': '<', '&gt;': '>',
-    '&ordm;': 'º', '&ordf;': 'ª', '&agrave;': 'à', '&aacute;': 'á',
-    '&acirc;': 'â', '&atilde;': 'ã', '&eacute;': 'é', '&ecirc;': 'ê',
-    '&iacute;': 'í', '&oacute;': 'ó', '&ocirc;': 'ô', '&otilde;': 'õ',
-    '&uacute;': 'ú', '&ccedil;': 'ç'
-  };
-  Object.entries(entities).forEach(([key, val]) => {
-    tmp = tmp.replace(new RegExp(key, 'gi'), val);
-  });
-  return tmp.split('\n').map(l => l.trim()).join('\n').replace(/\n{3,}/g, '\n\n').trim();
-};
 
 const getStatusConfig = (status: string) => {
   switch (status) {
