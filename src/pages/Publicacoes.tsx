@@ -750,6 +750,7 @@ export default function Publicacoes() {
         defaultTipo={scheduleTipo}
         publicacaoId={selectedPub?.id}
         numeroProcesso={selectedPub?.numero_processo}
+        processoId={selectedPub?.processo_id ?? null}
         tituloSugerido={selectedPub ? `${selectedPub.titulo || selectedPub.numero_processo}` : ''}
         onSuccess={async () => {
           if (selectedPub?.id) {

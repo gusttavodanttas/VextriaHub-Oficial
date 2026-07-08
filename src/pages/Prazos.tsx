@@ -1,4 +1,4 @@
-import { useState, useMemo, useDeferredValue } from 'react';
+import { useState, useMemo, useDeferredValue, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -331,6 +331,37 @@ export default function Prazos() {
   };
   const clienteDoPrazo = (p: Prazo) => procDoPrazo(p)?.clienteId ?? null;
   const clienteNomeDoPrazo = (p: Prazo) => procDoPrazo(p)?.clienteNome ?? null;
+
+  // Auto-vínculo: o robô grava o prazo só com `numero_processo`. Assim que o
+  // processo correspondente existir, grava o `processo_id` de verdade — senão o
+  // prazo nunca aparece dentro do processo nem nos filtros por cliente.
+  const jaVinculados = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!user?.office_id || !Object.keys(processoInfo.byNumero).length) return;
+
+    const alvos = prazos
+      .filter(p => !p.processo_id && p.numero_processo && !jaVinculados.current.has(p.id))
+      .map(p => ({ id: p.id, procId: processoInfo.byNumero[onlyDigits(p.numero_processo)]?.id }))
+      .filter((x): x is { id: string; procId: string } => !!x.procId);
+
+    if (!alvos.length) return;
+    alvos.forEach(a => jaVinculados.current.add(a.id)); // não tenta de novo nesta sessão
+
+    (async () => {
+      const porProcesso = new Map<string, string[]>();
+      alvos.forEach(({ id, procId }) => porProcesso.set(procId, [...(porProcesso.get(procId) || []), id]));
+
+      let vinculados = 0;
+      for (const [procId, ids] of porProcesso) {
+        const { error } = await supabase.from('prazos').update({ processo_id: procId }).in('id', ids);
+        if (!error) vinculados += ids.length;
+      }
+      if (vinculados) {
+        queryClient.invalidateQueries({ queryKey: ['prazos'] });
+        toast({ title: 'Prazos vinculados', description: `${vinculados} prazo(s) do robô foram vinculados ao processo correspondente.` });
+      }
+    })();
+  }, [prazos, processoInfo, user?.office_id, queryClient, toast]);
 
   // Busca global: rola até o prazo e abre o detalhe/edição
   useOpenItemFromSearch('/prazos', !isLoading && prazos.length > 0, (openId) => {
@@ -1003,6 +1034,7 @@ export default function Prazos() {
           defaultTipo={agendarTipo}
           publicacaoId={agendarTarget.publicacao_id || undefined}
           numeroProcesso={agendarTarget.numero_processo || undefined}
+          processoId={agendarTarget.processo_id || procDoPrazo(agendarTarget)?.id || null}
           tituloSugerido={tituloPrazo(agendarTarget, pubInfo)}
           descricaoSugerida={teorMap[agendarTarget.id]}
           onSuccess={async () => {

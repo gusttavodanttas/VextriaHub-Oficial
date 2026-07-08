@@ -19,6 +19,8 @@ interface AgendarPublicacaoDialogProps {
   // contexto da publicação (opcional)
   publicacaoId?: string;
   numeroProcesso?: string;
+  // processo já resolvido pelo chamador (evita depender do formato do número)
+  processoId?: string | null;
   tituloSugerido?: string;
   // teor/observação inicial (ex.: conteúdo da publicação que originou o prazo)
   descricaoSugerida?: string;
@@ -49,6 +51,7 @@ export const AgendarPublicacaoDialog = ({
   onSuccess,
   publicacaoId,
   numeroProcesso,
+  processoId: processoIdProp,
   tituloSugerido,
   descricaoSugerida,
   defaultTipo = "prazo",
@@ -88,19 +91,28 @@ export const AgendarPublicacaoDialog = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, defaultTipo, tituloSugerido, numeroProcesso, descricaoSugerida]);
 
-  // O número pode estar salvo formatado (com pontos) ou só com dígitos — tenta os dois
-  const resolveProcessoId = async (): Promise<string | null> => {
-    if (!numeroProcesso || !user?.office_id) return null;
-    const raw = String(numeroProcesso).trim();
-    const digits = raw.replace(/\D/g, "");
-    const candidatos = Array.from(new Set([raw, digits].filter(Boolean)));
+  // Resolve o processo (e o cliente dele). Se o chamador já sabe o id, usa direto.
+  // Senão compara apenas os DÍGITOS dos dois lados — processos guardam o número
+  // sem formatação, publicações guardam formatado.
+  const resolveProcesso = async (): Promise<{ id: string; cliente_id: string | null } | null> => {
+    if (!user?.office_id) return null;
+
+    if (processoIdProp) {
+      const { data } = await supabase.from("processos").select("id, cliente_id").eq("id", processoIdProp).maybeSingle();
+      if (data) return { id: data.id, cliente_id: data.cliente_id ?? null };
+    }
+
+    if (!numeroProcesso) return null;
+    const alvo = String(numeroProcesso).replace(/\D/g, "");
+    if (!alvo) return null;
+
     const { data } = await supabase
       .from("processos")
-      .select("id")
+      .select("id, numero_processo, cliente_id")
       .eq("office_id", user.office_id)
-      .in("numero_processo", candidatos)
-      .limit(1);
-    return data?.[0]?.id || null;
+      .eq("deletado", false);
+    const achado = (data ?? []).find((p) => String(p.numero_processo ?? "").replace(/\D/g, "") === alvo);
+    return achado ? { id: achado.id, cliente_id: achado.cliente_id ?? null } : null;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -121,7 +133,9 @@ export const AgendarPublicacaoDialog = ({
 
     setIsLoading(true);
     try {
-      const processoId = await resolveProcessoId();
+      const proc = await resolveProcesso();
+      const processoId = proc?.id ?? null;
+      const clienteId = proc?.cliente_id ?? null;
 
       if (tipo === "prazo") {
         const { error } = await supabase.from("prazos").insert({
@@ -140,6 +154,7 @@ export const AgendarPublicacaoDialog = ({
           user_id: user.id,
           office_id: user.office_id,
           processo_id: processoId,
+          cliente_id: clienteId,
           titulo: form.titulo,
           descricao: form.descricao,
           data_vencimento: form.data,
@@ -154,6 +169,7 @@ export const AgendarPublicacaoDialog = ({
           user_id: user.id,
           office_id: user.office_id,
           processo_id: processoId,
+          cliente_id: clienteId,
           titulo: form.titulo,
           data_audiencia: datetime.toISOString(),
           local: form.local || null,
@@ -162,6 +178,13 @@ export const AgendarPublicacaoDialog = ({
           status: "agendada",
         });
         if (error) throw error;
+      }
+
+      if (!processoId && numeroProcesso) {
+        toast({
+          title: "Salvo, mas sem vínculo ao processo",
+          description: `Nenhum processo cadastrado com o número ${numeroProcesso}. Cadastre-o e o vínculo poderá ser refeito.`,
+        });
       }
 
       toast({ title: `${META[tipo].label} agendado(a)`, description: "Salvo com sucesso." });
