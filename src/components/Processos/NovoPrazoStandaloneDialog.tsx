@@ -743,7 +743,7 @@ export const NovoPrazoStandaloneDialog = ({
             )}
           </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5">
+          <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5 min-w-0">
 
             {/* Título */}
             <div className="space-y-1.5">
@@ -761,10 +761,10 @@ export const NovoPrazoStandaloneDialog = ({
                   Processo vinculado
                 </Label>
                 {selectedProcesso ? (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-primary/30 bg-primary/5">
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-primary/30 bg-primary/5 min-w-0 overflow-hidden">
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-bold truncate">{selectedProcesso.titulo}</p>
-                      <p className="text-[10px] text-muted-foreground font-mono">{selectedProcesso.numero_processo}</p>
+                      <p className="text-[10px] text-muted-foreground font-mono truncate">{selectedProcesso.numero_processo}</p>
                     </div>
                     <button type="button" onClick={() => { setSelectedProcesso(null); setProcessoSearch(''); setProcessoTocado(true); }}
                       className="shrink-0 text-muted-foreground hover:text-foreground transition-colors">
