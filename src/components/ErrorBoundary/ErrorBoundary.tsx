@@ -4,6 +4,7 @@ import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { captureError } from '@/lib/monitoring';
+import { isChunkLoadError, reloadOnceForChunkError } from '@/lib/chunkReload';
 
 interface Props {
   children: ReactNode;
@@ -27,6 +28,10 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    // Chunk antigo após deploy: não é bug da aplicação. Recarrega para pegar a
+    // versão nova (o React.lazy engole a rejeição, então só chega aqui).
+    if (isChunkLoadError(error?.message) && reloadOnceForChunkError(error.message)) return;
+
     console.error('ErrorBoundary caught an error:', error, errorInfo);
 
     // Envia para o monitoramento (Sentry) — no-op se DSN não configurado
@@ -48,6 +53,16 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
+      // Versão nova publicada: a página já está recarregando, não assuste o usuário
+      if (isChunkLoadError(this.state.error?.message)) {
+        return (
+          <div className="min-h-screen flex flex-col items-center justify-center gap-3 p-4 text-center">
+            <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
+            <p className="text-sm font-semibold text-muted-foreground">Atualizando para a versão mais recente…</p>
+          </div>
+        );
+      }
+
       if (this.props.fallback) {
         return this.props.fallback;
       }
