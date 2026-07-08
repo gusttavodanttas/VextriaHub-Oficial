@@ -21,9 +21,15 @@ import {
   Plus, Search, AlertTriangle, Clock, CalendarClock, CheckCircle2,
   ChevronRight, Flame, Calendar, Inbox, MoreHorizontal, Pencil, Trash2,
   CheckCheck, Timer, Newspaper, Shield, AlertOctagon, Eye, EyeOff, RotateCcw,
-  User, X, List, ChevronLeft, CalendarDays, FileText,
+  User, X, List, ChevronLeft, CalendarDays, FileText, Gavel,
 } from 'lucide-react';
 import { formatCNJ } from '@/utils/formatCNJ';
+import { AgendarPublicacaoDialog, type AcaoTipo } from '@/components/Processos/AgendarPublicacaoDialog';
+
+// O prazo veio do robô (nasceu de uma publicação capturada)?
+const ehSugestaoRobo = (p: { publicacao_id?: string | null }) => !!p.publicacao_id;
+// O teor indica audiência? (para oferecer o agendamento em vez de um prazo)
+const pareceAudiencia = (teor: string) => /audi[êe]ncia/i.test(teor || '');
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -240,6 +246,9 @@ export default function Prazos() {
   const [editTarget, setEditTarget] = useState<Prazo | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Prazo | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  // Converter uma sugestão do robô em audiência/tarefa
+  const [agendarTarget, setAgendarTarget] = useState<Prazo | null>(null);
+  const [agendarTipo, setAgendarTipo] = useState<AcaoTipo>('audiencia');
 
   const { data: prazos = [], isLoading } = useQuery<Prazo[]>({
     queryKey: ['prazos', user?.office_id, user?.id],
@@ -440,8 +449,9 @@ export default function Prazos() {
 
   const prazoToFormData = (p: Prazo): PrazoFormData => ({
     id: p.id,
-    titulo: p.titulo,
-    descricao: p.descricao,
+    // Prazos do robô nascem sem título/descrição — usa o da publicação de origem
+    titulo: tituloPrazo(p, pubInfo),
+    descricao: p.descricao || teorMap[p.id] || null,
     data_publicacao: p.data_publicacao,
     data_prazo_interno: p.data_prazo_interno,
     data_fim_prazo: p.data_fim_prazo || p.data_vencimento,
@@ -714,6 +724,16 @@ export default function Prazos() {
                             Parte contrária
                           </Badge>
                         )}
+                        {ehSugestaoRobo(prazo) && (
+                          <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest border px-2 py-0.5 bg-slate-500/10 text-slate-600 dark:text-slate-300 border-slate-500/20" title="Prazo calculado automaticamente a partir de uma publicação — revise antes de confirmar">
+                            Sugestão do robô
+                          </Badge>
+                        )}
+                        {ehSugestaoRobo(prazo) && pareceAudiencia(teorMap[prazo.id]) && (
+                          <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest border px-2 py-0.5 bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20" title="O teor menciona audiência — use 'Agendar audiência' no menu">
+                            Possível audiência
+                          </Badge>
+                        )}
                       </div>
                       {/* Teor do prazo (descrição própria ou conteúdo da publicação de origem) */}
                       {teorMap[prazo.id] && (() => {
@@ -886,8 +906,24 @@ export default function Prazos() {
                             onClick={() => setEditTarget(prazo)}
                             className="rounded-lg cursor-pointer gap-2"
                           >
-                            <Pencil className="h-4 w-4" /> Editar
+                            <Pencil className="h-4 w-4" /> {ehSugestaoRobo(prazo) ? 'Revisar / alterar' : 'Editar'}
                           </DropdownMenuItem>
+                          {ehSugestaoRobo(prazo) && (
+                            <>
+                              <DropdownMenuItem
+                                onClick={() => { setAgendarTipo('audiencia'); setAgendarTarget(prazo); }}
+                                className="rounded-lg cursor-pointer gap-2 text-violet-600 focus:text-violet-600"
+                              >
+                                <Gavel className="h-4 w-4" /> Agendar audiência
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => { setAgendarTipo('tarefa'); setAgendarTarget(prazo); }}
+                                className="rounded-lg cursor-pointer gap-2 text-sky-600 focus:text-sky-600"
+                              >
+                                <CheckCheck className="h-4 w-4" /> Criar tarefa
+                              </DropdownMenuItem>
+                            </>
+                          )}
                           {prazo.processo_id && (
                             <DropdownMenuItem
                               onClick={() => navigate(`/processos/${prazo.processo_id}`)}
@@ -901,7 +937,7 @@ export default function Prazos() {
                             onClick={() => setDeleteTarget(prazo)}
                             className="rounded-lg cursor-pointer gap-2 text-red-600 focus:text-red-600"
                           >
-                            <Trash2 className="h-4 w-4" /> Excluir
+                            <Trash2 className="h-4 w-4" /> {ehSugestaoRobo(prazo) ? 'Descartar sugestão' : 'Excluir'}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -920,6 +956,28 @@ export default function Prazos() {
         onOpenChange={setDialogOpen}
         onSuccess={() => queryClient.invalidateQueries({ queryKey: ['prazos'] })}
       />
+
+      {/* Converter sugestão do robô em audiência/tarefa (a sugestão é descartada ao confirmar) */}
+      {agendarTarget && (
+        <AgendarPublicacaoDialog
+          open={!!agendarTarget}
+          onOpenChange={v => { if (!v) setAgendarTarget(null); }}
+          defaultTipo={agendarTipo}
+          publicacaoId={agendarTarget.publicacao_id || undefined}
+          numeroProcesso={agendarTarget.numero_processo || undefined}
+          tituloSugerido={tituloPrazo(agendarTarget, pubInfo)}
+          descricaoSugerida={teorMap[agendarTarget.id]}
+          onSuccess={async () => {
+            // A sugestão virou audiência/tarefa: descarta o prazo sugerido
+            await supabase.from('prazos').update({ deletado: true }).eq('id', agendarTarget.id);
+            queryClient.invalidateQueries({ queryKey: ['prazos'] });
+            queryClient.invalidateQueries({ queryKey: ['audiencias'] });
+            queryClient.invalidateQueries({ queryKey: ['tarefas'] });
+            toast({ title: 'Agendado', description: 'A sugestão do robô foi convertida e removida da lista de prazos.' });
+            setAgendarTarget(null);
+          }}
+        />
+      )}
 
       {/* Edit — passa dados completos para UPDATE real */}
       {editTarget && (

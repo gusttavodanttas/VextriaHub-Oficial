@@ -20,6 +20,8 @@ interface AgendarPublicacaoDialogProps {
   publicacaoId?: string;
   numeroProcesso?: string;
   tituloSugerido?: string;
+  // teor/observação inicial (ex.: conteúdo da publicação que originou o prazo)
+  descricaoSugerida?: string;
   // tipo inicial selecionado ao abrir
   defaultTipo?: AcaoTipo;
 }
@@ -48,6 +50,7 @@ export const AgendarPublicacaoDialog = ({
   publicacaoId,
   numeroProcesso,
   tituloSugerido,
+  descricaoSugerida,
   defaultTipo = "prazo",
 }: AgendarPublicacaoDialogProps) => {
   const { toast } = useToast();
@@ -55,13 +58,13 @@ export const AgendarPublicacaoDialog = ({
   const [isLoading, setIsLoading] = useState(false);
   const [tipo, setTipo] = useState<AcaoTipo>(defaultTipo);
 
-  const baseDescricao = numeroProcesso
-    ? `Vinculado à publicação do processo ${numeroProcesso}`
-    : "";
+  const descricaoInicial = () =>
+    descricaoSugerida?.trim()
+      || (numeroProcesso ? `Vinculado à publicação do processo ${numeroProcesso}` : "");
 
   const [form, setForm] = useState({
     titulo: tituloSugerido || "",
-    descricao: baseDescricao,
+    descricao: descricaoInicial(),
     data: "",
     hora: "",
     prioridade: "media",
@@ -74,7 +77,7 @@ export const AgendarPublicacaoDialog = ({
       setTipo(defaultTipo);
       setForm({
         titulo: tituloSugerido || "",
-        descricao: numeroProcesso ? `Vinculado à publicação do processo ${numeroProcesso}` : "",
+        descricao: descricaoInicial(),
         data: "",
         hora: "",
         prioridade: "media",
@@ -82,18 +85,22 @@ export const AgendarPublicacaoDialog = ({
         tipoAudiencia: "Audiência de Conciliação",
       });
     }
-  }, [open, defaultTipo, tituloSugerido, numeroProcesso]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, defaultTipo, tituloSugerido, numeroProcesso, descricaoSugerida]);
 
+  // O número pode estar salvo formatado (com pontos) ou só com dígitos — tenta os dois
   const resolveProcessoId = async (): Promise<string | null> => {
     if (!numeroProcesso || !user?.office_id) return null;
-    const cnj = numeroProcesso.replace(/\D/g, "");
+    const raw = String(numeroProcesso).trim();
+    const digits = raw.replace(/\D/g, "");
+    const candidatos = Array.from(new Set([raw, digits].filter(Boolean)));
     const { data } = await supabase
       .from("processos")
       .select("id")
       .eq("office_id", user.office_id)
-      .eq("numero_processo", cnj)
-      .maybeSingle();
-    return data?.id || null;
+      .in("numero_processo", candidatos)
+      .limit(1);
+    return data?.[0]?.id || null;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -152,7 +159,7 @@ export const AgendarPublicacaoDialog = ({
           local: form.local || null,
           tipo: form.tipoAudiencia,
           observacoes: form.descricao || null,
-          status: "agendado",
+          status: "agendada",
         });
         if (error) throw error;
       }
