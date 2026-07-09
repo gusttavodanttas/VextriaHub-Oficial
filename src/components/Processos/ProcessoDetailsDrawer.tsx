@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useProcessoSubData } from '@/hooks/useProcessoSubData';
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Processo } from '@/types/processo';
@@ -145,14 +146,13 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
   const [saving, setSaving] = useState(false);
   const [savingCliente, setSavingCliente] = useState(false);
 
-  // Sub-tab data
-  const [publicacoes, setPublicacoes] = useState<any[]>([]);
-  const [prazos, setPrazos] = useState<any[]>([]);
-  const [audiencias, setAudiencias] = useState<any[]>([]);
-  const [atendimentos, setAtendimentos] = useState<any[]>([]);
-  const [tarefas, setTarefas] = useState<any[]>([]);
-  const [timesheets, setTimesheets] = useState<any[]>([]);
-  const [loadingSub, setLoadingSub] = useState(false);
+  // Sub-tab data + ações (extraído para hooks/useProcessoSubData)
+  const sub = useProcessoSubData(processo);
+  const {
+    publicacoes, prazos, audiencias, atendimentos, tarefas, timesheets,
+    loadingSub, addLoading, setAddLoading, fetchSubData,
+    expandedPubId, setExpandedPubId, tratandoPubId, setTratandoPubId,
+  } = sub;
 
   // Add forms
   const [showAddPrazo, setShowAddPrazo] = useState(false);
@@ -160,7 +160,6 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
   const [showAddTarefa, setShowAddTarefa] = useState(false);
   const [showAddTimesheet, setShowAddTimesheet] = useState(false);
   const [showAddAtendimento, setShowAddAtendimento] = useState(false);
-  const [addLoading, setAddLoading] = useState(false);
 
   const [editData, setEditData] = useState({
     titulo: '',
@@ -184,16 +183,8 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
     // (Antes só limpava ao fechar — por isso a confirmação/andamentos de um processo
     //  vazava para o próximo, ex.: andamentos do PH aparecendo na Maria Luiza.)
     setMovements([]);
-    setPublicacoes([]);
-    setPrazos([]);
-    setAudiencias([]);
-    setAtendimentos([]);
-    setTarefas([]);
-    setTimesheets([]);
     setAndamentoConfirm(null);
     setConfirmDelMov(null);
-    setExpandedPubId(null);
-    setTratandoPubId(null);
     setLastSyncedProcessoId(null);
     setShowAddAndamento(false);
     setShowAddPrazo(false);
@@ -309,31 +300,6 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
     toast({ title: 'Andamento excluído' });
   }, [toast]);
 
-  const fetchSubData = useCallback(async (tab: string) => {
-    if (!processo?.id) return;
-    setLoadingSub(true);
-    if (tab === 'publicacoes') {
-      const numero = (processo.numeroProcesso || '').replace(/\D/g, '');
-      const { data } = await supabase.from('publicacoes').select('*').or(`processo_id.eq.${processo.id},numero_processo.eq.${numero}`).order('data_publicacao', { ascending: false });
-      setPublicacoes(data || []);
-    } else if (tab === 'prazos') {
-      const { data } = await supabase.from('prazos').select('*').eq('processo_id', processo.id).order('data_fim_prazo', { ascending: true, nullsFirst: false });
-      setPrazos(data || []);
-    } else if (tab === 'audiencias') {
-      const { data } = await supabase.from('audiencias').select('*').eq('processo_id', processo.id).order('data_audiencia', { ascending: false });
-      setAudiencias(data || []);
-    } else if (tab === 'atendimentos') {
-      const { data } = await supabase.from('atendimentos').select('*').eq('processo_id', processo.id).order('data_atendimento', { ascending: false });
-      setAtendimentos(data || []);
-    } else if (tab === 'tarefas') {
-      const { data } = await supabase.from('tarefas').select('*').eq('processo_id', processo.id).eq('deletado', false).order('created_at', { ascending: false });
-      setTarefas(data || []);
-    } else if (tab === 'timesheet') {
-      const { data } = await supabase.from('timesheets').select('*').eq('processo_id', processo.id).eq('deletado', false).order('data_inicio', { ascending: false });
-      setTimesheets(data || []);
-    }
-    setLoadingSub(false);
-  }, [processo?.id, processo?.numeroProcesso]);
 
   const syncFromOrigin = useCallback(async () => {
     if (!processo?.id || !processo.numeroProcesso || syncing) return;
@@ -407,200 +373,19 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
     }
   }, [open, activeTab, processo?.id]);
 
-  // ── Add handlers ──
-  const handleAddPrazo = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!processo?.id || !user) return;
-    setAddLoading(true);
-    const fd = new FormData(e.currentTarget);
-    const titulo = (fd.get('titulo') as string || '').trim();
-    const dataVencimento = fd.get('data_vencimento') as string;
-    if (!titulo || !dataVencimento) {
-      toast({ title: 'Preencha título e data', variant: 'destructive' });
-      setAddLoading(false); return;
-    }
-    const { error } = await supabase.from('prazos').insert({
-      user_id: user.id, office_id: user.office_id, processo_id: processo.id,
-      titulo, descricao: fd.get('descricao') as string || null,
-      data_vencimento: dataVencimento,
-      prioridade: fd.get('prioridade') as string || 'media',
-      status: 'pendente',
-    });
-    if (error) { toast({ title: 'Erro ao criar prazo', description: error.message, variant: 'destructive' }); }
-    else { toast({ title: 'Prazo criado' }); setShowAddPrazo(false); fetchSubData('prazos'); queryClient.invalidateQueries({ queryKey: ['prazos'] }); }
-    setAddLoading(false);
-  };
+  // ── Add handlers — lógica movida para useProcessoSubData; aqui só fecha o form no sucesso ──
+  const handleAddPrazo = async (e: React.FormEvent<HTMLFormElement>) => { if (await sub.addPrazo(e)) setShowAddPrazo(false); };
+  const handleAddAudiencia = async (e: React.FormEvent<HTMLFormElement>) => { if (await sub.addAudiencia(e)) setShowAddAudiencia(false); };
+  const handleAddTarefa = async (e: React.FormEvent<HTMLFormElement>) => { if (await sub.addTarefa(e)) setShowAddTarefa(false); };
+  const handleAddTimesheet = async (e: React.FormEvent<HTMLFormElement>) => { if (await sub.addTimesheet(e)) setShowAddTimesheet(false); };
+  const handleAddAtendimento = async (e: React.FormEvent<HTMLFormElement>) => { if (await sub.addAtendimento(e)) setShowAddAtendimento(false); };
+  const toggleTarefa = sub.toggleTarefa;
 
-  const handleAddAudiencia = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!processo?.id || !user) return;
-    setAddLoading(true);
-    const fd = new FormData(e.currentTarget);
-    const titulo = (fd.get('titulo') as string || '').trim();
-    const data = fd.get('data') as string;
-    if (!titulo || !data) {
-      toast({ title: 'Preencha título e data', variant: 'destructive' });
-      setAddLoading(false); return;
-    }
-    const { error } = await supabase.from('audiencias').insert({
-      user_id: user.id, office_id: user.office_id, processo_id: processo.id,
-      titulo,
-      data_audiencia: new Date(`${data}T${fd.get('horario') || '00:00'}`).toISOString(),
-      local: fd.get('local') as string || null,
-      tipo: fd.get('tipo') as string || null,
-      observacoes: fd.get('observacoes') as string || null,
-      status: 'agendada',
-    });
-    if (error) { toast({ title: 'Erro ao criar audiência', description: error.message, variant: 'destructive' }); }
-    else { toast({ title: 'Audiência criada' }); setShowAddAudiencia(false); fetchSubData('audiencias'); queryClient.invalidateQueries({ queryKey: ['audiencias'] }); }
-    setAddLoading(false);
-  };
-
-  const handleAddTarefa = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!processo?.id || !user) return;
-    setAddLoading(true);
-    const fd = new FormData(e.currentTarget);
-    const titulo = (fd.get('titulo') as string || '').trim();
-    if (!titulo) { toast({ title: 'Título obrigatório', variant: 'destructive' }); setAddLoading(false); return; }
-    const { error } = await supabase.from('tarefas').insert({
-      user_id: user.id, office_id: user.office_id, processo_id: processo.id,
-      titulo, descricao: fd.get('descricao') as string || null,
-      data_vencimento: fd.get('data_vencimento') as string || null,
-      prioridade: fd.get('prioridade') as string || 'media',
-      status: 'pendente',
-    });
-    if (error) { toast({ title: 'Erro ao criar tarefa', description: error.message, variant: 'destructive' }); }
-    else { toast({ title: 'Tarefa criada' }); setShowAddTarefa(false); fetchSubData('tarefas'); queryClient.invalidateQueries({ queryKey: ['tarefas'] }); }
-    setAddLoading(false);
-  };
-
-  const handleAddTimesheet = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!processo?.id || !user) return;
-    setAddLoading(true);
-    const fd = new FormData(e.currentTarget);
-    const descricao = (fd.get('descricao') as string || '').trim();
-    const duracao = Number(fd.get('duracao')) || 0;
-    if (!descricao || duracao <= 0) {
-      toast({ title: 'Preencha descrição e duração', variant: 'destructive' });
-      setAddLoading(false); return;
-    }
-    const now = new Date();
-    const { error } = await supabase.from('timesheets').insert({
-      user_id: user.id, office_id: user.office_id, processo_id: processo.id,
-      tarefa_descricao: descricao,
-      categoria: fd.get('categoria') as string || 'geral',
-      data_inicio: new Date(now.getTime() - duracao * 60000).toISOString(),
-      data_fim: now.toISOString(),
-      duracao_minutos: duracao,
-      status: 'finalizado',
-    });
-    if (error) { toast({ title: 'Erro ao registrar tempo', description: error.message, variant: 'destructive' }); }
-    else { toast({ title: 'Tempo registrado' }); setShowAddTimesheet(false); fetchSubData('timesheet'); }
-    setAddLoading(false);
-  };
-
-  const handleAddAtendimento = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!processo?.id || !user) return;
-    setAddLoading(true);
-    const fd = new FormData(e.currentTarget);
-    const data = fd.get('data') as string;
-    if (!data) { toast({ title: 'Data obrigatória', variant: 'destructive' }); setAddLoading(false); return; }
-    const { error } = await supabase.from('atendimentos').insert({
-      user_id: user.id, office_id: user.office_id, processo_id: processo.id,
-      cliente_id: processo.clienteId || null,
-      tipo_atendimento: fd.get('tipo') as string || 'reuniao',
-      data_atendimento: new Date(`${data}T${fd.get('horario') || '00:00'}`).toISOString(),
-      observacoes: fd.get('observacoes') as string || null,
-      status: 'agendado',
-    });
-    if (error) { toast({ title: 'Erro ao criar atendimento', description: error.message, variant: 'destructive' }); }
-    else { toast({ title: 'Atendimento criado' }); setShowAddAtendimento(false); fetchSubData('atendimentos'); queryClient.invalidateQueries({ queryKey: ['atendimentos'] }); }
-    setAddLoading(false);
-  };
-
-  const toggleTarefa = async (t: any) => {
-    const newStatus = !t.concluida;
-    const { error } = await supabase.from('tarefas').update({ concluida: newStatus, status: newStatus ? 'concluida' : 'pendente' }).eq('id', t.id);
-    if (!error) fetchSubData('tarefas');
-    else toast({ title: 'Erro ao atualizar tarefa', variant: 'destructive' });
-  };
-
-  // ── Publicações actions ──
-  const [expandedPubId, setExpandedPubId] = useState<string | null>(null);
-
-  const handlePubStatus = async (id: string, status: string) => {
-    await supabase.from('publicacoes').update({ status }).eq('id', id);
-    setPublicacoes(prev => prev.map(p => p.id === id ? { ...p, status } : p));
-    toast({ title: status === 'lida' ? 'Marcada como lida' : status === 'arquivada' ? 'Arquivada' : 'Atualizada' });
-  };
-
-  const handleCopyPub = (conteudo: string) => {
-    const clean = conteudo
-      .replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>|<\/div>/gi, '\n')
-      .replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
-      .replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-      .replace(/\n{3,}/g, '\n\n').trim();
-    navigator.clipboard.writeText(clean);
-    toast({ title: 'Copiado' });
-  };
-
-  const handlePubUrgencia = async (id: string, urgencia: string) => {
-    await supabase.from('publicacoes').update({ urgencia }).eq('id', id);
-    setPublicacoes(prev => prev.map(p => p.id === id ? { ...p, urgencia } : p));
-    toast({ title: `Urgência: ${urgencia}` });
-  };
-
-  // ── Tratar publicação (criar prazo/tarefa a partir dela) ──
-  const [tratandoPubId, setTratandoPubId] = useState<string | null>(null);
-
-  const handleTratarPub = async (e: React.FormEvent<HTMLFormElement>, pub: any) => {
-    e.preventDefault();
-    if (!processo?.id || !user) return;
-    setAddLoading(true);
-    const fd = new FormData(e.currentTarget);
-    const tipo = fd.get('tipo_tratamento') as string;
-    const titulo = (fd.get('titulo') as string || '').trim();
-    if (!titulo) { toast({ title: 'Título obrigatório', variant: 'destructive' }); setAddLoading(false); return; }
-    let insertError: any = null;
-    if (tipo === 'prazo') {
-      const { error } = await supabase.from('prazos').insert({
-        user_id: user.id, office_id: user.office_id, processo_id: processo.id,
-        titulo, descricao: `Originado da publicação de ${fmtDate(pub.data_publicacao)}: ${pub.titulo}`,
-        data_vencimento: fd.get('data_vencimento') as string,
-        prioridade: fd.get('prioridade') as string || 'alta', status: 'pendente',
-      });
-      insertError = error;
-      if (!error) toast({ title: 'Prazo criado a partir da publicação' });
-    } else if (tipo === 'tarefa') {
-      const { error } = await supabase.from('tarefas').insert({
-        user_id: user.id, processo_id: processo.id,
-        titulo, descricao: `Originado da publicação de ${fmtDate(pub.data_publicacao)}: ${pub.titulo}`,
-        data_vencimento: fd.get('data_vencimento') as string || null,
-        prioridade: fd.get('prioridade') as string || 'media', status: 'pendente',
-      });
-      insertError = error;
-      if (!error) toast({ title: 'Tarefa criada a partir da publicação' });
-    } else if (tipo === 'audiencia') {
-      const { error } = await supabase.from('audiencias').insert({
-        user_id: user.id, office_id: user.office_id, processo_id: processo.id,
-        titulo, data_audiencia: new Date(`${fd.get('data_vencimento')}T${fd.get('horario') || '00:00'}`).toISOString(),
-        observacoes: `Originado da publicação de ${fmtDate(pub.data_publicacao)}`, status: 'agendada',
-      });
-      insertError = error;
-      if (!error) toast({ title: 'Audiência criada a partir da publicação' });
-    }
-    if (insertError) {
-      toast({ title: 'Erro ao salvar', description: insertError.message, variant: 'destructive' });
-    } else {
-      await supabase.from('publicacoes').update({ status: 'processada' }).eq('id', pub.id);
-      setPublicacoes(prev => prev.map(p => p.id === pub.id ? { ...p, status: 'processada' } : p));
-      setTratandoPubId(null);
-    }
-    setAddLoading(false);
-  };
+  // ── Publicações: ações movidas para useProcessoSubData (aliases preservam o JSX) ──
+  const handlePubStatus = sub.pubStatus;
+  const handleCopyPub = sub.copyPub;
+  const handlePubUrgencia = sub.pubUrgencia;
+  const handleTratarPub = sub.tratarPub;
 
   // ── Andamento manual ──
   const [showAddAndamento, setShowAddAndamento] = useState(false);
