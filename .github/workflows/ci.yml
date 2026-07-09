@@ -1,0 +1,34 @@
+# Vigia de regressão: roda a cada push/PR no main.
+# Se o type-check, os testes ou o build quebrarem, o commit fica marcado com X
+# no GitHub — o problema aparece AQUI antes de aparecer na tela de um usuário.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Type-check (tsc)
+        run: npx tsc --noEmit
+
+      - name: Testes (vitest)
+        run: npx vitest run
+
+      - name: Build de produção (vite)
+        run: npx vite build
