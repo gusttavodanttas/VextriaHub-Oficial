@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { CalendarClock, CheckSquare, Gavel } from "lucide-react";
+import { agendarPublicacaoSchema, firstZodError } from "@/lib/validation";
 
 export type AcaoTipo = "prazo" | "tarefa" | "audiencia";
 
@@ -122,12 +123,9 @@ export const AgendarPublicacaoDialog = ({
       toast({ title: "Erro", description: "Usuário não autenticado.", variant: "destructive" });
       return;
     }
-    if (!form.titulo) {
-      toast({ title: "Campo obrigatório", description: "Informe o título.", variant: "destructive" });
-      return;
-    }
-    if (!form.data) {
-      toast({ title: "Campo obrigatório", description: "Informe a data.", variant: "destructive" });
+    const val = agendarPublicacaoSchema.safeParse(form);
+    if (!val.success) {
+      toast({ title: "Campo obrigatório", description: firstZodError(val.error), variant: "destructive" });
       return;
     }
 

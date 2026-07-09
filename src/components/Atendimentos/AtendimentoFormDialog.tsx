@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { RECORRENCIAS } from "@/lib/recorrencia";
 import { fmtSafe } from "@/lib/dates";
+import { atendimentoFormSchema, firstZodError } from "@/lib/validation";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -34,6 +36,7 @@ export const AtendimentoFormDialog: React.FC<{
   onUpdate: (data: any) => void;
   loading: boolean;
 }> = ({ open, onClose, initial, editId, officeId, userId, extras, membros = [], existing = [], onSave, onUpdate, loading }) => {
+  const { toast } = useToast();
   const [form, setForm] = useState<FormState>(initial);
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((prev) => ({ ...prev, [k]: v }));
@@ -103,6 +106,12 @@ export const AtendimentoFormDialog: React.FC<{
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // Rede de segurança além do required do HTML (regras em @/lib/validation)
+    const val = atendimentoFormSchema.safeParse(form);
+    if (!val.success) {
+      toast({ title: "Campos obrigatórios", description: firstZodError(val.error), variant: "destructive" });
+      return;
+    }
     const datetime = `${form.data_atendimento}T${form.hora_atendimento}:00`;
     const recorrente = !editId && form.recorrencia !== "nenhuma";
     const payload: any = {

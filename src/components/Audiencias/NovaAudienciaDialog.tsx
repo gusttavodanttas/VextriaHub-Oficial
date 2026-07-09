@@ -13,6 +13,7 @@ import { ClientSelect } from "@/components/Clientes/ClientSelect";
 import { AvisoDiasSelect } from "@/components/Notifications/AvisoDiasSelect";
 import { format } from "date-fns";
 import { normalizeAudienciaStatus } from "@/lib/status";
+import { audienciaFormSchema, firstZodError } from "@/lib/validation";
 
 interface MembroOption { id: string; label: string; }
 interface ProcessoOption { id: string; label: string; cliente_id: string | null; }
@@ -128,8 +129,9 @@ export const NovaAudienciaDialog = ({ open, onOpenChange, tipos, membros = [], p
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.titulo || !formData.data || !formData.hora || !formData.tipo) {
-      toast({ title: "Campos obrigatórios", description: "Preencha título, data, horário e tipo.", variant: "destructive" });
+    const val = audienciaFormSchema.safeParse(formData);
+    if (!val.success) {
+      toast({ title: "Campos obrigatórios", description: firstZodError(val.error), variant: "destructive" });
       return;
     }
     const data_audiencia = new Date(`${formData.data}T${formData.hora}:00`).toISOString();

@@ -18,6 +18,7 @@ import {
   Zap, CalendarIcon, Pencil, Trash2, Plus, Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { prazoFormSchema, firstZodError } from "@/lib/validation";
 import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 
 // ─────────────────────────────────────────────
@@ -660,8 +661,9 @@ export const NovoPrazoStandaloneDialog = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.titulo || !formData.dataPrazoFatal) {
-      toast({ title: "Campos obrigatórios", description: "Preencha o título e o prazo fatal.", variant: "destructive" }); return;
+    const val = prazoFormSchema.safeParse(formData);
+    if (!val.success) {
+      toast({ title: "Campos obrigatórios", description: firstZodError(val.error), variant: "destructive" }); return;
     }
     if (!user?.id) { toast({ title: "Erro", description: "Usuário não autenticado.", variant: "destructive" }); return; }
 

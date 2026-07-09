@@ -8,8 +8,9 @@ import { UserPlus, User, Building2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useOfficeSettingList } from "@/hooks/useOfficeSettingList";
-import { formatCpfCnpj, isValidCpfCnpj, onlyDigits } from "@/lib/document";
-import { formatPhone, isValidPhone } from "@/lib/phone";
+import { formatCpfCnpj } from "@/lib/document";
+import { formatPhone } from "@/lib/phone";
+import { clienteSchema, zodErrorsToMap } from "@/lib/validation";
 
 interface ClientInput {
   name: string;
@@ -38,8 +39,6 @@ const EMPTY: ClientInput = {
   origem: "", endereco: "", dataAniversario: "", status: "Ativo",
 };
 
-const emailOk = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-
 export const NovoClienteDialog = ({ open, onOpenChange, onSave, initialName }: NovoClienteDialogProps) => {
   const { toast } = useToast();
   const { items: origensCliente } = useOfficeSettingList<string>("origens_cliente", ORIGENS_DEFAULT);
@@ -55,15 +54,11 @@ export const NovoClienteDialog = ({ open, onOpenChange, onSave, initialName }: N
 
   const reset = () => { setForm(EMPTY); setErrors({}); };
 
+  // Regras centralizadas em @/lib/validation (mesmas mensagens de antes)
   const validate = () => {
-    const e: Record<string, string> = {};
-    if (!form.name.trim()) e.name = "Nome é obrigatório.";
-    if (!onlyDigits(form.cpfCnpj)) e.cpfCnpj = `${isPJ ? "CNPJ" : "CPF"} é obrigatório.`;
-    else if (!isValidCpfCnpj(form.cpfCnpj, form.tipoPessoa)) e.cpfCnpj = `${isPJ ? "CNPJ" : "CPF"} inválido.`;
-    if (form.email && !emailOk(form.email)) e.email = "E-mail inválido.";
-    if (form.phone && !isValidPhone(form.phone)) e.phone = "Telefone inválido (use DDD + número).";
-    setErrors(e);
-    return Object.keys(e).length === 0;
+    const parsed = clienteSchema.safeParse(form);
+    setErrors(parsed.success ? {} : zodErrorsToMap(parsed.error));
+    return parsed.success;
   };
 
   const handleSave = async () => {
