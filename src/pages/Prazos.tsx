@@ -27,12 +27,6 @@ import {
 import { formatCNJ } from '@/utils/formatCNJ';
 import { AgendarPublicacaoDialog, type AcaoTipo } from '@/components/Processos/AgendarPublicacaoDialog';
 
-// Sugestão pendente: nasceu de uma publicação capturada e ainda não foi aceita.
-// Ao aceitar (ou revisar e salvar), vira um prazo normal.
-const ehSugestaoRobo = (p: { publicacao_id?: string | null; confirmado_em?: string | null }) =>
-  !!p.publicacao_id && !p.confirmado_em;
-// O teor indica audiência? (para oferecer o agendamento em vez de um prazo)
-const pareceAudiencia = (teor: string) => /audi[êe]ncia/i.test(teor || '');
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -42,193 +36,15 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-interface Prazo {
-  id: string;
-  titulo: string;
-  descricao?: string | null;
-  data_vencimento?: string | null;
-  data_publicacao?: string | null;
-  data_prazo_interno?: string | null;
-  data_fim_prazo?: string | null;
-  prioridade: 'alta' | 'media' | 'baixa';
-  status: string;
-  processo_id?: string | null;
-  user_id: string;
-  office_id?: string | null;
-  responsavel_id?: string | null;
-  titular?: string | null;
-  concluido_em?: string | null;
-  concluido_por?: string | null;
-  // Campos gravados pelo robô (OAB/DJEN)
-  publicacao_id?: string | null;
-  numero_processo?: string | null;
-  data_disponibilizacao?: string | null;
-  data_intimacao?: string | null;
-  base_legal?: string | null;
-  tipo_prazo?: string | null;
-  eh_juizado?: boolean | null;
-  dias_uteis?: number | null;      // quantidade de dias do prazo
-  dias_corridos?: boolean | null;  // true = contagem em dias corridos (Juizado)
-  confirmado_em?: string | null;   // aceite da sugestão do robô
-  confirmado_por?: string | null;
-}
-
-const onlyDigits = (s?: string | null) => (s || '').replace(/\D/g, '');
-
-type ProcInfo = { id: string; clienteId: string | null; clienteNome: string | null; numero: string | null };
-
-// Teor/título vindos da publicação vinculada (prazos do robô nascem sem eles)
-type PubInfo = { titulo: string | null; conteudo: string | null };
-
-// Título de exibição (prazos do robô podem vir sem título)
-function tituloPrazo(p: Prazo, pubs?: Record<string, PubInfo>): string {
-  const pub = p.publicacao_id ? pubs?.[p.publicacao_id] : undefined;
-  return (p.titulo && p.titulo.trim()) || (pub?.titulo || '').trim() || p.tipo_prazo || 'Prazo processual';
-}
-
-// Teor do prazo: descrição própria ou o conteúdo da publicação que o originou
-function teorPrazo(p: Prazo, pubs?: Record<string, PubInfo>): string {
-  if (p.descricao && p.descricao.trim()) return p.descricao.trim();
-  const pub = p.publicacao_id ? pubs?.[p.publicacao_id] : undefined;
-  return pub?.conteudo ? deepCleanHTML(pub.conteudo) : '';
-}
-
-// Prazo fatal: data_fim_prazo (novo padrão) ou data_vencimento (legado)
-function getDataPrazo(prazo: Prazo): string | null {
-  return prazo.data_fim_prazo || prazo.data_vencimento || null;
-}
-
-// Datas só-data (YYYY-MM-DD) no fuso local — centralizado em @/lib/dates.
-// Mantém o retorno Date (Invalid Date para entrada ruim) por compatibilidade
-// com differenceInCalendarDays; a EXIBIÇÃO usa fmtDate, que nunca lança.
-function toLocalDate(s: string): Date {
-  return parseLocalDate(s) ?? new Date(NaN);
-}
-
-type Urgency = 'vencido' | 'hoje' | 'critico' | 'normal' | 'concluido';
-
-const PRIORIDADE_RANK: Record<string, number> = { alta: 0, media: 1, baixa: 2 };
-
-function getUrgency(prazo: Prazo): Urgency {
-  if (prazo.status === 'concluido') return 'concluido';
-  const data = getDataPrazo(prazo);
-  if (!data) return 'normal';
-  const days = differenceInCalendarDays(toLocalDate(data), startOfDay(new Date()));
-  if (days < 0) return 'vencido';
-  if (days === 0) return 'hoje';
-  if (days <= 3) return 'critico';
-  return 'normal';
-}
-
-const URGENCY_CONFIG: Record<Urgency, {
-  label: string; color: string; border: string; badge: string; icon: React.ElementType; dot: string;
-}> = {
-  vencido:  { label: 'Vencido',    color: 'text-red-600',     border: 'border-l-red-500',     badge: 'bg-red-500/10 text-red-600 border-red-500/20',       icon: AlertTriangle, dot: 'bg-red-500' },
-  hoje:     { label: 'Hoje',       color: 'text-amber-600',   border: 'border-l-amber-500',   badge: 'bg-amber-500/10 text-amber-600 border-amber-500/20',  icon: Flame,         dot: 'bg-amber-500' },
-  critico:  { label: 'Crítico',    color: 'text-orange-600',  border: 'border-l-orange-400',  badge: 'bg-orange-500/10 text-orange-600 border-orange-500/20', icon: Timer,       dot: 'bg-orange-400' },
-  normal:   { label: 'No prazo',   color: 'text-sky-600',     border: 'border-l-sky-400',     badge: 'bg-sky-500/10 text-sky-600 border-sky-500/20',        icon: CalendarClock, dot: 'bg-sky-400' },
-  concluido:{ label: 'Concluído',  color: 'text-emerald-600', border: 'border-l-emerald-400', badge: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20', icon: CheckCircle2, dot: 'bg-emerald-400' },
-};
-
-const PRIORITY_CONFIG: Record<string, { label: string; color: string }> = {
-  alta:  { label: 'Alta',  color: 'bg-red-500/10 text-red-600 border-red-500/20' },
-  media: { label: 'Média', color: 'bg-amber-500/10 text-amber-600 border-amber-500/20' },
-  baixa: { label: 'Baixa', color: 'bg-slate-500/10 text-slate-500 border-slate-500/20' },
-};
-
-function getDaysLabel(prazo: Prazo): string {
-  if (prazo.status === 'concluido') return 'Concluído';
-  const data = getDataPrazo(prazo);
-  if (!data) return '—';
-  const days = differenceInCalendarDays(toLocalDate(data), startOfDay(new Date()));
-  if (days < 0) return `Vencido há ${Math.abs(days)}d`;
-  if (days === 0) return 'Vence hoje';
-  if (days === 1) return 'Amanhã';
-  return `${days} dias`;
-}
-
-function sortPrazos(items: Prazo[], dateFirst = false): Prazo[] {
-  const dateCmp = (a: Prazo, b: Prazo) => {
-    const dateA = getDataPrazo(a);
-    const dateB = getDataPrazo(b);
-    if (!dateA && !dateB) return 0;
-    if (!dateA) return 1;
-    if (!dateB) return -1;
-    return dateA.localeCompare(dateB);
-  };
-  return [...items].sort((a, b) => {
-    // Vencidos: mais atrasado (data mais antiga) primeiro
-    if (dateFirst) { const d = dateCmp(a, b); if (d !== 0) return d; }
-    const prioA = PRIORIDADE_RANK[a.prioridade] ?? 1;
-    const prioB = PRIORIDADE_RANK[b.prioridade] ?? 1;
-    if (prioA !== prioB) return prioA - prioB;
-    return dateCmp(a, b);
-  });
-}
-
-const SECTION_ORDER: Urgency[] = ['vencido', 'hoje', 'critico', 'normal', 'concluido'];
-const SECTION_LABELS: Record<Urgency, string> = {
-  vencido:   'Vencidos',
-  hoje:      'Vencem hoje',
-  critico:   'Próximos 3 dias',
-  normal:    'Futuros',
-  concluido: 'Concluídos',
-};
-
-const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-
-function MonthView({ items, refDate, onPrev, onNext, onHoje, onSelect }: {
-  items: Prazo[]; refDate: Date;
-  onPrev: () => void; onNext: () => void; onHoje: () => void;
-  onSelect: (p: Prazo) => void;
-}) {
-  const inicio = startOfWeek(startOfMonth(refDate), { weekStartsOn: 0 });
-  const dias = Array.from({ length: 42 }, (_, i) => addDays(inicio, i));
-  const hoje = new Date();
-  const porDia = (d: Date) => items.filter(p => { const dt = getDataPrazo(p); return dt && isSameDay(toLocalDate(dt), d); });
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5">
-          <Button size="icon" variant="outline" className="h-9 w-9 rounded-xl" onClick={onPrev} title="Mês anterior"><ChevronLeft className="h-4 w-4" /></Button>
-          <Button size="icon" variant="outline" className="h-9 w-9 rounded-xl" onClick={onNext} title="Próximo mês"><ChevronRight className="h-4 w-4" /></Button>
-          <Button variant="outline" className="h-9 rounded-xl px-3 text-[10px] font-black uppercase tracking-widest" onClick={onHoje}>Hoje</Button>
-        </div>
-        <p className="text-sm font-black tracking-tight capitalize">{format(refDate, 'MMMM yyyy', { locale: ptBR })}</p>
-      </div>
-      <div className="grid grid-cols-7 gap-1">
-        {WEEKDAYS.map(w => (
-          <div key={w} className="text-center text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 py-1">{w}</div>
-        ))}
-        {dias.map(d => {
-          const list = porDia(d);
-          const isHoje = isSameDay(d, hoje);
-          const isMes = isSameMonth(d, refDate);
-          return (
-            <div key={d.toISOString()}
-              className={cn('rounded-lg border p-1 min-h-[64px] sm:min-h-[92px] flex flex-col gap-0.5 overflow-hidden',
-                isHoje ? 'border-primary/40 bg-primary/5' : 'border-border/50', !isMes && 'opacity-40')}>
-              <span className={cn('text-[10px] font-bold px-0.5', isHoje && 'text-primary')}>{format(d, 'd')}</span>
-              <div className="flex flex-col gap-0.5 overflow-hidden">
-                {list.slice(0, 3).map(p => {
-                  const c = URGENCY_CONFIG[getUrgency(p)];
-                  return (
-                    <button key={p.id} onClick={() => onSelect(p)} title={tituloPrazo(p)}
-                      className={cn('text-left rounded px-1 py-0.5 text-[9px] font-bold truncate border', c.badge)}>
-                      {tituloPrazo(p)}
-                    </button>
-                  );
-                })}
-                {list.length > 3 && <span className="text-[9px] text-muted-foreground/50 px-1">+{list.length - 3}</span>}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
+// Módulos extraídos deste arquivo (desmonte do god-component) — comportamento idêntico
+import {
+  type Prazo, type Urgency,
+  tituloPrazo, getDataPrazo, toLocalDate, getUrgency, getDaysLabel,
+  sortPrazos, ehSugestaoRobo, pareceAudiencia,
+  URGENCY_CONFIG, PRIORITY_CONFIG, SECTION_ORDER, SECTION_LABELS,
+} from '@/components/Prazos/shared';
+import { MonthView } from '@/components/Prazos/MonthView';
+import { usePrazosData } from '@/hooks/usePrazosData';
 
 export default function Prazos() {
   const { toast } = useToast();
@@ -256,185 +72,24 @@ export default function Prazos() {
   const [agendarTarget, setAgendarTarget] = useState<Prazo | null>(null);
   const [agendarTipo, setAgendarTipo] = useState<AcaoTipo>('audiencia');
 
-  const { data: prazos = [], isLoading } = useQuery<Prazo[]>({
-    queryKey: ['prazos', user?.office_id, user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
-      const query = supabase
-        .from('prazos')
-        .select('*')
-        .order('data_fim_prazo', { ascending: true, nullsFirst: false });
-      if (user.office_id) {
-        query.eq('office_id', user.office_id);
-      } else {
-        query.eq('responsavel_id', user.id);
-      }
-      const { data, error } = await query;
-      if (error) throw error;
-      // Filtra soft-deletados em JS (resiliente caso a coluna ainda não exista)
-      return (data || []).filter((p: any) => !p.deletado) as Prazo[];
-    },
-    enabled: !!user?.id,
-    refetchInterval: 60_000,
+  // Dados + mutações extraídos para hooks/usePrazosData (efeitos de UI via callbacks)
+  const {
+    prazos, isLoading, pubInfo, teorMap, processoInfo,
+    procDoPrazo, clienteDoPrazo, clienteNomeDoPrazo,
+    aceitarMutation, concludeMutation, reopenMutation, deleteMutation,
+    bulkConcludeMutation, bulkDeleteMutation, bulkAssignMutation,
+  } = usePrazosData({
+    onDeleted: () => setDeleteTarget(null),
+    onBulkDone: () => multiSelect.clearSelection(),
+    onBulkDeleted: () => { multiSelect.clearSelection(); setBulkDeleteOpen(false); },
   });
-
-  // Teor dos prazos capturados pelo robô: vem da publicação que os originou
-  const pubIds = useMemo(
-    () => Array.from(new Set(prazos.map(p => p.publicacao_id).filter(Boolean))) as string[],
-    [prazos]
-  );
-  const { data: pubInfo = {} } = useQuery<Record<string, PubInfo>>({
-    queryKey: ['prazos-publicacoes', pubIds],
-    enabled: pubIds.length > 0,
-    queryFn: async () => {
-      const { data } = await supabase.from('publicacoes')
-        .select('id, titulo, conteudo')
-        .in('id', pubIds);
-      const map: Record<string, PubInfo> = {};
-      (data || []).forEach((p: any) => { map[p.id] = { titulo: p.titulo ?? null, conteudo: p.conteudo ?? null }; });
-      return map;
-    },
-  });
-
-  // Teor já limpo por prazo (evita reprocessar HTML a cada tecla da busca)
-  const teorMap = useMemo(() => {
-    const m: Record<string, string> = {};
-    prazos.forEach(p => { m[p.id] = teorPrazo(p, pubInfo); });
-    return m;
-  }, [prazos, pubInfo]);
   const [teorAberto, setTeorAberto] = useState<string | null>(null);
-
-  // Mapa processo → cliente. Indexado por id E por número, porque os prazos do
-  // robô guardam apenas `numero_processo` (sem processo_id).
-  const { data: processoInfo = { byId: {}, byNumero: {} } } = useQuery<{ byId: Record<string, ProcInfo>; byNumero: Record<string, ProcInfo> }>({
-    queryKey: ['prazos-processos', user?.office_id],
-    enabled: !!user?.office_id,
-    queryFn: async () => {
-      const { data } = await supabase.from('processos')
-        .select('id, numero_processo, cliente_id, clientes(nome)')
-        .eq('office_id', user!.office_id).eq('deletado', false);
-      const byId: Record<string, ProcInfo> = {};
-      const byNumero: Record<string, ProcInfo> = {};
-      (data || []).forEach((p: any) => {
-        const info: ProcInfo = { id: p.id, clienteId: p.cliente_id ?? null, clienteNome: p.clientes?.nome ?? null, numero: p.numero_processo ?? null };
-        byId[p.id] = info;
-        const nd = onlyDigits(p.numero_processo);
-        if (nd) byNumero[nd] = info;
-      });
-      return { byId, byNumero };
-    },
-  });
-
-  // Resolve o processo do prazo: pelo vínculo direto ou pelo número (prazos do robô)
-  const procDoPrazo = (p: Prazo): ProcInfo | null => {
-    if (p.processo_id && processoInfo.byId[p.processo_id]) return processoInfo.byId[p.processo_id];
-    const nd = onlyDigits(p.numero_processo);
-    return nd ? (processoInfo.byNumero[nd] ?? null) : null;
-  };
-  const clienteDoPrazo = (p: Prazo) => procDoPrazo(p)?.clienteId ?? null;
-  const clienteNomeDoPrazo = (p: Prazo) => procDoPrazo(p)?.clienteNome ?? null;
-
-  // Auto-vínculo: o robô grava o prazo só com `numero_processo`. Assim que o
-  // processo correspondente existir, grava o `processo_id` de verdade — senão o
-  // prazo nunca aparece dentro do processo nem nos filtros por cliente.
-  const jaVinculados = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    if (!user?.office_id || !Object.keys(processoInfo.byNumero).length) return;
-
-    const alvos = prazos
-      .filter(p => !p.processo_id && p.numero_processo && !jaVinculados.current.has(p.id))
-      .map(p => ({ id: p.id, procId: processoInfo.byNumero[onlyDigits(p.numero_processo)]?.id }))
-      .filter((x): x is { id: string; procId: string } => !!x.procId);
-
-    if (!alvos.length) return;
-    alvos.forEach(a => jaVinculados.current.add(a.id)); // não tenta de novo nesta sessão
-
-    (async () => {
-      const porProcesso = new Map<string, string[]>();
-      alvos.forEach(({ id, procId }) => porProcesso.set(procId, [...(porProcesso.get(procId) || []), id]));
-
-      let vinculados = 0;
-      for (const [procId, ids] of porProcesso) {
-        const { error } = await supabase.from('prazos').update({ processo_id: procId }).in('id', ids);
-        if (!error) vinculados += ids.length;
-      }
-      if (vinculados) {
-        queryClient.invalidateQueries({ queryKey: ['prazos'] });
-        toast({ title: 'Prazos vinculados', description: `${vinculados} prazo(s) do robô foram vinculados ao processo correspondente.` });
-      }
-    })();
-  }, [prazos, processoInfo, user?.office_id, queryClient, toast]);
 
   // Busca global: rola até o prazo e abre o detalhe/edição
   useOpenItemFromSearch('/prazos', !isLoading && prazos.length > 0, (openId) => {
     const prazo = prazos.find(p => String(p.id) === openId);
     if (prazo) { setEditTarget(prazo); return true; }
     return false;
-  });
-
-  // Aceitar a sugestão do robô: o prazo deixa de ser sugestão e passa a ser acompanhado
-  const aceitarMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const agora = new Date().toISOString();
-      let { error } = await supabase.from('prazos')
-        .update({ confirmado_em: agora, confirmado_por: user?.id } as any)
-        .eq('id', id);
-      // se a coluna de autor não existir, grava só a data
-      if (error) ({ error } = await supabase.from('prazos').update({ confirmado_em: agora } as any).eq('id', id));
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['prazos'] });
-      toast({ title: 'Sugestão aceita', description: 'O prazo foi confirmado e passa a ser acompanhado normalmente.' });
-    },
-    onError: (e: any) => toast({
-      title: 'Não foi possível aceitar',
-      description: `${e.message}. Se a coluna "confirmado_em" ainda não existe, rode a migration de confirmação de prazos.`,
-      variant: 'destructive',
-    }),
-  });
-
-  const concludeMutation = useMutation({
-    mutationFn: async (id: string) => {
-      // tenta gravar auditoria (data/autor); se as colunas não existirem, grava só o status
-      let { error } = await supabase.from('prazos')
-        .update({ status: 'concluido', concluido_em: new Date().toISOString(), concluido_por: user?.id } as any)
-        .eq('id', id);
-      if (error) ({ error } = await supabase.from('prazos').update({ status: 'concluido' }).eq('id', id));
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['prazos'] });
-      toast({ title: 'Prazo concluído', description: 'Marcado como concluído.' });
-    },
-  });
-
-  const reopenMutation = useMutation({
-    mutationFn: async (id: string) => {
-      let { error } = await supabase.from('prazos')
-        .update({ status: 'pendente', concluido_em: null, concluido_por: null } as any)
-        .eq('id', id);
-      if (error) ({ error } = await supabase.from('prazos').update({ status: 'pendente' }).eq('id', id));
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['prazos'] });
-      toast({ title: 'Prazo reaberto', description: 'Voltou para pendente.' });
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      // Soft delete → vai para a Lixeira (recuperável)
-      const { error } = await supabase.from('prazos').update({ deletado: true }).eq('id', id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['prazos'] });
-      toast({ title: 'Prazo excluído', description: 'Movido para a lixeira.' });
-      setDeleteTarget(null);
-    },
-    onError: (e: any) => toast({ title: 'Erro ao excluir', description: e.message, variant: 'destructive' }),
   });
 
   const filtered = useMemo(() => prazos.filter(p => {
@@ -461,35 +116,6 @@ export default function Prazos() {
 
   const multiSelect = useMultiSelect(filtered);
 
-  const bulkConcludeMutation = useMutation({
-    mutationFn: async (ids: string[]) => {
-      let { error } = await supabase.from('prazos')
-        .update({ status: 'concluido', concluido_em: new Date().toISOString(), concluido_por: user?.id } as any)
-        .in('id', ids);
-      if (error) ({ error } = await supabase.from('prazos').update({ status: 'concluido' }).in('id', ids));
-      if (error) throw error;
-    },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['prazos'] }); multiSelect.clearSelection(); toast({ title: 'Prazos concluídos' }); },
-    onError: (e: any) => toast({ title: 'Erro', description: e.message, variant: 'destructive' }),
-  });
-
-  const bulkDeleteMutation = useMutation({
-    mutationFn: async (ids: string[]) => {
-      const { error } = await supabase.from('prazos').update({ deletado: true }).in('id', ids);
-      if (error) throw error;
-    },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['prazos'] }); multiSelect.clearSelection(); setBulkDeleteOpen(false); toast({ title: 'Prazos excluídos', description: 'Movidos para a lixeira.' }); },
-    onError: (e: any) => toast({ title: 'Erro ao excluir', description: e.message, variant: 'destructive' }),
-  });
-
-  const bulkAssignMutation = useMutation({
-    mutationFn: async ({ ids, responsavel_id }: { ids: string[]; responsavel_id: string }) => {
-      const { error } = await supabase.from('prazos').update({ responsavel_id }).in('id', ids);
-      if (error) throw error;
-    },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['prazos'] }); multiSelect.clearSelection(); toast({ title: 'Responsável atribuído' }); },
-    onError: (e: any) => toast({ title: 'Erro ao atribuir', description: e.message, variant: 'destructive' }),
-  });
 
   const grouped = useMemo(() => {
     const map: Record<Urgency, Prazo[]> = { vencido: [], hoje: [], critico: [], normal: [], concluido: [] };
