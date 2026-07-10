@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Cliente, NovoCliente, DatabaseHookResult, ClienteComProcessos } from '@/types/database';
+import type { TablesInsert, TablesUpdate } from '@/integrations/supabase/rows';
 
 export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoCliente> {
   const [data, setData] = useState<ClienteComProcessos[]>([]);
@@ -51,12 +52,12 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
     if (!user) return null;
 
     try {
-      const payload: any = {
+      const payload: TablesInsert<'clientes'> = {
         ...newRecord,
         user_id: user.id,
         office_id: user.office_id,
       };
-      
+
       // PostgreSQL rejeita string vazia em colunas de Data (gera erro 400)
       if (payload.data_aniversario === '') payload.data_aniversario = null;
       if (payload.endereco === '') payload.endereco = null;
@@ -92,7 +93,7 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
     if (!user) return null;
 
     try {
-      const payload: any = { ...updates };
+      const payload: TablesUpdate<'clientes'> = { ...updates };
       if (payload.data_aniversario === '') payload.data_aniversario = null;
       
       const { data: result, error } = await supabase

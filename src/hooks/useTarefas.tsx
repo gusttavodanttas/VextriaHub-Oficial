@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { continueOccurrences, RecRule } from "@/lib/recorrencia";
+import type { TablesUpdate } from "@/integrations/supabase/rows";
 
 export interface Tarefa {
   id: string;
@@ -45,7 +46,7 @@ export interface TarefaInput {
 // Monta o payload de insert/update incluindo atendimento_id só quando há valor
 // (evita erro caso a coluna ainda não tenha sido criada via SQL).
 function buildPayload(input: Partial<TarefaInput>) {
-  const p: any = {};
+  const p: TablesUpdate<"tarefas"> = {};
   if (input.titulo !== undefined) p.titulo = input.titulo;
   if (input.descricao !== undefined) p.descricao = input.descricao;
   if (input.data_vencimento !== undefined) p.data_vencimento = input.data_vencimento;

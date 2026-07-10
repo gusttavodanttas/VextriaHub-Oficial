@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { continueOccurrences, type RecRule } from "@/lib/recorrencia";
 import type { Atendimento } from "@/components/Atendimentos/shared";
+import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/rows";
 
 export const useAtendimentos = (officeId: string | null | undefined) => {
   const queryClient = useQueryClient();
@@ -31,7 +32,7 @@ export const useAtendimentos = (officeId: string | null | undefined) => {
   );
 
   const create = useMutation({
-    mutationFn: async (payload: any) => {
+    mutationFn: async (payload: TablesInsert<"atendimentos">) => {
       const { error } = await supabase.from("atendimentos").insert(payload);
       if (error) throw error;
     },
@@ -40,7 +41,7 @@ export const useAtendimentos = (officeId: string | null | undefined) => {
   });
 
   const update = useMutation({
-    mutationFn: async ({ id, ...payload }: any) => {
+    mutationFn: async ({ id, ...payload }: TablesUpdate<"atendimentos"> & { id: string }) => {
       const { error } = await supabase.from("atendimentos").update(payload).eq("id", id);
       if (error) throw error;
     },

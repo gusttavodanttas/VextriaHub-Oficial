@@ -9,6 +9,7 @@ import {
   DEFAULT_CATEGORIAS_RECEITA, DEFAULT_CATEGORIAS_DESPESA,
   type FinanceiroItem,
 } from "@/components/Financeiro/shared";
+import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/rows";
 
 // ─── Hook financeiro ─────────────────────────────────────────────────────────
 
@@ -37,7 +38,7 @@ const useFinanceiro = (officeId: string | null | undefined) => {
   );
 
   const create = useMutation({
-    mutationFn: async (payload: any | any[]) => {
+    mutationFn: async (payload: TablesInsert<"financeiro"> | TablesInsert<"financeiro">[]) => {
       const { error } = await supabase.from("financeiro").insert(payload);
       if (error) throw error;
     },
@@ -50,7 +51,7 @@ const useFinanceiro = (officeId: string | null | undefined) => {
   });
 
   const update = useMutation({
-    mutationFn: async ({ id, ...payload }: any) => {
+    mutationFn: async ({ id, ...payload }: TablesUpdate<"financeiro"> & { id: string }) => {
       const { error } = await supabase.from("financeiro").update(payload).eq("id", id);
       if (error) throw error;
     },
