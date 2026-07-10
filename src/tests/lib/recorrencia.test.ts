@@ -4,7 +4,7 @@
 // semana — e continueOccurrences NÃO repete a data base (senão duplicaria).
 import { describe, it, expect } from "vitest";
 import {
-  generateOccurrences, continueOccurrences, recorrenciaLabel, type RecRule,
+  generateOccurrences, continueOccurrences, recorrenciaLabel,
 } from "@/lib/recorrencia";
 
 const d = (y: number, m: number, day: number) => new Date(y, m - 1, day);
