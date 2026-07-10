@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, memo } from "react";
-import { format, parseISO } from "date-fns";
+import { format } from "date-fns";
 import { AvisoDiasSelect } from "@/components/Notifications/AvisoDiasSelect";
 import { ptBR } from "date-fns/locale";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -97,73 +97,7 @@ function dbToTipoAto(row: any): TipoAto {
 // ─────────────────────────────────────────────
 // Cálculo de dias úteis
 // ─────────────────────────────────────────────
-const FERIADOS_FIXOS = new Set([
-  '01-01','04-21','05-01','09-07','10-12','11-02','11-15','11-20','12-25',
-]);
-
-const _mmddOf = (d: Date) => `${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-const _addDaysLocal = (base: Date, n: number) => { const d = new Date(base); d.setDate(d.getDate() + n); return d; };
-
-// Domingo de Páscoa (algoritmo de Meeus/Butcher)
-function easterSunday(year: number): Date {
-  const a = year % 19, b = Math.floor(year / 100), c = year % 100;
-  const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
-  const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
-  const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7;
-  const m = Math.floor((a + 11 * h + 22 * l) / 451);
-  const month = Math.floor((h + l - 7 * m + 114) / 31);
-  const day = ((h + l - 7 * m + 114) % 31) + 1;
-  return new Date(year, month - 1, day);
-}
-
-// Feriados forenses móveis por ano (Carnaval seg/ter, Sexta-feira Santa, Corpus Christi)
-const _movableCache: Record<number, Set<string>> = {};
-function movableFeriados(year: number): Set<string> {
-  if (_movableCache[year]) return _movableCache[year];
-  const pascoa = easterSunday(year);
-  const set = new Set<string>([
-    _mmddOf(_addDaysLocal(pascoa, -48)), // Carnaval (segunda)
-    _mmddOf(_addDaysLocal(pascoa, -47)), // Carnaval (terça)
-    _mmddOf(_addDaysLocal(pascoa, -2)),  // Sexta-feira Santa
-    _mmddOf(_addDaysLocal(pascoa, 60)),  // Corpus Christi
-  ]);
-  _movableCache[year] = set;
-  return set;
-}
-
-// Recesso forense: 20/12 a 20/01 inclusive (CPC art. 220) — prazos suspensos
-function isRecesso(d: Date) {
-  const mo = d.getMonth() + 1, day = d.getDate();
-  return (mo === 12 && day >= 20) || (mo === 1 && day <= 20);
-}
-
-function isFeriado(d: Date) {
-  const mmdd = _mmddOf(d);
-  return FERIADOS_FIXOS.has(mmdd) || movableFeriados(d.getFullYear()).has(mmdd);
-}
-function isUtil(d: Date) { const w = d.getDay(); return w !== 0 && w !== 6 && !isFeriado(d) && !isRecesso(d); }
-
-// Versões que consideram feriados do escritório (anuais MM-DD + específicos YYYY-MM-DD)
-const _ymdOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-function isUtilWith(d: Date, extraAnual: Set<string>, extraData: Set<string>) {
-  const w = d.getDay();
-  return w !== 0 && w !== 6 && !isFeriado(d) && !isRecesso(d) && !extraAnual.has(_mmddOf(d)) && !extraData.has(_ymdOf(d));
-}
-function addDiasUteisWith(from: Date, n: number, extraAnual: Set<string>, extraData: Set<string>): Date {
-  const d = new Date(from); let c = 0;
-  while (c < n) { d.setDate(d.getDate() + 1); if (isUtilWith(d, extraAnual, extraData)) c++; }
-  return d;
-}
-function addDiasUteis(from: Date, n: number): Date {
-  const d = new Date(from); let c = 0;
-  while (c < n) { d.setDate(d.getDate()+1); if (isUtil(d)) c++; }
-  return d;
-}
-function addDiasCorridos(from: Date, n: number): Date {
-  const d = new Date(from); d.setDate(d.getDate()+n); return d;
-}
-function toISO(d: Date) { return d.toISOString().split('T')[0]; }
-function fromISO(s: string) { return parseISO(s); }
+import { addDiasUteisWith, addDiasCorridos, toISO, fromISO } from "@/lib/prazoCalc";
 
 // ─────────────────────────────────────────────
 // DatePicker — input nativo + mini calendário
