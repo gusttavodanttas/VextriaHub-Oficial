@@ -42,17 +42,9 @@ import {
   Repeat,
   Layers,
 } from "lucide-react";
-import {
-  format,
-  startOfMonth,
-  endOfMonth,
-  parseISO,
-  isAfter,
-  isBefore,
-  addMonths,
-  addWeeks,
-} from "date-fns";
+import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { parcelasRows, recorrenciaRows } from "@/lib/financeiroCalc";
 import {
   NONE, toNull, fmt,
   type StatusType, type TipoType, type ModoLancamento, type RecorrenciaTipo,
@@ -137,44 +129,35 @@ const FormDialog: React.FC<FormDialogProps> = ({
     }
 
     const grupo_id = crypto.randomUUID();
-    const dataBase = parseISO(form.data_vencimento);
 
     if (form.modo === "parcelado") {
       const n = Math.max(2, Math.min(120, parseInt(form.parcelas) || 2));
-      const valorParcela = Math.round((valorTotal / n) * 100) / 100;
-      const rows = Array.from({ length: n }, (_, i) => ({
+      const rows = parcelasRows(valorTotal, n, form.data_vencimento).map((r) => ({
         ...base,
-        valor: i === n - 1 ? Math.round((valorTotal - valorParcela * (n - 1)) * 100) / 100 : valorParcela,
-        data_vencimento: format(addMonths(dataBase, i), "yyyy-MM-dd"),
         grupo_id,
-        parcela_numero: i + 1,
-        parcela_total: n,
         recorrencia: null,
         status: "pendente",
         data_pagamento: null,
-        descricao: `${base.descricao} (${i + 1}/${n})`,
+        valor: r.valor,
+        data_vencimento: r.data_vencimento,
+        parcela_numero: r.parcela_numero,
+        parcela_total: r.parcela_total,
+        descricao: `${base.descricao} (${r.parcela_numero}/${r.parcela_total})`,
       }));
       onSave(rows);
     } else if (form.modo === "recorrente") {
       const meses = Math.max(1, Math.min(120, parseInt(form.meses_recorrencia) || 12));
-      const rows = Array.from({ length: meses }, (_, i) => {
-        const data = form.recorrencia === "semanal"
-          ? addWeeks(dataBase, i)
-          : form.recorrencia === "quinzenal"
-          ? addWeeks(dataBase, i * 2)
-          : addMonths(dataBase, i);
-        return {
-          ...base,
-          valor: valorTotal,
-          data_vencimento: format(data, "yyyy-MM-dd"),
-          grupo_id,
-          parcela_numero: null,
-          parcela_total: null,
-          recorrencia: form.recorrencia,
-          status: "pendente",
-          data_pagamento: null,
-        };
-      });
+      const rows = recorrenciaRows(valorTotal, meses, form.data_vencimento, form.recorrencia).map((r) => ({
+        ...base,
+        grupo_id,
+        parcela_numero: null,
+        parcela_total: null,
+        recorrencia: form.recorrencia,
+        status: "pendente",
+        data_pagamento: null,
+        valor: r.valor,
+        data_vencimento: r.data_vencimento,
+      }));
       onSave(rows);
     } else {
       onSave({ ...base, valor: valorTotal, data_vencimento: form.data_vencimento });
