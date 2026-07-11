@@ -95,7 +95,7 @@ export default function Lixeira() {
         if (office) officeMap[office.id] = office.name;
       }
 
-      const applyTenantFilter = (query: ReturnType<typeof supabase.from>) =>
+      const applyTenantFilter = <T extends { eq(column: string, value: string): T }>(query: T): T =>
         isSuperAdmin ? query : query.eq('office_id', officeId!);
 
       const results: LixeiraItem[] = [];
@@ -156,7 +156,8 @@ export default function Lixeira() {
         excluido_em: t.updated_at || t.created_at || '', office_id: t.office_id, office_name: officeMap[t.office_id || ''] || '—', user_id: t.user_id, dados: t,
       }));
 
-      const { data: desc } = await applyTenantFilter(supabase.from('processos_descartados').select('*')).order('created_at', { ascending: false });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tabela dinâmica: o genérico estoura o limite de instanciação do Supabase só aqui
+      const { data: desc } = await applyTenantFilter<any>(supabase.from('processos_descartados').select('*')).order('created_at', { ascending: false });
       (desc || []).forEach(d => results.push({
         id: d.id, tabela: 'processos_descartados',
         titulo: d.titulo || formatCNJ(d.numero_processo),
@@ -175,7 +176,7 @@ export default function Lixeira() {
 
   useEffect(() => { fetchAll(); }, [officeId, isSuperAdmin]);
 
-  const tenantGuard = (query: ReturnType<typeof supabase.from>, item: LixeiraItem) =>
+  const tenantGuard = <T extends { eq(column: string, value: string): T }>(query: T, item: LixeiraItem): T =>
     (!isSuperAdmin && item.office_id) ? query.eq('office_id', item.office_id) : query;
 
   const handleRestore = async (item: LixeiraItem) => {
