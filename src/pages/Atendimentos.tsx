@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { RECORRENCIAS, continueOccurrences, type RecRule } from "@/lib/recorrencia";
 import { safeParseISO, fmtSafe } from "@/lib/dates";
 import { normalizeAtendimentoStatus } from "@/lib/status";
+import { TIPOS_FIXOS } from "@/components/Atendimentos/shared";
 import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 import { useOpenItemFromSearch } from "@/hooks/useOpenItemFromSearch";
 import { useTarefas } from "@/hooks/useTarefas";
