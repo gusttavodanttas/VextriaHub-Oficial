@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/lib/errors";
 
 export interface Publication {
   id: string;
@@ -183,10 +184,10 @@ export const usePublicacoes = () => {
       }
 
       return savedResults;
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Erro na sincronização",
-        description: error.message || "Não foi possível conectar aos tribunais no momento.",
+        description: getErrorMessage(error, "Não foi possível conectar aos tribunais no momento."),
         variant: "destructive"
       });
       return [];
@@ -417,10 +418,10 @@ export const usePublicacoes = () => {
       }
 
       return savedResults;
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Erro ao buscar processo",
-        description: error.message || "Não foi possível consultar o CNJ.",
+        description: getErrorMessage(error, "Não foi possível consultar o CNJ."),
         variant: "destructive"
       });
       return [];

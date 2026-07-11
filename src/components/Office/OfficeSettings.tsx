@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { getErrorMessage } from '@/lib/errors';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -86,8 +87,8 @@ export const OfficeSettings: React.FC = () => {
       if (error) throw error;
       setLogoUrl(url);
       toast({ title: "Logo atualizada", description: "A logo do escritório foi alterada." });
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "Erro ao enviar logo", description: err?.message || "Verifique se o bucket de imagens existe." });
+    } catch (err: unknown) {
+      toast({ variant: "destructive", title: "Erro ao enviar logo", description: getErrorMessage(err, "Verifique se o bucket de imagens existe.") });
     } finally {
       setUploadingLogo(false);
       if (logoRef.current) logoRef.current.value = "";

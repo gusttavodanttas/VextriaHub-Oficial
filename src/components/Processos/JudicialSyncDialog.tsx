@@ -1,4 +1,5 @@
 ﻿import React, { useState } from 'react';
+import { getErrorMessage } from '@/lib/errors';
 import {
   Dialog,
   DialogContent,
@@ -220,10 +221,10 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
           .upsert(rows, { onConflict: 'office_id,numero_processo', ignoreDuplicates: true })
           .then(() => {}, () => {});
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Erro na sincronização",
-        description: error.message || "Não foi possível conectar ao serviço de busca.",
+        description: getErrorMessage(error, "Não foi possível conectar ao serviço de busca."),
         variant: "destructive",
       });
     } finally {
@@ -387,8 +388,8 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
 
       await onImport(finalProcesses);
       toast({ title: "Importação concluída", description: `${selectedIds.size} processos foram salvos.` });
-    } catch (e: any) {
-      toast({ title: 'Erro ao importar', description: e.message, variant: 'destructive' });
+    } catch (e: unknown) {
+      toast({ title: 'Erro ao importar', description: getErrorMessage(e), variant: 'destructive' });
     } finally {
       setImporting(false);
     }
@@ -819,8 +820,8 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
                         await onImport([{ ...previewProc, clienteId: finalClienteId }]);
                         toast({ title: 'Processo importado', description: `${previewProc.numeroProcesso} salvo com sucesso.` });
                         setPreviewProc(null);
-                      } catch (e: any) {
-                        toast({ title: 'Erro ao importar', description: e.message, variant: 'destructive' });
+                      } catch (e: unknown) {
+                        toast({ title: 'Erro ao importar', description: getErrorMessage(e), variant: 'destructive' });
                       } finally {
                         setImporting(false);
                       }

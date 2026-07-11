@@ -332,7 +332,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
       } else {
         throw new Error(data?.error || 'Processo não localizado.');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao buscar CNJ:', error);
       toast({
         title: "Não encontrado",

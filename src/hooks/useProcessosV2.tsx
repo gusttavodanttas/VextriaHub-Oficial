@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Processo, NovoProcesso } from '@/types/database';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getErrorMessage } from '@/lib/errors';
 
 export function useProcessosV2() {
   const { user } = useAuth();
@@ -80,8 +81,8 @@ export function useProcessosV2() {
         }
 
         return (result || []).map(mapDatabaseToProcesso);
-      } catch (e: any) {
-        console.error('useProcessos exception:', e?.message);
+      } catch (e: unknown) {
+        console.error('useProcessos exception:', getErrorMessage(e));
         throw e;
       }
     },

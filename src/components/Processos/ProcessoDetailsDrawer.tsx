@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProcessoSubData } from '@/hooks/useProcessoSubData';
+import { getErrorMessage } from '@/lib/errors';
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Processo } from '@/types/processo';
@@ -240,8 +241,8 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
         resultado: editData.resultado || null,
       } as any);
       setEditing(false);
-    } catch (e: any) {
-      toast({ title: 'Erro ao salvar', description: e.message, variant: 'destructive' });
+    } catch (e: unknown) {
+      toast({ title: 'Erro ao salvar', description: getErrorMessage(e), variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -270,8 +271,8 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
       if (updateError) throw updateError;
       queryClient.invalidateQueries({ queryKey: ['processos'] });
       toast({ title: 'Cliente vinculado', description: `${nomeCliente} vinculado como cliente deste processo.` });
-    } catch (e: any) {
-      toast({ title: 'Erro', description: e.message, variant: 'destructive' });
+    } catch (e: unknown) {
+      toast({ title: 'Erro', description: getErrorMessage(e), variant: 'destructive' });
     } finally {
       setSavingCliente(false);
     }

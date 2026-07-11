@@ -42,7 +42,7 @@ export const fetchProcessoInfo = async (numeroProcesso: string, tribunal?: strin
 
     if (error) throw error;
     return data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching processo via Edge Function:', error);
     throw error;
   }

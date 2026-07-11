@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Plus, X, Scale, Search, Sparkles } from "lucide-react";
 import { useProcessosEncontrados, ProcessoEncontrado } from "@/hooks/useProcessosEncontrados";
 import { useToast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/lib/errors";
 import { formatCNJ } from "@/utils/formatCNJ";
 import { tribunalFromCNJ } from "@/utils/tribunalCNJ";
 import { NovoProcessoDialog } from "./NovoProcessoDialog";
@@ -43,8 +44,8 @@ export function ProcessosEncontradosInbox({ onChange, onBuscar }: { onChange?: (
       await descartar(item);
       onChange?.();
       toast({ title: "Processo descartado", description: "Não vai mais aparecer nas próximas buscas." });
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Erro ao descartar", description: e?.message });
+    } catch (e: unknown) {
+      toast({ variant: "destructive", title: "Erro ao descartar", description: getErrorMessage(e) });
     } finally {
       setBusy(null);
     }

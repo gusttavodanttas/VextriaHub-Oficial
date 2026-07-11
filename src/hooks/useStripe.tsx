@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { getErrorMessage } from '@/lib/errors';
 
 interface SubscriptionInfo {
   subscribed: boolean;
@@ -33,8 +34,8 @@ export const useStripe = () => {
       if (error) throw error;
 
       return data;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
       throw err;
     } finally {
       setLoading(false);
@@ -62,8 +63,8 @@ export const useStripe = () => {
       if (error) throw error;
 
       return data;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
       return { subscribed: false };
     } finally {
       setLoading(false);
@@ -95,8 +96,8 @@ export const useStripe = () => {
       }
 
       return data;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
       throw err;
     } finally {
       setLoading(false);

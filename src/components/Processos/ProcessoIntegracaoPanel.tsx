@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { formatCNJ } from '@/lib/formatters';
 import { useToast } from '@/hooks/use-toast';
+import { getErrorMessage } from '@/lib/errors';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useProcessosV2 } from '@/hooks/useProcessosV2';
@@ -111,15 +112,15 @@ const ProcessoIntegracaoBody: React.FC<ProcessoIntegracaoBodyProps> = ({
       } else {
         throw new Error("Dados não retornados pela API.");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao buscar CNJ:', error);
       toast({
         title: "Não encontrado",
-        description: error.message || "Não conseguimos localizar este processo. Verifique o número ou cadastre manualmente.",
+        description: getErrorMessage(error, "Não conseguimos localizar este processo. Verifique o número ou cadastre manualmente."),
         variant: "destructive"
       });
       // Mesmo com erro, permite ir pro manual se quiser
-      if (error.message?.includes('não localizado')) {
+      if (getErrorMessage(error).includes('não localizado')) {
           setMode('manual');
       }
     } finally {

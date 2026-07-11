@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { normalizeAudienciaStatus, normalizeAtendimentoStatus } from "@/lib/status";
+import { getErrorMessage } from "@/lib/errors";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -200,9 +201,9 @@ export const NovoCompromissoDialog: React.FC<NovoCompromissoDialogProps> = ({
 
       onCreated?.();
       onOpenChange(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Erro ao salvar compromisso:", err);
-      toast({ title: "Erro", description: err?.message || "Falha ao salvar no banco de dados.", variant: "destructive" });
+      toast({ title: "Erro", description: getErrorMessage(err, "Falha ao salvar no banco de dados."), variant: "destructive" });
     } finally {
       setLoading(false);
     }

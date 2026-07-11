@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Sparkles, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { getErrorMessage } from "@/lib/errors";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { tribunalFromCNJ } from "@/utils/tribunalCNJ";
@@ -73,8 +74,8 @@ export function CompletarDadosDialog({ open, onOpenChange, processoId, numeroPro
       if (found.length === 0) {
         toast({ title: "Nada a completar", description: "Todos os campos disponíveis já estão preenchidos." });
       }
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Erro na busca", description: e.message });
+    } catch (e: unknown) {
+      toast({ variant: "destructive", title: "Erro na busca", description: getErrorMessage(e) });
     } finally {
       setLoading(false);
     }

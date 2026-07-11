@@ -177,7 +177,7 @@ export default function Publicacoes() {
         console.warn('[handleRegister] fetch-processo retornou erro/vazio:', error?.message || data?.error);
         setInitialProcessData(fallbackData);
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('[handleRegister] erro ao buscar processo:', e);
       setInitialProcessData(fallbackData);
     } finally {

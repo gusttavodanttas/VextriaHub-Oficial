@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { getErrorMessage } from '@/lib/errors';
 import { useToast } from '@/hooks/use-toast';
 import { addDays } from 'date-fns';
 
@@ -191,7 +192,7 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
       });
 
       setAdmins(adminList);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Erro ao carregar dados:', err);
       setError('Erro ao carregar dados administrativos.');
     } finally {
@@ -210,8 +211,8 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
       toast({ title: active ? 'Acesso Liberado' : 'Acesso Suspenso' });
       await fetchAdmins();
       return true;
-    } catch (err: any) {
-      toast({ title: 'Erro', description: err.message, variant: 'destructive' });
+    } catch (err: unknown) {
+      toast({ title: 'Erro', description: getErrorMessage(err), variant: 'destructive' });
       return false;
     }
   }, [toast, fetchAdmins]);
@@ -288,11 +289,11 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
       });
       await fetchAdmins();
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Erro ao atualizar escritório:', err);
       toast({
         title: 'Erro ao salvar',
-        description: err.message || 'Não foi possível atualizar os dados.',
+        description: getErrorMessage(err, 'Não foi possível atualizar os dados.'),
         variant: 'destructive',
       });
       return false;
@@ -328,11 +329,11 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
       });
       await fetchAdmins();
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Erro ao gerenciar acesso:', err);
       toast({
         title: 'Falha na operação',
-        description: err.message || 'Erro ao processar ação no Stripe.',
+        description: getErrorMessage(err, 'Erro ao processar ação no Stripe.'),
         variant: 'destructive',
       });
       return false;

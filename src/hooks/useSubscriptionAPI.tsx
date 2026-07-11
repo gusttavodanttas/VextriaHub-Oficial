@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { getErrorMessage } from '@/lib/errors';
 
 export interface SubscriptionData {
   id: string;
@@ -80,9 +81,9 @@ export function useSubscriptionAPI() {
       }
 
       return data;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(`Error calling ${functionName}:`, err);
-      throw new Error(err.message || `Error calling ${functionName}`);
+      throw new Error(getErrorMessage(err, `Error calling ${functionName}`));
     }
   }, []);
 
@@ -115,9 +116,9 @@ export function useSubscriptionAPI() {
         throw new Error(response.error || 'Failed to fetch subscriptions');
       }
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching subscriptions:', err);
-      setError(err.message || 'Erro ao carregar dados de assinaturas');
+      setError(getErrorMessage(err, 'Erro ao carregar dados de assinaturas'));
       setSubscriptions([]);
       setStats(null);
     } finally {
@@ -141,9 +142,9 @@ export function useSubscriptionAPI() {
         throw new Error(response.error || 'Failed to execute override');
       }
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error executing override:', err);
-      throw new Error(err.message || 'Erro ao executar alteração manual');
+      throw new Error(getErrorMessage(err, 'Erro ao executar alteração manual'));
     }
   }, [callEdgeFunction, fetchSubscriptions]);
 
@@ -166,9 +167,9 @@ export function useSubscriptionAPI() {
         throw new Error(response.error || 'Failed to fetch override logs');
       }
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching override logs:', err);
-      throw new Error(err.message || 'Erro ao carregar logs de alterações');
+      throw new Error(getErrorMessage(err, 'Erro ao carregar logs de alterações'));
     }
   }, [callEdgeFunction]);
 

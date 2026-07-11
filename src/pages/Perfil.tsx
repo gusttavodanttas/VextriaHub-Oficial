@@ -1,6 +1,7 @@
 ﻿
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getErrorMessage } from "@/lib/errors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -131,8 +132,8 @@ const Perfil = () => {
         setAvatarUrl(url);
         if (refreshProfile) await refreshProfile();
         toast({ title: "Foto atualizada", description: "Sua foto de perfil foi alterada." });
-      } catch (err: any) {
-        toast({ variant: "destructive", title: "Erro ao enviar foto", description: err?.message || "Verifique se o bucket de imagens existe." });
+      } catch (err: unknown) {
+        toast({ variant: "destructive", title: "Erro ao enviar foto", description: getErrorMessage(err, "Verifique se o bucket de imagens existe.") });
       } finally {
         setUploadingAvatar(false);
         if (fileRef.current) fileRef.current.value = "";
@@ -151,8 +152,8 @@ const Perfil = () => {
       setAvatarUrl("");
       if (refreshProfile) await refreshProfile();
       toast({ title: "Foto removida" });
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "Erro", description: err?.message });
+    } catch (err: unknown) {
+      toast({ variant: "destructive", title: "Erro", description: getErrorMessage(err) });
     } finally {
       setUploadingAvatar(false);
     }
@@ -201,12 +202,12 @@ const Perfil = () => {
         description: "Perfil atualizado com sucesso!",
       });
       setEditMode(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Erro no catch do update:", err);
       toast({
         variant: "destructive",
         title: "Erro ao atualizar",
-        description: err?.message || "Houve uma falha oculta ao se comunicar com o banco de dados.",
+        description: getErrorMessage(err, "Houve uma falha oculta ao se comunicar com o banco de dados."),
       });
     } finally {
       setIsSaving(false);
