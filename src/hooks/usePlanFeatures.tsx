@@ -196,7 +196,7 @@ export const usePlanFeatures = () => {
     }
     
     // Escritório Vitalício tem acesso completo (Premium)
-    if (office?.is_lifetime) {
+    if (office?.access_type === 'lifetime') {
       return PLAN_FEATURES.premium;
     }
     
@@ -212,7 +212,7 @@ export const usePlanFeatures = () => {
     const features = PLAN_FEATURES[normalized] || PLAN_FEATURES.trial;
 
     return features;
-  }, [office?.plan, office?.is_lifetime, isSuperAdmin]);
+  }, [office?.plan, office?.access_type, isSuperAdmin]);
 };
 
 import { useStats } from './useStats';

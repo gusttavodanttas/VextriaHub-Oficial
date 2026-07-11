@@ -425,7 +425,7 @@ export const OfficeManagement: React.FC = () => {
                         <Badge variant="outline" className={`${getPlanBadgeColor(office.plan)} bg-transparent font-bold uppercase`}>
                           {getPlanDisplayName(office.plan)}
                         </Badge>
-                        {office.is_lifetime && (
+                        {office.access_type === 'lifetime' && (
                           <Badge variant="outline" className="ml-2 border-amber-500/50 text-amber-500 bg-transparent font-bold">
                             <Star className="h-3 w-3 mr-1 fill-amber-500" />
                             Vitalício
@@ -440,7 +440,7 @@ export const OfficeManagement: React.FC = () => {
                       <TableCell className="text-muted-foreground whitespace-nowrap text-sm">
                         {(() => {
                           const activeSub = (office as any).subscriptions?.find((s: any) => s.status === 'active' || s.status === 'trial');
-                          if (office.is_lifetime) return <span className="text-amber-500 font-medium whitespace-nowrap">Acesso Vitalício</span>;
+                          if (office.access_type === 'lifetime') return <span className="text-amber-500 font-medium whitespace-nowrap">Acesso Vitalício</span>;
                           if (activeSub?.end_date) return format(new Date(activeSub.end_date), 'dd/MM/yyyy', { locale: ptBR });
                           if (office.plan === 'trial') {
                             const endDate = new Date(office.created_at);

@@ -210,10 +210,10 @@ export const GlobalMetrics: React.FC = () => {
             <div className="grid grid-cols-3 gap-3">
               {['trial', 'basico', 'intermediario', 'avancado', 'premium', 'vitalicio', 'cortesia'].map((plan) => {
                 const count = plan === 'vitalicio'
-                  ? offices.filter(o => o.is_lifetime).length
+                  ? offices.filter(o => o.access_type === 'lifetime').length
                   : plan === 'cortesia'
                   ? offices.filter(o => o.access_type === 'courtesy').length
-                  : offices.filter(o => o.plan === plan && !o.is_lifetime && o.access_type !== 'courtesy').length;
+                  : offices.filter(o => o.plan === plan && o.access_type !== 'lifetime' && o.access_type !== 'courtesy').length;
                 return (
                   <div key={plan} className="bg-black/[0.02] dark:bg-background rounded-2xl p-3 border border-black/5 dark:border-border text-center hover:border-primary/20 transition-colors">
                     <div className={cn("text-2xl font-black mb-1", planColors[plan] || 'text-foreground')}>

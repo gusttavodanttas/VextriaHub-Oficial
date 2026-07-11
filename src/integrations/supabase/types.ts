@@ -567,7 +567,9 @@ export type Database = {
           created_by: string | null
           email: string | null
           id: string
+          access_type: "trial" | "stripe_paid" | "lifetime" | "courtesy"
           logo_url: string | null
+          manual_discount_percent: number | null
           max_users: number
           name: string
           phone: string | null
@@ -581,7 +583,9 @@ export type Database = {
           created_by?: string | null
           email?: string | null
           id?: string
+          access_type?: "trial" | "stripe_paid" | "lifetime" | "courtesy"
           logo_url?: string | null
+          manual_discount_percent?: number | null
           max_users?: number
           name: string
           phone?: string | null
@@ -595,7 +599,9 @@ export type Database = {
           created_by?: string | null
           email?: string | null
           id?: string
+          access_type?: "trial" | "stripe_paid" | "lifetime" | "courtesy"
           logo_url?: string | null
+          manual_discount_percent?: number | null
           max_users?: number
           name?: string
           phone?: string | null
@@ -794,9 +800,11 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          address: string | null
           oab: string | null
           oab_uf: string | null
           office_id: string | null
+          phone: string | null
           role: Database["public"]["Enums"]["app_role"]
           updated_at: string
           user_id: string
@@ -806,9 +814,11 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          address?: string | null
           oab?: string | null
           oab_uf?: string | null
           office_id?: string | null
+          phone?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
           user_id: string
@@ -818,9 +828,11 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          address?: string | null
           oab?: string | null
           oab_uf?: string | null
           office_id?: string | null
+          phone?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
           user_id?: string
@@ -956,8 +968,14 @@ export type Database = {
       }
       tarefas: {
         Row: {
+          atendimento_id: string | null
+          avisos_dias: number[] | null
           cliente_id: string | null
           concluida: boolean | null
+          recorrencia_grupo: string | null
+          recorrencia_regra: string | null
+          recorrencia_restantes: number | null
+          responsavel_id: string | null
           created_at: string
           data_vencimento: string | null
           deletado: boolean
@@ -972,8 +990,14 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          atendimento_id?: string | null
+          avisos_dias?: number[] | null
           cliente_id?: string | null
           concluida?: boolean | null
+          recorrencia_grupo?: string | null
+          recorrencia_regra?: string | null
+          recorrencia_restantes?: number | null
+          responsavel_id?: string | null
           created_at?: string
           data_vencimento?: string | null
           deletado?: boolean
@@ -988,8 +1012,14 @@ export type Database = {
           user_id: string
         }
         Update: {
+          atendimento_id?: string | null
+          avisos_dias?: number[] | null
           cliente_id?: string | null
           concluida?: boolean | null
+          recorrencia_grupo?: string | null
+          recorrencia_regra?: string | null
+          recorrencia_restantes?: number | null
+          responsavel_id?: string | null
           created_at?: string
           data_vencimento?: string | null
           deletado?: boolean
