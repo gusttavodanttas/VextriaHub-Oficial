@@ -67,6 +67,7 @@ export interface Andamento {
 
 export interface JudicialProcessResult {
   id: string;
+  fonte?: string;
   numeroProcesso: string;
   numeroFormatado?: string;
   titulo: string;

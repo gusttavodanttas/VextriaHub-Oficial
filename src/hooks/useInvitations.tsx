@@ -36,7 +36,7 @@ export const useInvitations = () => {
     }
   };
 
-  const createInvitation = async (invitationData: NovaInvitation) => {
+  const createInvitation = async (invitationData: Pick<NovaInvitation, 'email' | 'role'> & Partial<NovaInvitation>) => {
     if (!office?.id || !user?.id) return null;
 
     try {

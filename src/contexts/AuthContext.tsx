@@ -39,6 +39,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<{ error: any }>;
   register: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
   logout: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
   resetFirstLogin: () => void;
   resendConfirmation: (email: string) => Promise<{ error: any }>;
   loginAsSuperAdmin: (email: string, password: string) => Promise<{ error: any }>;
@@ -152,7 +153,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       if (error) {
-        if (error.code === '23505' || error.status === 409) {
+        if (error.code === '23505' || (error as { status?: number }).status === 409) {
           const { data: existing } = await supabase
             .from('profiles')
             .select('*')

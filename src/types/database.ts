@@ -22,7 +22,7 @@ export type Subscription = Tables<'subscriptions'>;
 export type Profile = Tables<'profiles'>;
 
 // Tipos para criação de registros (sem campos automáticos)
-export type NovoCliente = Omit<Cliente, 'id' | 'user_id' | 'deletado' | 'deletado_pendente' | 'created_at' | 'updated_at'>;
+export type NovoCliente = Omit<Cliente, 'id' | 'user_id' | 'office_id' | 'deletado' | 'deletado_pendente' | 'created_at' | 'updated_at'>;
 export type NovoProcesso = Omit<Processo, 'id' | 'user_id' | 'deletado' | 'deletado_pendente' | 'created_at' | 'updated_at'>;
 export type NovaAudiencia = Omit<Audiencia, 'id' | 'user_id' | 'deletado' | 'deletado_pendente' | 'created_at' | 'updated_at'>;
 export type NovoPrazo = Omit<Prazo, 'id' | 'user_id' | 'deletado' | 'deletado_pendente' | 'created_at' | 'updated_at'>;

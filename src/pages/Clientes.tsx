@@ -427,7 +427,6 @@ const Clientes = () => {
               onViewProcesses={handleViewProcesses}
               onViewAtendimentos={handleViewAtendimentos}
               onViewConsultivo={handleViewConsultivo}
-              onDeleteClient={handleDeleteSingleClient}
             />
           ) : (
             <ClientsTable

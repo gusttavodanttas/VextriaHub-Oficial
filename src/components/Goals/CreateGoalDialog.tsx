@@ -106,7 +106,8 @@ export const CreateGoalDialog = ({ open, onOpenChange, onSave, initial, teams = 
       dataInicio: undefined,
       dataFim: undefined,
       valorMeta: "",
-      descricao: ""
+      descricao: "",
+      teamId: ""
     });
 
     onOpenChange(false);
