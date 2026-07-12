@@ -2,7 +2,8 @@ import { useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Processo, NovoProcesso } from '@/types/database';
+import { NovoProcesso } from '@/types/database';
+import { Processo } from '@/types/processo';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getErrorMessage } from '@/lib/errors';
 
