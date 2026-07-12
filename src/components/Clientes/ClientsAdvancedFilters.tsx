@@ -56,8 +56,8 @@ export const ClientsAdvancedFilters = ({ onFiltersChange, onClearFilters }: Clie
       tipoPessoa: "",
       origem: "",
       status: "",
-      dataInicioFrom: undefined,
-      dataInicioTo: undefined,
+      dataInicioFrom: undefined as Date | undefined,
+      dataInicioTo: undefined as Date | undefined,
       hasProcessos: "",
       hasAtendimentos: ""
     };

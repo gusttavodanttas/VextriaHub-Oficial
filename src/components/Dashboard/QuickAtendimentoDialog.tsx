@@ -36,7 +36,7 @@ export function QuickAtendimentoDialog({ open, onOpenChange, onSuccess }: Props)
       observacoes: form.obs.trim() || null,
       status: "agendado",
       cliente_id: form.cliente_id || null,
-      processo_id: null,
+      processo_id: null as string | null,
       user_id: user.id,
       office_id: user.office_id,
       deletado: false,

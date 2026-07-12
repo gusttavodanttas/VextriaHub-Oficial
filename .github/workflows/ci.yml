@@ -25,7 +25,9 @@ jobs:
         run: npm ci
 
       - name: Type-check (tsc)
-        run: npx tsc --noEmit
+        # -p tsconfig.app.json é obrigatório: `tsc --noEmit` puro usa o tsconfig.json
+        # raiz (files:[] + references) e NÃO checa nada em src. Este aponta pro projeto real.
+        run: npx tsc --noEmit -p tsconfig.app.json
 
       - name: Testes (vitest)
         run: npx vitest run

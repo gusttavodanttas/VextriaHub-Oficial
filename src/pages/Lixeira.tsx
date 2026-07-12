@@ -158,7 +158,7 @@ export default function Lixeira() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tabela dinâmica: o genérico estoura o limite de instanciação do Supabase só aqui
       const { data: desc } = await applyTenantFilter<any>(supabase.from('processos_descartados').select('*')).order('created_at', { ascending: false });
-      (desc || []).forEach(d => results.push({
+      (desc || []).forEach((d: any) => results.push({
         id: d.id, tabela: 'processos_descartados',
         titulo: d.titulo || formatCNJ(d.numero_processo),
         descricao: `CNJ: ${formatCNJ(d.numero_processo)} · ${d.tribunal || ''}`,
