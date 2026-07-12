@@ -206,7 +206,7 @@ export default function Publicacoes() {
     const tratadas = publications.filter(p => p.status === 'lida' || p.status === 'processada').length;
     return {
       prazosSemana: publications.filter(p => p.urgencia === 'alta').length,
-      naoTratadas: publications.filter(p => p.status === 'nova' || p.status === 'pendente').length,
+      naoTratadas: publications.filter(p => p.status === 'nova').length,
       semVinculo: publications.filter(p => !p.processo_id).length,
       comVinculo: publications.filter(p => !!p.processo_id).length,
       novosAndamentos: publications.filter(p => {

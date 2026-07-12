@@ -27,7 +27,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { TIMESHEET_CATEGORIAS, type TimesheetCategoria } from "@/types/timesheet";
 import { cn } from "@/lib/utils";
-import { NONE, formatBRL } from "./shared";
+import { formatBRL } from "./shared";
 
 function StatCard({ label, value, sub, Icon, color }: { label: string; value: string; sub?: string; Icon: React.FC<any>; color: string }) {
   return (

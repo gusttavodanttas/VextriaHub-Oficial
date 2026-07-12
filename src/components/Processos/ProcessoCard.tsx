@@ -76,7 +76,7 @@ export const ProcessoCard: React.FC<ProcessoCardProps> = ({
   };
 
   const getBarColor = () => {
-    switch (processo.status) {
+    switch (processo.status as string) {
       case 'Em andamento':
       case 'ativo':
         return 'bg-primary';

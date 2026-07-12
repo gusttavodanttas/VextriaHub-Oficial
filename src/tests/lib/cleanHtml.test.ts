@@ -22,7 +22,6 @@ describe("deepCleanHTML (teor de publicações/prazos)", () => {
   });
   it("entrada vazia/nula vira string vazia", () => {
     expect(deepCleanHTML("")).toBe("");
-    // @ts-expect-error — comportamento defensivo com null
-    expect(deepCleanHTML(null)).toBe("");
+    expect(deepCleanHTML(null as unknown as string)).toBe("");
   });
 });

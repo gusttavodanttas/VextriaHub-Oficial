@@ -45,7 +45,7 @@ export class ClientService {
   /**
    * Remove clientes selecionados
    */
-  deleteClients(clients: Client[], selectedIds: number[]): { 
+  deleteClients(clients: Client[], selectedIds: string[]): {
     success: boolean; 
     clients: Client[]; 
     message: string; 
@@ -83,7 +83,7 @@ export class ClientService {
   /**
    * Encontra um cliente por ID
    */
-  findClientById(clients: Client[], clientId: number): Client | null {
+  findClientById(clients: Client[], clientId: string): Client | null {
     return clients.find(c => c.id === clientId) || null;
   }
 
