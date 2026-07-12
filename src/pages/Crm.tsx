@@ -359,7 +359,7 @@ export default function Crm() {
                     {filteredLeads.map((lead) => (
                       <div key={lead.id} className="flex flex-col lg:flex-row lg:items-center justify-between p-5 rounded-[1.5rem] border border-black/5 dark:border-border bg-black/[0.02] dark:bg-white/[0.01] hover:bg-primary/[0.03] transition-all gap-4 group">
                         <div className="flex items-center space-x-4">
-                          <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center border-2 shadow-inner transition-transform group-hover:scale-105", getStatusColor(lead.status))}>
+                          <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center border-2 shadow-inner transition-transform group-hover:scale-105", getStatusColor(lead.status || ''))}>
                             <UserCheck className="h-7 w-7" />
                           </div>
                           <div>
@@ -408,7 +408,7 @@ export default function Crm() {
                             )}
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <button className={cn("px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-lg border-2 inline-flex items-center gap-1 hover:opacity-80 transition-opacity", getStatusColor(lead.status))} title="Mudar temperatura">
+                                <button className={cn("px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-lg border-2 inline-flex items-center gap-1 hover:opacity-80 transition-opacity", getStatusColor(lead.status || ''))} title="Mudar temperatura">
                                   {lead.status} <ChevronDown className="h-3 w-3" />
                                 </button>
                               </DropdownMenuTrigger>

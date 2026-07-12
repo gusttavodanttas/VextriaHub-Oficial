@@ -275,7 +275,8 @@ export const NovaTarefaDialog = ({ open, onOpenChange, clientes, processos, aten
           recorrencia_restantes: n - 1,
         });
       } else {
-        await onSubmit(base, tarefa?.id);
+        // não é edição (isEdit === false ⇒ tarefa é nula): criação sem id
+        await onSubmit(base, undefined);
       }
       onOpenChange(false);
     } finally {

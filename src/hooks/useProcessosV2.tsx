@@ -182,7 +182,7 @@ export function useProcessosV2() {
       }
 
       if (andamentos.length > 0) {
-        await persistAndamentos(result.id, user.office_id, andamentos);
+        await persistAndamentos(result.id, user.office_id ?? undefined, andamentos);
       }
 
       return mapDatabaseToProcesso(result);

@@ -178,7 +178,7 @@ export const usePublicacoes = () => {
           const saved = await createPublication(newRecord as any);
           if (saved) {
             savedResults.push(saved);
-            await calcularEPersistirPrazo(saved.id, newRecord);
+            await calcularEPersistirPrazo(saved.id, newRecord as Partial<Publication>);
           }
         }
       }

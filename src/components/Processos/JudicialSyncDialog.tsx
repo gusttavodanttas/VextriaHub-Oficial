@@ -580,7 +580,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
                       {proc.ultimoAndamento ? (
                         <div className="flex flex-col gap-0.5 max-w-[200px]">
                           <span className="text-[9px] text-primary/70 font-black uppercase">
-                            {new Date(proc.ultimoAndamento.data).toLocaleDateString()}
+                            {proc.ultimoAndamento.data ? new Date(proc.ultimoAndamento.data).toLocaleDateString() : ''}
                           </span>
                           <span className="text-[10px] line-clamp-1 italic text-muted-foreground/40 font-medium">{proc.ultimoAndamento.descricao}</span>
                         </div>

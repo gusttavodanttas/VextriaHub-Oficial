@@ -431,7 +431,7 @@ export const OfficeManagement: React.FC = () => {
                             Vitalício
                           </Badge>
                         )}
-                        {office.manual_discount_percent > 0 && (
+                        {(office.manual_discount_percent ?? 0) > 0 && (
                           <Badge variant="outline" className="ml-2 border-green-500 text-green-600">
                             -{office.manual_discount_percent}%
                           </Badge>

@@ -57,7 +57,7 @@ export const usePrazos = () => {
       }));
 
       setPrazos(mapped);
-      setPrazosUrgentes(mapped.filter(p => p.dias_restantes !== null && p.dias_restantes <= 7 && p.dias_restantes >= 0));
+      setPrazosUrgentes(mapped.filter(p => p.dias_restantes != null && p.dias_restantes <= 7 && p.dias_restantes >= 0));
     } catch {
       // erro silencioso
     } finally {

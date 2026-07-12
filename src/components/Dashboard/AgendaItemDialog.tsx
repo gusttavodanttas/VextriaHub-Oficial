@@ -133,7 +133,7 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />} Concluir
                 </Button>
               )}
-              <Button variant="outline" className="flex-1 rounded-xl gap-2" onClick={() => { onOpenChange(false); navigate(`${cfg.route}?openId=${item.id}`); }}>
+              <Button variant="outline" className="flex-1 rounded-xl gap-2" onClick={() => { onOpenChange(false); navigate(`${cfg.route}?openId=${item?.id}`); }}>
                 <ExternalLink className="h-4 w-4" /> Abrir na aba
               </Button>
             </div>

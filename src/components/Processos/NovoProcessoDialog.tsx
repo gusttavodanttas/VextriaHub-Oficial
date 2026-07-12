@@ -119,7 +119,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
   // Auto-vínculo: se a parte autora/ré bate com um cliente do cadastro, vincula sozinho
   React.useEffect(() => {
     if ((formData as any).clienteId) return;
-    const norm = (s: string) => (s || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/\s+/g, ' ').trim();
+    const norm = (s: string | null | undefined) => (s || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/\s+/g, ' ').trim();
     const autor = norm((formData as any).parteAutora);
     const reu = norm(formData.requerido);
     if (!autor && !reu) return;

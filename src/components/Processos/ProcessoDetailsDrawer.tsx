@@ -342,7 +342,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
     setSyncing(true);
     try {
       const data = andamentoConfirm.meta;
-      const inseridos = await persistAndamentos(processo.id, user?.office_id, andamentoConfirm.all, 'datajud');
+      const inseridos = await persistAndamentos(processo.id, user?.office_id ?? undefined, andamentoConfirm.all, 'datajud');
       const updatePayload: any = { sincronizado_em: new Date().toISOString() };
       if (data.titulo && data.titulo !== 'Processo' && (!processo.titulo || processo.titulo.includes('(Auto)'))) updatePayload.titulo = data.titulo;
       if (data.autor && data.autor !== 'Não identificado' && !processo.parteAutora) updatePayload.parte_autora = data.autor;
