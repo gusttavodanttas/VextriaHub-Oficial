@@ -30,6 +30,7 @@ import {
   Gavel,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { usePermissions } from "@/hooks/usePermissions";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -66,6 +67,7 @@ import { parseLocalDate as parseDataPub, fmtDataBR, localYmd } from "@/lib/dates
 
 export default function Publicacoes() {
   const { toast } = useToast();
+  const { canCreateProcesses } = usePermissions();
   const { user, profile } = useAuth();
   const { publications, loading, deletePublication, updateStatus, syncByOab, refresh, linkPublicacaoToProcesso, findProcessoIdByCnj } = usePublicacoes();
   const [view, setView] = useState<'grid' | 'table'>('table');
@@ -100,6 +102,10 @@ export default function Publicacoes() {
   };
 
   const handleRegister = async (pub: any) => {
+    if (!canCreateProcesses) {
+      toast({ title: "Sem permissão", description: "Você não tem permissão para criar processos.", variant: "destructive" });
+      return;
+    }
     setSelectedPub(pub);
 
     // Anti-duplicata: se o processo já estiver cadastrado, apenas vincula a publicação.

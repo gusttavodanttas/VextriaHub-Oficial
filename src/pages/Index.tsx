@@ -104,7 +104,7 @@ const Index = () => {
   const myStats = useMyStats();
   const { items: activity, loading: activityLoading } = useMyActivity(6);
   const { prefs, toggle, move } = useDashboardPrefs();
-  const { canViewMetas } = usePermissions();
+  const { canViewMetas, canCreateProcesses } = usePermissions();
   const { create: createCliente } = useClientes();
   const { toast } = useToast();
   const [sheetView, setSheetView] = useState<SheetView>(null);
@@ -256,7 +256,7 @@ const Index = () => {
             </button>
           </div>
           <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 w-full sm:w-auto">
-            {ACTION_CONFIG.filter((a) => prefs.actions[a.key]).map((a) => (
+            {ACTION_CONFIG.filter((a) => prefs.actions[a.key] && (a.key !== "processo" || canCreateProcesses)).map((a) => (
               <Button key={a.key} size="sm" variant="outline"
                 className="rounded-xl h-9 sm:h-8 px-3 text-[10px] font-black uppercase tracking-widest border-black/5 dark:border-border gap-1.5 justify-center"
                 onClick={() => handleAction(a)}

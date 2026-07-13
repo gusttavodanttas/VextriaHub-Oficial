@@ -203,6 +203,7 @@ const Processos = () => {
           </p>
         </div>
 
+        <PermissionGuard permission="canCreateProcesses">
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -224,17 +225,16 @@ const Processos = () => {
             <RotateCw className="h-3.5 w-3.5 text-primary" />
             Sincronizar OAB
           </Button>
-          <PermissionGuard permission="canCreateProcesses">
-            <Button
-              onClick={() => setIsNovoDialogOpen(true)}
-              size="sm"
-              className="rounded-xl h-9 px-4 font-bold text-xs shadow-md shadow-primary/20 gap-1.5"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Novo Processo
-            </Button>
-          </PermissionGuard>
+          <Button
+            onClick={() => setIsNovoDialogOpen(true)}
+            size="sm"
+            className="rounded-xl h-9 px-4 font-bold text-xs shadow-md shadow-primary/20 gap-1.5"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Novo Processo
+          </Button>
         </div>
+        </PermissionGuard>
       </div>
 
       {/* KPI tabs */}
