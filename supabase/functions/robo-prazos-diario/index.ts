@@ -88,6 +88,11 @@ serve(async (req) => {
     return new Response(JSON.stringify({ ok: false, error: "RESEND_API_KEY ausente" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 
+  // Modo teste: {"test_email":"voce@..."} manda TODOS os digests só pra esse
+  // endereço (sem gravar log de idempotência), pra conferir antes de ir ao ar.
+  const body = await req.json().catch(() => ({} as any));
+  const testEmail: string | null = body?.test_email || null;
+
   const supa = createClient(SUPABASE_URL, SERVICE_ROLE);
 
   const enviarEmail = async (to: string, subject: string, html: string) => {
@@ -153,14 +158,17 @@ serve(async (req) => {
         const uid = (p as any).user_id;
         const email = (p as any).email;
         if (!email) continue;
+        const to = testEmail || email;
 
-        // Idempotência: PK (user_id, ref_date). Se já existe hoje, o insert falha → pula.
-        const { error: dupErr } = await supa.from("email_digest_log").insert({ user_id: uid, ref_date: hojeYmd });
-        if (dupErr) { detalhes.push({ email, status: "ja_enviado_hoje" }); continue; }
+        // Idempotência (pulada em teste): PK (user_id, ref_date). Se já enviou hoje, o insert falha → pula.
+        if (!testEmail) {
+          const { error: dupErr } = await supa.from("email_digest_log").insert({ user_id: uid, ref_date: hojeYmd });
+          if (dupErr) { detalhes.push({ email, status: "ja_enviado_hoje" }); continue; }
+        }
 
-        const ok = await enviarEmail(email, subject, montarHtml((p as any).full_name || "advogado(a)", itens));
-        if (ok) { enviados++; detalhes.push({ email, status: "enviado", itens: itens.length }); }
-        else detalhes.push({ email, status: "falha_resend" });
+        const ok = await enviarEmail(to, subject, montarHtml((p as any).full_name || "advogado(a)", itens));
+        if (ok) { enviados++; detalhes.push({ email: to, status: "enviado", itens: itens.length }); }
+        else detalhes.push({ email: to, status: "falha_resend" });
       }
     }
 
