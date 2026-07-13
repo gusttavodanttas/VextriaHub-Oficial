@@ -1,18 +1,11 @@
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { format, differenceInCalendarDays, startOfDay } from "date-fns";
+import { format, startOfDay } from "date-fns";
+import { diasAte, proxLabel, marcosDe, deveAvisar, dataFatalPrazo } from "@/lib/proximityAlert";
 
 const DEFAULT_PREFS: Record<string, boolean> = { prazos: true, audiencias: true, tarefas: true, atendimentos: true, financeiro: false };
 const HORIZONTE_DIAS = 90; // janela máxima de busca (cobre leads de até 30 dias com folga)
-
-const proxLabel = (dateStr: string) => {
-  const d = startOfDay(new Date(dateStr.length <= 10 ? `${dateStr}T12:00:00` : dateStr));
-  const diff = differenceInCalendarDays(d, startOfDay(new Date()));
-  return diff <= 0 ? "hoje" : diff === 1 ? "amanhã" : `em ${diff} dias`;
-};
-const diasAte = (dateStr: string) =>
-  differenceInCalendarDays(startOfDay(new Date(dateStr.length <= 10 ? `${dateStr}T12:00:00` : dateStr)), startOfDay(new Date()));
 
 /**
  * Gera notificações de PROXIMIDADE (audiências, prazos, tarefas, atendimentos) no sino.
@@ -40,13 +33,6 @@ export function useProximityNotifications() {
       const startDate = format(start, "yyyy-MM-dd");
       const endDate = format(end, "yyyy-MM-dd");
 
-      // Marcos de antecedência do item: array avisos_dias; senão o legado aviso_dias; senão o padrão global
-      const marcosDe = (it: any): number[] => {
-        if (Array.isArray(it.avisos_dias)) return it.avisos_dias.filter((d: number) => d > 0);
-        if (it.aviso_dias != null) return it.aviso_dias > 0 ? [it.aviso_dias] : [];
-        return [padrao];
-      };
-
       const candidatos: any[] = [];
 
       if (prefs.audiencias) {
@@ -57,7 +43,7 @@ export function useProximityNotifications() {
           .gte("data_audiencia", start.toISOString()).lte("data_audiencia", end.toISOString());
         (data || []).forEach((a: any) => {
           const d = diasAte(a.data_audiencia);
-          marcosDe(a).forEach((D) => {
+          marcosDe(a, padrao).forEach((D) => {
             if (d < 0 || d > D) return;
             candidatos.push({
               user_id: user.id, type: "warning",
@@ -70,19 +56,24 @@ export function useProximityNotifications() {
       }
 
       if (prefs.prazos) {
+        // Sem filtro de data no banco: prazos legados guardam a data só em
+        // data_vencimento (data_fim_prazo nulo) e sumiam do aviso. Resolvemos a
+        // data fatal e filtramos o horizonte aqui. (RLS já limita ao escritório.)
         const { data } = await supabase.from("prazos")
           .select("*, publicacoes(titulo)")
-          .eq("office_id", user.office_id).neq("status", "concluido")
-          .gte("data_fim_prazo", startDate).lte("data_fim_prazo", endDate);
+          .eq("office_id", user.office_id).neq("status", "concluido");
         (data || []).forEach((p: any) => {
           if (p.titular === "contraria") return; // prazo da parte contrária: só monitoramento
-          const d = diasAte(p.data_fim_prazo);
-          marcosDe(p).forEach((D) => {
-            if (d < 0 || d > D) return;
+          const fatal = dataFatalPrazo(p);
+          if (!fatal) return;
+          const d = diasAte(fatal);
+          if (d < 0 || d > HORIZONTE_DIAS) return;
+          marcosDe(p, padrao).forEach((D) => {
+            if (!deveAvisar(d, D)) return;
             candidatos.push({
               user_id: user.id, type: "warning",
-              title: `Prazo ${proxLabel(p.data_fim_prazo)}`,
-              message: `${p.publicacoes?.titulo || p.tipo_prazo || p.numero_processo || "Prazo"} — vence ${proxLabel(p.data_fim_prazo)}`,
+              title: `Prazo ${proxLabel(fatal)}`,
+              message: `${p.publicacoes?.titulo || p.tipo_prazo || p.numero_processo || "Prazo"} — vence ${proxLabel(fatal)}`,
               action_url: `/prazos?openId=${p.id}&d=${D}`, action_label: "Ver prazo", read: false,
             });
           });
@@ -96,7 +87,7 @@ export function useProximityNotifications() {
           .gte("data_vencimento", startDate).lte("data_vencimento", endDate);
         (data || []).forEach((t: any) => {
           const d = diasAte(t.data_vencimento);
-          marcosDe(t).forEach((D) => {
+          marcosDe(t, padrao).forEach((D) => {
             if (d < 0 || d > D) return;
             candidatos.push({
               user_id: user.id, type: "info",
@@ -116,7 +107,7 @@ export function useProximityNotifications() {
           .gte("data_atendimento", start.toISOString()).lte("data_atendimento", end.toISOString());
         (data || []).forEach((a: any) => {
           const d = diasAte(a.data_atendimento);
-          marcosDe(a).forEach((D) => {
+          marcosDe(a, padrao).forEach((D) => {
             if (d < 0 || d > D) return;
             candidatos.push({
               user_id: user.id, type: "info",
