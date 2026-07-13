@@ -150,8 +150,11 @@ serve(async (req) => {
       itens.sort((x, y) => x.dias - y.dias); // mais urgente primeiro
 
       const nPrazos = itens.filter((i) => i.tipo === "Prazo").length;
+      const outros = itens.length - nPrazos;
       const subject = nPrazos > 0
-        ? `⚖️ ${nPrazos} ${nPrazos === 1 ? "prazo" : "prazos"} e mais ${itens.length - nPrazos} ${itens.length - nPrazos === 1 ? "item" : "itens"} chegando`
+        ? (outros > 0
+            ? `⚖️ ${nPrazos} ${nPrazos === 1 ? "prazo" : "prazos"} e mais ${outros} ${outros === 1 ? "item" : "itens"} chegando`
+            : `⚖️ ${nPrazos} ${nPrazos === 1 ? "prazo" : "prazos"} chegando`)
         : `Você tem ${itens.length} ${itens.length === 1 ? "compromisso" : "compromissos"} chegando`;
 
       for (const p of profs) {
