@@ -385,7 +385,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
   const isControlled = controlledOpen !== undefined;
 
   return (
-    <PermissionGuard>
+    <PermissionGuard permission="canCreateProcesses">
       <Dialog open={open} onOpenChange={(v) => { if(!v) resetForm(); setOpen(v); }}>
         {!isControlled && (
           <DialogTrigger asChild>

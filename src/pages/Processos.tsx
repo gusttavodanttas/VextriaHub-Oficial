@@ -7,6 +7,7 @@ import { FileText, Loader2, RotateCw, Search, Plus, Database, Scale, CheckCircle
 import { useMyTeams } from '@/hooks/useMyTeams';
 import { useProcessosEncontrados } from '@/hooks/useProcessosEncontrados';
 import { ProcessosEncontradosInbox } from '@/components/Processos/ProcessosEncontradosInbox';
+import { PermissionGuard } from '@/components/Auth/PermissionGuard';
 import { cn } from '@/lib/utils';
 
 import { Button } from '@/components/ui/button';
@@ -223,14 +224,16 @@ const Processos = () => {
             <RotateCw className="h-3.5 w-3.5 text-primary" />
             Sincronizar OAB
           </Button>
-          <Button
-            onClick={() => setIsNovoDialogOpen(true)}
-            size="sm"
-            className="rounded-xl h-9 px-4 font-bold text-xs shadow-md shadow-primary/20 gap-1.5"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Novo Processo
-          </Button>
+          <PermissionGuard permission="canCreateProcesses">
+            <Button
+              onClick={() => setIsNovoDialogOpen(true)}
+              size="sm"
+              className="rounded-xl h-9 px-4 font-bold text-xs shadow-md shadow-primary/20 gap-1.5"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Novo Processo
+            </Button>
+          </PermissionGuard>
         </div>
       </div>
 
