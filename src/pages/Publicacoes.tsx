@@ -586,7 +586,7 @@ export default function Publicacoes() {
               }}
               onDelete={deletePublication}
               onUpdateStatus={updateStatus}
-              onRegister={handleRegister}
+              onRegister={canCreateProcesses ? handleRegister : undefined}
               onSchedule={handleSchedule}
             />
           ) : (
@@ -674,7 +674,7 @@ export default function Publicacoes() {
                               <CheckCircle className="h-3.5 w-3.5" /> Tratar
                             </Button>
                           )}
-                          {!publication.processo_id && (
+                          {canCreateProcesses && !publication.processo_id && (
                             <Button size="sm" variant="ghost" className="h-8 rounded-xl text-[10px] font-bold gap-1 text-violet-600 hover:bg-violet-500/10"
                               onClick={() => handleRegister(publication)}>
                               <PlusCircle className="h-3.5 w-3.5" /> Processo
@@ -725,7 +725,7 @@ export default function Publicacoes() {
             const isTratada = pub?.status === 'lida' || pub?.status === 'processada';
             updateStatus(id, isTratada ? 'nova' : 'processada');
           }}
-          onRegister={handleRegister}
+          onRegister={canCreateProcesses ? handleRegister : undefined}
           onSchedule={handleSchedule}
         />
       )}

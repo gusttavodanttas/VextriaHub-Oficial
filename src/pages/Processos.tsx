@@ -203,8 +203,8 @@ const Processos = () => {
           </p>
         </div>
 
-        <PermissionGuard permission="canCreateProcesses">
         <div className="flex items-center gap-2">
+          <PermissionGuard permission="canCreateProcesses">
           <Button
             variant="outline"
             size="sm"
@@ -215,6 +215,7 @@ const Processos = () => {
             <Database className="h-3.5 w-3.5 text-primary" />
             Consultar Processo
           </Button>
+          </PermissionGuard>
           <Button
             variant="outline"
             size="sm"
@@ -225,6 +226,7 @@ const Processos = () => {
             <RotateCw className="h-3.5 w-3.5 text-primary" />
             Sincronizar OAB
           </Button>
+          <PermissionGuard permission="canCreateProcesses">
           <Button
             onClick={() => setIsNovoDialogOpen(true)}
             size="sm"
@@ -233,8 +235,8 @@ const Processos = () => {
             <Plus className="h-3.5 w-3.5" />
             Novo Processo
           </Button>
+          </PermissionGuard>
         </div>
-        </PermissionGuard>
       </div>
 
       {/* KPI tabs */}
