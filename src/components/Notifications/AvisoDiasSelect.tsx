@@ -16,7 +16,8 @@ export function AvisoDiasSelect({ value, onChange }: {
 
   const toggle = (d: number) => {
     const set = new Set(dias);
-    set.has(d) ? set.delete(d) : set.add(d);
+    if (set.has(d)) set.delete(d);
+    else set.add(d);
     onChange(Array.from(set).sort((a, b) => a - b));
   };
 

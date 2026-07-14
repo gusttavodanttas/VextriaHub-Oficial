@@ -426,7 +426,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (error) {
       console.error('Resend confirmation error:', error);
-    } else {
     }
 
     return { error };

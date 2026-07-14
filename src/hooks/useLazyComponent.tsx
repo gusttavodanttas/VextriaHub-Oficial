@@ -7,7 +7,7 @@ interface LazyComponentOptions {
   errorBoundary?: boolean;
 }
 
-export const useLazyComponent = (
+export const createLazyComponent = (
   importFunc: () => Promise<{ default: ComponentType<any> }>,
   options: LazyComponentOptions = {}
 ) => {
@@ -37,5 +37,5 @@ export const createLazyRoute = (
   importFunc: () => Promise<{ default: ComponentType<any> }>,
   fallback?: React.ReactNode
 ) => {
-  return useLazyComponent(importFunc, { fallback });
+  return createLazyComponent(importFunc, { fallback });
 };

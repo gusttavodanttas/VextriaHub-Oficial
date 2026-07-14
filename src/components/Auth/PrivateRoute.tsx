@@ -19,7 +19,7 @@ export const PrivateRoute: React.FC<PrivateRouteProps> = ({
   requireAnyPermissions,
   requireAllPermissions 
 }) => {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading, user, paymentValidation, isSuperAdmin } = useAuth();
   const permissions = usePermissions();
   const location = useLocation();
   const [showTimeout, setShowTimeout] = useState(false);
@@ -58,7 +58,6 @@ export const PrivateRoute: React.FC<PrivateRouteProps> = ({
 
   // Verificar se o pagamento é necessário (Bloqueio de Trial)
   // Super Admins são ignorados por esta trava
-  const { paymentValidation, isSuperAdmin } = useAuth();
   if (paymentValidation?.needsPayment && !isSuperAdmin && location.pathname !== '/pagamento') {
     // Payment required redirect
     return <Navigate to="/pagamento" state={{ from: location }} replace />;

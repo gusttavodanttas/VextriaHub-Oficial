@@ -119,8 +119,6 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
   open,
   onOpenChange
 }) => {
-  if (!processo) return null;
-
   const { user, profile } = useAuth();
   const { persistAndamentos, update } = useProcessosV2();
   const { toast } = useToast();
@@ -473,6 +471,8 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
     { value: 'timesheet', label: 'Timesheet', icon: Timer },
     { value: 'partes', label: 'Partes', icon: User },
   ];
+
+  if (!processo) return null;
 
   return (
     <>

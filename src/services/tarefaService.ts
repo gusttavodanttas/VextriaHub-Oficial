@@ -159,9 +159,10 @@ export class TarefaService {
   sortTarefas(tarefas: Tarefa[], sortBy: 'priority' | 'dueDate' | 'points' | 'status'): Tarefa[] {
     return [...tarefas].sort((a, b) => {
       switch (sortBy) {
-        case 'priority':
+        case 'priority': {
           const priorityOrder = { alta: 3, media: 2, baixa: 1 };
           return priorityOrder[b.priority] - priorityOrder[a.priority];
+        }
         case 'dueDate':
           return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
         case 'points':
