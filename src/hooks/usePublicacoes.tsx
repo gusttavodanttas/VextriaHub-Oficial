@@ -265,7 +265,7 @@ export const usePublicacoes = () => {
     return data?.id || null;
   };
 
-  const updateStatus = async (id: string, status: Publication['status']) => {
+  const updateStatus = async (id: string, status: string) => {
     try {
       const { error } = await supabase
         .from('publicacoes')
@@ -275,7 +275,7 @@ export const usePublicacoes = () => {
       if (error) throw error;
       
       setPublications(prev => 
-        prev.map(p => p.id === id ? { ...p, status } : p)
+        prev.map(p => p.id === id ? { ...p, status: status as Publication['status'] } : p)
       );
       
       return true;

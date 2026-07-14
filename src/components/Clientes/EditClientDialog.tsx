@@ -10,21 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useOfficeSettingList } from "@/hooks/useOfficeSettingList";
 import { formatCpfCnpj, isValidCpfCnpj, onlyDigits } from "@/lib/document";
 import { formatPhone, isValidPhone } from "@/lib/phone";
-
-interface Client {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  cases: number;
-  status: string;
-  lastContact: string;
-  cpfCnpj: string;
-  tipoPessoa: "fisica" | "juridica";
-  origem: string;
-  endereco: string;
-  dataAniversario: string;
-}
+import { Client } from "@/types/client";
 
 interface EditClientDialogProps {
   client: Client | null;
