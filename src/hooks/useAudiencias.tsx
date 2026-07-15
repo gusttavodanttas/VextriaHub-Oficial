@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getErrorMessage } from "@/lib/errors";
 
 export interface Audiencia {
   id: string;
@@ -82,7 +83,7 @@ export function useAudiencias() {
       invalidate();
       toast({ title: "Audiência criada", description: "A audiência foi agendada com sucesso." });
     },
-    onError: (e: any) => toast({ title: "Erro ao criar", description: e.message, variant: "destructive" }),
+    onError: (e: unknown) => toast({ title: "Erro ao criar", description: getErrorMessage(e), variant: "destructive" }),
   });
 
   const update = useMutation({
@@ -94,7 +95,7 @@ export function useAudiencias() {
       invalidate();
       toast({ title: "Audiência atualizada", description: "As alterações foram salvas." });
     },
-    onError: (e: any) => toast({ title: "Erro ao atualizar", description: e.message, variant: "destructive" }),
+    onError: (e: unknown) => toast({ title: "Erro ao atualizar", description: getErrorMessage(e), variant: "destructive" }),
   });
 
   const updateStatus = useMutation({
@@ -103,7 +104,7 @@ export function useAudiencias() {
       if (error) throw error;
     },
     onSuccess: () => invalidate(),
-    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+    onError: (e: unknown) => toast({ title: "Erro", description: getErrorMessage(e), variant: "destructive" }),
   });
 
   const remove = useMutation({
@@ -115,7 +116,7 @@ export function useAudiencias() {
       invalidate();
       toast({ title: "Audiência(s) excluída(s)", description: `${ids.length} audiência(s) movida(s) para a lixeira.` });
     },
-    onError: (e: any) => toast({ title: "Erro ao excluir", description: e.message, variant: "destructive" }),
+    onError: (e: unknown) => toast({ title: "Erro ao excluir", description: getErrorMessage(e), variant: "destructive" }),
   });
 
   return { audiencias, isLoading, create, update, updateStatus, remove };

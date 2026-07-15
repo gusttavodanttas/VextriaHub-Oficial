@@ -51,7 +51,7 @@ export function useProcessosV2() {
       team_id: dbRecord.team_id || null,
       responsavel_id: dbRecord.responsavel_id || dbRecord.user_id || null,
       resultado: dbRecord.resultado || null,
-    } as any;
+    };
   };
 
   const { data = [], isLoading: loading, error, refetch: refresh } = useQuery({
@@ -190,11 +190,11 @@ export function useProcessosV2() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['processos'] });
     },
-    onError: (err: any) => {
+    onError: (err: unknown) => {
       console.error('Erro ao criar/sincronizar processo:', err);
       toast({
         title: 'Erro na sincronização',
-        description: err.message || 'Não foi possível salvar os dados.',
+        description: getErrorMessage(err, 'Não foi possível salvar os dados.'),
         variant: 'destructive',
       });
     }
@@ -336,26 +336,26 @@ export function useProcessosV2() {
       if (updates.status !== undefined) updatePayload.status = updates.status === 'Em andamento' ? 'ativo' : updates.status;
       if (updates.numeroProcesso !== undefined) updatePayload.numero_processo = (updates.numeroProcesso || '').replace(/\D/g, '');
       if (updates.tipoProcesso !== undefined) updatePayload.tipo_processo = updates.tipoProcesso;
-      if ((updates as any).faseProcessual !== undefined) updatePayload.fase_processual = (updates as any).faseProcessual;
-      if ((updates as any).classeJudicial !== undefined) updatePayload.classe_judicial = (updates as any).classeJudicial;
-      if ((updates as any).assuntoPrincipal !== undefined) updatePayload.assunto_principal = (updates as any).assuntoPrincipal;
-      if ((updates as any).instancia !== undefined) updatePayload.instancia = (updates as any).instancia;
+      if (updates.faseProcessual !== undefined) updatePayload.fase_processual = updates.faseProcessual;
+      if (updates.classeJudicial !== undefined) updatePayload.classe_judicial = updates.classeJudicial;
+      if (updates.assuntoPrincipal !== undefined) updatePayload.assunto_principal = updates.assuntoPrincipal;
+      if (updates.instancia !== undefined) updatePayload.instancia = updates.instancia;
       if (updates.tribunal !== undefined) updatePayload.tribunal = updates.tribunal;
       if (updates.vara !== undefined) updatePayload.vara = updates.vara;
       if (updates.comarca !== undefined) updatePayload.comarca = updates.comarca;
       if (updates.valorCausa !== undefined) updatePayload.valor_causa = updates.valorCausa;
       if (updates.proximoPrazo !== undefined) updatePayload.proximo_prazo = updates.proximoPrazo;
-      if ((updates as any).parteAutora !== undefined) updatePayload.parte_autora = (updates as any).parteAutora;
+      if (updates.parteAutora !== undefined) updatePayload.parte_autora = updates.parteAutora;
       if (updates.requerido !== undefined) updatePayload.requerido = updates.requerido;
       if (updates.segredoJustica !== undefined) updatePayload.segredo_justica = updates.segredoJustica;
       if (updates.justicaGratuita !== undefined) updatePayload.justica_gratuita = updates.justicaGratuita;
 
-      if (updates.descricao !== undefined || (updates as any).observacoes !== undefined) {
-        updatePayload.observacoes = updates.descricao || (updates as any).observacoes;
+      if (updates.descricao !== undefined || updates.observacoes !== undefined) {
+        updatePayload.observacoes = updates.descricao || updates.observacoes;
       }
-      if ((updates as any).team_id !== undefined) updatePayload.team_id = (updates as any).team_id;
-      if ((updates as any).responsavel_id !== undefined) updatePayload.responsavel_id = (updates as any).responsavel_id;
-      if ((updates as any).resultado !== undefined) updatePayload.resultado = (updates as any).resultado;
+      if (updates.team_id !== undefined) updatePayload.team_id = updates.team_id;
+      if (updates.responsavel_id !== undefined) updatePayload.responsavel_id = updates.responsavel_id;
+      if (updates.resultado !== undefined) updatePayload.resultado = updates.resultado;
 
       const { data: result, error } = await supabase
         .from('processos')
@@ -395,11 +395,11 @@ export function useProcessosV2() {
       queryClient.invalidateQueries({ queryKey: ['processos'] });
       toast({ title: 'Processo arquivado', description: 'O processo foi arquivado. O suporte pode restaurá-lo se necessário.' });
     },
-    onError: (err: any) => {
+    onError: (err: unknown) => {
       console.error('🗑️ [delete] mutation onError:', err);
       toast({
         title: 'Erro ao excluir processo',
-        description: err?.message || 'Falha desconhecida. Veja o console para detalhes.',
+        description: getErrorMessage(err, 'Falha desconhecida. Veja o console para detalhes.'),
         variant: 'destructive',
       });
     },
@@ -449,10 +449,10 @@ export function useProcessosV2() {
   return {
     data,
     loading,
-    error: error ? (error as any).message : null,
+    error: error ? getErrorMessage(error) : null,
     refresh,
     create: createMutation.mutateAsync,
-    update: (id: string, updates: Partial<any>) => updateMutation.mutateAsync({ id, updates }),
+    update: (id: string, updates: Partial<Processo>) => updateMutation.mutateAsync({ id, updates }),
     requestDelete: deleteMutation.mutateAsync,
     addMovimentacao,
     persistAndamentos,

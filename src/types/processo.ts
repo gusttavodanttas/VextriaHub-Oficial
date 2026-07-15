@@ -34,6 +34,9 @@ export interface Processo {
   justicaGratuita?: boolean;
   fonteSincronizacao?: string;
   sincronizadoEm?: string;
+  team_id?: string | null;
+  responsavel_id?: string | null;
+  resultado?: string | null;
 }
 
 export interface NovoProcessoForm {
