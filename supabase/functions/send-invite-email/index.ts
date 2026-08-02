@@ -60,15 +60,22 @@ serve(async (req) => {
     const link = `${APP_URL}/register`;
 
     const html = `
-    <div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f6f7f9;padding:32px 0;">
-      <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #eaecef;">
-        <div style="background:#0f172a;padding:20px 28px;color:#fff;font-weight:800;font-size:18px;">VextriaHub</div>
-        <div style="padding:28px;color:#1f2937;line-height:1.6;">
-          <h2 style="margin:0 0 12px;font-size:20px;">Você foi convidado 🎉</h2>
-          <p style="margin:0 0 16px;"><b>${inviterName}</b> convidou você para o escritório <b>${officeName}</b> no VextriaHub, como <b>${esc(roleLabel)}</b>.</p>
-          <p style="margin:0 0 20px;">Para entrar, crie sua conta usando <b>este e-mail</b> (${esc(inv.email)}):</p>
-          <a href="${link}" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:12px 22px;border-radius:12px;font-weight:700;">Criar minha conta</a>
-          <p style="margin:22px 0 0;color:#6b7280;font-size:13px;">Ao se cadastrar com este e-mail, você entra automaticamente no escritório. Se não esperava este convite, é só ignorar.</p>
+    <div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f6f7f9;padding:32px 12px;">
+      <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #eaecef;">
+        <div style="background:#0f172a;padding:22px 28px;">
+          <span style="color:#ffffff;font-weight:800;font-size:18px;letter-spacing:-0.3px;">Vextria<span style="color:#818cf8;">Hub</span></span>
+        </div>
+        <div style="padding:32px 28px;color:#1f2937;line-height:1.65;">
+          <h1 style="margin:0 0 10px;font-size:20px;color:#0f172a;">Você foi convidado 🎉</h1>
+          <p style="margin:0 0 16px;color:#4b5563;"><b>${inviterName}</b> convidou você para o escritório <b>${officeName}</b> no VextriaHub, como <b>${esc(roleLabel)}</b>.</p>
+          <p style="margin:0 0 26px;color:#4b5563;">Para entrar, crie sua conta usando <b>este e-mail</b> (${esc(inv.email)}):</p>
+          <div style="text-align:center;margin:0 0 26px;">
+            <a href="${link}" style="display:inline-block;background:#4f46e5;color:#ffffff;text-decoration:none;padding:14px 34px;border-radius:10px;font-weight:700;font-size:15px;">Criar minha conta</a>
+          </div>
+          <p style="margin:0;color:#9ca3af;font-size:13px;border-top:1px solid #f0f1f3;padding-top:16px;">Ao se cadastrar com este e-mail, você entra automaticamente no escritório. Se não esperava este convite, é só ignorar.</p>
+        </div>
+        <div style="background:#f9fafb;padding:16px 28px;text-align:center;">
+          <span style="color:#9ca3af;font-size:12px;">VextriaHub · e-mail automático, por favor não responda.</span>
         </div>
       </div>
     </div>`;

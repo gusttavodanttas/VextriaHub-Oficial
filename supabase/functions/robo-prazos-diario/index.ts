@@ -61,14 +61,21 @@ function montarHtml(nome: string, itens: Item[]): string {
         <span style="color:#565e70">— ${it.dias <= 1 ? "<b style='color:#c33b33'>" : ""}${label(it.dias)}${it.dias <= 1 ? "</b>" : ""} (${fmtBR(it.data)})</span>
       </td>
     </tr>`).join("");
-  return `<!doctype html><html><body style="margin:0;background:#f5f6f9;font-family:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif">
-    <div style="max-width:560px;margin:0 auto;padding:28px 20px">
-      <div style="background:#fff;border:1px solid #e5e8ef;border-radius:16px;padding:26px 28px">
-        <p style="margin:0 0 2px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#8b93a4;font-weight:700">VextriaHub</p>
-        <h1 style="margin:0 0 4px;font-size:20px;color:#1a2030">Olá, ${esc(nome)} 👋</h1>
-        <p style="margin:0 0 18px;font-size:14px;color:#565e70">Você tem <b>${itens.length}</b> ${itens.length === 1 ? "compromisso" : "compromissos"} chegando:</p>
-        <table role="presentation" width="100%" style="border-collapse:collapse">${linhas}</table>
-        <p style="margin:20px 0 0;font-size:12px;color:#8b93a4">Aviso automático do VextriaHub. Abra o sistema para ver os detalhes e confirmar cada prazo.</p>
+  return `<!doctype html><html><body style="margin:0;background:#f6f7f9;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif">
+    <div style="max-width:560px;margin:0 auto;padding:32px 12px">
+      <div style="background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #eaecef">
+        <div style="background:#0f172a;padding:22px 28px">
+          <span style="color:#ffffff;font-weight:800;font-size:18px;letter-spacing:-0.3px">Vextria<span style="color:#818cf8">Hub</span></span>
+        </div>
+        <div style="padding:28px;color:#1f2937">
+          <h1 style="margin:0 0 6px;font-size:20px;color:#0f172a">Olá, ${esc(nome)} 👋</h1>
+          <p style="margin:0 0 18px;font-size:14px;color:#4b5563">Você tem <b>${itens.length}</b> ${itens.length === 1 ? "compromisso" : "compromissos"} chegando:</p>
+          <table role="presentation" width="100%" style="border-collapse:collapse">${linhas}</table>
+          <p style="margin:22px 0 0;font-size:13px;color:#9ca3af;border-top:1px solid #f0f1f3;padding-top:16px">Abra o VextriaHub para ver os detalhes e confirmar cada prazo.</p>
+        </div>
+        <div style="background:#f9fafb;padding:16px 28px;text-align:center">
+          <span style="color:#9ca3af;font-size:12px">VextriaHub · aviso automático, por favor não responda.</span>
+        </div>
       </div>
     </div></body></html>`;
 }
