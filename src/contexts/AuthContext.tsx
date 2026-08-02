@@ -165,39 +165,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return null;
       }
 
-      // Criar o Office (Tenant do sistema) para esse novo usuário
-      let newOfficeId = null;
-      
-      const { data: newOffice, error: officeError } = await supabase
-        .from('offices')
-        .insert({
-          name: `Escritório de ${fullName.split(' ')[0]}`,
-          active: true,
-          created_by: userId
-        })
-        .select('id')
-        .single();
-        
-      if (newOffice && !officeError) {
-        newOfficeId = newOffice.id;
-        
-        const { error: linkError } = await supabase
-          .from('office_users')
-          .insert({
-            user_id: userId,
-            office_id: newOfficeId,
-            role: 'admin',
-            active: true,
-            joined_at: new Date().toISOString()
-          });
-          
-        if (linkError) {
-          console.error('Error linking user to new office:', linkError);
-        }
-      } else {
-        console.error('Error creating default office:', officeError);
-      }
-
+      // O escritório é criado/garantido pela RPC ensure_office_for_user() no
+      // login (atômico no banco), não mais aqui no cliente — evita o órfão por
+      // falha silenciosa que a auditoria de 2026-08 encontrou. Ver processUserData.
       return data;
     } catch (error) {
       console.error('Error in createProfile:', error);
@@ -247,6 +217,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           let office = null;
           
           if (profileData) {
+            // Garante o escritório no banco antes de ler (atômico, idempotente,
+            // self-healing). Substitui a criação frágil de escritório no cliente.
+            try { await supabase.rpc('ensure_office_for_user' as never); }
+            catch (rpcErr) { console.error('ensure_office_for_user:', rpcErr); }
             const officeData = await fetchOfficeData(sessionUser.id);
             officeUser = officeData.officeUser;
             office = officeData.office;
