@@ -20,6 +20,7 @@ const Landing = lazy(() => import("./pages/Landing"));
 const Index = lazy(() => import("./pages/Index"));
 const Login = lazy(() => import("./pages/Login"));
 const Register = lazy(() => import("./pages/Register"));
+const RedefinirSenha = lazy(() => import("./pages/RedefinirSenha"));
 const Processos = lazy(() => import("./pages/Processos"));
 const Atendimentos = lazy(() => import("./pages/Atendimentos"));
 const Clientes = lazy(() => import("./pages/Clientes"));
@@ -110,6 +111,7 @@ const AppWithRouter = () => {
         <Route path="/home" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/cadastro" element={<Register />} />
+        <Route path="/redefinir-senha" element={<RedefinirSenha />} />
         <Route
           path="/dashboard"
           element={

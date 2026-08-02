@@ -7,6 +7,7 @@ import { Eye, EyeOff, Shield } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -188,11 +189,19 @@ const Login = () => {
 
               {/* Forgot Password */}
               <div className="text-center">
-                <Button type="button" variant="link" className="text-sm text-muted-foreground" onClick={() => {
-                toast({
-                  title: "Funcionalidade em breve",
-                  description: "A recuperação de senha será implementada em breve"
+                <Button type="button" variant="link" className="text-sm text-muted-foreground" onClick={async () => {
+                if (!email.trim()) {
+                  toast({ title: "Digite seu e-mail", description: "Preencha o campo de e-mail acima para receber o link de recuperação.", variant: "destructive" });
+                  return;
+                }
+                const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+                  redirectTo: `${window.location.origin}/redefinir-senha`,
                 });
+                if (error) {
+                  toast({ title: "Erro", description: error.message, variant: "destructive" });
+                } else {
+                  toast({ title: "E-mail enviado", description: "Se houver uma conta com esse e-mail, você receberá o link para redefinir a senha." });
+                }
               }}>
                   Esqueceu sua senha?
                 </Button>
