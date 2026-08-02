@@ -54,6 +54,9 @@ export const useInvitations = () => {
       if (createError) throw createError;
 
       setInvitations(prev => [data, ...prev]);
+      // Dispara o e-mail de convite via edge function (não bloqueia: se falhar, o convite já existe).
+      supabase.functions.invoke('send-invite-email', { body: { invitation_id: data.id } })
+        .catch((e) => console.error('send-invite-email:', e));
       return data;
     } catch (err) {
       console.error('Error creating invitation:', err);
