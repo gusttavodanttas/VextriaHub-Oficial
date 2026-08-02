@@ -5,7 +5,7 @@
 //
 // Deploy COM verify_jwt (padrão) — depende do JWT do usuário.
 // Env: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY (injetados),
-//      RESEND_API_KEY, APP_URL (opcional; default app.vextriahub.com.br).
+//      RESEND_API_KEY, APP_URL (opcional; default www.vextriahub.com.br).
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -30,7 +30,7 @@ serve(async (req) => {
     const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
     const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
-    const APP_URL = Deno.env.get("APP_URL") || "https://app.vextriahub.com.br";
+    const APP_URL = Deno.env.get("APP_URL") || "https://www.vextriahub.com.br";
 
     // 1) quem chamou (precisa estar logado)
     const asUser = createClient(SUPABASE_URL, ANON, {
