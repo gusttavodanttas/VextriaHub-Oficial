@@ -39,6 +39,7 @@ export interface UseSuperAdminOfficesResult {
     options?: { discount_percent?: number; reason?: string }
   ) => Promise<boolean>;
   sendPaymentReminder: (email: string, officeName: string) => Promise<boolean>;
+  deleteOffice: (officeId: string, confirmName: string) => Promise<boolean>;
   isEmpty: boolean;
 }
 
@@ -217,6 +218,23 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
     }
   }, [toast, fetchAdmins]);
 
+  // Exclusão DEFINITIVA (cascata) via RPC delete_office — super-admin + confirmação por nome.
+  const deleteOffice = useCallback(async (officeId: string, confirmName: string) => {
+    try {
+      const { error } = await supabase.rpc('delete_office' as never, {
+        p_office_id: officeId,
+        p_confirm_name: confirmName,
+      } as never);
+      if (error) throw error;
+      toast({ title: 'Escritório excluído', description: 'Escritório, dados e contas dos membros foram removidos.' });
+      await fetchAdmins();
+      return true;
+    } catch (err: unknown) {
+      toast({ title: 'Erro ao excluir', description: getErrorMessage(err), variant: 'destructive' });
+      return false;
+    }
+  }, [toast, fetchAdmins]);
+
   const updateOfficeFull = useCallback(async (office_id: string, updates: Partial<AdminOffice>) => {
     try {
       const planMap: Record<string, string> = {
@@ -358,6 +376,7 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
     updateOfficeFull,
     manageAccess,
     sendPaymentReminder,
+    deleteOffice,
     isEmpty: admins.length === 0,
   };
 };

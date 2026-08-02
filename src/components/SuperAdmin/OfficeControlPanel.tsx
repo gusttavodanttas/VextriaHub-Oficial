@@ -17,7 +17,7 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Building2, Search, Eye, UserX, UserCheck, CreditCard, AlertCircle, CheckCircle, Clock, RefreshCw, Users, Save, Star, Shield, Calendar, Gift } from 'lucide-react';
+import { Building2, Search, Eye, UserX, UserCheck, CreditCard, AlertCircle, CheckCircle, Clock, RefreshCw, Users, Save, Star, Shield, Calendar, Gift, Trash2, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import { CriarUsuarioCortesia } from './CriarUsuarioCortesia';
 
@@ -30,7 +30,8 @@ export const OfficeControlPanel: React.FC = () => {
     updateOfficeStatus,
     updateOfficeFull,
     manageAccess,
-    sendPaymentReminder
+    sendPaymentReminder,
+    deleteOffice
   } = useSuperAdminOffices();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -40,6 +41,9 @@ export const OfficeControlPanel: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [discountInput, setDiscountInput] = useState<string>('');
+  const [deleteTarget, setDeleteTarget] = useState<AdminOffice | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (selectedAdmin) {
@@ -436,6 +440,11 @@ export const OfficeControlPanel: React.FC = () => {
                           className={`h-8 w-8 p-0 rounded-full transition-colors ${admin.active ? 'text-rose-500/60 hover:text-rose-500 hover:bg-rose-500/5' : 'text-emerald-500/60 hover:text-emerald-500 hover:bg-emerald-500/5'}`}>
                           {admin.active ? <UserX size={15} /> : <UserCheck size={15} />}
                         </Button>
+                        <Button type="button" variant="ghost" size="sm" title="Excluir definitivamente"
+                          onClick={() => { setDeleteTarget(admin); setDeleteConfirm(''); }}
+                          className="h-8 w-8 p-0 text-rose-700/70 hover:text-rose-700 hover:bg-rose-700/10 transition-colors">
+                          <Trash2 size={15} />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -445,6 +454,41 @@ export const OfficeControlPanel: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) { setDeleteTarget(null); setDeleteConfirm(''); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-rose-600">
+              <AlertTriangle className="h-5 w-5" /> Excluir escritório
+            </DialogTitle>
+            <DialogDescription>
+              Isto apaga <b>permanentemente</b> o escritório <b>{deleteTarget?.office_name}</b> — todos os
+              processos, prazos, clientes, financeiro e as <b>contas de login dos membros</b>. Não há como desfazer.
+              (Para pausar sem apagar, use o botão de suspender.)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label>Digite o nome do escritório para confirmar:</Label>
+            <Input value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)}
+              placeholder={deleteTarget?.office_name || ''} autoFocus />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDeleteTarget(null)} disabled={isDeleting}>Cancelar</Button>
+            <Button variant="destructive"
+              disabled={isDeleting || deleteConfirm.trim() !== (deleteTarget?.office_name || '').trim()}
+              onClick={async () => {
+                if (!deleteTarget?.office_id) return;
+                setIsDeleting(true);
+                const ok = await deleteOffice(deleteTarget.office_id, deleteConfirm);
+                setIsDeleting(false);
+                if (ok) { setDeleteTarget(null); setDeleteConfirm(''); }
+              }}>
+              {isDeleting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Trash2 size={16} />}
+              Excluir definitivamente
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
