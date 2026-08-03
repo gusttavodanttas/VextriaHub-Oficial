@@ -2,13 +2,14 @@
 -- carregar um token único; o auto-confirm (confirm_invited_user) só dispara se o
 -- token bater com o convite pendente. Sem token (ou errado) → cai na confirmação
 -- por e-mail normal (prova de posse do e-mail).
--- Substitui a versão de 1 argumento de 20260803000002. Aplicar via SQL Editor
--- (roda sozinha: cria a coluna, faz backfill e recria a função na forma final).
+-- Substitui a versão de 1 argumento de 20260803000002. Aplicar via SQL Editor.
+-- OBS: invitations.token JÁ existe como uuid neste banco — aqui só garantimos
+-- default + backfill + not null (idempotente).
 
--- 1) coluna token (idempotente) + backfill dos convites existentes
-alter table public.invitations add column if not exists token text;
-update public.invitations set token = gen_random_uuid()::text where token is null;
-alter table public.invitations alter column token set default gen_random_uuid()::text;
+-- 1) token uuid: default + backfill dos convites existentes + not null
+alter table public.invitations add column if not exists token uuid;
+update public.invitations set token = gen_random_uuid() where token is null;
+alter table public.invitations alter column token set default gen_random_uuid();
 alter table public.invitations alter column token set not null;
 
 -- 2) confirm_invited_user agora exige o token (remove a versão antiga de 1 arg)
@@ -28,7 +29,7 @@ begin
   if not exists (
     select 1 from public.invitations
     where lower(email) = lower(p_email)
-      and token = p_token
+      and token::text = p_token          -- token é uuid; compara como texto (sem risco de cast)
       and status = 'pending'
       and (expires_at is null or expires_at > now())
   ) then
