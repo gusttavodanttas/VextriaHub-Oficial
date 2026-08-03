@@ -57,7 +57,7 @@ serve(async (req) => {
     const officeName = esc(office?.name || "um escritório");
     const inviterName = esc((user.user_metadata?.full_name as string) || user.email || "A equipe");
     const roleLabel = ROLE_LABEL[String(inv.role)] || "Membro";
-    const link = `${APP_URL}/register`;
+    const link = `${APP_URL}/cadastro`;
 
     const html = `
     <div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f6f7f9;padding:32px 12px;">

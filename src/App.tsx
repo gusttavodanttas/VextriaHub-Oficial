@@ -111,6 +111,7 @@ const AppWithRouter = () => {
         <Route path="/home" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/cadastro" element={<Register />} />
+        <Route path="/register" element={<Register />} />
         <Route path="/redefinir-senha" element={<RedefinirSenha />} />
         <Route
           path="/dashboard"
