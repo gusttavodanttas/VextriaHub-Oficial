@@ -48,19 +48,36 @@ const naJanela = (it: any, fatal: string | null): boolean => {
 const label = (dias: number) => (dias <= 0 ? "hoje" : dias === 1 ? "amanhã" : `em ${dias} dias`);
 const fmtBR = (s: string) => { const [y, m, d] = s.slice(0, 10).split("-"); return `${d}/${m}`; };
 const esc = (s: string) => String(s || "").replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]!));
+// Horário HH:MM. Se o datetime tem fuso (Z/+), converte pra Brasília; se é naive, usa direto. Ignora 00:00 (sem hora marcada).
+const horaDe = (s: string): string => {
+  if (!s || s.length <= 10) return "";
+  let t = "";
+  if (/[Z+]/.test(s.slice(10))) {
+    const d = new Date(s);
+    t = isNaN(d.getTime()) ? "" : d.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", hour12: false });
+  } else {
+    t = s.slice(11, 16);
+  }
+  return t && t !== "00:00" ? t : "";
+};
 
-interface Item { emoji: string; tipo: string; titulo: string; dias: number; data: string }
+interface Item { emoji: string; tipo: string; titulo: string; dias: number; data: string; cliente?: string; processo?: string; hora?: string }
 
 function montarHtml(nome: string, itens: Item[]): string {
-  const linhas = itens.map((it) => `
+  const linhas = itens.map((it) => {
+    const sub = [it.cliente ? esc(it.cliente) : "", it.processo ? `Proc. ${esc(it.processo)}` : ""].filter(Boolean).join(" · ");
+    const urg = it.dias <= 1;
+    return `
     <tr>
-      <td style="padding:10px 0;border-bottom:1px solid #eef0f5;font-size:14px;color:#1a2030;">
+      <td style="padding:11px 0;border-bottom:1px solid #eef0f5;font-size:14px;color:#1f2937;">
         <span style="font-size:16px">${it.emoji}</span>
-        <b style="color:#454fb8;text-transform:uppercase;font-size:11px;letter-spacing:.04em;margin:0 6px">${it.tipo}</b>
+        <b style="color:#4f46e5;text-transform:uppercase;font-size:11px;letter-spacing:.04em;margin:0 6px">${it.tipo}</b>
         ${esc(it.titulo)}
-        <span style="color:#565e70">— ${it.dias <= 1 ? "<b style='color:#c33b33'>" : ""}${label(it.dias)}${it.dias <= 1 ? "</b>" : ""} (${fmtBR(it.data)})</span>
+        <span style="color:#6b7280">— ${urg ? "<b style='color:#dc2626'>" : ""}${label(it.dias)}${urg ? "</b>" : ""} (${fmtBR(it.data)}${it.hora ? ` às ${it.hora}` : ""})</span>
+        ${sub ? `<div style="margin:3px 0 0 24px;font-size:12px;color:#9ca3af">${sub}</div>` : ""}
       </td>
-    </tr>`).join("");
+    </tr>`;
+  }).join("");
   return `<!doctype html><html><body style="margin:0;background:#f6f7f9;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif">
     <div style="max-width:560px;margin:0 auto;padding:32px 12px">
       <div style="background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #eaecef">
@@ -127,7 +144,7 @@ serve(async (req) => {
       // Itens ativos do escritório
       const [prazos, audiencias, tarefas, atendimentos] = await Promise.all([
         supa.from("prazos").select("*, publicacoes(titulo)").eq("office_id", officeId).neq("status", "concluido"),
-        supa.from("audiencias").select("*").eq("office_id", officeId).eq("deletado", false).not("status", "in", "(realizada,cancelada)"),
+        supa.from("audiencias").select("*, clientes(nome)").eq("office_id", officeId).eq("deletado", false).not("status", "in", "(realizada,cancelada)"),
         supa.from("tarefas").select("*").eq("office_id", officeId).eq("deletado", false).eq("concluida", false),
         supa.from("atendimentos").select("*, clientes(nome)").eq("office_id", officeId).eq("deletado", false).in("status", ["agendado", "pendente"]),
       ]);
@@ -137,20 +154,19 @@ serve(async (req) => {
         if (p.titular === "contraria") return; // prazo da parte contrária: só monitoramento
         const fatal = dataFatalPrazo(p);
         if (!naJanela(p, fatal)) return;
-        itens.push({ emoji: "⚖️", tipo: "Prazo", titulo: p.publicacoes?.titulo || p.tipo_prazo || p.numero_processo || "Prazo", dias: diasAte(fatal!), data: fatal! });
+        itens.push({ emoji: "⚖️", tipo: "Prazo", titulo: p.publicacoes?.titulo || p.tipo_prazo || "Prazo", dias: diasAte(fatal!), data: fatal!, processo: p.numero_processo || undefined });
       });
       (audiencias.data || []).forEach((a: any) => {
         if (!naJanela(a, a.data_audiencia)) return;
-        itens.push({ emoji: "📅", tipo: "Audiência", titulo: a.titulo || "Audiência", dias: diasAte(a.data_audiencia), data: a.data_audiencia });
+        itens.push({ emoji: "📅", tipo: "Audiência", titulo: a.titulo || "Audiência", dias: diasAte(a.data_audiencia), data: a.data_audiencia, cliente: a.clientes?.nome || undefined, processo: a.numero_processo || undefined, hora: horaDe(a.data_audiencia) });
       });
       (tarefas.data || []).forEach((t: any) => {
         if (!naJanela(t, t.data_vencimento)) return;
-        itens.push({ emoji: "✓", tipo: "Tarefa", titulo: t.titulo || "Tarefa", dias: diasAte(t.data_vencimento), data: t.data_vencimento });
+        itens.push({ emoji: "✓", tipo: "Tarefa", titulo: t.titulo || "Tarefa", dias: diasAte(t.data_vencimento), data: t.data_vencimento, processo: t.numero_processo || undefined });
       });
       (atendimentos.data || []).forEach((a: any) => {
         if (!naJanela(a, a.data_atendimento)) return;
-        const nome = a.clientes?.nome ? ` — ${a.clientes.nome}` : "";
-        itens.push({ emoji: "👤", tipo: "Atendimento", titulo: `${a.tipo_atendimento || "Atendimento"}${nome}`, dias: diasAte(a.data_atendimento), data: a.data_atendimento });
+        itens.push({ emoji: "👤", tipo: "Atendimento", titulo: a.tipo_atendimento || "Atendimento", dias: diasAte(a.data_atendimento), data: a.data_atendimento, cliente: a.clientes?.nome || undefined, processo: a.numero_processo || undefined, hora: horaDe(a.data_atendimento) });
       });
 
       if (!itens.length) continue; // nada na janela hoje → escritório não recebe e-mail
