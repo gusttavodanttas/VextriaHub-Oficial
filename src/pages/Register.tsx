@@ -173,11 +173,11 @@ const Register = () => {
         console.error('Automatic login failed after register:', loginError);
         toast({
           title: "Cadastro realizado!",
-          description: "Faça login para continuar.",
+          description: "Enviamos um e-mail de confirmação — confirme para entrar.",
         });
         setTimeout(() => {
           navigate("/login");
-        }, 2000);
+        }, 3500);
         setIsLoading(false);
         return;
       }
