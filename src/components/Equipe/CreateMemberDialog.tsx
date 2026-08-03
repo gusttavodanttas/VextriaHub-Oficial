@@ -82,7 +82,17 @@ function CreateMemberDialog({ open, onOpenChange, officeId, onSuccess }: {
     setSaving(false);
 
     if (error || data?.error) {
-      toast({ title: "Erro ao criar membro", description: data?.error || String(error), variant: "destructive" });
+      // Surface o motivo real: FunctionsHttpError guarda o corpo da resposta em .context
+      let detail: string = data?.error || error?.message || "Erro desconhecido";
+      const ctx = (error as { context?: Response } | null)?.context;
+      if (ctx && typeof ctx.text === "function") {
+        try {
+          const body = await ctx.text();
+          try { const j = JSON.parse(body); detail = j?.error || j?.message || body; }
+          catch { if (body) detail = body; }
+        } catch { /* ignora */ }
+      }
+      toast({ title: "Erro ao criar membro", description: String(detail), variant: "destructive" });
       return;
     }
 
