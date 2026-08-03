@@ -17,6 +17,7 @@ const Register = () => {
   const [searchParams] = useSearchParams();
   const selectedPlan = searchParams.get('plan') || 'basico';
   const isInvite = searchParams.get('convite') === '1';
+  const inviteToken = searchParams.get('token') || '';
 
   const [formData, setFormData] = useState({
     name: "",
@@ -153,9 +154,9 @@ const Register = () => {
 
       // Convite: auto-confirma o e-mail (só se existe convite pendente pro e-mail)
       // para permitir o login automático abaixo sem clicar no e-mail de confirmação.
-      if (isInvite) {
+      if (isInvite && inviteToken) {
         try {
-          await supabase.rpc('confirm_invited_user' as never, { p_email: formData.email.trim() } as never);
+          await supabase.rpc('confirm_invited_user' as never, { p_email: formData.email.trim(), p_token: inviteToken } as never);
         } catch (err) {
           console.error('confirm_invited_user failed:', err);
         }

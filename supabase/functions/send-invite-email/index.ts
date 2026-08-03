@@ -44,7 +44,7 @@ serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
     const { data: inv } = await admin
-      .from("invitations").select("email, office_id, role").eq("id", invitation_id).single();
+      .from("invitations").select("email, office_id, role, token").eq("id", invitation_id).single();
     if (!inv) return json({ error: "convite não encontrado" }, 404);
 
     // 2) autorização: o chamador tem que ser membro ativo do MESMO escritório
@@ -57,7 +57,7 @@ serve(async (req) => {
     const officeName = esc(office?.name || "um escritório");
     const inviterName = esc((user.user_metadata?.full_name as string) || user.email || "A equipe");
     const roleLabel = ROLE_LABEL[String(inv.role)] || "Membro";
-    const link = `${APP_URL}/cadastro?convite=1&email=${encodeURIComponent(inv.email)}`;
+    const link = `${APP_URL}/cadastro?convite=1&email=${encodeURIComponent(inv.email)}&token=${encodeURIComponent(inv.token || "")}`;
 
     const html = `
     <div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f6f7f9;padding:32px 12px;">
