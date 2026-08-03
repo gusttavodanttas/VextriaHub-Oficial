@@ -105,7 +105,7 @@ export default function Equipe() {
     const result = await createInvitation({ email: inviteForm.email.trim(), role: inviteForm.role });
     setSending(false);
     if (result) {
-      toast({ title: "Convite registrado", description: `Convite para ${inviteForm.email} criado. Compartilhe o link de acesso manualmente.` });
+      toast({ title: "Convite enviado", description: `Enviamos um e-mail para ${inviteForm.email} com o link de cadastro — ao se cadastrar com esse e-mail, a pessoa entra direto no escritório.` });
       setInviteOpen(false);
       setInviteForm({ email: "", role: "user" });
     } else {
@@ -145,7 +145,10 @@ export default function Equipe() {
           {/* add menu */}
           {canManageTeams && (
             <div className="flex gap-2">
-              <Button onClick={() => setCreateOpen(true)} className="rounded-xl font-black gap-2">
+              <Button onClick={() => setInviteOpen(true)} className="rounded-xl font-black gap-2">
+                <Send className="h-4 w-4" />Convidar por e-mail
+              </Button>
+              <Button onClick={() => setCreateOpen(true)} variant="outline" className="rounded-xl font-bold gap-2">
                 <KeyRound className="h-4 w-4" />Criar com senha
               </Button>
             </div>
@@ -272,7 +275,7 @@ export default function Equipe() {
               <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
                 <div className="p-4 rounded-2xl bg-muted/40"><Send className="h-8 w-8 text-muted-foreground/40" /></div>
                 <p className="font-bold">Nenhum convite registrado</p>
-                <p className="text-sm text-muted-foreground">Use "Criar com senha" para adicionar membros.</p>
+                <p className="text-sm text-muted-foreground">Use "Convidar por e-mail" para trazer alguém — a pessoa recebe o link e entra sozinha no escritório.</p>
               </div>
             ) : (
               <div className="space-y-2">
