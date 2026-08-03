@@ -86,6 +86,13 @@ function CreateMemberDialog({ open, onOpenChange, officeId, onSuccess }: {
       return;
     }
 
+    // Envia o e-mail de boas-vindas com as credenciais (não bloqueia o fluxo).
+    supabase.functions.invoke("send-member-welcome", {
+      body: { email: form.email.trim(), name: form.name.trim(), password: form.password, office_id: officeId },
+    }).then(({ error: mailErr }) => {
+      if (mailErr) console.error("send-member-welcome:", mailErr);
+    });
+
     setDone(true);
     onSuccess();
   };
@@ -119,7 +126,7 @@ function CreateMemberDialog({ open, onOpenChange, officeId, onSuccess }: {
             </div>
             <div>
               <p className="font-black text-lg">Acesso criado com sucesso!</p>
-              <p className="text-sm text-muted-foreground mt-1">Compartilhe as credenciais abaixo com o novo membro.</p>
+              <p className="text-sm text-muted-foreground mt-1">Enviamos as credenciais por e-mail para <strong className="text-foreground">{form.email}</strong>. Se preferir, compartilhe também abaixo.</p>
             </div>
             <div className="w-full rounded-2xl border border-black/5 dark:border-border bg-muted/30 p-3 space-y-2 text-left">
               {form.name && (

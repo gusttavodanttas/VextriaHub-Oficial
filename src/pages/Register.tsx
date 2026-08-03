@@ -150,7 +150,17 @@ const Register = () => {
       }
 
       // Starting checkout
-      
+
+      // Convite: auto-confirma o e-mail (só se existe convite pendente pro e-mail)
+      // para permitir o login automático abaixo sem clicar no e-mail de confirmação.
+      if (isInvite) {
+        try {
+          await supabase.rpc('confirm_invited_user' as never, { p_email: formData.email.trim() } as never);
+        } catch (err) {
+          console.error('confirm_invited_user failed:', err);
+        }
+      }
+
       // Fazer login automático após o registro bem-sucedido
       // Automatic login
       const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
