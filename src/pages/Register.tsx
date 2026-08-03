@@ -16,10 +16,11 @@ import { supabase } from '@/integrations/supabase/client';
 const Register = () => {
   const [searchParams] = useSearchParams();
   const selectedPlan = searchParams.get('plan') || 'basico';
-  
+  const isInvite = searchParams.get('convite') === '1';
+
   const [formData, setFormData] = useState({
     name: "",
-    email: "",
+    email: searchParams.get('email') || "",
     password: "",
     confirmPassword: "",
     oab: "",
@@ -83,7 +84,7 @@ const Register = () => {
       return false;
     }
 
-    if (!formData.cpfCnpj.trim()) {
+    if (!isInvite && !formData.cpfCnpj.trim()) {
       toast({
         title: "Erro no cadastro",
         description: "CPF/CNPJ é obrigatório",
@@ -172,6 +173,16 @@ const Register = () => {
 
       // Login success
       
+      // Convidado: entra num escritório que já paga → sem plano/checkout.
+      // O ensure_office_for_user (no login) já vincula ao escritório do convite.
+      if (isInvite) {
+        localStorage.removeItem('checkout_in_progress');
+        toast({ title: "Cadastro concluído!", description: "Bem-vindo(a) à equipe." });
+        navigate("/dashboard");
+        setIsLoading(false);
+        return;
+      }
+
       // Usuário cadastrado com sucesso, agora criar checkout IMEDIATAMENTE
       toast({
         title: "Cadastro realizado!",
@@ -255,12 +266,12 @@ const Register = () => {
           <CardHeader className="space-y-1">
             <CardTitle className="text-xl text-center flex items-center justify-center gap-2">
               <UserPlus className="h-5 w-5" />
-              Começar Teste Grátis
+              {isInvite ? "Entrar na equipe" : "Começar Teste Grátis"}
             </CardTitle>
             <CardDescription className="text-center">
-              7 dias grátis • Sem compromisso • Cancele quando quiser
+              {isInvite ? "Crie seu acesso — você entra direto no escritório" : "7 dias grátis • Sem compromisso • Cancele quando quiser"}
             </CardDescription>
-            {planData && (
+            {!isInvite && planData && (
               <div className="text-center">
                 <Badge variant="outline" className="text-sm">
                   Plano {planData.plan_name} - R$ {(planData.price_cents / 100).toFixed(2)}/mês
@@ -294,6 +305,7 @@ const Register = () => {
                   value={formData.email}
                   onChange={(e) => handleInputChange("email", e.target.value)}
                   required
+                  disabled={isInvite}
                   className="w-full"
                 />
               </div>
@@ -356,6 +368,7 @@ const Register = () => {
                 </div>
               </div>
 
+              {!isInvite && (<>
               {/* CPF/CNPJ Field */}
               <div className="space-y-2">
                 <Label htmlFor="cpfCnpj">CPF/CNPJ *</Label>
@@ -412,6 +425,7 @@ const Register = () => {
                   </SelectContent>
                 </Select>
               </div>
+              </>)}
 
               {/* Terms Checkbox */}
               <div className="flex items-center space-x-2">
@@ -438,7 +452,7 @@ const Register = () => {
                 className="w-full"
                 disabled={isLoading}
               >
-                {isLoading ? "Processando..." : "Criar conta e continuar para pagamento"}
+                {isLoading ? "Processando..." : isInvite ? "Criar minha conta" : "Criar conta e continuar para pagamento"}
               </Button>
 
               {/* Login Link */}
