@@ -29,7 +29,6 @@ export const OfficeControlPanel: React.FC = () => {
     refresh,
     updateOfficeStatus,
     updateOfficeFull,
-    manageAccess,
     sendPaymentReminder,
     deleteOffice
   } = useSuperAdminOffices();
@@ -40,7 +39,6 @@ export const OfficeControlPanel: React.FC = () => {
   const [editFormData, setEditFormData] = useState<Partial<AdminOffice>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [discountInput, setDiscountInput] = useState<string>('');
   const [deleteTarget, setDeleteTarget] = useState<AdminOffice | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
@@ -54,7 +52,6 @@ export const OfficeControlPanel: React.FC = () => {
         address: selectedAdmin.address,
         plan_name: selectedAdmin.plan_name as any,
       });
-      setDiscountInput('');
     }
   }, [selectedAdmin]);
 
@@ -67,22 +64,6 @@ export const OfficeControlPanel: React.FC = () => {
     if (success) {
       setDialogOpen(false);
     }
-  };
-
-  const handleGrantLifetime = async () => {
-    if (!selectedAdmin?.office_id) return;
-    const ok = await manageAccess(selectedAdmin.office_id, 'grant_lifetime');
-    if (ok) setDialogOpen(false);
-  };
-
-  const handleApplyDiscount = async () => {
-    if (!selectedAdmin?.office_id || !discountInput) return;
-    await manageAccess(selectedAdmin.office_id, 'apply_discount', { discount_percent: Number(discountInput) });
-  };
-
-  const handleRemoveDiscount = async () => {
-    if (!selectedAdmin?.office_id) return;
-    await manageAccess(selectedAdmin.office_id, 'apply_discount', { discount_percent: 0 });
   };
 
   const filteredAdmins = admins.filter(admin => {
@@ -340,64 +321,6 @@ export const OfficeControlPanel: React.FC = () => {
                                     </div>
                                   </div>
 
-                                  <div className="space-y-4">
-                                    <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60 border-b border-muted/20 pb-1">Gestão de Faturamento & Stripe (A + B)</h4>
-                                    <div className="grid grid-cols-2 gap-3">
-                                      <div className="p-4 bg-muted/10 rounded-2xl border border-muted/10 space-y-3">
-                                        <div className="space-y-0.5">
-                                          <Label className="text-[10px] font-bold uppercase text-amber-500">Cenário A: Desconto</Label>
-                                          <p className="text-[9px] text-muted-foreground leading-tight">Aplica cupom no Stripe</p>
-                                        </div>
-                                        <div className="flex gap-2">
-                                          <Input
-                                            type="number"
-                                            placeholder="%"
-                                            value={discountInput}
-                                            onChange={(e) => setDiscountInput(e.target.value)}
-                                            className="h-8 w-16 bg-background rounded-lg text-xs"
-                                          />
-                                          <Button
-                                            type="button"
-                                            size="sm"
-                                            variant="outline"
-                                            className="h-8 text-[10px] uppercase font-bold"
-                                            onClick={handleApplyDiscount}
-                                          >
-                                            Aplicar
-                                          </Button>
-                                        </div>
-                                      </div>
-                                      <div className="p-4 bg-muted/10 rounded-2xl border border-muted/10 space-y-3">
-                                        <div className="space-y-0.5">
-                                          <Label className="text-[10px] font-bold uppercase text-emerald-500">Cenário B: Vitalício</Label>
-                                          <p className="text-[9px] text-muted-foreground leading-tight">Cancela Stripe + Libera</p>
-                                        </div>
-                                        <Button
-                                          type="button"
-                                          size="sm"
-                                          className="w-full h-8 text-[10px] uppercase font-bold bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 border-emerald-500/20"
-                                          variant="outline"
-                                          onClick={handleGrantLifetime}
-                                        >
-                                          Tornar Vitalício
-                                        </Button>
-                                      </div>
-                                    </div>
-                                    {admin.manual_discount_percent > 0 && (
-                                      <div className="px-3 py-1.5 bg-amber-500/5 border border-amber-500/10 rounded-lg flex items-center justify-between">
-                                        <span className="text-[10px] font-bold text-amber-600 uppercase">Desconto Ativo: {admin.manual_discount_percent}%</span>
-                                        <Button
-                                          type="button"
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-4 text-[10px] text-amber-600/60"
-                                          onClick={handleRemoveDiscount}
-                                        >
-                                          Remover
-                                        </Button>
-                                      </div>
-                                    )}
-                                  </div>
 
                                   <div className="space-y-4 mt-6">
                                     <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60 border-b border-muted/20 pb-1">Configurações Gerais</h4>
