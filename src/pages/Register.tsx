@@ -10,7 +10,6 @@ import { Eye, EyeOff, Shield, UserPlus } from "lucide-react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { useStripe } from "@/hooks/useStripe";
 import { supabase } from '@/integrations/supabase/client';
 import { formatCpfCnpj, onlyDigits, isValidCpfCnpj } from "@/lib/document";
 import { formatPhoneInput } from "@/utils/formatters";
@@ -39,7 +38,6 @@ const Register = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { register } = useAuth();
-  const { createCheckoutSession } = useStripe();
 
   // Buscar dados do plano selecionado
   useEffect(() => {
@@ -214,51 +212,13 @@ const Register = () => {
         return;
       }
 
-      // Usuário cadastrado com sucesso, agora criar checkout IMEDIATAMENTE
-      toast({
-        title: "Cadastro realizado!",
-        description: "Criando seu checkout de pagamento...",
-      });
-
-      // Creating Stripe session
-
-      // Criar checkout session via Stripe
-      const checkoutData = await createCheckoutSession(
-        selectedPlan,
-        planData ? planData.price_cents / 100 : 99
-      );
-
-      // Checkout session created
-
-      if (!checkoutData?.url) {
-        console.error('Stripe checkout error: No URL returned');
-        
-        localStorage.removeItem('checkout_in_progress');
-        
-        toast({
-          title: "Erro no checkout",
-          description: "Erro ao criar sessão de pagamento. Redirecionando para dashboard...",
-          variant: "destructive",
-        });
-        
-        setTimeout(() => {
-          navigate("/dashboard");
-        }, 2000);
-        return;
-      }
-
-      // Redirecionando
-      
-      // Limpar flag de checkout em progresso antes de redirecionar
+      // Cadastro normal: o escritório é criado no login (ensure_office_for_user)
+      // e nasce com 7 dias de trial. Sem checkout — a cobrança (Asaas) vem depois.
       localStorage.removeItem('checkout_in_progress');
-      
-      toast({
-        title: "Redirecionando para pagamento",
-        description: "Você será redirecionado para o Stripe para completar o pagamento.",
-      });
-      
-      // Redirecionar para Stripe checkout (usando location.href para evitar bloqueio de popup)
-      window.location.href = checkoutData.url;
+      toast({ title: "Cadastro concluído!", description: "Seu período de teste começou. Bem-vindo(a)!" });
+      navigate("/dashboard");
+      setIsLoading(false);
+      return;
 
     } catch (error) {
       console.error('Unexpected error during register flow:', error);

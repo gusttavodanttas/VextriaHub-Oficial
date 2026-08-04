@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { Profile, OfficeUser, Office } from '@/types/database';
-import { useStripe } from '@/hooks/useStripe';
 import { usePaymentValidation, type PaymentValidationResult } from '@/hooks/usePaymentValidation';
 import { officeService } from '@/services/officeService';
 import { setMonitoringUser } from '@/lib/monitoring';
@@ -75,7 +74,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const mountedRef = useRef(true);
   const initializingRef = useRef(false);
   const loginInProgressRef = useRef(false);
-  const { checkSubscription } = useStripe();
 
   // Identifica o usuário no monitoramento de erros (Sentry)
   useEffect(() => {
@@ -130,6 +128,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setPaymentValidation(result);
     return result;
   }, [user, office, validatePaymentInternal]);
+
+  // Dispara a validação de acesso assim que usuário/escritório estão prontos.
+  // (Antes só rodava no Index com ?success=true → o portão quase nunca disparava.)
+  useEffect(() => {
+    if (user?.id) {
+      validatePayment(user.id);
+    }
+  }, [user?.id, office?.id, validatePayment]);
 
   // Create user profile in database
   const createProfile = useCallback(async (userId: string, email: string, fullName: string) => {

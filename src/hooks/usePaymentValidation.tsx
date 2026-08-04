@@ -1,7 +1,5 @@
-
 import { useCallback, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useStripe } from './useStripe';
 
 export interface PaymentValidationResult {
   needsPayment: boolean;
@@ -11,130 +9,79 @@ export interface PaymentValidationResult {
   message?: string;
 }
 
+// Portão de acesso baseado no Asaas (por escritório). Lê office_subscriptions —
+// a fonte-da-verdade escrita pelas edge functions asaas-billing/asaas-webhook.
 export const usePaymentValidation = () => {
   const [loading, setLoading] = useState(false);
-  const { checkSubscription } = useStripe();
 
   const validatePayment = useCallback(async (userId: string, officeId?: string | null): Promise<PaymentValidationResult> => {
     if (!userId) {
-      return {
-        needsPayment: false,
-        daysRegistered: 0,
-        hasActiveSubscription: false,
-        paymentStatus: 'unknown',
-        message: 'Usuário não encontrado'
-      };
+      return { needsPayment: false, daysRegistered: 0, hasActiveSubscription: false, paymentStatus: 'unknown', message: 'Usuário não encontrado' };
     }
 
     setLoading(true);
     try {
-      // Buscar dados do perfil do usuário
-      const { data: profile, error: profileError } = await supabase
+      const { data: profile } = await supabase
         .from('profiles')
-        .select('created_at, role, office_id')
+        .select('role, office_id')
         .eq('user_id', userId)
         .maybeSingle();
 
-      if (profileError || !profile) {
-        return {
-          needsPayment: false,
-          daysRegistered: 0,
-          hasActiveSubscription: false,
-          paymentStatus: 'unknown',
-          message: 'Erro ao verificar dados do usuário'
-        };
+      // Super admin sempre liberado
+      if (profile?.role === 'super_admin') {
+        return { needsPayment: false, daysRegistered: 0, hasActiveSubscription: true, paymentStatus: 'paid', message: 'Super admin' };
       }
 
-      // 1. Super Admin is always paid
-      if (profile.role === 'super_admin') {
+      const targetOfficeId = officeId || profile?.office_id;
+      if (!targetOfficeId) {
+        // Sem escritório ainda (ex.: acabou de cadastrar) → não bloqueia.
+        return { needsPayment: false, daysRegistered: 0, hasActiveSubscription: false, paymentStatus: 'unknown' };
+      }
+
+      const { data: sub } = await supabase
+        .from('office_subscriptions')
+        .select('status, trial_ends_at, is_lifetime, next_due_date')
+        .eq('office_id', targetOfficeId)
+        .maybeSingle();
+
+      // Sem linha ainda (o trigger cria no login) → não bloqueia.
+      if (!sub) {
+        return { needsPayment: false, daysRegistered: 0, hasActiveSubscription: true, paymentStatus: 'trial', message: 'Período de teste' };
+      }
+
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const trialEnds = sub.trial_ends_at ? new Date(sub.trial_ends_at + 'T00:00:00') : null;
+      const trialActive = sub.status === 'trial' && (!trialEnds || trialEnds >= today);
+      const daysLeft = trialEnds ? Math.max(0, Math.ceil((trialEnds.getTime() - today.getTime()) / 86400000)) : 0;
+      const paidAccess = sub.is_lifetime || sub.status === 'ativa' || sub.status === 'cortesia';
+
+      if (paidAccess || trialActive) {
         return {
           needsPayment: false,
           daysRegistered: 0,
           hasActiveSubscription: true,
-          paymentStatus: 'paid',
-          message: 'Super admin - acesso liberado'
+          paymentStatus: paidAccess ? 'paid' : 'trial',
+          message: trialActive ? `Período de teste: ${daysLeft} dia(s) restante(s)` : undefined,
         };
       }
 
-      // 2. Calculate days since registration
-      const createdAt = new Date(profile.created_at);
-      const now = new Date();
-      const diffTime = Math.abs(now.getTime() - createdAt.getTime());
-      const daysRegistered = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-      // 3. Check for Lifetime status
-      const targetOfficeId = officeId || profile.office_id;
-      if (targetOfficeId) {
-        const { data: officeData } = await supabase
-          .from('offices')
-          .select('is_lifetime')
-          .eq('id', targetOfficeId)
-          .maybeSingle();
-
-        if (officeData?.is_lifetime) {
-          return {
-            needsPayment: false,
-            daysRegistered,
-            hasActiveSubscription: true,
-            paymentStatus: 'paid',
-            message: 'Acesso Vitalício Ativado'
-          };
-        }
-      }
-
-      // 4. Trial period (7 days)
-      const trialDays = 7;
-      const isTrialActive = daysRegistered <= trialDays;
-
-      // 5. Check Stripe Subscription
-      try {
-        const stripeSubscription = await checkSubscription();
-        if (stripeSubscription.subscribed) {
-          return {
-            needsPayment: false,
-            daysRegistered,
-            hasActiveSubscription: true,
-            paymentStatus: 'paid',
-            message: 'Assinatura ativa'
-          };
-        }
-      } catch (error) {
-        console.error('Erro Stripe validation:', error);
-      }
-
-      // 6. Trial fallback
-      if (isTrialActive) {
-        return {
-          needsPayment: false,
-          daysRegistered,
-          hasActiveSubscription: true,
-          paymentStatus: 'trial',
-          message: `Período de teste: ${trialDays - daysRegistered} dias restantes`
-        };
-      }
-
-      // 7. Expired
-      return {
-        needsPayment: true,
-        daysRegistered,
-        hasActiveSubscription: false,
-        paymentStatus: 'overdue',
-        message: 'Período de teste expirado. Realize o pagamento.'
-      };
-
+      // Sem acesso → bloquear.
+      const paymentStatus: PaymentValidationResult['paymentStatus'] =
+        sub.status === 'atrasada' ? 'overdue' : sub.status === 'cancelada' ? 'canceled' : 'pending';
+      const message =
+        sub.status === 'atrasada' ? 'Pagamento em atraso. Regularize para continuar.' :
+        sub.status === 'cancelada' ? 'Assinatura cancelada.' :
+        sub.status === 'trial' ? 'Período de teste expirado. Assine para continuar.' :
+        'Assinatura pendente. Conclua o pagamento para continuar.';
+      return { needsPayment: true, daysRegistered: 0, hasActiveSubscription: false, paymentStatus, message };
     } catch (error) {
       console.error('Erro na validação de pagamento:', error);
-      return {
-        needsPayment: false,
-        daysRegistered: 0,
-        hasActiveSubscription: false,
-        paymentStatus: 'unknown',
-        message: 'Erro ao validar status de pagamento'
-      };
+      // Fail-open: erro transitório não bloqueia o usuário.
+      return { needsPayment: false, daysRegistered: 0, hasActiveSubscription: false, paymentStatus: 'unknown', message: 'Erro ao validar status de pagamento' };
     } finally {
       setLoading(false);
     }
-  }, [checkSubscription]);
+  }, []);
 
   return { validatePayment, loading };
 };
