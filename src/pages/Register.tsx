@@ -12,7 +12,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useStripe } from "@/hooks/useStripe";
 import { supabase } from '@/integrations/supabase/client';
-import { formatCpfCnpj } from "@/lib/document";
+import { formatCpfCnpj, onlyDigits, isValidCpfCnpj } from "@/lib/document";
+import { formatPhoneInput } from "@/utils/formatters";
 
 const Register = () => {
   const [searchParams] = useSearchParams();
@@ -93,6 +94,19 @@ const Register = () => {
         variant: "destructive",
       });
       return false;
+    }
+
+    if (!isInvite) {
+      const doc = onlyDigits(formData.cpfCnpj);
+      const tipo = doc.length > 11 ? "juridica" : "fisica";
+      if (!isValidCpfCnpj(formData.cpfCnpj, tipo)) {
+        toast({
+          title: "Erro no cadastro",
+          description: "CPF/CNPJ inválido. Confira os números digitados.",
+          variant: "destructive",
+        });
+        return false;
+      }
     }
 
     if (formData.password.length < 8) {
@@ -403,9 +417,11 @@ const Register = () => {
                 <Input
                   id="phone"
                   type="text"
+                  inputMode="numeric"
+                  maxLength={15}
                   placeholder="(11) 99999-9999"
                   value={formData.phone}
-                  onChange={(e) => handleInputChange("phone", e.target.value)}
+                  onChange={(e) => handleInputChange("phone", formatPhoneInput(e.target.value))}
                   className="w-full"
                 />
               </div>
