@@ -37,7 +37,7 @@ interface AuthContextType {
   paymentValidation: PaymentValidationResult | null;
   showPaymentModal: boolean;
   login: (email: string, password: string) => Promise<{ error: any }>;
-  register: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
+  register: (email: string, password: string, fullName: string, metadata?: Record<string, string | undefined>) => Promise<{ error: any }>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   resetFirstLogin: () => void;
@@ -365,15 +365,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (email: string, password: string, fullName: string) => {
+  const register = async (email: string, password: string, fullName: string, metadata?: Record<string, string | undefined>) => {
     const currentUrl = window.location.origin;
-    
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
           full_name: fullName,
+          ...(metadata || {}),
         },
         emailRedirectTo: `${currentUrl}/dashboard`
       }

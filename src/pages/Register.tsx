@@ -152,7 +152,13 @@ const Register = () => {
       // Marcar no localStorage que estamos em processo de checkout para evitar redirecionamento
       localStorage.setItem('checkout_in_progress', 'true');
       
-      const { error } = await register(formData.email, formData.password, formData.name);
+      const { error } = await register(formData.email, formData.password, formData.name, {
+        cpf_cnpj: formData.cpfCnpj.trim() || undefined,
+        phone: formData.phone.trim() || undefined,
+        oab: formData.oab.trim() || undefined,
+        oab_uf: formData.state || undefined,
+        address: formData.state || undefined,
+      });
 
       if (error) {
         console.error('Register error:', error);
