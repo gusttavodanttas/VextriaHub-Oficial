@@ -302,7 +302,7 @@ export default function Equipe() {
                       <div className="flex gap-1 shrink-0">
                         <Button size="sm" variant="ghost"
                           className="h-8 px-2.5 text-[10px] font-black rounded-xl hover:bg-primary/10 hover:text-primary"
-                          onClick={async () => { const r = await resendInvitation(inv.id); if (r) toast({ title: "Convite atualizado" }); }}>
+                          onClick={async () => { const r = await resendInvitation(inv.id); if (r) toast({ title: "Convite reenviado", description: "Enviamos o e-mail novamente." }); }}>
                           <RefreshCw className="h-3 w-3 mr-1" />Renovar
                         </Button>
                         <AlertDialog>

@@ -89,14 +89,13 @@ export const useInvitations = () => {
   const resendInvitation = async (invitationId: string) => {
     try {
       setError(null);
-      // Aqui você pode implementar a lógica para reenviar o convite
-      // Por exemplo, atualizar expires_at ou enviar novo email
+      // Renova a validade por mais 7 dias e REDISPARA o e-mail de convite.
       const newExpiresAt = new Date();
       newExpiresAt.setDate(newExpiresAt.getDate() + 7); // 7 dias
 
       const { data, error: updateError } = await supabase
         .from('invitations')
-        .update({ 
+        .update({
           expires_at: newExpiresAt.toISOString(),
           status: 'pending'
         })
@@ -107,6 +106,9 @@ export const useInvitations = () => {
       if (updateError) throw updateError;
 
       setInvitations(prev => prev.map(i => i.id === invitationId ? data : i));
+      // Reenvia o e-mail (o link carrega o token atual do convite). Não bloqueia.
+      supabase.functions.invoke('send-invite-email', { body: { invitation_id: invitationId } })
+        .catch((e) => console.error('send-invite-email (resend):', e));
       return data;
     } catch (err) {
       console.error('Error resending invitation:', err);
