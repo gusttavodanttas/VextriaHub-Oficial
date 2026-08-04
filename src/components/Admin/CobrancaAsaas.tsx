@@ -210,15 +210,17 @@ export default function CobrancaAsaas() {
                       </div>
                     ) : (
                       <>
-                        <div className="flex items-center justify-between gap-3 rounded-lg bg-blue-500/5 border border-blue-500/20 px-3 py-2">
-                          <div className="flex items-center gap-2"><Gift className="w-4 h-4 text-blue-500" /><div><p className="text-sm font-medium">{TRIAL_DAYS} dias grátis</p><p className="text-[11px] text-muted-foreground">Acesso na hora; 1ª cobrança depois de {TRIAL_DAYS} dias.</p></div></div>
-                          <Switch checked={trial} onCheckedChange={setTrial} />
-                        </div>
+                        {cycle !== "MONTHLY" && (
+                          <div className="flex items-center justify-between gap-3 rounded-lg bg-blue-500/5 border border-blue-500/20 px-3 py-2">
+                            <div className="flex items-center gap-2"><Gift className="w-4 h-4 text-blue-500" /><div><p className="text-sm font-medium">{TRIAL_DAYS} dias grátis</p><p className="text-[11px] text-muted-foreground">Acesso na hora; 1ª cobrança depois de {TRIAL_DAYS} dias.</p></div></div>
+                            <Switch checked={trial} onCheckedChange={setTrial} />
+                          </div>
+                        )}
                         <div className="grid sm:grid-cols-2 gap-3">
                           <div className="space-y-1"><label className="text-xs text-muted-foreground">CPF/CNPJ do cliente</label><Input value={cpf} onChange={(e) => setCpf(formatCpfCnpj(e.target.value))} placeholder="000.000.000-00" inputMode="numeric" className={docDigits.length >= 11 && !docOk ? "border-destructive" : ""} /></div>
                           <div className="space-y-1"><label className="text-xs text-muted-foreground">Nome do plano</label><Input value={plan} onChange={(e) => setPlan(e.target.value)} placeholder="Ex: Plano Pro" /></div>
                           <div className="space-y-1"><label className="text-xs text-muted-foreground">Valor</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span><Input value={value} onChange={(e) => setValue(maskMoney(e.target.value))} placeholder="0,00" inputMode="numeric" className="pl-9" /></div></div>
-                          <div className="space-y-1"><label className="text-xs text-muted-foreground">Ciclo</label><select value={cycle} onChange={(e) => setCycle(e.target.value)} className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm">{CYCLES.map((c) => <option key={c.v} value={c.v}>{c.l}</option>)}</select></div>
+                          <div className="space-y-1"><label className="text-xs text-muted-foreground">Ciclo</label><select value={cycle} onChange={(e) => { setCycle(e.target.value); if (e.target.value === "MONTHLY") setTrial(false); }} className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm">{CYCLES.map((c) => <option key={c.v} value={c.v}>{c.l}</option>)}</select></div>
                           <div className="space-y-1"><label className="text-xs text-muted-foreground">Forma de pagamento</label><select value={billing} onChange={(e) => setBilling(e.target.value)} className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm">{BILLING.map((b) => <option key={b.v} value={b.v}>{b.l}</option>)}</select></div>
                         </div>
                         <Button size="sm" onClick={() => setup(r)} disabled={isBusy}>{isBusy ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Criando…</> : trial ? <><Gift className="w-4 h-4 mr-1.5" /> Liberar {TRIAL_DAYS} dias grátis</> : <><CreditCard className="w-4 h-4 mr-1.5" /> Criar cobrança</>}</Button>
