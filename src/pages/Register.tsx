@@ -157,7 +157,6 @@ const Register = () => {
         phone: formData.phone.trim() || undefined,
         oab: formData.oab.trim() || undefined,
         oab_uf: formData.state || undefined,
-        address: formData.state || undefined,
       });
 
       if (error) {

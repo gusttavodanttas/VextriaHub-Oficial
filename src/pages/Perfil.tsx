@@ -24,6 +24,7 @@ import {
   Edit,
   Save,
   Scale,
+  Fingerprint,
   Lock,
   Eye,
   EyeOff,
@@ -42,6 +43,7 @@ import { useNavigate } from "react-router-dom";
 import { useMyStats } from "@/hooks/useMyStats";
 import { useMyActivity } from "@/hooks/useMyActivity";
 import { formatPhone, isValidPhone } from "@/lib/phone";
+import { formatCpfCnpj } from "@/lib/document";
 import { uploadPublicImage, validateImage } from "@/lib/uploadImage";
 import { CityCombobox } from "@/components/ui/CityCombobox";
 import { Camera } from "lucide-react";
@@ -69,6 +71,7 @@ const Perfil = () => {
     cargo: "Não informado",
     oab: "",
     oab_uf: "DF",
+    cpf_cnpj: "",
   });
 
   // Preenche dados reais da Sessão Pessoal logada assim que carregar
@@ -86,6 +89,7 @@ const Perfil = () => {
                : (user as any)?.office_role === 'coordinator' ? 'Coordenador' : 'Membro',
         oab: profile?.oab || prev.oab,
         oab_uf: profile?.oab_uf || prev.oab_uf,
+        cpf_cnpj: (profile as any)?.cpf_cnpj || prev.cpf_cnpj,
       }));
     }
   }, [user, profile]);
@@ -433,6 +437,21 @@ const Perfil = () => {
                       </Select>
                     </div>
                   )}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50 px-1">CPF / CNPJ</Label>
+                <div className="flex items-center gap-4 p-4 rounded-2xl bg-background/50 border border-border shadow-sm">
+                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
+                    <Fingerprint className="h-5 w-5" />
+                  </div>
+                  {userInfo.cpf_cnpj ? (
+                    <span className="font-bold text-foreground/80">{formatCpfCnpj(userInfo.cpf_cnpj)}</span>
+                  ) : (
+                    <span className="font-bold text-sm text-muted-foreground/60">Não informado</span>
+                  )}
+                  <span className="ml-auto text-[10px] font-black uppercase tracking-wider text-muted-foreground/40">Não editável</span>
                 </div>
               </div>
 
