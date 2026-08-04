@@ -49,7 +49,6 @@ const Escritorio = lazy(() => import("./pages/Escritorio"));
 const Timesheet = lazy(() => import("./pages/Timesheet"));
 const PoliticaPrivacidade = lazy(() => import("./pages/PoliticaPrivacidade"));
 const Pagamento = lazy(() => import("./pages/Pagamento"));
-const Obrigado = lazy(() => import("./pages/Obrigado"));
 const Lixeira = lazy(() => import("./pages/Lixeira"));
 
 const queryClient = new QueryClient({
@@ -367,7 +366,6 @@ const AppWithRouter = () => {
         />
         <Route path="/politica-privacidade" element={<PoliticaPrivacidade />} />
         <Route path="/pagamento" element={<Pagamento />} />
-        <Route path="/obrigado" element={<Obrigado />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
       </Suspense>

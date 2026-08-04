@@ -74,13 +74,28 @@ serve(async (req) => {
     if (action === "setup") {
       if (!KEY) return json({ error: "sem-asaas-key" }, 500);
       const cpfCnpj = String(body?.cpfCnpj || "").replace(/\D/g, "");
-      const planName = String(body?.plan_name || "Plano").trim();
-      const value = Number(body?.value);
       const cycle = String(body?.cycle || "MONTHLY");
       const billingType = String(body?.billing_type || "UNDEFINED");
       const trial = !!body?.trial;
       const trialDays = Number(body?.trial_days) || 7;
       const nextDue = trial ? plusDays(trialDays) : String(body?.first_due_date || plusDays(3));
+
+      // Valor/nome do plano: self-serve (admin do escritório) DEVE usar um plano do
+      // catálogo (plan_configs) — o valor vem do SERVIDOR, não do body (anti-fraude).
+      // Super admin pode passar valor livre (negociação/custom).
+      let planName = String(body?.plan_name || "Plano").trim();
+      let value = Number(body?.value);
+      const planType = String(body?.plan_type || "").trim();
+      if (planType) {
+        const { data: plan } = await service
+          .from("plan_configs").select("plan_name, price_cents")
+          .eq("plan_type", planType).eq("is_active", true).maybeSingle();
+        if (!plan) return json({ error: "plano-invalido" }, 400);
+        planName = String(plan.plan_name || planName);
+        value = Number(plan.price_cents) / 100;
+      } else if (!isSuper) {
+        return json({ error: "plano-obrigatorio" }, 400);
+      }
       if (!cpfCnpj || cpfCnpj.length < 11) return json({ error: "cpfcnpj-invalido" }, 400);
       if (!value || value <= 0) return json({ error: "valor-invalido" }, 400);
 

@@ -1,334 +1,175 @@
-import { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { CreditCard, FileText, QrCode, Loader2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { formatCpfCnpj, onlyDigits, isValidCpfCnpj } from '@/lib/document';
+import { CreditCard, FileText, QrCode, Loader2, CheckCircle2, ExternalLink, Copy, Check } from 'lucide-react';
 
-interface CheckoutData {
-  id: string;
-  plan_name: string;
-  plan_price_cents: number;
-  stripe_customer_id: string;
-  stripe_subscription_id: string;
-  status: string;
-  expires_at: string;
-  billing_types: string[];
-  trial_days: number;
-}
+interface Plan { plan_type: string; plan_name: string; price_cents: number }
+interface Sub { status: string; plan_name: string | null; next_due_date: string | null; last_invoice_url: string | null }
+
+const brl = (cents: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100);
+const BILLING = [
+  { v: 'PIX', label: 'PIX (instantâneo)', icon: QrCode },
+  { v: 'BOLETO', label: 'Boleto bancário', icon: FileText },
+  { v: 'CREDIT_CARD', label: 'Cartão de crédito', icon: CreditCard },
+];
 
 function Pagamento() {
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [checkout, setCheckout] = useState<CheckoutData | null>(null);
+  const { office } = useAuth();
+
   const [loading, setLoading] = useState(true);
-  const [processingPayment, setProcessingPayment] = useState(false);
-  const [selectedBillingType, setSelectedBillingType] = useState<string>('PIX');
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [sub, setSub] = useState<Sub | null>(null);
+  const [planType, setPlanType] = useState('');
+  const [cpf, setCpf] = useState('');
+  const [billing, setBilling] = useState('PIX');
+  const [submitting, setSubmitting] = useState(false);
+  const [invoiceUrl, setInvoiceUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
-  const checkoutId = searchParams.get('checkout');
+  const docDigits = onlyDigits(cpf);
+  const docOk = isValidCpfCnpj(cpf, docDigits.length > 11 ? 'juridica' : 'fisica');
 
-  useEffect(() => {
-    if (!checkoutId) {
-      navigate('/');
+  const load = useCallback(async () => {
+    setLoading(true);
+    const [{ data: planRows }, subRes] = await Promise.all([
+      supabase.from('plan_configs').select('plan_type, plan_name, price_cents').eq('is_active', true).order('price_cents'),
+      office?.id
+        ? supabase.from('office_subscriptions').select('status, plan_name, next_due_date, last_invoice_url').eq('office_id', office.id).maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+    setPlans((planRows as Plan[]) || []);
+    setSub((subRes.data as Sub) || null);
+    if (subRes.data?.last_invoice_url && ['pendente', 'atrasada', 'trial'].includes(subRes.data.status)) {
+      setInvoiceUrl(subRes.data.last_invoice_url);
+    }
+    setLoading(false);
+  }, [office?.id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const assinar = async () => {
+    if (!office?.id) { toast({ title: 'Escritório não encontrado', variant: 'destructive' }); return; }
+    if (!planType) { toast({ title: 'Escolha um plano', variant: 'destructive' }); return; }
+    if (!docOk) { toast({ title: 'CPF/CNPJ inválido', description: 'Confira os números.', variant: 'destructive' }); return; }
+    setSubmitting(true);
+    const { data, error } = await supabase.functions.invoke('asaas-billing', {
+      body: { action: 'setup', office_id: office.id, plan_type: planType, cpfCnpj: docDigits, billing_type: billing },
+    });
+    setSubmitting(false);
+    let payload: { error?: string; invoice_url?: string } | null = data;
+    if (error) { try { payload = await (error as { context?: Response }).context?.json(); } catch { payload = null; } }
+    if (payload?.error || error) {
+      toast({ title: 'Não consegui criar a cobrança', description: payload?.error || 'Tente novamente.', variant: 'destructive' });
       return;
     }
-
-    loadCheckoutData();
-  }, [checkoutId]);
-
-  const loadCheckoutData = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('stripe_checkouts' as any)
-        .select('*')
-        .eq('id', checkoutId)
-        .maybeSingle();
-
-      if (error || !data) {
-        toast({
-          title: "Erro",
-          description: "Checkout não encontrado",
-          variant: "destructive",
-        });
-        navigate('/');
-        return;
-      }
-
-      // Check if checkout is expired
-      if (new Date((data as any).expires_at) < new Date()) {
-        toast({
-          title: "Checkout Expirado",
-          description: "Este link de pagamento expirou. Tente novamente.",
-          variant: "destructive",
-        });
-        navigate('/');
-        return;
-      }
-
-      setCheckout(data as unknown as CheckoutData);
-    } catch (error) {
-      console.error('Error loading checkout:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao carregar dados do pagamento",
-        variant: "destructive",
-      });
-      navigate('/');
-    } finally {
-      setLoading(false);
-    }
+    toast({ title: 'Cobrança criada!', description: 'Use o link para pagar por Pix, boleto ou cartão.' });
+    setInvoiceUrl(payload?.invoice_url || null);
+    load();
   };
 
-  const processPayment = async () => {
-    if (!checkout) return;
-
-    setProcessingPayment(true);
-    try {
-      toast({
-        title: "Processando Pagamento",
-        description: "Criando sessão de checkout no Stripe...",
-      });
-
-      // Prepare payment data
-      const paymentData: any = {
-        checkoutId: checkout.id,
-        billingType: selectedBillingType,
-      };
-
-      // Add credit card data if selected
-      if (selectedBillingType === 'CREDIT_CARD') {
-        // For demonstration, we'll use mock data
-        // In a real app, you'd collect this from a secure form
-        paymentData.creditCardData = {
-          holderName: "João Silva",
-          number: "5162306219378829",
-          expiryMonth: "12",
-          expiryYear: "2028",
-          ccv: "318"
-        };
-        paymentData.creditCardHolderInfo = {
-          name: "João Silva",
-          email: "joao@email.com",
-          cpfCnpj: "11111111111",
-          postalCode: "89223-005",
-          addressNumber: "277",
-          phone: "4738010919"
-        };
-      }
-
-      // Call payment processing edge function
-      const { data: paymentResult, error: paymentError } = await supabase.functions.invoke(
-        'process-payment',
-        {
-          body: paymentData
-        }
-      );
-
-      if (paymentError || !paymentResult?.success) {
-        console.error('Payment error:', paymentError);
-        throw new Error(paymentResult?.error || 'Erro ao processar pagamento');
-      }
-
-      // Handle different payment types
-      if (selectedBillingType === 'PIX') {
-        toast({
-          title: "PIX Gerado!",
-          description: "Escaneie o QR Code ou copie o código PIX para pagar",
-        });
-        
-        // Store PIX data for display
-        localStorage.setItem('pixData', JSON.stringify({
-          pixCode: paymentResult.pixCode,
-          pixQrCodeImage: paymentResult.pixQrCodeImage,
-          value: paymentResult.value,
-          dueDate: paymentResult.dueDate,
-        }));
-
-      } else if (selectedBillingType === 'BOLETO') {
-        toast({
-          title: "Boleto Gerado!",
-          description: "Clique no link para imprimir ou visualizar",
-        });
-        
-        // Open boleto in new tab
-        if (paymentResult.bankSlipUrl) {
-          window.open(paymentResult.bankSlipUrl, '_blank');
-        }
-
-      } else if (selectedBillingType === 'CREDIT_CARD') {
-        toast({
-          title: "Pagamento Processado!",
-          description: "Aguardando confirmação do cartão...",
-        });
-      }
-
-      // Redirect to thank you page
-      navigate(`/obrigado?checkout=${checkout.id}&billing=${selectedBillingType}&payment=${paymentResult.paymentId}`);
-
-    } catch (error) {
-      console.error('Error processing payment:', error);
-      toast({
-        title: "Erro no Pagamento",
-        description: error instanceof Error ? error.message : "Erro ao processar pagamento. Tente novamente.",
-        variant: "destructive",
-      });
-    } finally {
-      setProcessingPayment(false);
-    }
-  };
-
-  const formatPrice = (cents: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(cents / 100);
-  };
-
-  const getBillingTypeIcon = (type: string) => {
-    switch (type) {
-      case 'PIX':
-        return <QrCode className="h-5 w-5" />;
-      case 'BOLETO':
-        return <FileText className="h-5 w-5" />;
-      case 'CREDIT_CARD':
-        return <CreditCard className="h-5 w-5" />;
-      default:
-        return null;
-    }
-  };
-
-  const getBillingTypeLabel = (type: string) => {
-    switch (type) {
-      case 'PIX':
-        return 'PIX (Instantâneo)';
-      case 'BOLETO':
-        return 'Boleto Bancário';
-      case 'CREDIT_CARD':
-        return 'Cartão de Crédito';
-      default:
-        return type;
-    }
+  const copy = async () => {
+    if (!invoiceUrl) return;
+    await navigator.clipboard.writeText(invoiceUrl);
+    setCopied(true); setTimeout(() => setCopied(false), 1600);
   };
 
   if (loading) {
-    return (
-      <div className="container mx-auto px-4 py-8 flex items-center justify-center min-h-screen">
-        <div className="flex items-center space-x-2">
-          <Loader2 className="h-6 w-6 animate-spin" />
-          <span>Carregando...</span>
-        </div>
-      </div>
-    );
+    return <div className="flex items-center justify-center min-h-screen gap-2"><Loader2 className="h-6 w-6 animate-spin" /> Carregando…</div>;
   }
 
-  if (!checkout) {
-    return null;
-  }
+  const active = sub && ['ativa', 'cortesia'].includes(sub.status);
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-2xl">
-      <div className="space-y-6">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold">Finalizar Pagamento</h1>
-          <p className="text-muted-foreground mt-2">
-            Escolha a forma de pagamento para ativar sua assinatura
-          </p>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              Plano {checkout.plan_name}
-              <Badge variant="secondary">
-                {checkout.trial_days} dias grátis
-              </Badge>
-            </CardTitle>
-            <CardDescription>
-              Assinatura mensal - Cobrança recorrente
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex justify-between items-center text-lg font-semibold">
-              <span>Total:</span>
-              <span className="text-primary">{formatPrice(checkout.plan_price_cents)}/mês</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Forma de Pagamento</CardTitle>
-            <CardDescription>
-              Escolha como deseja pagar sua assinatura
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {checkout.billing_types.map((type) => (
-              <div
-                key={type}
-                className={`flex items-center space-x-3 p-3 border rounded-lg cursor-pointer transition-colors ${
-                  selectedBillingType === type
-                    ? 'border-primary bg-primary/5'
-                    : 'border-border hover:border-primary/50'
-                }`}
-                onClick={() => setSelectedBillingType(type)}
-              >
-                <input
-                  type="radio"
-                  name="billingType"
-                  value={type}
-                  checked={selectedBillingType === type}
-                  onChange={(e) => setSelectedBillingType(e.target.value)}
-                  className="text-primary"
-                />
-                {getBillingTypeIcon(type)}
-                <span className="font-medium">{getBillingTypeLabel(type)}</span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Separator />
-
-        <div className="flex flex-col space-y-3">
-          <Button
-            onClick={processPayment}
-            disabled={processingPayment}
-            size="lg"
-            className="w-full"
-          >
-            {processingPayment ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Processando...
-              </>
-            ) : (
-              `Pagar ${formatPrice(checkout.plan_price_cents)}`
-            )}
-          </Button>
-          
-          <Button
-            variant="outline"
-            onClick={() => navigate('/')}
-            className="w-full"
-          >
-            Cancelar
-          </Button>
-        </div>
-
-        <div className="text-center text-sm text-muted-foreground">
-          <p>
-            Ao continuar, você aceita nossos termos de serviço e política de privacidade.
-          </p>
-          <p className="mt-1">
-            Você pode cancelar sua assinatura a qualquer momento.
-          </p>
-        </div>
+    <div className="container mx-auto px-4 py-10 max-w-2xl space-y-6">
+      <div className="text-center">
+        <h1 className="text-3xl font-bold">Assinatura</h1>
+        <p className="text-muted-foreground mt-2">
+          {active ? 'Seu escritório está com o acesso ativo.' : 'Escolha um plano para ativar o acesso do seu escritório.'}
+        </p>
       </div>
+
+      {active ? (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
+            <CheckCircle2 className="h-12 w-12 text-emerald-500" />
+            <p className="font-semibold text-lg">Assinatura {sub?.status === 'cortesia' ? 'cortesia' : 'ativa'}</p>
+            <p className="text-sm text-muted-foreground">{sub?.plan_name}{sub?.next_due_date ? ` · próxima cobrança ${new Date(sub.next_due_date + 'T00:00:00').toLocaleDateString('pt-BR')}` : ''}</p>
+            <Button variant="outline" onClick={() => navigate('/dashboard')}>Ir para o dashboard</Button>
+          </CardContent>
+        </Card>
+      ) : invoiceUrl ? (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
+            <QrCode className="h-12 w-12 text-primary" />
+            <div>
+              <p className="font-semibold text-lg">Sua cobrança está pronta</p>
+              <p className="text-sm text-muted-foreground">Abra o link para pagar por Pix, boleto ou cartão. O acesso libera assim que o pagamento for confirmado.</p>
+            </div>
+            <div className="flex gap-2">
+              <a href={invoiceUrl} target="_blank" rel="noreferrer">
+                <Button className="gap-2"><ExternalLink className="h-4 w-4" /> Abrir fatura</Button>
+              </a>
+              <Button variant="outline" onClick={copy} className="gap-2">
+                {copied ? <><Check className="h-4 w-4 text-emerald-500" /> Copiado</> : <><Copy className="h-4 w-4" /> Copiar link</>}
+              </Button>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setInvoiceUrl(null)}>Trocar de plano</Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <Card>
+            <CardHeader><CardTitle>Escolha o plano</CardTitle><CardDescription>Cobrança recorrente — cancele quando quiser.</CardDescription></CardHeader>
+            <CardContent className="space-y-2">
+              {plans.length === 0 && <p className="text-sm text-muted-foreground">Nenhum plano disponível no momento.</p>}
+              {plans.map((p) => (
+                <button key={p.plan_type} type="button" onClick={() => setPlanType(p.plan_type)}
+                  className={`w-full flex items-center justify-between p-4 border rounded-xl transition-colors text-left ${planType === p.plan_type ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}>
+                  <span className="font-medium">{p.plan_name}</span>
+                  <Badge variant="secondary">{brl(p.price_cents)}</Badge>
+                </button>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Seus dados</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">CPF ou CNPJ do responsável</label>
+                <Input value={cpf} onChange={(e) => setCpf(formatCpfCnpj(e.target.value))} placeholder="000.000.000-00" inputMode="numeric"
+                  className={docDigits.length >= 11 && !docOk ? 'border-destructive' : ''} />
+                {docDigits.length >= 11 && !docOk && <p className="text-xs text-destructive">Número inválido.</p>}
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Forma de pagamento</label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {BILLING.map(({ v, label, icon: Icon }) => (
+                    <button key={v} type="button" onClick={() => setBilling(v)}
+                      className={`flex items-center gap-2 p-3 border rounded-lg transition-colors ${billing === v ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}>
+                      <Icon className="h-4 w-4" /><span className="text-sm">{label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Button size="lg" className="w-full" onClick={assinar} disabled={submitting || !planType || !docOk}>
+            {submitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Criando cobrança…</> : 'Assinar'}
+          </Button>
+          <Button variant="ghost" className="w-full" onClick={() => navigate('/dashboard')}>Voltar</Button>
+        </>
+      )}
     </div>
   );
 }
