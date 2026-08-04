@@ -53,7 +53,6 @@ export const OfficeControlPanel: React.FC = () => {
         phone: selectedAdmin.phone,
         address: selectedAdmin.address,
         plan_name: selectedAdmin.plan_name as any,
-        is_lifetime: selectedAdmin.is_lifetime
       });
       setDiscountInput('');
     }

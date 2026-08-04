@@ -12,7 +12,7 @@ import { useOfficeManagement } from "@/hooks/useOfficeManagement";
 import { useSubscriptions } from "@/hooks/useSubscriptions";
 import { Shield, Check, X, Clock, User, FileText, AlertCircle, Building2, CreditCard, Users, TrendingUp, Activity } from "lucide-react";
 import { OfficeControlPanel } from "@/components/SuperAdmin/OfficeControlPanel";
-import { SubscriptionControlPanel } from "@/components/SuperAdmin/SubscriptionControlPanel";
+import CobrancaAsaas from "@/components/Admin/CobrancaAsaas";
 import { GlobalMetrics } from "@/components/Admin/GlobalMetrics";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
@@ -144,7 +144,7 @@ const Admin = () => {
             </TabsContent>
 
             <TabsContent value="subscriptions" className="entry-animate slide-in-from-bottom-4 duration-500 mt-0">
-              <SubscriptionControlPanel />
+              <CobrancaAsaas />
             </TabsContent>
 
             <TabsContent value="requests" className="space-y-6 entry-animate slide-in-from-bottom-4 duration-500 mt-0">
