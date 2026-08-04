@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useStripe } from "@/hooks/useStripe";
 import { supabase } from '@/integrations/supabase/client';
+import { formatCpfCnpj } from "@/lib/document";
 
 const Register = () => {
   const [searchParams] = useSearchParams();
@@ -386,9 +387,11 @@ const Register = () => {
                 <Input
                   id="cpfCnpj"
                   type="text"
+                  inputMode="numeric"
+                  maxLength={18}
                   placeholder="000.000.000-00 ou 00.000.000/0000-00"
                   value={formData.cpfCnpj}
-                  onChange={(e) => handleInputChange("cpfCnpj", e.target.value)}
+                  onChange={(e) => handleInputChange("cpfCnpj", formatCpfCnpj(e.target.value))}
                   required
                   className="w-full"
                 />
