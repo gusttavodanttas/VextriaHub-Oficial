@@ -128,11 +128,31 @@ serve(async (req) => {
     const resultado = calcularPrazo(data_disponibilizacao, tipo_documento, nome_orgao, conteudo);
 
     if (publicacao_id) {
-      const supabase = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
+      const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
+      const supabase = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
       const { data: pub } = await supabase.from('publicacoes')
         .select('office_id, numero_processo, processo_id, titulo, conteudo')
         .eq('id', publicacao_id).single();
       if (pub) {
+        // AUTORIZAÇÃO (o write grava prazo pelo office_id da publicação): robô via
+        // x-robot-secret, OU usuário logado membro ATIVO do escritório da publicação.
+        // Sem isso, qualquer um sobrescreveria o prazo (onConflict:publicacao_id) alheio.
+        const ROBOT_SECRET = Deno.env.get('ROBOT_SECRET') ?? '';
+        const isRobot = !!ROBOT_SECRET && req.headers.get('x-robot-secret') === ROBOT_SECRET;
+        if (!isRobot) {
+          const asUser = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_ANON_KEY') ?? '', {
+            global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } },
+          });
+          const { data: { user } } = await asUser.auth.getUser();
+          if (!user) {
+            return new Response(JSON.stringify({ error: 'não autenticado' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          }
+          const { data: mem } = await supabase.from('office_users').select('id')
+            .eq('user_id', user.id).eq('office_id', pub.office_id).eq('active', true).maybeSingle();
+          if (!mem) {
+            return new Response(JSON.stringify({ error: 'sem permissão neste escritório' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          }
+        }
         // Teor completo da publicação + título legível, para o prazo ser autoexplicativo
         const teor = limparHTML(conteudo || pub.conteudo || '');
         const titulo = (pub.titulo || '').trim()
