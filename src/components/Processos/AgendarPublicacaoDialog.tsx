@@ -142,10 +142,12 @@ export const AgendarPublicacaoDialog = ({
           processo_id: processoId,
           titulo: form.titulo,
           descricao: form.descricao,
+          // grava as DUAS: data_fim_prazo é a coluna que Agenda/Dashboard/Relatórios leem
           data_vencimento: form.data,
+          data_fim_prazo: form.data,
           prioridade: form.prioridade,
           status: "pendente",
-        });
+        } as never);
         if (error) throw error;
       } else if (tipo === "tarefa") {
         const { error } = await supabase.from("tarefas").insert({
