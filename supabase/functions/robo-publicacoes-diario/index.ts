@@ -31,7 +31,7 @@ serve(async (req) => {
   const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const ROBOT_SECRET = Deno.env.get("ROBOT_SECRET") || "";
   const secret = req.headers.get("x-robot-secret") || "";
-  if (ROBOT_SECRET && secret !== ROBOT_SECRET) {
+  if (!ROBOT_SECRET || secret !== ROBOT_SECRET) {
     return new Response(JSON.stringify({ ok: false, error: "unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 

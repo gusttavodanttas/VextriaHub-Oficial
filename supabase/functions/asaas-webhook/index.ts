@@ -60,10 +60,11 @@ serve(async (req) => {
     if (newStatus) upd.status = newStatus;
     if (pay?.invoiceUrl) upd.last_invoice_url = pay.invoiceUrl;
     if (pay?.dueDate) upd.next_due_date = pay.dueDate;
-    await service.from("office_subscriptions").update(upd).eq("office_id", row.office_id);
+    const { error: updErr } = await service.from("office_subscriptions").update(upd).eq("office_id", row.office_id);
+    if (updErr) return json({ error: "falha ao atualizar assinatura", detail: updErr.message }, 500); // 5xx → Asaas reenvia (não perder pagamento)
 
     return json({ ok: true, matched: true, status: newStatus });
   } catch (e) {
-    return json({ error: String((e as Error).message) }, 200); // 200 pra o Asaas não reenfileirar infinito
+    return json({ error: String((e as Error).message) }, 500); // 5xx → Asaas reenvia
   }
 });

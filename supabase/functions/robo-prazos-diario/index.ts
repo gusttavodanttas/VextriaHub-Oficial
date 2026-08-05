@@ -105,7 +105,7 @@ serve(async (req) => {
   const ROBOT_SECRET = Deno.env.get("ROBOT_SECRET") || "";
   const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") || "";
   const secret = req.headers.get("x-robot-secret") || "";
-  if (ROBOT_SECRET && secret !== ROBOT_SECRET) {
+  if (!ROBOT_SECRET || secret !== ROBOT_SECRET) {
     return new Response(JSON.stringify({ ok: false, error: "unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
   if (!RESEND_API_KEY) {
@@ -120,12 +120,18 @@ serve(async (req) => {
   const supa = createClient(SUPABASE_URL, SERVICE_ROLE);
 
   const enviarEmail = async (to: string, subject: string, html: string) => {
-    const resp = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: FROM, to, subject, html }),
-    });
-    return resp.ok;
+    for (let tentativa = 1; tentativa <= 2; tentativa++) {
+      try {
+        const resp = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ from: FROM, to, subject, html }),
+        });
+        if (resp.ok) return true;
+      } catch (_e) { /* transitório — tenta de novo */ }
+      if (tentativa < 2) await new Promise((r) => setTimeout(r, 1200));
+    }
+    return false;
   };
 
   try {
@@ -186,15 +192,22 @@ serve(async (req) => {
         if (!email) continue;
         const to = testEmail || email;
 
-        // Idempotência (pulada em teste): PK (user_id, ref_date). Se já enviou hoje, o insert falha → pula.
+        // Idempotência: se já enviou hoje (log existe), pula. O log é gravado só
+        // APÓS o envio bem-sucedido — assim uma falha do Resend NÃO marca "enviado"
+        // e o aviso é reenviado na próxima execução (antes perdia silenciosamente).
         if (!testEmail) {
-          const { error: dupErr } = await supa.from("email_digest_log").insert({ user_id: uid, ref_date: hojeYmd });
-          if (dupErr) { detalhes.push({ email, status: "ja_enviado_hoje" }); continue; }
+          const { data: jaEnviou } = await supa.from("email_digest_log")
+            .select("user_id").eq("user_id", uid).eq("ref_date", hojeYmd).maybeSingle();
+          if (jaEnviou) { detalhes.push({ email, status: "ja_enviado_hoje" }); continue; }
         }
 
         const ok = await enviarEmail(to, subject, montarHtml((p as any).full_name || "advogado(a)", itens));
-        if (ok) { enviados++; detalhes.push({ email: to, status: "enviado", itens: itens.length }); }
-        else detalhes.push({ email: to, status: "falha_resend" });
+        if (ok) {
+          if (!testEmail) await supa.from("email_digest_log").insert({ user_id: uid, ref_date: hojeYmd });
+          enviados++; detalhes.push({ email: to, status: "enviado", itens: itens.length });
+        } else {
+          detalhes.push({ email: to, status: "falha_resend" });
+        }
       }
     }
 
