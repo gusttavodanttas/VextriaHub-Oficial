@@ -9,7 +9,6 @@ import { useExclusoesPendentes } from "@/hooks/useExclusoesPendentes";
 import { useMultiSelect } from "@/hooks/useMultiSelect";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useOfficeManagement } from "@/hooks/useOfficeManagement";
-import { useSubscriptions } from "@/hooks/useSubscriptions";
 import { Shield, Check, X, Clock, User, FileText, AlertCircle, Building2, CreditCard, Users, TrendingUp, Activity } from "lucide-react";
 import { OfficeControlPanel } from "@/components/SuperAdmin/OfficeControlPanel";
 import CobrancaAsaas from "@/components/Admin/CobrancaAsaas";

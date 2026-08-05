@@ -1,10 +1,24 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Subscription, NovaSubscription } from '@/types/database';
 import { useAuth } from '@/contexts/AuthContext';
 
+// Lê a cobrança do Asaas (office_subscriptions) e mapeia para a forma que as
+// métricas/telas usam. Substitui a leitura da antiga tabela Stripe `subscriptions`.
+// 'ativa' -> 'active'; value -> price. (cortesia = acesso grátis, não conta como paga.)
+const mapStatus = (s: string): string =>
+  (({ ativa: 'active', atrasada: 'past_due', cancelada: 'cancelled', pendente: 'pending', trial: 'trialing', cortesia: 'courtesy' }) as Record<string, string>)[s] || s;
+
+export interface OfficeSub {
+  office_id: string;
+  status: string;
+  price: number;
+  plan: string | null;
+  next_due_date: string | null;
+  office?: { name: string | null; email: string | null } | null;
+}
+
 export const useSubscriptions = () => {
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [subscriptions, setSubscriptions] = useState<OfficeSub[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { office, isSuperAdmin } = useAuth();
@@ -12,128 +26,25 @@ export const useSubscriptions = () => {
   const fetchSubscriptions = async () => {
     try {
       setError(null);
-      let query = supabase.from('subscriptions').select(`
-        *,
-        office:offices(name, email)
-      `);
-
-      // Se não for super admin, filtrar apenas pelo escritório
-      if (!isSuperAdmin && office?.id) {
-        query = query.eq('office_id', office.id);
-      }
-
-      const { data, error: fetchError } = await query
-        .order('created_at', { ascending: false });
-
+      let query = supabase.from('office_subscriptions').select('*, office:offices(name, email)');
+      if (!isSuperAdmin && office?.id) query = query.eq('office_id', office.id);
+      const { data, error: fetchError } = await query;
       if (fetchError) throw fetchError;
 
-      setSubscriptions(data || []);
+      const rows: OfficeSub[] = ((data as unknown as Record<string, unknown>[]) || []).map((r) => ({
+        office_id: String(r.office_id),
+        status: mapStatus(String(r.status)),
+        price: Number(r.value || 0),
+        plan: (r.plan_name as string) ?? null,
+        next_due_date: (r.next_due_date as string) ?? null,
+        office: (r.office as { name: string | null; email: string | null }) ?? null,
+      }));
+      setSubscriptions(rows);
     } catch (err) {
       console.error('Error fetching subscriptions:', err);
       setError('Erro ao carregar assinaturas');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const createSubscription = async (subscriptionData: NovaSubscription) => {
-    try {
-      setError(null);
-      const { data, error: createError } = await supabase
-        .from('subscriptions')
-        .insert(subscriptionData)
-        .select(`
-          *,
-          office:offices(name, email)
-        `)
-        .single();
-
-      if (createError) throw createError;
-
-      setSubscriptions(prev => [data, ...prev]);
-      return data;
-    } catch (err) {
-      console.error('Error creating subscription:', err);
-      setError('Erro ao criar assinatura');
-      return null;
-    }
-  };
-
-  const updateSubscription = async (subscriptionId: string, updates: Partial<Subscription>) => {
-    try {
-      setError(null);
-      const { data, error: updateError } = await supabase
-        .from('subscriptions')
-        .update(updates)
-        .eq('id', subscriptionId)
-        .select(`
-          *,
-          office:offices(name, email)
-        `)
-        .single();
-
-      if (updateError) throw updateError;
-
-      setSubscriptions(prev => prev.map(s => s.id === subscriptionId ? data : s));
-      return data;
-    } catch (err) {
-      console.error('Error updating subscription:', err);
-      setError('Erro ao atualizar assinatura');
-      return null;
-    }
-  };
-
-  const cancelSubscription = async (subscriptionId: string) => {
-    try {
-      setError(null);
-      const { data, error: updateError } = await supabase
-        .from('subscriptions')
-        .update({ 
-          status: 'cancelled',
-          end_date: new Date().toISOString().split('T')[0]
-        })
-        .eq('id', subscriptionId)
-        .select(`
-          *,
-          office:offices(name, email)
-        `)
-        .single();
-
-      if (updateError) throw updateError;
-
-      setSubscriptions(prev => prev.map(s => s.id === subscriptionId ? data : s));
-      return data;
-    } catch (err) {
-      console.error('Error canceling subscription:', err);
-      setError('Erro ao cancelar assinatura');
-      return null;
-    }
-  };
-
-  const reactivateSubscription = async (subscriptionId: string) => {
-    try {
-      setError(null);
-      const { data, error: updateError } = await supabase
-        .from('subscriptions')
-        .update({ 
-          status: 'active',
-          end_date: null
-        })
-        .eq('id', subscriptionId)
-        .select(`
-          *,
-          office:offices(name, email)
-        `)
-        .single();
-
-      if (updateError) throw updateError;
-
-      setSubscriptions(prev => prev.map(s => s.id === subscriptionId ? data : s));
-      return data;
-    } catch (err) {
-      console.error('Error reactivating subscription:', err);
-      setError('Erro ao reativar assinatura');
-      return null;
     }
   };
 
@@ -146,16 +57,8 @@ export const useSubscriptions = () => {
     loading,
     error,
     refresh: fetchSubscriptions,
-    createSubscription,
-    updateSubscription,
-    cancelSubscription,
-    reactivateSubscription,
     isEmpty: subscriptions.length === 0,
-    // Filtros úteis
     activeSubscriptions: subscriptions.filter(s => s.status === 'active'),
-    cancelledSubscriptions: subscriptions.filter(s => s.status === 'cancelled'),
-    expiredSubscriptions: subscriptions.filter(s => s.status === 'inactive'),
-    // Assinatura atual do escritório
-    currentSubscription: office?.id ? subscriptions.find(s => s.office_id === office.id && s.status === 'active') : null
+    currentSubscription: office?.id ? subscriptions.find(s => s.office_id === office.id && s.status === 'active') : null,
   };
 };

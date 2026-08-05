@@ -128,10 +128,9 @@ export const useOfficeManagement = () => {
           .eq('office_id', officeId)
           .eq('active', true),
         supabase
-          .from('subscriptions')
-          .select('plan, status')
+          .from('office_subscriptions')
+          .select('plan_name, status')
           .eq('office_id', officeId)
-          .eq('status', 'active')
           .maybeSingle()
       ]);
 
@@ -142,7 +141,7 @@ export const useOfficeManagement = () => {
         totalUsers: users.length,
         adminUsers: users.filter(u => u.role === 'admin' || u.role === 'super_admin').length,
         regularUsers: users.filter(u => u.role === 'user').length,
-        currentPlan: subscription?.plan || 'free',
+        currentPlan: (subscription as { plan_name?: string } | null)?.plan_name || 'free',
         planStatus: subscription?.status || 'inactive'
       };
     } catch (err) {

@@ -3,7 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { getErrorMessage } from '@/lib/errors';
 import { useToast } from '@/hooks/use-toast';
-import { addDays } from 'date-fns';
 
 export interface AdminOffice {
   id: string;
@@ -69,13 +68,12 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
         .from('offices')
         .select(`
           *,
-          subscriptions (
-            id,
+          office_subscriptions (
             status,
-            plan,
-            price,
-            end_date,
-            manual_discount_percent
+            plan_name,
+            value,
+            next_due_date,
+            is_lifetime
           )
         `)
         .order('created_at', { ascending: false });
@@ -119,53 +117,23 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
           (userData || []).find((u: any) => u.office_id === office.id);
         
         const profile = profileData.find((p: any) => p.user_id === officeUser?.user_id);
-        const sub = office.subscriptions && office.subscriptions.length > 0 ? office.subscriptions[0] : null;
+        const os = office.office_subscriptions;
+        const sub = Array.isArray(os) ? os[0] : os;
+        const st: string | undefined = sub?.status;
 
-        const isCourtesy = office.access_type === 'courtesy';
-
-        const isLegacyLifetime =
-          office.is_lifetime === true ||
-          office.access_type === 'lifetime' ||
-          sub?.end_date?.includes('2099') ||
-          office.plan === 'lifetime';
-
-        // isTrial only if NOT lifetime and NOT courtesy
-        const isTrial =
-          !isLegacyLifetime && !isCourtesy &&
-          (office.plan === 'trial' || sub?.status === 'trial' || sub?.status === 'trialing');
+        const isCourtesy = st === 'cortesia';
+        const isLegacyLifetime = sub?.is_lifetime === true;
+        const isTrial = st === 'trial';
 
         let payment_status: AdminOffice['payment_status'] = 'pendente';
-        let plan_display_name = office.plan || sub?.plan || 'Free';
+        if (isCourtesy || isLegacyLifetime || isTrial || st === 'ativa') payment_status = 'em_dia';
+        else if (st === 'pendente') payment_status = 'proximo_vencimento';
+        else if (st === 'atrasada' || st === 'cancelada') payment_status = 'vencido';
 
-        // Courtesy takes FIRST priority
-        if (isCourtesy) {
-          payment_status = 'em_dia';
-          plan_display_name = 'cortesia';
-        } else if (isLegacyLifetime) {
-          payment_status = 'em_dia';
-          plan_display_name = 'lifetime';
-        } else if (isTrial) {
-          payment_status = 'em_dia';
-          plan_display_name = 'trial';
-        } else if (sub) {
-          if (sub.status === 'active') payment_status = 'em_dia';
-          else if (sub.status === 'past_due' || sub.status === 'unpaid')
-            payment_status = 'proximo_vencimento';
-          else payment_status = 'vencido';
-
-          const revPlanMap: Record<string, string> = {
-            basico: 'starter',
-            intermediario: 'pro',
-            avancado: 'business',
-            premium: 'lifetime',
-          };
-          plan_display_name = revPlanMap[sub.plan] || sub.plan || 'trial';
-        }
-
-        let end_date = sub?.end_date || office.end_date || null;
-        if (isTrial && !end_date && office.created_at) {
-          end_date = addDays(new Date(office.created_at), 7).toISOString();
-        }
+        const plan_display_name = isCourtesy ? 'cortesia'
+          : isLegacyLifetime ? 'lifetime'
+          : isTrial ? 'trial'
+          : (sub?.plan_name || office.plan || 'Free');
 
         return {
           id: officeUser?.user_id || office.id,
@@ -180,15 +148,12 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
           created_at: office.created_at,
           payment_status,
           plan_name: plan_display_name,
-          price: sub?.price || 0,
-          end_date,
+          price: Number(sub?.value || 0),
+          end_date: sub?.next_due_date || null,
           is_trial: isTrial,
           active: office.active ?? true,
           is_lifetime: !!isLegacyLifetime,
-          manual_discount_percent:
-            Number(sub?.manual_discount_percent) ||
-            Number(office.manual_discount_percent) ||
-            0,
+          manual_discount_percent: 0,
         };
       });
 
@@ -255,7 +220,6 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
       if (updates.phone !== undefined) officeUpdates.phone = updates.phone;
       if (updates.address !== undefined) officeUpdates.address = updates.address;
       if (dbPlan) officeUpdates.plan = dbPlan;
-      if (updates.is_lifetime !== undefined) officeUpdates.is_lifetime = updates.is_lifetime;
 
       if (Object.keys(officeUpdates).length > 0) {
         const { error: ofError } = await supabase
@@ -263,42 +227,6 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
           .update(officeUpdates)
           .eq('id', office_id);
         if (ofError) throw ofError;
-      }
-
-      const subUpdates: any = {};
-      if (dbPlan) subUpdates.plan = dbPlan;
-      if (updates.is_lifetime !== undefined) {
-        subUpdates.end_date = updates.is_lifetime
-          ? '2099-12-31T23:59:59Z'
-          : addDays(new Date(), 30).toISOString();
-        subUpdates.status = 'active';
-      }
-
-      if (Object.keys(subUpdates).length > 0) {
-        const { data: existingSub, error: checkError } = await supabase
-          .from('subscriptions')
-          .select('id')
-          .eq('office_id', office_id)
-          .maybeSingle();
-        
-        if (checkError) throw checkError;
-
-        if (existingSub) {
-          const { error: subUpdateError } = await supabase
-            .from('subscriptions')
-            .update(subUpdates)
-            .eq('id', existingSub.id);
-          if (subUpdateError) throw subUpdateError;
-        } else {
-          const { error: subInsertError } = await supabase
-            .from('subscriptions')
-            .insert({
-              office_id,
-              ...subUpdates,
-              start_date: new Date().toISOString(),
-            });
-          if (subInsertError) throw subInsertError;
-        }
       }
 
       toast({
