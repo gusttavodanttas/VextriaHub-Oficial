@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { AlertCircle, CheckSquare, ArrowRight, Loader2 } from "lucide-react";
+import { AlertCircle, CheckSquare, ArrowRight, Loader2, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const pick = (o: any, keys: string[], fb: string) => { for (const k of keys) if (o?.[k]) return String(o[k]); return fb; };
@@ -25,28 +25,46 @@ function Shell({ icon: Icon, title, to, children }: { icon: any; title: string; 
 export function PrazosBlock() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [items, setItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    if (!user?.office_id) { setLoading(false); return; }
-    let cancel = false;
-    supabase.from("prazos").select("*").eq("office_id", user.office_id).neq("status", "concluido")
-      .order("data_fim_prazo", { ascending: true, nullsFirst: false }).limit(6)
-      .then(({ data }) => { if (!cancel) { setItems(data || []); setLoading(false); } });
-    return () => { cancel = true; };
-  }, [user?.office_id]);
+  const qc = useQueryClient();
+  const officeId = user?.office_id;
+
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: ["dashboard-prazos", officeId],
+    enabled: !!officeId,
+    staleTime: 60_000, // mostra o cache na hora e revalida em bg (sem piscar ao voltar)
+    queryFn: async () => {
+      const { data } = await supabase.from("prazos").select("*").eq("office_id", officeId)
+        .neq("status", "concluido").order("data_fim_prazo", { ascending: true, nullsFirst: false }).limit(6);
+      return data || [];
+    },
+  });
+
+  // Concluir o prazo na própria tela inicial (sem abrir a página de Prazos)
+  const concluir = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    await supabase.from("prazos").update({
+      status: "concluido", concluido_em: new Date().toISOString(), concluido_por: user?.id ?? null,
+    } as never).eq("id", id);
+    qc.invalidateQueries({ queryKey: ["dashboard-prazos", officeId] });
+    qc.invalidateQueries({ queryKey: ["dashboard-stats", officeId] });
+  };
 
   return (
     <Shell icon={AlertCircle} title="Próximos Prazos" to="/prazos">
-      {loading ? <div className="flex justify-center py-6"><Loader2 className="h-4 w-4 animate-spin text-primary/40" /></div>
+      {isLoading ? <div className="flex justify-center py-6"><Loader2 className="h-4 w-4 animate-spin text-primary/40" /></div>
         : items.length === 0 ? <p className="text-sm text-muted-foreground/50 font-medium py-6 text-center">Nenhum prazo pendente.</p>
           : <div className="space-y-1">
-            {items.map((p) => (
-              <button key={p.id} onClick={() => navigate(`/prazos?openId=${p.id}`)} className="group flex items-center gap-2.5 p-2 rounded-xl hover:bg-card/80 transition-all w-full text-left">
-                <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0" />
-                <span className="text-xs font-bold truncate flex-1 group-hover:text-primary transition-colors">{pick(p, ["titulo", "tipo_prazo", "numero_processo"], "Prazo")}</span>
-                <span className="text-[10px] font-black text-muted-foreground/50 shrink-0">{fmt(p.data_fim_prazo)}</span>
-              </button>
+            {items.map((p: any) => (
+              <div key={p.id} className="group flex items-center gap-2 p-2 rounded-xl hover:bg-card/80 transition-all">
+                <button onClick={(e) => concluir(p.id, e)} title="Concluir prazo"
+                  className="shrink-0 h-5 w-5 rounded-full border-2 border-muted-foreground/30 hover:border-emerald-500 hover:bg-emerald-500/10 flex items-center justify-center transition-all">
+                  <Check className="h-3 w-3 text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </button>
+                <button onClick={() => navigate(`/prazos?openId=${p.id}`)} className="flex items-center gap-2.5 flex-1 min-w-0 text-left group/row" title="Abrir prazo">
+                  <span className="text-xs font-bold truncate flex-1 group-hover/row:text-primary transition-colors">{pick(p, ["titulo", "tipo_prazo", "numero_processo"], "Prazo")}</span>
+                  <span className="text-[10px] font-black text-muted-foreground/50 shrink-0">{fmt(p.data_fim_prazo)}</span>
+                </button>
+              </div>
             ))}
           </div>}
     </Shell>
@@ -56,25 +74,27 @@ export function PrazosBlock() {
 export function TarefasBlock() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [items, setItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    if (!user?.office_id) { setLoading(false); return; }
-    let cancel = false;
-    supabase.from("tarefas").select("id, titulo, data_vencimento, prioridade").eq("office_id", user.office_id).eq("deletado", false).eq("concluida", false)
-      .order("data_vencimento", { ascending: true, nullsFirst: false }).limit(6)
-      .then(({ data }) => { if (!cancel) { setItems(data || []); setLoading(false); } });
-    return () => { cancel = true; };
-  }, [user?.office_id]);
+  const officeId = user?.office_id;
+
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: ["dashboard-tarefas", officeId],
+    enabled: !!officeId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data } = await supabase.from("tarefas").select("id, titulo, data_vencimento, prioridade").eq("office_id", officeId).eq("deletado", false).eq("concluida", false)
+        .order("data_vencimento", { ascending: true, nullsFirst: false }).limit(6);
+      return data || [];
+    },
+  });
 
   const cor = (p?: string) => p === "alta" ? "bg-rose-500" : p === "baixa" ? "bg-slate-400" : "bg-amber-500";
 
   return (
     <Shell icon={CheckSquare} title="Minhas Tarefas" to="/tarefas">
-      {loading ? <div className="flex justify-center py-6"><Loader2 className="h-4 w-4 animate-spin text-primary/40" /></div>
+      {isLoading ? <div className="flex justify-center py-6"><Loader2 className="h-4 w-4 animate-spin text-primary/40" /></div>
         : items.length === 0 ? <p className="text-sm text-muted-foreground/50 font-medium py-6 text-center">Nenhuma tarefa pendente.</p>
           : <div className="space-y-1">
-            {items.map((t) => (
+            {items.map((t: any) => (
               <button key={t.id} onClick={() => navigate(`/tarefas?openId=${t.id}`)} className="group flex items-center gap-2.5 p-2 rounded-xl hover:bg-card/80 transition-all w-full text-left">
                 <span className={cn("h-2 w-2 rounded-full shrink-0", cor(t.prioridade))} />
                 <span className="text-xs font-bold truncate flex-1 group-hover:text-primary transition-colors">{t.titulo || "Tarefa"}</span>
