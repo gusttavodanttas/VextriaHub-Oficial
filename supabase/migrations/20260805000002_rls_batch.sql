@@ -63,7 +63,7 @@ create policy "uploads_auth_insert" on storage.objects for insert to authenticat
       or ((storage.foldername(name))[1] = 'avatars' and storage.filename(name) like auth.uid()::text || '-%')
       or ((storage.foldername(name))[1] = 'logos' and exists (
             select 1 from public.office_users ou
-            where ou.user_id = auth.uid() and ou.active and ou.role in ('admin','owner')
+            where ou.user_id = auth.uid() and ou.active and ou.role::text in ('admin','owner')
               and storage.filename(name) like ou.office_id::text || '-%'))
     )
   );
@@ -75,7 +75,7 @@ create policy "uploads_auth_update" on storage.objects for update to authenticat
       or ((storage.foldername(name))[1] = 'avatars' and storage.filename(name) like auth.uid()::text || '-%')
       or ((storage.foldername(name))[1] = 'logos' and exists (
             select 1 from public.office_users ou
-            where ou.user_id = auth.uid() and ou.active and ou.role in ('admin','owner')
+            where ou.user_id = auth.uid() and ou.active and ou.role::text in ('admin','owner')
               and storage.filename(name) like ou.office_id::text || '-%'))
     )
   );
