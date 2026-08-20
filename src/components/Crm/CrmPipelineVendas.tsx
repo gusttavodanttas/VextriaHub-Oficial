@@ -55,8 +55,8 @@ export function CrmPipelineVendas({ onBack, data = [], loading = false }: Props)
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-black text-sm text-primary">R$ 1.500</div>
-                      <div className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-tighter">Prob. 65%</div>
+                      <div className="font-black text-sm text-primary">{brl(val(opp))}</div>
+                      <div className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-tighter">{(opp.status || 'Lead')}</div>
                     </div>
                   </div>
                 ))
