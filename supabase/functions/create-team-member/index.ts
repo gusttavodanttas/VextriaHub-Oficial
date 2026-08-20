@@ -37,6 +37,19 @@ Deno.serve(async (req) => {
     const isOfficeAdmin = !!membership && ['admin', 'owner'].includes(String(membership.role))
     if (!isSuper && !isOfficeAdmin) return json({ error: 'sem permissão neste escritório' }, 403)
 
+    // 2.1) Limite de usuários do plano — super_admin pode exceder (cortesia); admin não.
+    if (!isSuper) {
+      const { data: office } = await service.from('offices').select('max_users').eq('id', office_id).maybeSingle()
+      const maxUsers = Number((office as { max_users?: number } | null)?.max_users) || 0
+      if (maxUsers > 0) {
+        const { count } = await service
+          .from('office_users').select('id', { count: 'exact', head: true })
+          .eq('office_id', office_id).eq('active', true)
+        if ((count ?? 0) >= maxUsers)
+          return json({ error: `Limite do plano atingido (${maxUsers} usuários). Faça upgrade para adicionar mais membros.` }, 400)
+      }
+    }
+
     // 3) Papel seguro: nunca super_admin/owner por este fluxo
     const safeRole = role === 'admin' ? 'admin' : 'user'
 

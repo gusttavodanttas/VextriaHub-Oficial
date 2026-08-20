@@ -17,6 +17,15 @@ serve(async (req) => {
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const ROBOT_SECRET = Deno.env.get("ROBOT_SECRET") || "";
+  // Autoriza: x-robot-secret OU o service_role no Bearer (é o que o cron manda) —
+  // sem isso, qualquer um com a anon key PÚBLICA dispararia a varredura nacional
+  // de todos os escritórios. O cron atual segue funcionando (manda o service_role).
+  const authz = req.headers.get("Authorization") || "";
+  const providedSecret = req.headers.get("x-robot-secret") || "";
+  const isRobot = (!!ROBOT_SECRET && providedSecret === ROBOT_SECRET) || authz === `Bearer ${SERVICE_ROLE}`;
+  if (!isRobot) {
+    return new Response(JSON.stringify({ ok: false, error: "unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
   const supa = createClient(SUPABASE_URL, SERVICE_ROLE);
 
   try {
@@ -47,7 +56,7 @@ serve(async (req) => {
         },
         body: JSON.stringify({ oab, uf, nacional: true }),
       });
-      if (!resp.ok) { detalhes.push({ oab, uf, erro: resp.status }); continue; }
+      if (!resp.ok) { detalhes.push({ office: officeId, erro: resp.status }); continue; }
 
       const data = await resp.json();
       const items = Array.isArray(data) ? data : (data?.items ?? []);
@@ -81,7 +90,7 @@ serve(async (req) => {
       // ignoreDuplicates → não re-adiciona o que já está na caixa
       await supa.from("processos_encontrados").upsert(rows, { onConflict: "office_id,numero_processo", ignoreDuplicates: true });
       totalNovos += novos.length;
-      detalhes.push({ oab, uf, novos: novos.length });
+      detalhes.push({ office: officeId, novos: novos.length });
     }
 
     return new Response(JSON.stringify({ ok: true, totalNovos, detalhes }), {

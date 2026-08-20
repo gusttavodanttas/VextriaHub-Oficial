@@ -34,7 +34,7 @@ export function QuickConsultivoDialog({ open, onOpenChange, onSuccess }: Props) 
       descricao: form.descricao.trim() || null,
       categoria: form.categoria.trim() || null,
       prioridade: form.prioridade,
-      status: "novo",
+      status: "pendente",
       cliente_id: form.cliente_id || null,
     } as any);
     setSaving(false);
