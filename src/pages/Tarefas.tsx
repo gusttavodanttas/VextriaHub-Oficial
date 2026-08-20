@@ -364,14 +364,15 @@ const Tarefas = () => {
     const due = t.data_vencimento ? dueLabel(t.data_vencimento) : null;
     return (
       <div key={t.id} id={`item-${t.id}`}
+        onClick={() => openEdit(t)}
         className={cn(
-          "group flex items-center gap-3 p-3.5 rounded-2xl border bg-card/40 transition-all hover:shadow-md",
+          "group flex items-center gap-3 p-3.5 rounded-2xl border bg-card/40 transition-all hover:shadow-md cursor-pointer",
           selected ? "border-primary/40 ring-2 ring-primary/10 bg-primary/[0.02]" : "border-black/5 dark:border-border hover:border-black/10 dark:hover:border-white/15",
           t.concluida && "opacity-60"
         )}>
         {/* Checkbox concluir */}
         <button
-          onClick={() => toggle.mutate({ id: t.id, concluida: !t.concluida, tarefa: t })}
+          onClick={(e) => { e.stopPropagation(); toggle.mutate({ id: t.id, concluida: !t.concluida, tarefa: t }); }}
           className={cn(
             "shrink-0 h-6 w-6 rounded-lg border-2 flex items-center justify-center transition-all",
             t.concluida ? "bg-emerald-500 border-emerald-500 text-white" : "border-muted-foreground/30 hover:border-emerald-500 hover:bg-emerald-500/10"
@@ -381,15 +382,17 @@ const Tarefas = () => {
           {t.concluida && <CheckCircle2 className="h-4 w-4" />}
         </button>
 
-        {/* Selecionar */}
-        <Checkbox checked={selected} onCheckedChange={() => multiSelect.toggleItem(t.id)} className="rounded-md shrink-0" />
+        {/* Selecionar (aparece no hover ou quando já há seleção ativa) */}
+        <Checkbox checked={selected} onCheckedChange={() => multiSelect.toggleItem(t.id)}
+          onClick={(e) => e.stopPropagation()}
+          className={cn("rounded-md shrink-0 transition-opacity", (selected || multiSelect.selectedCount > 0) ? "opacity-100" : "opacity-0 group-hover:opacity-100")} />
 
         {/* Conteúdo */}
         <div className="flex-1 min-w-0">
           <p className={cn("font-bold truncate", t.concluida && "line-through text-muted-foreground")}>{t.titulo}</p>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-[11px] text-muted-foreground font-medium">
             {t.cliente_nome && (t.cliente_id ? (
-              <button type="button" onClick={() => navigate(`/clientes?openId=${t.cliente_id}`)}
+              <button type="button" onClick={(e) => { e.stopPropagation(); navigate(`/clientes?openId=${t.cliente_id}`); }}
                 className="flex items-center gap-1 truncate hover:text-primary hover:underline transition-colors" title="Abrir ficha do cliente">
                 <User className="h-3 w-3 shrink-0" />{t.cliente_nome}
               </button>
@@ -421,7 +424,7 @@ const Tarefas = () => {
         )}
 
         {/* Ações (sempre visíveis no mobile; hover no desktop) */}
-        <div className="flex items-center max-sm:opacity-100 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+        <div onClick={(e) => e.stopPropagation()} className="flex items-center max-sm:opacity-100 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
           <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg" onClick={() => openEdit(t)}><Pencil className="h-3.5 w-3.5" /></Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
