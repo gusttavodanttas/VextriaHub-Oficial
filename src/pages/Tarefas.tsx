@@ -330,6 +330,7 @@ const Tarefas = () => {
   };
 
   // Ações em lote
+  const [selectMode, setSelectMode] = useState(false);
   const selectedIds = () => multiSelect.getSelectedItems().map(i => i.id);
   const bulkConcluir = async () => { await bulkPatch.mutateAsync({ ids: selectedIds(), concluir: true }); multiSelect.clearSelection(); };
   const bulkPrioridade = async (prioridade: string) => { await bulkPatch.mutateAsync({ ids: selectedIds(), patch: { prioridade } }); multiSelect.clearSelection(); };
@@ -364,7 +365,7 @@ const Tarefas = () => {
     const due = t.data_vencimento ? dueLabel(t.data_vencimento) : null;
     return (
       <div key={t.id} id={`item-${t.id}`}
-        onClick={() => openEdit(t)}
+        onClick={() => selectMode ? multiSelect.toggleItem(t.id) : openEdit(t)}
         className={cn(
           "group flex items-center gap-3 p-3.5 rounded-2xl border bg-card/40 transition-all hover:shadow-md cursor-pointer",
           selected ? "border-primary/40 ring-2 ring-primary/10 bg-primary/[0.02]" : "border-black/5 dark:border-border hover:border-black/10 dark:hover:border-white/15",
@@ -382,10 +383,12 @@ const Tarefas = () => {
           {t.concluida && <CheckCircle2 className="h-4 w-4" />}
         </button>
 
-        {/* Selecionar (aparece no hover ou quando já há seleção ativa) */}
-        <Checkbox checked={selected} onCheckedChange={() => multiSelect.toggleItem(t.id)}
-          onClick={(e) => e.stopPropagation()}
-          className={cn("rounded-md shrink-0 transition-opacity", (selected || multiSelect.selectedCount > 0) ? "opacity-100" : "opacity-0 group-hover:opacity-100")} />
+        {/* Seleção múltipla: só no modo "Selecionar" (senão fica só a bolinha de concluir) */}
+        {selectMode && (
+          <Checkbox checked={selected} onCheckedChange={() => multiSelect.toggleItem(t.id)}
+            onClick={(e) => e.stopPropagation()}
+            className="rounded-md shrink-0" />
+        )}
 
         {/* Conteúdo */}
         <div className="flex-1 min-w-0">
@@ -654,14 +657,23 @@ const Tarefas = () => {
       ) : (
         <div className="space-y-5">
           <div className="flex flex-wrap items-center gap-2 px-1">
-            <div className="flex items-center gap-3">
-              <Checkbox checked={multiSelect.isAllSelected} onCheckedChange={() => multiSelect.isAllSelected ? multiSelect.clearSelection() : multiSelect.selectAll()} className="rounded-md" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
-                {multiSelect.selectedCount > 0 ? `${multiSelect.selectedCount} selecionada(s)` : "Selecionar todas"}
-              </span>
-            </div>
+            {!selectMode ? (
+              <Button size="sm" variant="ghost" className="h-8 rounded-lg gap-1.5 font-bold text-muted-foreground" onClick={() => setSelectMode(true)}>
+                <CheckSquare className="h-3.5 w-3.5" /> Selecionar
+              </Button>
+            ) : (
+              <div className="flex items-center gap-3">
+                <Checkbox checked={multiSelect.isAllSelected} onCheckedChange={() => multiSelect.isAllSelected ? multiSelect.clearSelection() : multiSelect.selectAll()} className="rounded-md" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
+                  {multiSelect.selectedCount > 0 ? `${multiSelect.selectedCount} selecionada(s)` : "Selecionar todas"}
+                </span>
+                <Button size="sm" variant="ghost" className="h-8 rounded-lg gap-1 font-bold text-muted-foreground" onClick={() => { multiSelect.clearSelection(); setSelectMode(false); }}>
+                  <X className="h-3.5 w-3.5" /> Sair
+                </Button>
+              </div>
+            )}
 
-            {multiSelect.selectedCount > 0 && (
+            {selectMode && multiSelect.selectedCount > 0 && (
               <div className="flex flex-wrap items-center gap-1.5 sm:ml-auto">
                 <Button size="sm" variant="outline" disabled={bulkPatch.isPending}
                   className="h-8 rounded-lg gap-1.5 font-bold text-emerald-600" onClick={bulkConcluir}>

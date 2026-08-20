@@ -538,6 +538,17 @@ export default function Prazos() {
                         {getDaysLabel(prazo)}
                       </span>
 
+                      {ehSugestaoRobo(prazo) && (prazo.possivel_audiencia || pareceAudiencia(teorMap[prazo.id])) && !isConcluido && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => { setAgendarTipo('audiencia'); setAgendarTarget(prazo); }}
+                          className="h-8 rounded-xl gap-1.5 font-bold text-violet-600 hover:bg-violet-500/10 hover:text-violet-700 max-sm:opacity-100 opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Agendar audiência a partir deste prazo"
+                        >
+                          <Gavel className="h-4 w-4" /> <span className="hidden lg:inline">Agendar audiência</span>
+                        </Button>
+                      )}
                       {!isConcluido ? (
                         <Button
                           variant="ghost"
