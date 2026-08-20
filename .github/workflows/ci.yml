@@ -24,6 +24,9 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
+      - name: Lint (eslint — falha só em erros; warnings não quebram)
+        run: npx eslint . --quiet
+
       - name: Type-check (tsc)
         # -p tsconfig.app.json é obrigatório: `tsc --noEmit` puro usa o tsconfig.json
         # raiz (files:[] + references) e NÃO checa nada em src. Este aponta pro projeto real.
