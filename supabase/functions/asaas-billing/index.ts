@@ -110,6 +110,13 @@ serve(async (req) => {
         customerId = c.data.id;
       }
 
+      // Troca de plano / re-setup: cancela a assinatura ANTIGA no Asaas antes de
+      // criar a nova — senão as duas coexistem e o cliente é cobrado em duplicidade
+      // (o id local é sobrescrito logo abaixo e a antiga ficaria órfã, cobrando pra sempre).
+      if (sub?.asaas_subscription_id) {
+        await asaas(`/subscriptions/${sub.asaas_subscription_id}`, "DELETE");
+      }
+
       const s = await asaas("/subscriptions", "POST", {
         customer: customerId, billingType, value, nextDueDate: nextDue, cycle, description: planName,
       });
