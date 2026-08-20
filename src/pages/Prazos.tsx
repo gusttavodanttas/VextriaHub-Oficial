@@ -415,7 +415,7 @@ export default function Prazos() {
                             Sugestão do robô
                           </Badge>
                         )}
-                        {ehSugestaoRobo(prazo) && pareceAudiencia(teorMap[prazo.id]) && (
+                        {ehSugestaoRobo(prazo) && (prazo.possivel_audiencia || pareceAudiencia(teorMap[prazo.id])) && (
                           <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest border px-2 py-0.5 bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20" title="O teor menciona audiência — use 'Agendar audiência' no menu">
                             Possível audiência
                           </Badge>
@@ -666,6 +666,9 @@ export default function Prazos() {
           processoId={agendarTarget.processo_id || procDoPrazo(agendarTarget)?.id || null}
           tituloSugerido={tituloPrazo(agendarTarget, pubInfo)}
           descricaoSugerida={teorMap[agendarTarget.id]}
+          dataSugerida={agendarTarget.audiencia_data_sugerida || undefined}
+          horaSugerida={agendarTarget.audiencia_hora_sugerida || undefined}
+          tipoAudienciaSugerido={agendarTarget.audiencia_tipo_sugerido || undefined}
           onSuccess={async () => {
             // A sugestão virou audiência/tarefa: descarta o prazo sugerido
             await supabase.from('prazos').update({ deletado: true }).eq('id', agendarTarget.id);

@@ -120,6 +120,44 @@ function extrairPrazoTexto(texto: string | null | undefined): number | null {
   return m ? parseInt(m[1], 10) : null;
 }
 
+// ─────────── Detecção de "possível audiência" (item 5, abordagem A) ───────────
+// Marca o prazo e SUGERE data/hora/tipo quando o teor fala de audiência. O usuário
+// confirma num clique no front — NUNCA agenda sozinho (data errada = ato perdido).
+const MESES_PT: Record<string, number> = {
+  janeiro: 1, fevereiro: 2, 'março': 3, marco: 3, abril: 4, maio: 5, junho: 6,
+  julho: 7, agosto: 8, setembro: 9, outubro: 10, novembro: 11, dezembro: 12,
+};
+function tipoAudienciaDetectado(t: string): string | null {
+  if (/concilia/i.test(t)) return 'Audiência de Conciliação';
+  if (/instru/i.test(t)) return 'Audiência de Instrução';
+  if (/justifica/i.test(t)) return 'Audiência de Justificação';
+  if (/\buna\b/i.test(t)) return 'Audiência UNA';
+  if (/saneamento/i.test(t)) return 'Audiência de Saneamento';
+  if (/debates/i.test(t)) return 'Audiência de Debates';
+  if (/trabalhista/i.test(t)) return 'Audiência Trabalhista';
+  if (/criminal|penal/i.test(t)) return 'Audiência Criminal';
+  return null;
+}
+function analisarAudiencia(texto: string | null | undefined, dataBase: Date): { possivel: boolean; data: string | null; hora: string | null; tipo: string | null } {
+  const t = texto || '';
+  if (!/audi[êe]ncia/i.test(t)) return { possivel: false, data: null, hora: null, tipo: null };
+  const cand: number[] = [];
+  for (const m of t.matchAll(/\b(\d{1,2})\/(\d{1,2})\/(\d{2,4})\b/g)) {
+    const d = +m[1], mo = +m[2]; let y = +m[3]; if (y < 100) y += 2000;
+    if (d >= 1 && d <= 31 && mo >= 1 && mo <= 12) cand.push(new Date(y, mo - 1, d, 12).getTime());
+  }
+  for (const m of t.matchAll(/\b(\d{1,2})\s+de\s+([A-Za-zÀ-ÿ]+)\s+de\s+(\d{4})\b/gi)) {
+    const mo = MESES_PT[m[2].toLowerCase()]; const d = +m[1], y = +m[3];
+    if (mo && d >= 1 && d <= 31) cand.push(new Date(y, mo - 1, d, 12).getTime());
+  }
+  const futuras = cand.filter((ms) => ms > dataBase.getTime()).sort((a, b) => a - b);
+  const data = futuras.length ? new Date(futuras[0]).toISOString().split('T')[0] : null;
+  let hora: string | null = null;
+  const mh = /\b(\d{1,2})\s*h(?:oras|s)?\s*(\d{2})?\b/i.exec(t) || /\b(\d{1,2}):(\d{2})\b/.exec(t);
+  if (mh && +mh[1] <= 23) hora = `${String(+mh[1]).padStart(2, '0')}:${mh[2] || '00'}`;
+  return { possivel: true, data, hora, tipo: tipoAudienciaDetectado(t) };
+}
+
 function calcularPrazo(dataDisponibilizacao: string, tipoDocumento: string | null | undefined, nomeOrgao?: string | null, texto?: string | null): PrazoResult {
   const dataBase = new Date(dataDisponibilizacao + 'T12:00:00');
   const juizado = ehJuizado(nomeOrgao);
@@ -181,6 +219,9 @@ serve(async (req) => {
         const titulo = (pub.titulo || '').trim()
           || `${tipo_documento || 'Intimação'}${pub.numero_processo ? ` · ${pub.numero_processo}` : ''}`;
 
+        // Sugestão de audiência (o usuário confirma no front; não agenda sozinho)
+        const aud = analisarAudiencia(teor, new Date(data_disponibilizacao + 'T12:00:00'));
+
         const payload: Record<string, unknown> = {
           publicacao_id,
           office_id: pub.office_id,
@@ -196,12 +237,19 @@ serve(async (req) => {
           base_legal: resultado.base_legal,
           eh_juizado: resultado.eh_juizado,
           dias_corridos: resultado.dias_corridos,
+          possivel_audiencia: aud.possivel,
+          audiencia_data_sugerida: aud.data,
+          audiencia_hora_sugerida: aud.hora,
+          audiencia_tipo_sugerido: aud.tipo,
         };
 
         const { error } = await supabase.from('prazos').upsert(payload, { onConflict: 'publicacao_id' });
         if (error) {
-          // Resiliente: se alguma coluna nova não existir no schema, grava sem elas
-          const { titulo: _t, descricao: _d, processo_id: _p, ...base } = payload;
+          // Resiliente: se alguma coluna nova não existir no schema (ex.: migration ainda não
+          // aplicada), grava sem elas — inclusive os campos de sugestão de audiência.
+          const { titulo: _t, descricao: _d, processo_id: _p,
+            possivel_audiencia: _pa, audiencia_data_sugerida: _ad,
+            audiencia_hora_sugerida: _ah, audiencia_tipo_sugerido: _at, ...base } = payload;
           await supabase.from('prazos').upsert(base, { onConflict: 'publicacao_id' });
         }
       }

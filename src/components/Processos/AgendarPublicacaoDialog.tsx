@@ -27,6 +27,10 @@ interface AgendarPublicacaoDialogProps {
   descricaoSugerida?: string;
   // tipo inicial selecionado ao abrir
   defaultTipo?: AcaoTipo;
+  // pré-preenchimento sugerido (ex.: audiência detectada numa publicação — o usuário confirma)
+  dataSugerida?: string;
+  horaSugerida?: string;
+  tipoAudienciaSugerido?: string;
 }
 
 const TIPOS_AUDIENCIA = [
@@ -56,6 +60,9 @@ export const AgendarPublicacaoDialog = ({
   tituloSugerido,
   descricaoSugerida,
   defaultTipo = "prazo",
+  dataSugerida,
+  horaSugerida,
+  tipoAudienciaSugerido,
 }: AgendarPublicacaoDialogProps) => {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -69,11 +76,11 @@ export const AgendarPublicacaoDialog = ({
   const [form, setForm] = useState({
     titulo: tituloSugerido || "",
     descricao: descricaoInicial(),
-    data: "",
-    hora: "",
+    data: dataSugerida || "",
+    hora: horaSugerida || "",
     prioridade: "media",
     local: "",
-    tipoAudiencia: "Audiência de Conciliação",
+    tipoAudiencia: tipoAudienciaSugerido || "Audiência de Conciliação",
   });
 
   useEffect(() => {
@@ -82,15 +89,15 @@ export const AgendarPublicacaoDialog = ({
       setForm({
         titulo: tituloSugerido || "",
         descricao: descricaoInicial(),
-        data: "",
-        hora: "",
+        data: dataSugerida || "",
+        hora: horaSugerida || "",
         prioridade: "media",
         local: "",
-        tipoAudiencia: "Audiência de Conciliação",
+        tipoAudiencia: tipoAudienciaSugerido || "Audiência de Conciliação",
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, defaultTipo, tituloSugerido, numeroProcesso, descricaoSugerida]);
+  }, [open, defaultTipo, tituloSugerido, numeroProcesso, descricaoSugerida, dataSugerida, horaSugerida, tipoAudienciaSugerido]);
 
   // Resolve o processo (e o cliente dele). Se o chamador já sabe o id, usa direto.
   // Senão compara apenas os DÍGITOS dos dois lados — processos guardam o número

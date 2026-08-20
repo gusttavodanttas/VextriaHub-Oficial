@@ -35,6 +35,11 @@ export interface Prazo {
   dias_corridos?: boolean | null;  // true = contagem em dias corridos (Juizado)
   confirmado_em?: string | null;   // aceite da sugestão do robô
   confirmado_por?: string | null;
+  // Sugestão de audiência detectada na publicação (item 5) — o usuário confirma ao agendar
+  possivel_audiencia?: boolean | null;
+  audiencia_data_sugerida?: string | null;
+  audiencia_hora_sugerida?: string | null;
+  audiencia_tipo_sugerido?: string | null;
 }
 
 export const onlyDigits = (s?: string | null) => (s || '').replace(/\D/g, '');
