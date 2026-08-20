@@ -43,9 +43,10 @@ export const NotificationCenter: React.FC = () => {
   const { 
     notifications, 
     loading, 
-    markAsRead, 
-    markAllAsRead, 
-    deleteNotification 
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+    clearAll
   } = useNotifications();
   
   const [isOpen, setIsOpen] = useState(false);
@@ -66,7 +67,9 @@ export const NotificationCenter: React.FC = () => {
   };
 
   const clearAllNotifications = () => {
-    // Implementação de limpeza total se necessário, por enquanto removemos uma a uma ou usamos o hook
+    if (window.confirm('Limpar todas as notificações? Esta ação não pode ser desfeita.')) {
+      clearAll();
+    }
   };
 
   return (

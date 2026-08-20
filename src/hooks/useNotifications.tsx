@@ -96,6 +96,21 @@ export const useNotifications = () => {
     }
   };
 
+  const clearAll = async () => {
+    if (!user) return;
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      setNotifications([]);
+    } catch (err) {
+      console.error('Erro ao limpar notificações:', err);
+    }
+  };
+
   useEffect(() => {
     fetchNotifications();
 
@@ -134,6 +149,7 @@ export const useNotifications = () => {
     markAsRead,
     markAllAsRead,
     deleteNotification,
+    clearAll,
     refresh: fetchNotifications
   };
 };
