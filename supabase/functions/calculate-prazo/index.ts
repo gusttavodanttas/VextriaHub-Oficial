@@ -38,31 +38,54 @@ interface PrazoResult {
   dias_corridos: boolean;
 }
 
-const FERIADOS_FIXOS: Array<[number, number]> = [
-  [1, 1], [4, 21], [5, 1], [9, 7], [10, 12], [11, 2], [11, 15], [11, 20], [12, 25],
-];
+// ATENÇÃO: esta lógica DEVE espelhar src/lib/prazoCalc.ts (o motor coberto por teste).
+// Divergência = prazo errado = risco de perda de prazo. Base legal: dias úteis (CPC art. 219);
+// feriados fixos + móveis derivados da Páscoa por Meeus/Butcher (Carnaval seg/ter, Sexta-feira
+// Santa, Corpus Christi); recesso forense 20/12–20/01 inclusive (CPC art. 220 — prazos suspensos).
+const FERIADOS_FIXOS = new Set([
+  '01-01', '04-21', '05-01', '09-07', '10-12', '11-02', '11-15', '11-20', '12-25',
+]);
+function addDays(d: Date, n: number): Date { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
+function toISO(d: Date): string { return d.toISOString().split('T')[0]; }
+const mmddOf = (d: Date) => `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
+// Domingo de Páscoa (Meeus/Butcher) — MESMO algoritmo de prazoCalc.ts
 function pascoa(ano: number): Date {
-  const a = ano % 19, b = ano % 4, c = ano % 7;
-  const d = (19 * a + 24) % 30, e = (2 * b + 4 * c + 6 * d + 5) % 7;
-  let dia = 22 + d + e, mes = 3;
-  if (dia > 31) { dia -= 31; mes = 4; if (d === 29 && e === 6) dia = 19; else if (d === 28 && e === 6 && a > 10) dia = 18; }
+  const a = ano % 19, b = Math.floor(ano / 100), c = ano % 100;
+  const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const mes = Math.floor((h + l - 7 * m + 114) / 31);
+  const dia = ((h + l - 7 * m + 114) % 31) + 1;
   return new Date(ano, mes - 1, dia);
 }
-function toISO(d: Date): string { return d.toISOString().split('T')[0]; }
-function addDays(d: Date, n: number): Date { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
+const _movableCache: Record<number, Set<string>> = {};
 function feriadosMoveis(ano: number): Set<string> {
+  if (_movableCache[ano]) return _movableCache[ano];
   const p = pascoa(ano);
-  const sextaSanta = addDays(p, -2);
-  const corpus = addDays(p, 60);
-  return new Set([toISO(sextaSanta), toISO(corpus)]);
+  const set = new Set([
+    mmddOf(addDays(p, -48)), // Carnaval (segunda)
+    mmddOf(addDays(p, -47)), // Carnaval (terça)
+    mmddOf(addDays(p, -2)),  // Sexta-feira Santa
+    mmddOf(addDays(p, 60)),  // Corpus Christi
+  ]);
+  _movableCache[ano] = set;
+  return set;
+}
+// Recesso forense: 20/12 a 20/01 inclusive (CPC art. 220) — prazos suspensos
+function ehRecesso(d: Date): boolean {
+  const mo = d.getMonth() + 1, day = d.getDate();
+  return (mo === 12 && day >= 20) || (mo === 1 && day <= 20);
 }
 function ehFeriado(d: Date): boolean {
-  const m = d.getMonth() + 1, dia = d.getDate();
-  if (FERIADOS_FIXOS.some(([fm, fd]) => fm === m && fd === dia)) return true;
-  return feriadosMoveis(d.getFullYear()).has(toISO(d));
+  const mmdd = mmddOf(d);
+  return FERIADOS_FIXOS.has(mmdd) || feriadosMoveis(d.getFullYear()).has(mmdd);
 }
-function ehDiaUtil(d: Date): boolean { if (d.getDay() === 0 || d.getDay() === 6) return false; return !ehFeriado(d); }
+function ehDiaUtil(d: Date): boolean {
+  const w = d.getDay();
+  return w !== 0 && w !== 6 && !ehFeriado(d) && !ehRecesso(d);
+}
 function proximoDiaUtil(d: Date): Date { let r = addDays(d, 1); while (!ehDiaUtil(r)) r = addDays(r, 1); return r; }
 function adicionarDiasUteis(dataInicio: Date, dias: number): Date {
   let d = new Date(dataInicio), contados = 0;
