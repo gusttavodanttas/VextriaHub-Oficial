@@ -34,7 +34,8 @@ select cron.schedule(
       'Authorization', 'Bearer <SERVICE_ROLE_KEY>',
       'apikey', '<SERVICE_ROLE_KEY>'
     ),
-    body    := '{}'::jsonb
+    body    := '{}'::jsonb,
+    timeout_milliseconds := 60000
   );
   $$
 );

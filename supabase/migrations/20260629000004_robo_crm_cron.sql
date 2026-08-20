@@ -32,7 +32,8 @@ select cron.schedule(
       'apikey', '<SERVICE_ROLE_KEY>',
       'x-robot-secret', '<ROBOT_SECRET>'
     ),
-    body    := '{}'::jsonb
+    body    := '{}'::jsonb,
+    timeout_milliseconds := 60000
   );
   $$
 );
