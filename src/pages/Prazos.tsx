@@ -507,7 +507,7 @@ export default function Prazos() {
                           const label = numero ? formatCNJ(numero) : 'Ver processo';
                           return proc ? (
                             <button
-                              onClick={() => navigate(`/processos/${proc.id}`)}
+                              onClick={() => navigate(`/processos?openId=${proc.id}`)}
                               className="flex items-center gap-1 text-primary hover:text-primary/80 transition-colors ml-1"
                               title="Abrir processo"
                             >
@@ -624,7 +624,7 @@ export default function Prazos() {
                           )}
                           {prazo.processo_id && (
                             <DropdownMenuItem
-                              onClick={() => navigate(`/processos/${prazo.processo_id}`)}
+                              onClick={() => navigate(`/processos?openId=${prazo.processo_id}`)}
                               className="rounded-lg cursor-pointer gap-2"
                             >
                               <ChevronRight className="h-4 w-4" /> Ver processo

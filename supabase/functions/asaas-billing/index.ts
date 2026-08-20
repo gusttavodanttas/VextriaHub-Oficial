@@ -76,8 +76,10 @@ serve(async (req) => {
       const cpfCnpj = String(body?.cpfCnpj || "").replace(/\D/g, "");
       const cycle = String(body?.cycle || "MONTHLY");
       const billingType = String(body?.billing_type || "UNDEFINED");
-      const trial = !!body?.trial;
-      const trialDays = Number(body?.trial_days) || 7;
+      // Trial SÓ o super_admin concede — senão um admin do próprio escritório se
+      // daria trial infinito (trial_days grande) e nunca pagaria. Dias limitados a 30.
+      const trial = isSuper && !!body?.trial;
+      const trialDays = Math.min(Math.max(Number(body?.trial_days) || 7, 1), 30);
       const nextDue = trial ? plusDays(trialDays) : String(body?.first_due_date || plusDays(3));
 
       // Valor/nome do plano: self-serve (admin do escritório) DEVE usar um plano do
@@ -122,7 +124,10 @@ serve(async (req) => {
         office_id: officeId, asaas_customer_id: customerId, asaas_subscription_id: subscriptionId,
         plan_name: planName, value, cycle, billing_type: billingType,
         status: trial ? "trial" : "pendente",
-        trial_ends_at: trial ? nextDue : null, next_due_date: nextDue,
+        // NÃO zera o trial ao gerar a cobrança: preserva o trial vigente para o
+        // escritório não ser trancado no meio do teste (o office_has_access dá
+        // acesso a 'pendente' enquanto trial_ends_at >= hoje).
+        trial_ends_at: trial ? nextDue : (sub?.trial_ends_at ?? null), next_due_date: nextDue,
         last_invoice_url: invoiceUrl, is_lifetime: false, updated_at: new Date().toISOString(),
       }, { onConflict: "office_id" });
 
