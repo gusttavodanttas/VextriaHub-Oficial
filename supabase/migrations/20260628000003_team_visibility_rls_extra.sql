@@ -16,7 +16,9 @@ CREATE OR REPLACE FUNCTION public._drop_all_policies(p_table text)
 RETURNS void LANGUAGE plpgsql AS $$
 DECLARE pol record;
 BEGIN
-  FOR pol IN SELECT policyname FROM pg_policies WHERE schemaname='public' AND tablename=p_table
+  -- NÃO derruba policies RESTRICTIVE (ex.: office_paid_gate, a trava de pagamento): se esta
+  -- migration re-rodar num banco que já tem o gate restritivo, ele PRECISA sobreviver.
+  FOR pol IN SELECT policyname FROM pg_policies WHERE schemaname='public' AND tablename=p_table AND permissive='PERMISSIVE'
   LOOP EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', pol.policyname, p_table); END LOOP;
 END $$;
 
