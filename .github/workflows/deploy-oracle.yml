@@ -55,4 +55,4 @@ jobs:
           ssh-keyscan -H 147.15.10.89 >> ~/.ssh/known_hosts 2>/dev/null || true
           rsync -avz --delete \
             -e "ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new" \
-            dist/ ubuntu@147.15.10.89:/home/ubuntu/vextriahub-site/
+            dist/ ubuntu@147.15.10.89:/home/ubuntu/n8n-deploy/site/_vextriahub/
