@@ -135,18 +135,32 @@ export default function Agenda() {
 
   const EventRow = ({ e }: { e: AgendaEvent }) => {
     const m = typeMeta[e.type] || typeMeta.reuniao;
+    // Resolvido (audiência realizada, prazo/tarefa concluídos) tem cara de resolvido —
+    // antes aparecia idêntico a um pendente
+    const done = e.status === "concluido";
+    const doneLabel = e.type === "audiencia" ? "Realizada" : e.type === "tarefa" ? "Concluída" : "Concluído";
     return (
       <button id={`item-${e.id}`} onClick={() => goToSource(e)}
-        className="w-full flex items-center gap-3 p-3 rounded-xl border border-black/5 dark:border-border bg-card/40 hover:shadow-md hover:border-black/10 dark:hover:border-white/15 transition-all text-left group">
-        <div className={cn("p-2 rounded-lg shrink-0", m.bg)}><m.icon className={cn("h-4 w-4", m.color)} /></div>
+        className={cn(
+          "w-full flex items-center gap-3 p-3 rounded-xl border border-black/5 dark:border-border bg-card/40 hover:shadow-md hover:border-black/10 dark:hover:border-white/15 transition-all text-left group",
+          done && "opacity-60"
+        )}>
+        <div className={cn("p-2 rounded-lg shrink-0", done ? "bg-emerald-500/10" : m.bg)}>
+          {done ? <CalendarCheck className="h-4 w-4 text-emerald-600" /> : <m.icon className={cn("h-4 w-4", m.color)} />}
+        </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{e.name}</p>
+          <p className={cn("text-sm font-bold truncate group-hover:text-primary transition-colors", done && "line-through decoration-emerald-600/40")}>{e.name}</p>
           <div className="flex flex-wrap items-center gap-x-3 text-[11px] text-muted-foreground font-medium mt-0.5">
             <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{e.time}</span>
             {e.client && <span className="truncate">{e.client}</span>}
             {e.location && <span className="flex items-center gap-1 truncate"><MapPin className="h-3 w-3 shrink-0" />{e.location}</span>}
           </div>
         </div>
+        {done && (
+          <Badge variant="outline" className="shrink-0 rounded-lg text-[9px] font-black uppercase tracking-widest px-2 py-0.5 text-emerald-600 bg-emerald-500/10 border-emerald-500/20">
+            ✓ {doneLabel}
+          </Badge>
+        )}
         <Badge variant="outline" className={cn("shrink-0 rounded-lg text-[9px] font-black uppercase tracking-widest px-2 py-0.5", m.color, m.bg)}>{m.label}</Badge>
         <ArrowRight className="h-4 w-4 text-muted-foreground/20 group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
       </button>

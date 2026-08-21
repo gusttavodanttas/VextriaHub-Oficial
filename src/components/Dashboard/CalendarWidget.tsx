@@ -39,10 +39,12 @@ export function CalendarWidget() {
 
       const [{ data: prazos }, { data: audiencias }, { data: tarefas }, { data: atendimentos }, { data: consultivos }] = await Promise.all([
         supabase.from("prazos").select("id, tipo_prazo, numero_processo, data_fim_prazo, publicacoes(titulo)")
-          .eq("office_id", user.office_id).neq("status", "concluido")
+          .eq("office_id", user.office_id).neq("status", "concluido").eq("deletado", false)
           .gte("data_fim_prazo", start).lte("data_fim_prazo", end),
+        // realizada/cancelada saem do painel — aqui é "o que tenho pela frente"
         supabase.from("audiencias").select("id, titulo, data_audiencia")
-          .eq("office_id", user.office_id).eq("deletado", false).neq("status", "cancelada")
+          .eq("office_id", user.office_id).eq("deletado", false)
+          .not("status", "in", "(cancelada,realizada)")
           .gte("data_audiencia", start).lte("data_audiencia", end),
         // tarefas não têm office_id — a RLS já limita ao escritório/usuário
         supabase.from("tarefas").select("id, titulo, data_vencimento, concluida")

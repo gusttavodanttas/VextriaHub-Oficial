@@ -261,6 +261,7 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
         dataSugerida={(agendarRow.audiencia_data_sugerida || audSug.data) || undefined}
         horaSugerida={(agendarRow.audiencia_hora_sugerida || audSug.hora) || undefined}
         tipoAudienciaSugerido={(agendarRow.audiencia_tipo_sugerido || audSug.tipo) || undefined}
+        prazoOrigemId={item?.type === "prazo" ? agendarRow.id : null}
         onSuccess={() => { setAgendarOpen(false); setAgendarRow(null); onChanged?.(); }}
       />
     )}

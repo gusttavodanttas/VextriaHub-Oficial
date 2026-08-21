@@ -40,20 +40,22 @@ export const useAgendaEvents = (targetDate: Date) => {
       const start = startOfMonth(targetDate);
       const end = endOfMonth(targetDate);
 
-      // 1. Buscar Audiências
+      // 1. Buscar Audiências (canceladas ficam de fora; realizadas aparecem como concluídas)
       const { data: audiencias, error: audError } = await supabase
         .from("audiencias")
         .select("*, clientes!cliente_id(nome)")
         .eq("office_id", user.office_id)
         .gte("data_audiencia", start.toISOString())
         .lte("data_audiencia", end.toISOString())
-        .eq("deletado", false);
+        .eq("deletado", false)
+        .neq("status", "cancelada");
 
-      // 2. Buscar Prazos (schema real: data_fim_prazo, sem deletado; título vem da publicação)
+      // 2. Buscar Prazos (data_fim_prazo; título vem da publicação; descartados ficam de fora)
       const { data: prazos, error: praError } = await supabase
         .from("prazos")
         .select("*, publicacoes(titulo)")
         .eq("office_id", user.office_id)
+        .eq("deletado", false)
         .gte("data_fim_prazo", format(start, "yyyy-MM-dd"))
         .lte("data_fim_prazo", format(end, "yyyy-MM-dd"));
 
@@ -97,7 +99,8 @@ export const useAgendaEvents = (targetDate: Date) => {
           type: 'audiencia' as const,
           client: (a as any).clientes?.nome || 'Cliente não informado',
           location: a.local || 'Local não informado',
-          status: (a.status as EventStatus) || 'pendente'
+          // normaliza pro vocabulário da agenda: realizada = concluída
+          status: (a.status === 'realizada' ? 'concluido' : a.status === 'cancelada' ? 'cancelado' : 'pendente') as EventStatus
         })),
         ...(prazos || []).map((p: any) => ({
           id: p.id,
@@ -107,7 +110,8 @@ export const useAgendaEvents = (targetDate: Date) => {
           type: 'prazo' as const,
           client: p.numero_processo || 'Prazo processual',
           location: 'Digital',
-          status: 'pendente' as const
+          // status REAL — antes era 'pendente' fixo e prazo concluído parecia pendente pra sempre
+          status: (p.status === 'concluido' ? 'concluido' : 'pendente') as EventStatus
         })),
         ...(atendimentos || []).map(ate => ({
           id: ate.id,

@@ -680,9 +680,9 @@ export default function Prazos() {
           dataSugerida={(agendarTarget.audiencia_data_sugerida || extrairAudienciaSugerida(teorMap[agendarTarget.id]).data) || undefined}
           horaSugerida={(agendarTarget.audiencia_hora_sugerida || extrairAudienciaSugerida(teorMap[agendarTarget.id]).hora) || undefined}
           tipoAudienciaSugerido={(agendarTarget.audiencia_tipo_sugerido || extrairAudienciaSugerida(teorMap[agendarTarget.id]).tipo) || undefined}
+          prazoOrigemId={agendarTarget.id}
           onSuccess={async () => {
-            // A sugestão virou audiência/tarefa: descarta o prazo sugerido
-            await supabase.from('prazos').update({ deletado: true }).eq('id', agendarTarget.id);
+            // O descarte do prazo de origem acontece dentro do próprio dialog (prazoOrigemId)
             queryClient.invalidateQueries({ queryKey: ['prazos'] });
             queryClient.invalidateQueries({ queryKey: ['audiencias'] });
             queryClient.invalidateQueries({ queryKey: ['tarefas'] });

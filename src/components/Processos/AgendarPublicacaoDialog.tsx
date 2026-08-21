@@ -31,6 +31,9 @@ interface AgendarPublicacaoDialogProps {
   dataSugerida?: string;
   horaSugerida?: string;
   tipoAudienciaSugerido?: string;
+  // prazo que originou este agendamento (fluxo "converter sugestão do robô"):
+  // ao salvar como audiência/tarefa, o prazo é descartado — senão fica pendente na agenda pra sempre
+  prazoOrigemId?: string | null;
 }
 
 const TIPOS_AUDIENCIA = [
@@ -63,6 +66,7 @@ export const AgendarPublicacaoDialog = ({
   dataSugerida,
   horaSugerida,
   tipoAudienciaSugerido,
+  prazoOrigemId,
 }: AgendarPublicacaoDialogProps) => {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -187,6 +191,14 @@ export const AgendarPublicacaoDialog = ({
         if (error) throw error;
       }
 
+      // Converteu um prazo (sugestão do robô) em audiência/tarefa → descarta o prazo de
+      // origem, senão ele continua "pendente" na agenda como se nada tivesse acontecido
+      const descartouOrigem = !!prazoOrigemId && tipo !== "prazo";
+      if (descartouOrigem) {
+        const { error: descErr } = await supabase.from("prazos").update({ deletado: true }).eq("id", prazoOrigemId);
+        if (descErr) console.warn("Falha ao descartar prazo de origem:", descErr.message);
+      }
+
       if (!processoId && numeroProcesso) {
         toast({
           title: "Salvo, mas sem vínculo ao processo",
@@ -194,7 +206,10 @@ export const AgendarPublicacaoDialog = ({
         });
       }
 
-      toast({ title: `${META[tipo].label} agendado(a)`, description: "Salvo com sucesso." });
+      toast({
+        title: `${META[tipo].label} agendado(a)`,
+        description: descartouOrigem ? "Salvo com sucesso — o prazo de origem saiu da agenda." : "Salvo com sucesso.",
+      });
       onOpenChange(false);
       onSuccess?.();
     } catch (error: unknown) {
