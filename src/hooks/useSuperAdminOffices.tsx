@@ -268,7 +268,7 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
         title: 'Sucesso!',
         description:
           action === 'apply_discount'
-            ? 'Desconto aplicado no Stripe.'
+            ? 'Desconto aplicado.'
             : action === 'grant_lifetime'
             ? 'Acesso vitalício concedido.'
             : 'Vitalício revertido.',
@@ -279,7 +279,7 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
       console.error('Erro ao gerenciar acesso:', err);
       toast({
         title: 'Falha na operação',
-        description: getErrorMessage(err, 'Erro ao processar ação no Stripe.'),
+        description: getErrorMessage(err, 'Erro ao processar a operação.'),
         variant: 'destructive',
       });
       return false;

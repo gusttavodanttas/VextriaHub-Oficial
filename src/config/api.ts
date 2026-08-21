@@ -5,22 +5,11 @@ export const API_CONFIG = {
   // Base URLs das APIs
   PROCESSO_API_BASE_URL: 'https://api-publica.datajud.cnj.jus.br',
   
-  // Configurações Stripe (APENAS CHAVE PÚBLICA NO FRONTEND)
-  STRIPE: {
-    PUBLISHABLE_KEY: import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '',
-    WEBHOOK_URL: 'https://rceixowecqpiotophyku.supabase.co/functions/v1/stripe-webhook',
-  },
-  
   // Headers padrão
   DEFAULT_HEADERS: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
   }
-};
-
-// Função para verificar se Stripe está configurado minimamente
-export const isStripeConfigured = () => {
-  return !!import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 };
 
 // Função para fazer requisições de processo via Edge Function (Seguro)

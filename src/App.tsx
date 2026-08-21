@@ -38,9 +38,6 @@ const Configuracoes = lazy(() => import("./pages/Configuracoes"));
 const Perfil = lazy(() => import("./pages/Perfil"));
 const Admin = lazy(() => import("./pages/Admin"));
 const SuperAdmin = lazy(() => import("./pages/SuperAdmin"));
-const SystemAdmin = lazy(() => import("./pages/SystemAdmin"));
-const SystemSubscriptions = lazy(() => import("./pages/SystemSubscriptions"));
-const Subscriptions = lazy(() => import("./pages/Subscriptions"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Audiencias = lazy(() => import("./pages/Audiencias"));
 const Equipe = lazy(() => import("./pages/Equipe"));
@@ -327,23 +324,6 @@ const AppWithRouter = () => {
           <PrivateRoute requireRole="super_admin">
             <AppLayout>
               <SuperAdmin />
-            </AppLayout>
-          </PrivateRoute>
-        } />
-        <Route path="/system-admin" element={
-          <PrivateRoute requireRole="super_admin">
-            <SystemAdmin />
-          </PrivateRoute>
-        } />
-        <Route path="/system/subscriptions" element={
-          <PrivateRoute requireRole="super_admin">
-            <SystemSubscriptions />
-          </PrivateRoute>
-        } />
-        <Route path="/subscriptions" element={
-          <PrivateRoute requirePermission="canManageSubscriptions">
-            <AppLayout>
-              <Subscriptions />
             </AppLayout>
           </PrivateRoute>
         } />
