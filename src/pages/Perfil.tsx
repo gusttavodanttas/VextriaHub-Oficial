@@ -580,7 +580,8 @@ function SecurityCard() {
   const [novoEmail, setNovoEmail] = useState("");
   const [salvandoEmail, setSalvandoEmail] = useState(false);
 
-  const [senhaAtual, setSenhaAtual] = useState("");
+  const [codigo, setCodigo] = useState("");
+  const [codigoEnviado, setCodigoEnviado] = useState(false);
   const [novaSenha, setNovaSenha] = useState("");
   const [confirmar, setConfirmar] = useState("");
   const [mostrar, setMostrar] = useState(false);
@@ -592,7 +593,7 @@ function SecurityCard() {
 
   const curta = novaSenha.length > 0 && novaSenha.length < 6;
   const diverge = confirmar.length > 0 && confirmar !== novaSenha;
-  const podeSalvar = senhaAtual.length > 0 && novaSenha.length >= 6 && confirmar === novaSenha && !salvando;
+  const senhaOk = novaSenha.length >= 6 && confirmar === novaSenha;
 
   const alterarEmail = async () => {
     if (!podeTrocarEmail) return;
@@ -607,25 +608,33 @@ function SecurityCard() {
     setNovoEmail("");
   };
 
-  const alterar = async () => {
-    if (!podeSalvar) return;
+  // Troca de senha server-enforced (política "require current password / reauthentication"):
+  // reauthenticate() envia um código para o e-mail do usuário; a troca só passa com esse nonce
+  // — uma sessão sequestrada não consegue trocar a senha sem acesso ao e-mail.
+  const enviarCodigo = async () => {
+    if (!senhaOk || salvando) return;
     setSalvando(true);
-    // Reautentica com a senha atual antes de trocar — exigido pela política
-    // "Require current password when updating" (e barra troca por sessão sequestrada).
-    const { error: reauthError } = await supabase.auth.signInWithPassword({ email: emailAtual, password: senhaAtual });
-    if (reauthError) {
-      setSalvando(false);
-      toast({ variant: "destructive", title: "Senha atual incorreta", description: "Confira a senha atual e tente novamente." });
+    const { error } = await supabase.auth.reauthenticate();
+    setSalvando(false);
+    if (error) {
+      toast({ variant: "destructive", title: "Erro ao enviar o código", description: error.message });
       return;
     }
-    const { error } = await supabase.auth.updateUser({ password: novaSenha });
+    setCodigoEnviado(true);
+    toast({ title: "Código enviado", description: `Enviamos um código de verificação para ${emailAtual}.` });
+  };
+
+  const confirmarTroca = async () => {
+    if (!senhaOk || codigo.trim().length === 0 || salvando) return;
+    setSalvando(true);
+    const { error } = await supabase.auth.updateUser({ password: novaSenha, nonce: codigo.trim() });
     setSalvando(false);
     if (error) {
       toast({ variant: "destructive", title: "Erro ao alterar senha", description: error.message });
       return;
     }
     toast({ title: "Senha alterada", description: "Sua nova senha já está ativa." });
-    setSenhaAtual(""); setNovaSenha(""); setConfirmar("");
+    setNovaSenha(""); setConfirmar(""); setCodigo(""); setCodigoEnviado(false);
   };
 
   return (
@@ -654,17 +663,7 @@ function SecurityCard() {
       </div>
 
       <div className="space-y-4">
-        <div className="space-y-1.5">
-          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50">Senha atual</Label>
-          <Input
-            type={mostrar ? "text" : "password"}
-            value={senhaAtual}
-            onChange={(e) => setSenhaAtual(e.target.value)}
-            placeholder="Sua senha atual"
-            autoComplete="current-password"
-            className="h-12 rounded-2xl bg-background/50"
-          />
-        </div>
+        <p className="text-[11px] text-muted-foreground -mt-1">Por segurança, ao confirmar enviaremos um código para o seu e-mail (<span className="font-bold text-foreground/70">{emailAtual}</span>) para validar a troca.</p>
         <div className="space-y-1.5">
           <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50">Nova senha</Label>
           <div className="relative">
@@ -699,10 +698,33 @@ function SecurityCard() {
           {diverge && <p className="text-[11px] font-bold text-destructive px-1">As senhas não coincidem.</p>}
         </div>
 
-        <Button onClick={alterar} disabled={!podeSalvar} className="w-full h-12 rounded-2xl font-black uppercase text-xs tracking-widest gap-2">
-          {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
-          {salvando ? "Alterando…" : "Alterar Senha"}
-        </Button>
+        {!codigoEnviado ? (
+          <Button onClick={enviarCodigo} disabled={!senhaOk || salvando} className="w-full h-12 rounded-2xl font-black uppercase text-xs tracking-widest gap-2">
+            {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+            {salvando ? "Enviando…" : "Enviar código de verificação"}
+          </Button>
+        ) : (
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50">Código do e-mail</Label>
+              <Input
+                value={codigo}
+                onChange={(e) => setCodigo(e.target.value)}
+                placeholder="Cole o código recebido"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                className="h-12 rounded-2xl bg-background/50 font-mono tracking-[0.3em]"
+              />
+            </div>
+            <Button onClick={confirmarTroca} disabled={!senhaOk || codigo.trim().length === 0 || salvando} className="w-full h-12 rounded-2xl font-black uppercase text-xs tracking-widest gap-2">
+              {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
+              {salvando ? "Alterando…" : "Confirmar nova senha"}
+            </Button>
+            <button type="button" onClick={enviarCodigo} disabled={salvando} className="w-full text-[11px] font-bold text-muted-foreground/70 hover:text-primary disabled:opacity-40">
+              Reenviar código
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
