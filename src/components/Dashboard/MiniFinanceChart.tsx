@@ -15,6 +15,7 @@ export function MiniFinanceChart() {
   const navigate = useNavigate();
   const [data, setData] = useState<Bucket[]>([]);
   const [loading, setLoading] = useState(true);
+  const [meses, setMeses] = useState(6);
 
   useEffect(() => {
     if (!user?.office_id) { setLoading(false); return; }
@@ -22,7 +23,7 @@ export function MiniFinanceChart() {
     (async () => {
       setLoading(true);
       const start = new Date();
-      start.setMonth(start.getMonth() - 5);
+      start.setMonth(start.getMonth() - (meses - 1));
       start.setDate(1);
       const { data: rows } = await supabase
         .from("financeiro")
@@ -34,7 +35,7 @@ export function MiniFinanceChart() {
 
       const buckets: Record<string, Bucket> = {};
       const order: string[] = [];
-      for (let i = 5; i >= 0; i--) {
+      for (let i = meses - 1; i >= 0; i--) {
         const d = new Date();
         d.setMonth(d.getMonth() - i);
         const key = `${d.getFullYear()}-${d.getMonth()}`;
@@ -52,7 +53,7 @@ export function MiniFinanceChart() {
       setLoading(false);
     })();
     return () => { cancel = true; };
-  }, [user?.office_id]);
+  }, [user?.office_id, meses]);
 
   const totais = useMemo(() => {
     const receita = data.reduce((s, d) => s + d.receita, 0);
@@ -65,11 +66,21 @@ export function MiniFinanceChart() {
 
   return (
     <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 flex flex-col h-full min-h-[320px]">
-      <button onClick={() => navigate("/financeiro")} className="flex items-center gap-1.5 group w-full text-left">
-        <TrendingUp className="h-3 w-3 text-muted-foreground/50" />
-        <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50">Receita x Despesa · 6 meses</span>
-        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/30 ml-auto group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-      </button>
+      <div className="flex items-center gap-1.5">
+        <button onClick={() => navigate("/financeiro")} className="flex items-center gap-1.5 group min-w-0 text-left">
+          <TrendingUp className="h-3 w-3 text-muted-foreground/50 shrink-0" />
+          <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 truncate">Receita x Despesa</span>
+          <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/30 group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
+        </button>
+        <div className="ml-auto flex items-center gap-0.5 bg-black/[0.03] dark:bg-white/[0.04] rounded-lg p-0.5 shrink-0">
+          {[3, 6, 12].map((m) => (
+            <button key={m} onClick={() => setMeses(m)}
+              className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md transition-all ${meses === m ? "bg-card text-primary shadow-sm" : "text-muted-foreground/50 hover:text-muted-foreground"}`}>
+              {m}M
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Totais do período */}
       <div className="grid grid-cols-3 gap-2 mt-3">
