@@ -10,7 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { formatCpfCnpj, onlyDigits, isValidCpfCnpj } from '@/lib/document';
 import { CreditCard, FileText, QrCode, Loader2, CheckCircle2, ExternalLink, Copy, Check } from 'lucide-react';
 
-interface Plan { plan_type: string; plan_name: string; price_cents: number; cycle?: string }
+interface Plan { plan_type: string; plan_name: string; price_cents: number; cycle?: string; signup_only?: boolean }
 const cicloLabel: Record<string, string> = { MONTHLY: 'por mês', QUARTERLY: 'por trimestre', SEMIANNUALLY: 'por semestre', YEARLY: 'por ano' };
 interface Sub { status: string; plan_name: string | null; next_due_date: string | null; last_invoice_url: string | null }
 
@@ -43,12 +43,12 @@ function Pagamento() {
   const load = useCallback(async () => {
     setLoading(true);
     const [{ data: planRows }, subRes] = await Promise.all([
-      supabase.from('plan_configs').select('plan_type, plan_name, price_cents, cycle').eq('is_active', true).order('price_cents'),
+      supabase.from('plan_configs').select('plan_type, plan_name, price_cents, cycle, signup_only').eq('is_active', true).order('price_cents'),
       office?.id
         ? supabase.from('office_subscriptions').select('status, plan_name, next_due_date, last_invoice_url').eq('office_id', office.id).maybeSingle()
         : Promise.resolve({ data: null }),
     ]);
-    const rows = (planRows as Plan[]) || [];
+    const rows = ((planRows as Plan[]) || []).filter((p) => !p.signup_only);
     setPlans(rows);
     const preset = searchParams.get('plano') || searchParams.get('plan');
     if (preset && rows.some((p) => p.plan_type === preset)) setPlanType(preset);

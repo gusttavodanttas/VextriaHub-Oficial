@@ -217,19 +217,23 @@ const Register = () => {
       // de um link de plano, registra o plano escolhido e leva direto ao pagamento.
       // Planos sem trial (ex.: Básico mensal) já entram como "pendente" → o portão de
       // acesso exige o pagamento. Cadastro orgânico (sem ?plano=) mantém os 7 dias de teste.
+      let planOutcome: string | null = null;
       try {
         await supabase.rpc('ensure_office_for_user' as never);
         if (planParam) {
-          await supabase.rpc('apply_signup_plan' as never, { p_plan_type: planParam } as never);
+          const { data } = await supabase.rpc('apply_signup_plan' as never, { p_plan_type: planParam } as never);
+          planOutcome = (data as string) ?? null;
         }
       } catch (setupErr) {
         console.error('signup plan setup:', setupErr);
       }
       localStorage.removeItem('checkout_in_progress');
-      if (planParam) {
+      if (planParam && planOutcome === 'pendente') {
+        // Plano sem trial (ex.: Básico mensal) → precisa pagar para acessar.
         toast({ title: "Cadastro concluído!", description: "Escolha a forma de pagamento para ativar seu acesso." });
         navigate(`/pagamento?plano=${encodeURIComponent(planParam)}`);
       } else {
+        // Trial ativo (7 ou 30 dias) ou cadastro orgânico → começa a usar; paga quando quiser.
         toast({ title: "Cadastro concluído!", description: "Seu período de teste começou. Bem-vindo(a)!" });
         navigate("/dashboard");
       }
@@ -252,7 +256,8 @@ const Register = () => {
   };
 
   // Reflete o plano do link: Básico (sem trial) muda o texto; o ciclo ajusta o sufixo do preço.
-  const semTrial = !!planParam && (planData?.trial_days ?? 0) === 0;
+  const trialDays = planParam ? (planData?.trial_days ?? 7) : 7;
+  const semTrial = trialDays === 0;
   const cycleSuffix = planData?.cycle === 'YEARLY' ? '/ano'
     : planData?.cycle === 'SEMIANNUALLY' ? '/semestre'
     : planData?.cycle === 'QUARTERLY' ? '/trimestre' : '/mês';
@@ -282,7 +287,7 @@ const Register = () => {
               {isInvite ? "Entrar na equipe" : semTrial ? "Criar sua conta" : "Começar Teste Grátis"}
             </CardTitle>
             <CardDescription className="text-center">
-              {isInvite ? "Crie seu acesso — você entra direto no escritório" : semTrial ? "Ativação imediata • Cancele quando quiser" : "7 dias grátis • Sem compromisso • Cancele quando quiser"}
+              {isInvite ? "Crie seu acesso — você entra direto no escritório" : semTrial ? "Ativação imediata • Cancele quando quiser" : `${trialDays} dias grátis • Sem compromisso • Cancele quando quiser`}
             </CardDescription>
             {!isInvite && planData && (
               <div className="text-center">
