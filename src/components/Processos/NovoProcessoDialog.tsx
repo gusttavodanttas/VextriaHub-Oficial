@@ -29,6 +29,9 @@ import { useOfficeUsers } from '@/hooks/useOfficeUsers';
 import { useOfficeTeams } from '@/hooks/useOfficeTeams';
 import { useAuth } from '@/contexts/AuthContext';
 import { NovoProcessoForm, tiposProcesso, statusProcesso, fasesProcessuais } from '@/types/processo';
+import { useOfficeSettingList } from '@/hooks/useOfficeSettingList';
+import { CreatableSelect } from '@/components/Settings/CreatableSelect';
+import { TIPOS_PROCESSO_DEFAULT, type TipoProcesso } from '@/components/Settings/ProcessTypeSimple';
 import { Separator } from '@/components/ui/separator';
 import { formatCNJ, unformatCNJ } from '@/lib/formatters';
 import { tribunalFromCNJ } from '@/utils/tribunalCNJ';
@@ -66,6 +69,8 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
   const { teams: officeTeams } = useOfficeTeams();
   const { addMovimentacao, create } = useProcessosV2();
   const { data: clientesData = [] } = useClientes();
+  // Tipos de processo cadastrados em Config → Processos (antes essa lista não era lida em lugar nenhum)
+  const { items: tiposProcessoCfg, persist: persistTipos } = useOfficeSettingList<TipoProcesso>('tipos_processo', TIPOS_PROCESSO_DEFAULT);
 
   // Wrapper: usa o callback do pai se existir; senão chama create() direto.
   const addProcesso = async (proc: any) => {
@@ -549,6 +554,16 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
                               onChange={(e) => handleChange('titulo', e.target.value)}
                               placeholder="Ex: Ação Trabalhista - Cliente X"
                               className="h-11 rounded-xl"
+                            />
+                          </div>
+                          <div className="space-y-2 md:col-span-2">
+                            <Label>Tipo de processo</Label>
+                            <CreatableSelect
+                              value={formData.tipoProcesso || ''}
+                              onChange={(v) => handleChange('tipoProcesso', v)}
+                              options={tiposProcessoCfg.map((t) => t.nome)}
+                              onCreate={(v) => { persistTipos([...tiposProcessoCfg, { id: Date.now(), nome: v, descricao: '', area: '' }]); handleChange('tipoProcesso', v); }}
+                              placeholder="Selecione ou digite um tipo (gerido em Config → Processos)"
                             />
                           </div>
                           <div className="space-y-2">

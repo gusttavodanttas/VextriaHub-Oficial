@@ -10,16 +10,16 @@ import { cn } from "@/lib/utils";
 import { useOfficeSettingList } from "@/hooks/useOfficeSettingList";
 import { CreatableSelect } from "@/components/Settings/CreatableSelect";
 
-interface TipoProcesso { id: number; nome: string; descricao: string; area: string; }
+export interface TipoProcesso { id: number; nome: string; descricao: string; area: string; }
 
-const TIPOS_PROCESSO_DEFAULT: TipoProcesso[] = [
+export const TIPOS_PROCESSO_DEFAULT: TipoProcesso[] = [
   { id: 1, nome: "BPC (Benefício de Prestação Continuada)", descricao: "Auxílio assistencial para pessoas com deficiência ou idosos em situação de vulnerabilidade", area: "Previdenciário" },
   { id: 2, nome: "Aposentadoria por Idade", descricao: "Benefício previdenciário por idade mínima e tempo de contribuição", area: "Previdenciário" },
   { id: 3, nome: "Planejamento Previdenciário", descricao: "Consultoria e estratégia para otimização de benefícios previdenciários", area: "Consultivo" },
   { id: 4, nome: "Assessoria Preventiva para Dentistas", descricao: "Consultoria jurídica preventiva especializada para profissionais da odontologia", area: "Consultivo" },
 ];
 
-const AREAS_DEFAULT = ["Previdenciário", "Trabalhista", "Civil", "Consultivo", "Outros"];
+export const AREAS_DEFAULT = ["Previdenciário", "Trabalhista", "Civil", "Consultivo", "Outros"];
 
 const areaColor = (area: string) => {
   switch (area) {
