@@ -16,6 +16,7 @@ import { formatPhone, isValidPhone } from '@/lib/phone';
 import { uploadPublicImage, validateImage } from '@/lib/uploadImage';
 import { hexToHslString, applyPrimary, BRAND_LS_KEY } from '@/lib/brandColor';
 import { PermissionGuard } from '@/components/Auth/PermissionGuard';
+import { useNavigate } from 'react-router-dom';
 
 const BRAND_PRESETS = ['#0ea5e9', '#2563eb', '#7c3aed', '#16a34a', '#dc2626', '#ea580c', '#0d9488', '#db2777'];
 
@@ -32,6 +33,7 @@ export const OfficeSettings: React.FC = () => {
   const { office } = useAuth();
   const { updateOffice } = useOfficeManagement();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const logoRef = useRef<HTMLInputElement>(null);
   const [logoUrl, setLogoUrl] = useState((office as any)?.logo_url || '');
@@ -308,9 +310,12 @@ export const OfficeSettings: React.FC = () => {
             </CardHeader>
             <CardContent className="p-5 md:p-6 flex flex-col justify-between gap-4 h-[calc(100%-73px)]">
               <p className="text-sm text-muted-foreground">
-                Para alterar seu plano ou gerenciar sua assinatura, fale com o suporte.
+                Ative ou gerencie a assinatura do escritório. Você pode pagar por Pix, boleto ou
+                cartão a qualquer momento — inclusive durante o período de teste.
               </p>
-              <Button variant="outline" className="w-full rounded-xl font-bold">Falar com Suporte</Button>
+              <Button className="w-full rounded-xl font-bold" onClick={() => navigate('/pagamento')}>
+                Assinar / Gerenciar assinatura
+              </Button>
             </CardContent>
           </Card>
         </div>

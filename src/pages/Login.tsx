@@ -227,7 +227,7 @@ const Login = () => {
             <span>Seus dados estão protegidos</span>
           </div>
           <p className="text-xs text-muted-foreground">
-            © 2025 VextriaHub. Todos os direitos reservados.
+            © {new Date().getFullYear()} VextriaHub. Todos os direitos reservados.
           </p>
         </div>
       </div>

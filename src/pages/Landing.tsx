@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,6 +29,23 @@ import {
 const Landing: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+  const [billingCycle, setBillingCycle] = useState<'MONTHLY' | 'SEMIANNUALLY' | 'YEARLY'>('MONTHLY');
+
+  // Planos por ciclo (espelham o catálogo em plan_configs). Semestral = 1 mês grátis, Anual = 2.
+  const CYCLES = [
+    { key: 'MONTHLY' as const, label: 'Mensal', note: '' },
+    { key: 'SEMIANNUALLY' as const, label: 'Semestral', note: '1 mês grátis' },
+    { key: 'YEARLY' as const, label: 'Anual', note: '2 meses grátis' },
+  ];
+  const PLAN_CODES: Record<string, string> = { 'Básico': 'BASIC', 'Intermediário': 'PRO', 'Avançado': 'ENTERPRISE', 'Premium': 'PREMIUM' };
+  const CYCLE_SUFFIX: Record<string, string> = { MONTHLY: '', SEMIANNUALLY: '_SEMESTRAL', YEARLY: '_ANUAL' };
+  const PERIOD_LABEL: Record<string, string> = { MONTHLY: '/mês', SEMIANNUALLY: '/semestre', YEARLY: '/ano' };
+  const PLAN_PRICES: Record<string, Record<string, string>> = {
+    BASIC: { MONTHLY: 'R$ 47', SEMIANNUALLY: 'R$ 235', YEARLY: 'R$ 470' },
+    PRO: { MONTHLY: 'R$ 97', SEMIANNUALLY: 'R$ 485', YEARLY: 'R$ 970' },
+    ENTERPRISE: { MONTHLY: 'R$ 197', SEMIANNUALLY: 'R$ 985', YEARLY: 'R$ 1.970' },
+    PREMIUM: { MONTHLY: 'R$ 397', SEMIANNUALLY: 'R$ 1.985', YEARLY: 'R$ 3.970' },
+  };
 
   useEffect(() => {
     // Se já estiver autenticado, redirecionar para o dashboard
@@ -378,8 +395,16 @@ const Landing: React.FC = () => {
               Escolha o plano ideal para você
             </h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Comece com 7 dias grátis em qualquer plano. Mude de plano quando quiser, sem complicação.
+              Escolha entre mensal, semestral ou anual — semestral e anual saem mais em conta. Mude de plano quando quiser.
             </p>
+          </div>
+          <div className="flex justify-center gap-2 mb-10 flex-wrap">
+            {CYCLES.map((c) => (
+              <button key={c.key} type="button" onClick={() => setBillingCycle(c.key)}
+                className={`px-5 py-2.5 rounded-full text-sm font-semibold transition-colors ${billingCycle === c.key ? 'bg-primary text-primary-foreground shadow' : 'bg-muted text-muted-foreground hover:bg-muted/70'}`}>
+                {c.label}{c.note && <span className="ml-1.5 text-xs opacity-80">· {c.note}</span>}
+              </button>
+            ))}
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
             {plans.map((plan, index) => (
@@ -392,8 +417,8 @@ const Landing: React.FC = () => {
                 <CardHeader className="text-center pb-4">
                   <CardTitle className="text-2xl">{plan.name}</CardTitle>
                   <div className="flex items-baseline justify-center gap-1">
-                    <span className="text-3xl font-bold">{plan.price}</span>
-                    <span className="text-muted-foreground">{plan.period}</span>
+                    <span className="text-3xl font-bold">{PLAN_PRICES[PLAN_CODES[plan.name]]?.[billingCycle] ?? plan.price}</span>
+                    <span className="text-muted-foreground">{PERIOD_LABEL[billingCycle]}</span>
                   </div>
                   <CardDescription className="text-base">
                     {plan.description}
@@ -439,17 +464,9 @@ const Landing: React.FC = () => {
                   <Button 
                     className="w-full" 
                     variant={plan.popular ? "default" : "outline"}
-                    onClick={() => {
-                      const slugMap: Record<string, string> = {
-                        "Básico": "basico",
-                        "Intermediário": "intermediario",
-                        "Avançado": "avancado",
-                        "Premium": "premium"
-                      };
-                      navigate(`/cadastro?plan=${slugMap[plan.name] || plan.name.toLowerCase()}`);
-                    }}
+                    onClick={() => navigate(`/cadastro?plano=${PLAN_CODES[plan.name]}${CYCLE_SUFFIX[billingCycle]}`)}
                   >
-                    Testar Grátis
+                    {plan.name === "Básico" && billingCycle === "MONTHLY" ? "Assinar agora" : "Começar agora"}
                   </Button>
                 </CardContent>
               </Card>
@@ -564,7 +581,7 @@ const Landing: React.FC = () => {
             </div>
           </div>
           <div className="border-t border-border mt-8 pt-8 text-center text-muted-foreground">
-            <p>© 2025 VextriaHub. Todos os direitos reservados.</p>
+            <p>© {new Date().getFullYear()} VextriaHub. Todos os direitos reservados.</p>
           </div>
         </div>
       </footer>
