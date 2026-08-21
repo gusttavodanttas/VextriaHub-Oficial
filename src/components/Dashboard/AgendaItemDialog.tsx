@@ -221,7 +221,7 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
 
             <div className="flex flex-col sm:flex-row gap-2 pt-1">
               {item?.type === "prazo" && row.status !== "concluido" && (row.possivel_audiencia || pareceAudiencia(row.descricao || "")) && (
-                <Button variant="outline" onClick={() => { setAgendarRow(row); setAgendarOpen(true); onOpenChange(false); }} className="flex-1 rounded-xl font-bold gap-2">
+                <Button variant="outline" onClick={() => { const r = row; onOpenChange(false); setTimeout(() => { setAgendarRow(r); setAgendarOpen(true); }, 280); }} className="flex-1 rounded-xl font-bold gap-2">
                   <Gavel className="h-4 w-4" /> Agendar audiência
                 </Button>
               )}
