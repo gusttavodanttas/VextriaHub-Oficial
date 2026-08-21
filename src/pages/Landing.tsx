@@ -229,9 +229,12 @@ const Landing: React.FC = () => {
           <div className="flex items-center gap-2">
             {/* Mobile Actions */}
             <div className="flex md:hidden items-center gap-2">
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button variant="ghost" size="icon" className="h-9 w-9" aria-label={isDark ? 'Ativar modo claro' : 'Ativar modo escuro'} onClick={() => setTheme(isDark ? 'light' : 'dark')}>
+                {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
                 className="text-sm font-medium"
                 onClick={() => navigate("/login")}
               >
@@ -261,7 +264,7 @@ const Landing: React.FC = () => {
                       Contato
                     </Button>
                     <hr className="border-border" />
-                    <Button size="lg" className="w-full bg-primary hover:bg-primary/90" onClick={() => navigate("/cadastro?plan=basico")}>
+                    <Button size="lg" className="w-full bg-primary hover:bg-primary/90" onClick={() => navigate("/cadastro")}>
                       Começar Agora
                     </Button>
                   </div>
@@ -283,10 +286,13 @@ const Landing: React.FC = () => {
                 </a>
               </div>
               <div className="flex items-center gap-3">
+                <Button variant="ghost" size="icon" className="h-9 w-9" aria-label={isDark ? 'Ativar modo claro' : 'Ativar modo escuro'} onClick={() => setTheme(isDark ? 'light' : 'dark')}>
+                  {isDark ? <Sun className="h-[1.1rem] w-[1.1rem]" /> : <Moon className="h-[1.1rem] w-[1.1rem]" />}
+                </Button>
                 <Button variant="ghost" size="sm" onClick={() => navigate("/login")} className="font-medium">
                   Entrar
                 </Button>
-                <Button onClick={() => navigate("/cadastro?plan=basico")} size="sm" className="bg-primary hover:bg-primary/90 font-semibold shadow-lg shadow-primary/20">
+                <Button onClick={() => navigate("/cadastro")} size="sm" className="bg-primary hover:bg-primary/90 font-semibold shadow-lg shadow-primary/20">
                   Experimentar Grátis
                 </Button>
               </div>
@@ -309,7 +315,7 @@ const Landing: React.FC = () => {
             Criado especialmente para advogados que querem organização sem complicação.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-6">
-            <Button size="lg" className="text-lg px-8 bg-primary hover:bg-primary/90" onClick={() => navigate("/cadastro?plan=basico")}>
+            <Button size="lg" className="text-lg px-8 bg-primary hover:bg-primary/90" onClick={() => navigate("/cadastro")}>
               Testar Grátis por 7 Dias
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
@@ -529,7 +535,7 @@ const Landing: React.FC = () => {
               <strong>7 dias grátis, sem compromisso.</strong> Se não gostar, cancele com um clique.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-              <Button size="lg" className="text-lg px-12 py-4 bg-primary hover:bg-primary/90" onClick={() => navigate("/cadastro?plan=basico")}>
+              <Button size="lg" className="text-lg px-12 py-4 bg-primary hover:bg-primary/90" onClick={() => navigate("/cadastro")}>
                 Começar Agora com 7 Dias Grátis
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
@@ -592,16 +598,6 @@ const Landing: React.FC = () => {
           </div>
         </div>
       </footer>
-
-      {/* Alternância claro/escuro */}
-      <button
-        type="button"
-        onClick={() => setTheme(isDark ? 'light' : 'dark')}
-        aria-label={isDark ? 'Ativar modo claro' : 'Ativar modo escuro'}
-        className="fixed bottom-4 right-4 z-50 h-11 w-11 rounded-full bg-background/95 backdrop-blur border border-border shadow-lg flex items-center justify-center text-foreground transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-ring"
-      >
-        {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-      </button>
     </div>
   );
 };
