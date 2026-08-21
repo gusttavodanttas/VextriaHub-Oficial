@@ -102,7 +102,10 @@ const PRAZOS_CPC: Record<string, [number | null, string]> = {
   'Certidão': [5, 'Manifestação — Art. 218 §3 CPC'],
   'Edital': [null, 'Prazo especificado no edital — verificar manualmente'],
 };
-const PRAZO_PADRAO_CPC: [number, string] = [15, 'Manifestação — Art. 218 §3 CPC'];
+// Default para tipo NÃO mapeado: erra para o lado SEGURO (prazo mais curto = fatal/alerta mais cedo).
+// Antes era 15 dias úteis (citação do art. 218 §3, que na verdade é a regra de 5) — se o tipo real
+// fosse um prazo de 5 dias, o robô mostrava ~14 dias depois e o advogado perdia o prazo.
+const PRAZO_PADRAO_CPC: [number, string] = [5, 'Prazo padrão (tipo não mapeado) — 5 dias úteis (Art. 218 §3 CPC) — REVISAR'];
 const PRAZOS_JUIZADO: Record<string, [number | null, string]> = {
   'Sentença': [10, 'Recurso inominado — Art. 41 Lei 9.099/95 (dias corridos)'],
   'Acórdão': [10, 'Recurso — Art. 41 Lei 9.099/95 (dias corridos)'],
@@ -158,6 +161,22 @@ function analisarAudiencia(texto: string | null | undefined, dataBase: Date): { 
   return { possivel: true, data, hora, tipo: tipoAudienciaDetectado(t) };
 }
 
+// Normaliza o tipo (sem acento, sem espaços nas pontas, minúsculo) para o lookup não falhar
+// quando o PJE manda "DESPACHO", "Despacho " etc. (antes casava só "Despacho" exato → caía no padrão).
+function normTipo(s: string | null | undefined): string {
+  // Remove marcas diacriticas (U+0300..U+036F) sem regex/escape, para o lookup casar
+  // "DESPACHO", "Despacho ", "Sentenca" etc. com as chaves da tabela.
+  const nfd = (s ?? '').normalize('NFD');
+  let out = '';
+  for (const ch of nfd) { const c = ch.codePointAt(0) ?? 0; if (c < 0x300 || c > 0x36f) out += ch; }
+  return out.trim().toLowerCase();
+}
+function matchTipoKey(tabela: Record<string, [number | null, string]>, tipo: string | null | undefined): string | null {
+  const n = normTipo(tipo);
+  if (!n) return null;
+  return Object.keys(tabela).find((k) => normTipo(k) === n) ?? null;
+}
+
 function calcularPrazo(dataDisponibilizacao: string, tipoDocumento: string | null | undefined, nomeOrgao?: string | null, texto?: string | null): PrazoResult {
   const dataBase = new Date(dataDisponibilizacao + 'T12:00:00');
   const juizado = ehJuizado(nomeOrgao);
@@ -165,8 +184,8 @@ function calcularPrazo(dataDisponibilizacao: string, tipoDocumento: string | nul
   const dataIntimacao = proximoDiaUtil(dataBase);
   const tabela = juizado ? PRAZOS_JUIZADO : PRAZOS_CPC;
   const padrao = juizado ? PRAZO_PADRAO_JUIZADO : PRAZO_PADRAO_CPC;
-  const tipo = tipoDocumento ?? '';
-  let [dias, baseLegal] = tabela[tipo] ?? padrao;
+  const tipoKey = matchTipoKey(tabela, tipoDocumento);
+  let [dias, baseLegal] = (tipoKey ? tabela[tipoKey] : undefined) ?? padrao;
   if (prazoNoTexto !== null) { dias = prazoNoTexto; baseLegal = `Prazo de ${dias} dias mencionado no texto — verificar base legal`; }
   if (dias === null) {
     return { data_intimacao: toISO(dataIntimacao), data_fim_prazo: null, dias_uteis: null, base_legal: baseLegal, prazo_no_texto: prazoNoTexto, eh_juizado: juizado, dias_corridos: juizado };
