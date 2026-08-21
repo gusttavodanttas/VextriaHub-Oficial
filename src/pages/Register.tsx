@@ -16,7 +16,8 @@ import { formatPhoneInput } from "@/utils/formatters";
 
 const Register = () => {
   const [searchParams] = useSearchParams();
-  const selectedPlan = searchParams.get('plano') || searchParams.get('plan') || 'BASIC';
+  const planParam = searchParams.get('plano') || searchParams.get('plan');
+  const selectedPlan = planParam || 'BASIC';
   const isInvite = searchParams.get('convite') === '1';
   const inviteToken = searchParams.get('token') || '';
 
@@ -212,11 +213,26 @@ const Register = () => {
         return;
       }
 
-      // Cadastro normal: o escritório é criado no login (ensure_office_for_user)
-      // e nasce com 7 dias de trial. Sem checkout — a cobrança (Asaas) vem depois.
+      // Cadastro normal: garante o escritório no banco (idempotente) e, se o cadastro veio
+      // de um link de plano, registra o plano escolhido e leva direto ao pagamento.
+      // Planos sem trial (ex.: Básico mensal) já entram como "pendente" → o portão de
+      // acesso exige o pagamento. Cadastro orgânico (sem ?plano=) mantém os 7 dias de teste.
+      try {
+        await supabase.rpc('ensure_office_for_user' as never);
+        if (planParam) {
+          await supabase.rpc('apply_signup_plan' as never, { p_plan_type: planParam } as never);
+        }
+      } catch (setupErr) {
+        console.error('signup plan setup:', setupErr);
+      }
       localStorage.removeItem('checkout_in_progress');
-      toast({ title: "Cadastro concluído!", description: "Seu período de teste começou. Bem-vindo(a)!" });
-      navigate("/dashboard");
+      if (planParam) {
+        toast({ title: "Cadastro concluído!", description: "Escolha a forma de pagamento para ativar seu acesso." });
+        navigate(`/pagamento?plano=${encodeURIComponent(planParam)}`);
+      } else {
+        toast({ title: "Cadastro concluído!", description: "Seu período de teste começou. Bem-vindo(a)!" });
+        navigate("/dashboard");
+      }
       setIsLoading(false);
       return;
 
@@ -234,6 +250,12 @@ const Register = () => {
       setIsLoading(false);
     }
   };
+
+  // Reflete o plano do link: Básico (sem trial) muda o texto; o ciclo ajusta o sufixo do preço.
+  const semTrial = !!planParam && (planData?.trial_days ?? 0) === 0;
+  const cycleSuffix = planData?.cycle === 'YEARLY' ? '/ano'
+    : planData?.cycle === 'SEMIANNUALLY' ? '/semestre'
+    : planData?.cycle === 'QUARTERLY' ? '/trimestre' : '/mês';
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -257,15 +279,15 @@ const Register = () => {
           <CardHeader className="space-y-1">
             <CardTitle className="text-xl text-center flex items-center justify-center gap-2">
               <UserPlus className="h-5 w-5" />
-              {isInvite ? "Entrar na equipe" : "Começar Teste Grátis"}
+              {isInvite ? "Entrar na equipe" : semTrial ? "Criar sua conta" : "Começar Teste Grátis"}
             </CardTitle>
             <CardDescription className="text-center">
-              {isInvite ? "Crie seu acesso — você entra direto no escritório" : "7 dias grátis • Sem compromisso • Cancele quando quiser"}
+              {isInvite ? "Crie seu acesso — você entra direto no escritório" : semTrial ? "Ativação imediata • Cancele quando quiser" : "7 dias grátis • Sem compromisso • Cancele quando quiser"}
             </CardDescription>
             {!isInvite && planData && (
               <div className="text-center">
                 <Badge variant="outline" className="text-sm">
-                  Plano {planData.plan_name} - R$ {(planData.price_cents / 100).toFixed(2)}/mês
+                  Plano {planData.plan_name} - R$ {(planData.price_cents / 100).toFixed(2)}{cycleSuffix}
                 </Badge>
               </div>
             )}
@@ -447,7 +469,7 @@ const Register = () => {
                 className="w-full"
                 disabled={isLoading}
               >
-                {isLoading ? "Processando..." : isInvite ? "Criar minha conta" : "Criar conta e continuar para pagamento"}
+                {isLoading ? "Processando..." : isInvite ? "Criar minha conta" : planParam ? "Criar conta e continuar para pagamento" : "Criar conta e começar"}
               </Button>
 
               {/* Login Link */}

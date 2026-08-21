@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,6 +23,7 @@ const BILLING = [
 
 function Pagamento() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const { office } = useAuth();
 
@@ -47,13 +48,16 @@ function Pagamento() {
         ? supabase.from('office_subscriptions').select('status, plan_name, next_due_date, last_invoice_url').eq('office_id', office.id).maybeSingle()
         : Promise.resolve({ data: null }),
     ]);
-    setPlans((planRows as Plan[]) || []);
+    const rows = (planRows as Plan[]) || [];
+    setPlans(rows);
+    const preset = searchParams.get('plano') || searchParams.get('plan');
+    if (preset && rows.some((p) => p.plan_type === preset)) setPlanType(preset);
     setSub((subRes.data as Sub) || null);
     if (subRes.data?.last_invoice_url && ['pendente', 'atrasada', 'trial'].includes(subRes.data.status)) {
       setInvoiceUrl(subRes.data.last_invoice_url);
     }
     setLoading(false);
-  }, [office?.id]);
+  }, [office?.id, searchParams]);
 
   useEffect(() => { load(); }, [load]);
 
