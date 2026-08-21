@@ -50,14 +50,16 @@ export const useAgendaEvents = (targetDate: Date) => {
         .eq("deletado", false)
         .neq("status", "cancelada");
 
-      // 2. Buscar Prazos (data_fim_prazo; título vem da publicação; descartados ficam de fora)
+      // 2. Buscar Prazos: fatal = data_fim_prazo OU, em prazo legado sem fatal, data_vencimento.
+      //    (Antes filtrava só data_fim_prazo → prazo legado com só data_vencimento sumia da agenda.)
+      const praIni = format(start, "yyyy-MM-dd");
+      const praFim = format(end, "yyyy-MM-dd");
       const { data: prazos, error: praError } = await supabase
         .from("prazos")
         .select("*, publicacoes(titulo)")
         .eq("office_id", user.office_id)
         .eq("deletado", false)
-        .gte("data_fim_prazo", format(start, "yyyy-MM-dd"))
-        .lte("data_fim_prazo", format(end, "yyyy-MM-dd"));
+        .or(`and(data_fim_prazo.gte.${praIni},data_fim_prazo.lte.${praFim}),and(data_fim_prazo.is.null,data_vencimento.gte.${praIni},data_vencimento.lte.${praFim})`);
 
       // 3. Buscar Atendimentos (Reuniões)
       const { data: atendimentos, error: ateError } = await supabase
@@ -106,7 +108,7 @@ export const useAgendaEvents = (targetDate: Date) => {
           id: p.id,
           name: p.publicacoes?.titulo || p.tipo_prazo || p.numero_processo || 'Prazo',
           time: '—',
-          datetime: `${p.data_fim_prazo}T12:00:00`,
+          datetime: `${p.data_fim_prazo || p.data_vencimento}T12:00:00`,
           type: 'prazo' as const,
           client: p.numero_processo || 'Prazo processual',
           location: 'Digital',

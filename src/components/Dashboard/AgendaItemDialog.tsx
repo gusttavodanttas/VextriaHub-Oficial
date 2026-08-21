@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,7 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const [row, setRow] = useState<any>(null);
   const [clienteNome, setClienteNome] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -67,6 +69,13 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
     return () => { cancel = true; };
   }, [item?.type, item?.id]);
 
+  // Após mutar direto no banco, invalida as queries do dashboard e das páginas para
+  // os blocos irmãos (Próximos Prazos, KPIs) e as abas não ficarem com dado velho.
+  const invalidarTudo = () => {
+    ["dashboard-stats", "dashboard-prazos", "dashboard-tarefas", "prazos", "tarefas", "audiencias", "consultivos"]
+      .forEach((k) => qc.invalidateQueries({ queryKey: [k] }));
+  };
+
   const concluir = async () => {
     if (!item || !cfg) return;
     setSaving(true);
@@ -96,6 +105,7 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
     setSaving(false);
     if (error) { toast({ title: "Erro ao concluir", description: error.message, variant: "destructive" }); return; }
     toast({ title: `${cfg.label} concluído(a)` });
+    invalidarTudo();
     onChanged?.();
     onOpenChange(false);
   };
@@ -103,7 +113,8 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
   const startEdit = () => {
     if (item?.type === "audiencia") {
       const dt = row?.data_audiencia ? new Date(row.data_audiencia) : null;
-      setEd({ data: dt ? format(dt, "yyyy-MM-dd") : "", hora: dt ? format(dt, "HH:mm") : "", local: row?.local || "", tipo: row?.tipo || "", titulo: row?.titulo || "", prioridade: row?.prioridade || "media" });
+      const valid = dt && !isNaN(dt.getTime()) ? dt : null;
+      setEd({ data: valid ? format(valid, "yyyy-MM-dd") : "", hora: valid ? format(valid, "HH:mm") : "", local: row?.local || "", tipo: row?.tipo || "", titulo: row?.titulo || "", prioridade: row?.prioridade || "media" });
     } else {
       setEd({ data: String(row?.data_fim_prazo || row?.data_vencimento || "").slice(0, 10), hora: "", local: "", tipo: "", titulo: row?.titulo || "", prioridade: row?.prioridade || "media" });
     }
@@ -126,6 +137,7 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
     setSaving(false);
     if (error) { toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" }); return; }
     toast({ title: `${cfg?.label || "Item"} atualizado` });
+    invalidarTudo();
     setEditing(false);
     onChanged?.();
   };
@@ -137,6 +149,7 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
     setSaving(false);
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
     toast({ title: "Audiência marcada como realizada" });
+    invalidarTudo();
     onChanged?.();
     onOpenChange(false);
   };

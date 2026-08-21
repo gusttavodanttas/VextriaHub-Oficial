@@ -85,7 +85,7 @@ export function NovoCasoWizard({ open, onOpenChange, onSuccess }: NovoCasoWizard
   const reset = () => { setTipo(null); setForm(BLANK); setEtapas(ETAPAS_DEFAULT); };
   const close = (v: boolean) => { if (!v) reset(); onOpenChange(v); };
   const invalidar = () => {
-    for (const key of ["processos", "consultivos", "consultivo_categorias", "tarefas", "prazos", "stats"]) {
+    for (const key of ["processos", "consultivos", "consultivo_categorias", "tarefas", "prazos", "dashboard-stats", "dashboard-prazos", "dashboard-tarefas"]) {
       queryClient.invalidateQueries({ queryKey: [key] });
     }
   };

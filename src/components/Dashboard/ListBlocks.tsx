@@ -6,7 +6,12 @@ import { AlertCircle, CheckSquare, ArrowRight, Loader2, Check } from "lucide-rea
 import { cn } from "@/lib/utils";
 
 const pick = (o: any, keys: string[], fb: string) => { for (const k of keys) if (o?.[k]) return String(o[k]); return fb; };
-const fmt = (d?: string) => d ? new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }) : "";
+// data DATE ("YYYY-MM-DD") ancorada ao meio-dia local p/ não mostrar 1 dia a menos (fuso BRT).
+const fmt = (d?: string) => {
+  if (!d) return "";
+  const dt = new Date(String(d).length <= 10 ? `${d}T12:00:00` : d);
+  return isNaN(dt.getTime()) ? "" : dt.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+};
 
 function Shell({ icon: Icon, title, to, children }: { icon: any; title: string; to: string; children: React.ReactNode }) {
   const navigate = useNavigate();
@@ -33,7 +38,7 @@ export function PrazosBlock() {
     enabled: !!officeId,
     staleTime: 60_000, // mostra o cache na hora e revalida em bg (sem piscar ao voltar)
     queryFn: async () => {
-      const { data } = await supabase.from("prazos").select("*").eq("office_id", officeId)
+      const { data } = await supabase.from("prazos").select("*").eq("office_id", officeId).eq("deletado", false)
         .neq("status", "concluido").order("data_fim_prazo", { ascending: true, nullsFirst: false }).limit(6);
       return data || [];
     },

@@ -210,7 +210,7 @@ export const AgendarPublicacaoDialog = ({
 
       // Invalida os caches (staleTime global de 5min) — sem isso a audiência salva aqui
       // demorava até 5min pra aparecer na aba Audiências/Prazos/Tarefas
-      for (const key of ["audiencias", "prazos", "tarefas", "stats"]) {
+      for (const key of ["audiencias", "prazos", "tarefas", "dashboard-stats", "dashboard-prazos"]) {
         queryClient.invalidateQueries({ queryKey: [key] });
       }
 

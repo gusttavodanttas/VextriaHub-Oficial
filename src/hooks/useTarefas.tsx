@@ -107,7 +107,8 @@ export function useTarefas() {
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["tarefas"] });
-    queryClient.invalidateQueries({ queryKey: ["stats"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard-tarefas"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
   };
 
   const create = useMutation({

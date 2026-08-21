@@ -65,7 +65,7 @@ export function useAudiencias() {
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["audiencias"] });
-    queryClient.invalidateQueries({ queryKey: ["stats"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
   };
 
   const create = useMutation({

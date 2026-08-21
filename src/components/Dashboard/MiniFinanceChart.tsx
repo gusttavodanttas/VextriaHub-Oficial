@@ -43,7 +43,8 @@ export function MiniFinanceChart() {
         order.push(key);
       }
       (rows || []).forEach((r: any) => {
-        const d = new Date(r.data_vencimento);
+        // data_vencimento é DATE ("YYYY-MM-DD"); ancora ao meio-dia local p/ não escorregar de mês (fuso)
+        const d = new Date(`${String(r.data_vencimento).slice(0, 10)}T12:00:00`);
         const key = `${d.getFullYear()}-${d.getMonth()}`;
         if (!buckets[key]) return;
         if (r.tipo === "receita") buckets[key].receita += Number(r.valor) || 0;

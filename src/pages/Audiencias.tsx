@@ -410,7 +410,7 @@ const Audiencias = () => {
 
       <NovaAudienciaDialog key={editTarget?.id ?? 'new'} open={dialogOpen} onOpenChange={setDialogOpen} tipos={tiposCadastrados}
         membros={membros} processos={processosOpts} existentes={audiencias} audiencia={editTarget} onSubmit={handleSubmit}
-        onManageTipos={() => { setDialogOpen(false); setTiposDialogOpen(true); }} />
+        onManageTipos={() => { setDialogOpen(false); setTimeout(() => { try { document.body.style.pointerEvents = ""; } catch { /* */ } setTiposDialogOpen(true); }, 200); }} />
 
       <GerenciarTiposDialog open={tiposDialogOpen} onOpenChange={setTiposDialogOpen} />
 
