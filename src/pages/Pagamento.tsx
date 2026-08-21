@@ -10,7 +10,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { formatCpfCnpj, onlyDigits, isValidCpfCnpj } from '@/lib/document';
 import { CreditCard, FileText, QrCode, Loader2, CheckCircle2, ExternalLink, Copy, Check } from 'lucide-react';
 
-interface Plan { plan_type: string; plan_name: string; price_cents: number }
+interface Plan { plan_type: string; plan_name: string; price_cents: number; cycle?: string }
+const cicloLabel: Record<string, string> = { MONTHLY: 'por mês', QUARTERLY: 'por trimestre', SEMIANNUALLY: 'por semestre', YEARLY: 'por ano' };
 interface Sub { status: string; plan_name: string | null; next_due_date: string | null; last_invoice_url: string | null }
 
 const brl = (cents: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100);
@@ -41,7 +42,7 @@ function Pagamento() {
   const load = useCallback(async () => {
     setLoading(true);
     const [{ data: planRows }, subRes] = await Promise.all([
-      supabase.from('plan_configs').select('plan_type, plan_name, price_cents').eq('is_active', true).order('price_cents'),
+      supabase.from('plan_configs').select('plan_type, plan_name, price_cents, cycle').eq('is_active', true).order('price_cents'),
       office?.id
         ? supabase.from('office_subscriptions').select('status, plan_name, next_due_date, last_invoice_url').eq('office_id', office.id).maybeSingle()
         : Promise.resolve({ data: null }),
@@ -62,7 +63,7 @@ function Pagamento() {
     if (!docOk) { toast({ title: 'CPF/CNPJ inválido', description: 'Confira os números.', variant: 'destructive' }); return; }
     setSubmitting(true);
     const { data, error } = await supabase.functions.invoke('asaas-billing', {
-      body: { action: 'setup', office_id: office.id, plan_type: planType, cpfCnpj: docDigits, billing_type: billing },
+      body: { action: 'setup', office_id: office.id, plan_type: planType, cpfCnpj: docDigits, billing_type: billing, cycle: plans.find(p => p.plan_type === planType)?.cycle || 'MONTHLY' },
     });
     setSubmitting(false);
     let payload: { error?: string; invoice_url?: string } | null = data;
@@ -135,7 +136,10 @@ function Pagamento() {
                 <button key={p.plan_type} type="button" onClick={() => setPlanType(p.plan_type)}
                   className={`w-full flex items-center justify-between p-4 border rounded-xl transition-colors text-left ${planType === p.plan_type ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}>
                   <span className="font-medium">{p.plan_name}</span>
-                  <Badge variant="secondary">{brl(p.price_cents)}</Badge>
+                  <div className="text-right">
+                    <Badge variant="secondary">{brl(p.price_cents)}</Badge>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">{cicloLabel[p.cycle || 'MONTHLY']}</div>
+                  </div>
                 </button>
               ))}
             </CardContent>

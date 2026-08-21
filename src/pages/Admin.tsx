@@ -13,6 +13,7 @@ import { Shield, Check, X, Clock, User, FileText, AlertCircle, Building2, Credit
 import { OfficeControlPanel } from "@/components/SuperAdmin/OfficeControlPanel";
 import CobrancaAsaas from "@/components/Admin/CobrancaAsaas";
 import { GlobalMetrics } from "@/components/Admin/GlobalMetrics";
+import { PlanManagement } from "@/components/Admin/PlanManagement";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -142,7 +143,8 @@ const Admin = () => {
               <OfficeControlPanel />
             </TabsContent>
 
-            <TabsContent value="subscriptions" className="entry-animate slide-in-from-bottom-4 duration-500 mt-0">
+            <TabsContent value="subscriptions" className="space-y-6 entry-animate slide-in-from-bottom-4 duration-500 mt-0">
+              <PlanManagement />
               <CobrancaAsaas />
             </TabsContent>
 

@@ -16,7 +16,7 @@ import { formatPhoneInput } from "@/utils/formatters";
 
 const Register = () => {
   const [searchParams] = useSearchParams();
-  const selectedPlan = searchParams.get('plan') || 'basico';
+  const selectedPlan = searchParams.get('plano') || searchParams.get('plan') || 'BASIC';
   const isInvite = searchParams.get('convite') === '1';
   const inviteToken = searchParams.get('token') || '';
 
