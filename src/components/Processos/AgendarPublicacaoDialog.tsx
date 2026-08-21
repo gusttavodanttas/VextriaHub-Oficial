@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useQueryClient } from "@tanstack/react-query";
 import { CalendarClock, CheckSquare, Gavel } from "lucide-react";
 import { agendarPublicacaoSchema, firstZodError } from "@/lib/validation";
 
@@ -70,6 +71,7 @@ export const AgendarPublicacaoDialog = ({
 }: AgendarPublicacaoDialogProps) => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);
   const [tipo, setTipo] = useState<AcaoTipo>(defaultTipo);
 
@@ -204,6 +206,12 @@ export const AgendarPublicacaoDialog = ({
           title: "Salvo, mas sem vínculo ao processo",
           description: `Nenhum processo cadastrado com o número ${numeroProcesso}. Cadastre-o e o vínculo poderá ser refeito.`,
         });
+      }
+
+      // Invalida os caches (staleTime global de 5min) — sem isso a audiência salva aqui
+      // demorava até 5min pra aparecer na aba Audiências/Prazos/Tarefas
+      for (const key of ["audiencias", "prazos", "tarefas", "stats"]) {
+        queryClient.invalidateQueries({ queryKey: [key] });
       }
 
       toast({

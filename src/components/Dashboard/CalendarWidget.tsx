@@ -130,10 +130,21 @@ export function CalendarWidget() {
           selected={selected}
           onSelect={setSelected}
           locale={ptBR}
-          className="w-full rounded-xl border border-black/5 dark:border-border p-2"
+          className="w-full rounded-xl border border-black/5 dark:border-border p-3"
+          // células fluidas (flex-1) e mais altas — o calendário ocupa a coluna inteira
+          classNames={{
+            months: "flex flex-col w-full",
+            month: "space-y-4 w-full",
+            table: "w-full border-collapse",
+            head_row: "flex w-full",
+            head_cell: "text-muted-foreground rounded-md flex-1 font-normal text-[0.8rem]",
+            row: "flex w-full mt-2",
+            cell: "h-10 flex-1 text-center text-sm p-0 relative focus-within:relative focus-within:z-20",
+            day: "h-10 w-full p-0 font-normal inline-flex items-center justify-center text-sm rounded-lg transition-colors hover:bg-accent hover:text-accent-foreground aria-selected:opacity-100",
+          }}
           modifiers={{ hasEvents: markedDates }}
           modifiersClassNames={{
-            hasEvents: "font-black text-primary after:absolute after:bottom-0.5 after:left-1/2 after:-translate-x-1/2 after:h-1 after:w-1 after:rounded-full after:bg-primary after:content-[''] relative",
+            hasEvents: "font-black text-primary after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:h-1 after:w-1 after:rounded-full after:bg-primary after:content-[''] relative",
           }}
         />
 

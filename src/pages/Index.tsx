@@ -208,7 +208,7 @@ const Index = () => {
         return <MetasWidget />;
       case "atividade":
         return (
-          <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 space-y-2.5 h-full">
+          <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 space-y-2.5 h-full overflow-hidden">
             <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 flex items-center gap-1.5"><Activity className="h-3 w-3" /> Atividade Recente</p>
             {activityLoading ? (
               <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-10 rounded-xl bg-black/[0.04] dark:bg-white/[0.04] animate-pulse" />)}</div>
@@ -216,7 +216,7 @@ const Index = () => {
               <p className="text-sm text-muted-foreground/60 font-medium py-6 text-center">Nenhuma atividade recente.</p>
             ) : (
               <div className="space-y-1">
-                {activity.slice(0, 5).map((it) => (
+                {activity.slice(0, 8).map((it) => (
                   <button key={it.id} onClick={() => navigate(it.link)} className="group flex items-center gap-2.5 p-2 rounded-xl hover:bg-card/80 transition-all text-left w-full">
                     <span className={cn("h-2 w-2 rounded-full shrink-0", it.tipo === "Processo" ? "bg-blue-500" : it.tipo === "Tarefa" ? "bg-emerald-500" : "bg-amber-500")} />
                     <div className="min-w-0 flex-1">
@@ -303,10 +303,13 @@ const Index = () => {
           <div className={cn(
             "min-w-0",
             mainBlocks.length > 0
-              ? "lg:col-span-4 space-y-4"
+              ? "lg:col-span-4 flex flex-col gap-4"
               : "lg:col-span-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
           )}>
-            {sideBlocks.map((k) => <div key={k}>{renderBlock(k)}</div>)}
+            {/* o último card estica até o fim da coluna — sem buraco quando há poucos widgets */}
+            {sideBlocks.map((k, i) => (
+              <div key={k} className={mainBlocks.length > 0 && i === sideBlocks.length - 1 ? "flex-1 min-h-0" : ""}>{renderBlock(k)}</div>
+            ))}
           </div>
         )}
       </div>
