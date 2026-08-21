@@ -34,8 +34,8 @@ export interface UseSuperAdminOfficesResult {
   updateOfficeFull: (officeId: string, updates: Partial<AdminOffice>) => Promise<boolean>;
   manageAccess: (
     officeId: string,
-    action: 'apply_discount' | 'grant_lifetime' | 'revoke_lifetime',
-    options?: { discount_percent?: number; reason?: string }
+    action: 'apply_discount' | 'grant_lifetime' | 'revoke_lifetime' | 'grant_trial',
+    options?: { discount_percent?: number; trial_days?: number; reason?: string }
   ) => Promise<boolean>;
   sendPaymentReminder: (email: string, officeName: string) => Promise<boolean>;
   deleteOffice: (officeId: string, confirmName: string) => Promise<boolean>;
@@ -249,8 +249,8 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
 
   const manageAccess = useCallback(async (
     officeId: string,
-    action: 'apply_discount' | 'grant_lifetime' | 'revoke_lifetime',
-    options?: { discount_percent?: number; reason?: string }
+    action: 'apply_discount' | 'grant_lifetime' | 'revoke_lifetime' | 'grant_trial',
+    options?: { discount_percent?: number; trial_days?: number; reason?: string }
   ) => {
     try {
       const { data, error } = await supabase.functions.invoke('admin-office-access', {
@@ -258,6 +258,7 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
           office_id: officeId,
           action,
           discount_percent: options?.discount_percent,
+          trial_days: options?.trial_days,
           reason: options?.reason,
         },
       });
@@ -268,10 +269,9 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
       toast({
         title: 'Sucesso!',
         description:
-          action === 'apply_discount'
-            ? 'Desconto aplicado.'
-            : action === 'grant_lifetime'
-            ? 'Acesso vitalício concedido.'
+          action === 'apply_discount' ? 'Desconto aplicado.'
+            : action === 'grant_lifetime' ? 'Acesso vitalício concedido.'
+            : action === 'grant_trial' ? 'Período de teste estendido.'
             : 'Vitalício revertido.',
       });
       await fetchAdmins();

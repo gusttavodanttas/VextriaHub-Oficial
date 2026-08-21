@@ -85,6 +85,18 @@ serve(async (req) => {
       return json({ ok: true, value: newValue, discount: d });
     }
 
+    // TRIAL ESTENDIDO — libera um período maior de teste (em vez de cortesia).
+    if (action === "grant_trial") {
+      const days = Math.min(Math.max(Number(body?.trial_days) || 0, 1), 3650);
+      const ends = new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
+      if (sub?.asaas_subscription_id && KEY) await asaas(`/subscriptions/${sub.asaas_subscription_id}`, "DELETE");
+      await service.from("office_subscriptions").upsert({
+        office_id: officeId, status: "trial", trial_ends_at: ends, is_lifetime: false,
+        plan_name: sub?.plan_name || "Trial estendido", asaas_subscription_id: null, updated_at: now,
+      }, { onConflict: "office_id" });
+      return json({ ok: true, status: "trial", trial_ends_at: ends });
+    }
+
     return json({ error: "acao-invalida" }, 400);
   } catch (e) {
     return json({ error: String((e as Error).message) }, 500);

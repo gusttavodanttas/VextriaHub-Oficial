@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useSuperAdminOffices, AdminOffice } from '@/hooks/useSuperAdminOffices';
 import {
@@ -29,6 +30,7 @@ export const OfficeControlPanel: React.FC = () => {
     refresh,
     updateOfficeStatus,
     updateOfficeFull,
+    manageAccess,
     sendPaymentReminder,
     deleteOffice
   } = useSuperAdminOffices();
@@ -42,6 +44,21 @@ export const OfficeControlPanel: React.FC = () => {
   const [deleteTarget, setDeleteTarget] = useState<AdminOffice | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+  const [discountPct, setDiscountPct] = useState(0);
+  const [trialDays, setTrialDays] = useState(30);
+  const [accessBusy, setAccessBusy] = useState(false);
+
+  const doAccess = async (
+    action: 'apply_discount' | 'grant_lifetime' | 'revoke_lifetime' | 'grant_trial',
+    opts?: { discount_percent?: number; trial_days?: number },
+    after?: () => void,
+  ) => {
+    if (!selectedAdmin?.office_id) return;
+    setAccessBusy(true);
+    const ok = await manageAccess(selectedAdmin.office_id, action, opts);
+    setAccessBusy(false);
+    if (ok) { after?.(); refresh(); }
+  };
 
   useEffect(() => {
     if (selectedAdmin) {
@@ -51,7 +68,9 @@ export const OfficeControlPanel: React.FC = () => {
         phone: selectedAdmin.phone,
         address: selectedAdmin.address,
         plan_name: selectedAdmin.plan_name as any,
+        is_lifetime: selectedAdmin.is_lifetime,
       });
+      setDiscountPct(selectedAdmin.manual_discount_percent || 0);
     }
   }, [selectedAdmin]);
 
@@ -342,6 +361,36 @@ export const OfficeControlPanel: React.FC = () => {
                                           </SelectContent>
                                         </Select>
                                       </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-3 mt-6">
+                                    <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60 border-b border-muted/20 pb-1">Acesso e cobrança</h4>
+                                    <div className="flex items-center justify-between rounded-xl border border-border p-3">
+                                      <div>
+                                        <Label className="text-xs font-bold">Acesso vitalício</Label>
+                                        <p className="text-[10px] text-muted-foreground">Grátis para sempre (cortesia); desligar revoga.</p>
+                                      </div>
+                                      <Switch checked={!!editFormData.is_lifetime} disabled={accessBusy}
+                                        onCheckedChange={(v) => doAccess(v ? 'grant_lifetime' : 'revoke_lifetime', undefined, () => setEditFormData({ ...editFormData, is_lifetime: v }))} />
+                                    </div>
+                                    <div className="flex items-end gap-2">
+                                      <div className="flex-1 space-y-1.5">
+                                        <Label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">Desconto (%)</Label>
+                                        <Input type="number" min={0} max={100} value={discountPct} disabled={!!editFormData.is_lifetime}
+                                          onChange={(e) => setDiscountPct(Math.min(Math.max(parseInt(e.target.value) || 0, 0), 100))} className="h-10 bg-muted/20 border-none rounded-xl" />
+                                      </div>
+                                      <Button type="button" variant="outline" disabled={accessBusy || !!editFormData.is_lifetime}
+                                        onClick={() => doAccess('apply_discount', { discount_percent: discountPct })} className="h-10 rounded-xl">Aplicar</Button>
+                                    </div>
+                                    <div className="flex items-end gap-2">
+                                      <div className="flex-1 space-y-1.5">
+                                        <Label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">Estender trial (dias)</Label>
+                                        <Input type="number" min={1} value={trialDays}
+                                          onChange={(e) => setTrialDays(Math.max(parseInt(e.target.value) || 0, 1))} className="h-10 bg-muted/20 border-none rounded-xl" />
+                                      </div>
+                                      <Button type="button" variant="outline" disabled={accessBusy}
+                                        onClick={() => doAccess('grant_trial', { trial_days: trialDays })} className="h-10 rounded-xl">Estender</Button>
                                     </div>
                                   </div>
                                 </div>
