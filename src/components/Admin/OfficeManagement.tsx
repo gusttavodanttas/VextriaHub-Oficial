@@ -48,16 +48,19 @@ export const OfficeManagement: React.FC = () => {
         // Vitalício e desconto NÃO ficam na tabela offices — vão para office_subscriptions
         // (fonte da verdade do acesso/cobrança), via função do super-admin. O resto vai para offices.
         const { is_lifetime, manual_discount_percent, ...officeFields } = formData;
+        const priorLifetime = editingOffice.office_subscriptions?.[0]?.is_lifetime === true;
         const updated = await updateOffice(editingOffice.id, officeFields);
         if (updated) {
-          const accessBody = is_lifetime
-            ? { office_id: editingOffice.id, action: 'grant_lifetime' }
-            : { office_id: editingOffice.id, action: 'apply_discount', discount_percent: Number(manual_discount_percent) || 0 };
-          const { data: accRes, error: accErr } = await supabase.functions.invoke('admin-office-access', { body: accessBody });
-          if (accErr || (accRes as any)?.error) {
+          // Concede vitalício (novo), revoga (era vitalício e foi desmarcado) ou aplica desconto.
+          let accessBody: any = null;
+          if (is_lifetime && !priorLifetime) accessBody = { office_id: editingOffice.id, action: 'grant_lifetime' };
+          else if (!is_lifetime && priorLifetime) accessBody = { office_id: editingOffice.id, action: 'revoke_lifetime' };
+          else if (!is_lifetime) accessBody = { office_id: editingOffice.id, action: 'apply_discount', discount_percent: Number(manual_discount_percent) || 0 };
+          const accRes = accessBody ? await supabase.functions.invoke('admin-office-access', { body: accessBody }) : null;
+          if (accRes && (accRes.error || (accRes.data as any)?.error)) {
             toast({
               title: "Escritório salvo, mas o acesso não",
-              description: "Falha ao aplicar vitalício/desconto: " + ((accRes as any)?.error || accErr?.message || 'erro'),
+              description: "Falha ao aplicar vitalício/desconto: " + ((accRes.data as any)?.error || accRes.error?.message || 'erro'),
               variant: "destructive",
             });
           } else {
@@ -118,8 +121,8 @@ export const OfficeManagement: React.FC = () => {
       max_users: office.max_users,
       active: office.active,
       logo_url: office.logo_url,
-      is_lifetime: office.is_lifetime || false,
-      manual_discount_percent: office.manual_discount_percent || 0,
+      is_lifetime: office.office_subscriptions?.[0]?.is_lifetime ?? false,
+      manual_discount_percent: Number(office.office_subscriptions?.[0]?.manual_discount_percent) || 0,
     } as any);
     setDialogOpen(true);
   };

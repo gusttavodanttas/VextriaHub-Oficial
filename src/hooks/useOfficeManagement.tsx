@@ -12,10 +12,12 @@ export const useOfficeManagement = () => {
   const fetchOffices = async () => {
     try {
       setError(null);
+      // office_subscriptions (Asaas) — a tabela Stripe legada 'subscriptions' foi removida;
+      // referenciá-la aqui derrubava a query inteira e zerava o painel do super-admin.
       let query = supabase.from('offices').select(`
         *,
         office_users(id, role, user_id, active),
-        subscriptions(id, plan, status, start_date, end_date)
+        office_subscriptions(plan_name, status, is_lifetime, manual_discount_percent, value)
       `);
 
       // Se não for super admin, buscar apenas o próprio escritório e apenas se estiver ativo
