@@ -580,8 +580,7 @@ function SecurityCard() {
   const [novoEmail, setNovoEmail] = useState("");
   const [salvandoEmail, setSalvandoEmail] = useState(false);
 
-  const [codigo, setCodigo] = useState("");
-  const [codigoEnviado, setCodigoEnviado] = useState(false);
+  const [senhaAtual, setSenhaAtual] = useState("");
   const [novaSenha, setNovaSenha] = useState("");
   const [confirmar, setConfirmar] = useState("");
   const [mostrar, setMostrar] = useState(false);
@@ -593,7 +592,7 @@ function SecurityCard() {
 
   const curta = novaSenha.length > 0 && novaSenha.length < 6;
   const diverge = confirmar.length > 0 && confirmar !== novaSenha;
-  const senhaOk = novaSenha.length >= 6 && confirmar === novaSenha;
+  const podeSalvar = senhaAtual.length > 0 && novaSenha.length >= 6 && confirmar === novaSenha && !salvando;
 
   const alterarEmail = async () => {
     if (!podeTrocarEmail) return;
@@ -608,33 +607,40 @@ function SecurityCard() {
     setNovoEmail("");
   };
 
-  // Troca de senha server-enforced (política "require current password / reauthentication"):
-  // reauthenticate() envia um código para o e-mail do usuário; a troca só passa com esse nonce
-  // — uma sessão sequestrada não consegue trocar a senha sem acesso ao e-mail.
-  const enviarCodigo = async () => {
-    if (!senhaOk || salvando) return;
+  // A política "Require current password when updating" (GoTrue) exige o campo current_password
+  // no corpo do request — que o updateUser do supabase-js NÃO envia. Então chamamos o endpoint
+  // do GoTrue direto, mandando a senha atual + a nova. Server-enforced (uma sessão sequestrada
+  // não sabe a senha atual) e sem depender de e-mail.
+  const alterar = async () => {
+    if (!podeSalvar) return;
     setSalvando(true);
-    const { error } = await supabase.auth.reauthenticate();
-    setSalvando(false);
-    if (error) {
-      toast({ variant: "destructive", title: "Erro ao enviar o código", description: error.message });
-      return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Sua sessão expirou. Entre novamente e tente de novo.");
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/auth/v1/user`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ password: novaSenha, current_password: senhaAtual }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as any));
+        const msg = String(body?.msg || body?.error_description || body?.error || body?.message || "");
+        if (/current password|incorrect|invalid.*credential/i.test(msg)) {
+          throw new Error("A senha atual está incorreta.");
+        }
+        throw new Error(msg || "Não foi possível alterar a senha.");
+      }
+      toast({ title: "Senha alterada", description: "Sua nova senha já está ativa." });
+      setSenhaAtual(""); setNovaSenha(""); setConfirmar("");
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Erro ao alterar senha", description: e?.message || "Tente novamente." });
+    } finally {
+      setSalvando(false);
     }
-    setCodigoEnviado(true);
-    toast({ title: "Código enviado", description: `Enviamos um código de verificação para ${emailAtual}.` });
-  };
-
-  const confirmarTroca = async () => {
-    if (!senhaOk || codigo.trim().length === 0 || salvando) return;
-    setSalvando(true);
-    const { error } = await supabase.auth.updateUser({ password: novaSenha, nonce: codigo.trim() });
-    setSalvando(false);
-    if (error) {
-      toast({ variant: "destructive", title: "Erro ao alterar senha", description: error.message });
-      return;
-    }
-    toast({ title: "Senha alterada", description: "Sua nova senha já está ativa." });
-    setNovaSenha(""); setConfirmar(""); setCodigo(""); setCodigoEnviado(false);
   };
 
   return (
@@ -663,7 +669,17 @@ function SecurityCard() {
       </div>
 
       <div className="space-y-4">
-        <p className="text-[11px] text-muted-foreground -mt-1">Por segurança, ao confirmar enviaremos um código para o seu e-mail (<span className="font-bold text-foreground/70">{emailAtual}</span>) para validar a troca.</p>
+        <div className="space-y-1.5">
+          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50">Senha atual</Label>
+          <Input
+            type={mostrar ? "text" : "password"}
+            value={senhaAtual}
+            onChange={(e) => setSenhaAtual(e.target.value)}
+            placeholder="Sua senha atual"
+            autoComplete="current-password"
+            className="h-12 rounded-2xl bg-background/50"
+          />
+        </div>
         <div className="space-y-1.5">
           <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50">Nova senha</Label>
           <div className="relative">
@@ -698,33 +714,10 @@ function SecurityCard() {
           {diverge && <p className="text-[11px] font-bold text-destructive px-1">As senhas não coincidem.</p>}
         </div>
 
-        {!codigoEnviado ? (
-          <Button onClick={enviarCodigo} disabled={!senhaOk || salvando} className="w-full h-12 rounded-2xl font-black uppercase text-xs tracking-widest gap-2">
-            {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-            {salvando ? "Enviando…" : "Enviar código de verificação"}
-          </Button>
-        ) : (
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50">Código do e-mail</Label>
-              <Input
-                value={codigo}
-                onChange={(e) => setCodigo(e.target.value)}
-                placeholder="Cole o código recebido"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                className="h-12 rounded-2xl bg-background/50 font-mono tracking-[0.3em]"
-              />
-            </div>
-            <Button onClick={confirmarTroca} disabled={!senhaOk || codigo.trim().length === 0 || salvando} className="w-full h-12 rounded-2xl font-black uppercase text-xs tracking-widest gap-2">
-              {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
-              {salvando ? "Alterando…" : "Confirmar nova senha"}
-            </Button>
-            <button type="button" onClick={enviarCodigo} disabled={salvando} className="w-full text-[11px] font-bold text-muted-foreground/70 hover:text-primary disabled:opacity-40">
-              Reenviar código
-            </button>
-          </div>
-        )}
+        <Button onClick={alterar} disabled={!podeSalvar} className="w-full h-12 rounded-2xl font-black uppercase text-xs tracking-widest gap-2">
+          {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
+          {salvando ? "Alterando…" : "Alterar Senha"}
+        </Button>
       </div>
     </div>
   );
