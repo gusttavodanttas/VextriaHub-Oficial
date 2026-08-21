@@ -580,6 +580,7 @@ function SecurityCard() {
   const [novoEmail, setNovoEmail] = useState("");
   const [salvandoEmail, setSalvandoEmail] = useState(false);
 
+  const [senhaAtual, setSenhaAtual] = useState("");
   const [novaSenha, setNovaSenha] = useState("");
   const [confirmar, setConfirmar] = useState("");
   const [mostrar, setMostrar] = useState(false);
@@ -591,7 +592,7 @@ function SecurityCard() {
 
   const curta = novaSenha.length > 0 && novaSenha.length < 6;
   const diverge = confirmar.length > 0 && confirmar !== novaSenha;
-  const podeSalvar = novaSenha.length >= 6 && confirmar === novaSenha && !salvando;
+  const podeSalvar = senhaAtual.length > 0 && novaSenha.length >= 6 && confirmar === novaSenha && !salvando;
 
   const alterarEmail = async () => {
     if (!podeTrocarEmail) return;
@@ -609,6 +610,14 @@ function SecurityCard() {
   const alterar = async () => {
     if (!podeSalvar) return;
     setSalvando(true);
+    // Reautentica com a senha atual antes de trocar — exigido pela política
+    // "Require current password when updating" (e barra troca por sessão sequestrada).
+    const { error: reauthError } = await supabase.auth.signInWithPassword({ email: emailAtual, password: senhaAtual });
+    if (reauthError) {
+      setSalvando(false);
+      toast({ variant: "destructive", title: "Senha atual incorreta", description: "Confira a senha atual e tente novamente." });
+      return;
+    }
     const { error } = await supabase.auth.updateUser({ password: novaSenha });
     setSalvando(false);
     if (error) {
@@ -616,7 +625,7 @@ function SecurityCard() {
       return;
     }
     toast({ title: "Senha alterada", description: "Sua nova senha já está ativa." });
-    setNovaSenha(""); setConfirmar("");
+    setSenhaAtual(""); setNovaSenha(""); setConfirmar("");
   };
 
   return (
@@ -645,6 +654,17 @@ function SecurityCard() {
       </div>
 
       <div className="space-y-4">
+        <div className="space-y-1.5">
+          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50">Senha atual</Label>
+          <Input
+            type={mostrar ? "text" : "password"}
+            value={senhaAtual}
+            onChange={(e) => setSenhaAtual(e.target.value)}
+            placeholder="Sua senha atual"
+            autoComplete="current-password"
+            className="h-12 rounded-2xl bg-background/50"
+          />
+        </div>
         <div className="space-y-1.5">
           <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50">Nova senha</Label>
           <div className="relative">
