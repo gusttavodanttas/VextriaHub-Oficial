@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ClientSelect } from "@/components/Clientes/ClientSelect";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -59,15 +60,29 @@ async function ensureCategoria(officeId: string, label: string, cor: string, ico
 
 const BLANK = { titulo: "", clienteId: "", parteContraria: "", protocolo: "", orgao: "", prazo: "", observacoes: "" };
 
+// Etapas da petição inicial (ramo judicial): elaborar → revisar (se for o caso) → protocolar
+type EtapaKey = "elaborar" | "revisar" | "protocolar";
+const ETAPAS_DEFAULT: Record<EtapaKey, { on: boolean; data: string }> = {
+  elaborar: { on: true, data: "" },
+  revisar: { on: false, data: "" },
+  protocolar: { on: true, data: "" },
+};
+const ETAPAS_META: { key: EtapaKey; label: string; prioridade: string }[] = [
+  { key: "elaborar", label: "Elaborar petição inicial", prioridade: "alta" },
+  { key: "revisar", label: "Revisar petição inicial", prioridade: "media" },
+  { key: "protocolar", label: "Protocolar petição inicial", prioridade: "alta" },
+];
+
 export function NovoCasoWizard({ open, onOpenChange, onSuccess }: NovoCasoWizardProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [tipo, setTipo] = useState<TipoCaso | null>(null);
   const [form, setForm] = useState(BLANK);
+  const [etapas, setEtapas] = useState(ETAPAS_DEFAULT);
   const [saving, setSaving] = useState(false);
 
-  const reset = () => { setTipo(null); setForm(BLANK); };
+  const reset = () => { setTipo(null); setForm(BLANK); setEtapas(ETAPAS_DEFAULT); };
   const close = (v: boolean) => { if (!v) reset(); onOpenChange(v); };
   const invalidar = () => {
     for (const key of ["processos", "consultivos", "consultivo_categorias", "tarefas", "prazos", "stats"]) {
@@ -101,21 +116,28 @@ export function NovoCasoWizard({ open, onOpenChange, onSuccess }: NovoCasoWizard
           }
           throw error;
         }
-        // Tarefa de protocolar — com vencimento se informado
-        const { error: tErr } = await supabase.from("tarefas").insert({
-          user_id: user.id,
-          office_id: user.office_id,
-          processo_id: (proc as { id: string }).id,
-          cliente_id: form.clienteId || null,
-          titulo: `Protocolar petição inicial — ${form.titulo.trim()}`,
-          descricao: "Após protocolar, preencha o número CNJ no processo para ativar o monitoramento automático de publicações.",
-          data_vencimento: form.prazo || null,
-          prioridade: "alta",
-          status: "pendente",
-          concluida: false,
-        });
-        if (tErr) console.warn("Tarefa de protocolar não criada:", tErr.message);
-        toast({ title: "Caso judicial criado", description: "Processo cadastrado sem número + tarefa de protocolar. Preencha o CNJ ao protocolar — é ele que liga o robô de publicações." });
+        // Cadeia de tarefas da inicial: elaborar → revisar (opcional) → protocolar
+        const marcadas = ETAPAS_META.filter((m) => etapas[m.key].on);
+        if (marcadas.length > 0) {
+          const rows = marcadas.map((m) => ({
+            user_id: user.id,
+            office_id: user.office_id,
+            processo_id: (proc as { id: string }).id,
+            cliente_id: form.clienteId || null,
+            titulo: `${m.label} — ${form.titulo.trim()}`,
+            descricao: m.key === "protocolar"
+              ? "Após protocolar, preencha o número CNJ no processo para ativar o monitoramento automático de publicações."
+              : null,
+            data_vencimento: etapas[m.key].data || null,
+            prioridade: m.prioridade,
+            status: "pendente",
+            concluida: false,
+          }));
+          const { error: tErr } = await supabase.from("tarefas").insert(rows);
+          if (tErr) console.warn("Tarefas das etapas não criadas:", tErr.message);
+        }
+        const nomes = marcadas.map((m) => m.label.split(" ")[0].toLowerCase()).join(" → ");
+        toast({ title: "Caso judicial criado", description: `Processo cadastrado sem número${nomes ? ` + etapas: ${nomes}` : ""}. Preencha o CNJ ao protocolar — é ele que liga o robô de publicações.` });
       } else {
         // Administrativo/Preventivo → consultivo na categoria certa
         const catLabel = tipo === "administrativo" ? "Administrativo" : "Preventivo";
@@ -213,15 +235,40 @@ export function NovoCasoWizard({ open, onOpenChange, onSuccess }: NovoCasoWizard
                 </div>
               </div>
             )}
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                {tipo === "judicial" ? "Data-limite para protocolar" : "Prazo"}
-              </Label>
-              <Input type="date" value={form.prazo} onChange={(e) => setForm({ ...form, prazo: e.target.value })} className="rounded-xl" />
-              <p className="text-[11px] text-muted-foreground/70">
-                {tipo === "judicial" ? "Cria a tarefa \"Protocolar petição inicial\" com este vencimento." : "Aparece na agenda e no painel."}
-              </p>
-            </div>
+            {tipo === "judicial" ? (
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Etapas da petição inicial</Label>
+                <div className="space-y-2 rounded-xl border border-black/5 dark:border-border bg-muted/20 p-3">
+                  {ETAPAS_META.map((m) => (
+                    <div key={m.key} className="flex items-center gap-3">
+                      <Checkbox
+                        id={`etapa-${m.key}`}
+                        checked={etapas[m.key].on}
+                        onCheckedChange={(v) => setEtapas({ ...etapas, [m.key]: { ...etapas[m.key], on: !!v } })}
+                      />
+                      <label htmlFor={`etapa-${m.key}`} className="flex-1 text-sm font-semibold cursor-pointer select-none">
+                        {m.label.replace(" petição inicial", "")}
+                        {m.key === "revisar" && <span className="text-[11px] text-muted-foreground/60 font-normal"> (se for o caso)</span>}
+                      </label>
+                      <Input
+                        type="date"
+                        value={etapas[m.key].data}
+                        onChange={(e) => setEtapas({ ...etapas, [m.key]: { ...etapas[m.key], data: e.target.value } })}
+                        disabled={!etapas[m.key].on}
+                        className="rounded-lg h-9 w-36 text-xs disabled:opacity-40"
+                      />
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[11px] text-muted-foreground/70">Cada etapa marcada vira uma tarefa (com vencimento, se informado). A de protocolar lembra de preencher o CNJ.</p>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Prazo</Label>
+                <Input type="date" value={form.prazo} onChange={(e) => setForm({ ...form, prazo: e.target.value })} className="rounded-xl" />
+                <p className="text-[11px] text-muted-foreground/70">Aparece na agenda e no painel.</p>
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Observações</Label>
               <Textarea value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} rows={3} className="rounded-xl resize-none" placeholder="Detalhes do caso..." />
