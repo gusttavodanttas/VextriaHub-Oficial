@@ -152,14 +152,22 @@ export function useProcessosV2() {
       // Responsável: padrão é o criador, mas pode ser atribuído a um membro
       insertPayload.responsavel_id = r.responsavelId || r.responsavel_id || user.id;
 
-      // Verifica se já existe antes de inserir
+      // Verifica se já existe antes de inserir.
+      // SÓ quando há número: processos sem CNJ (a protocolar) têm numero_processo ''
+      // e o match por '' fazia o segundo caso SOBRESCREVER o primeiro em silêncio.
+      // E ignora deletados — recriar um número que está na lixeira não pode ressuscitá-lo.
       const numeroLimpo = insertPayload.numero_processo;
-      const { data: existing } = await supabase
-        .from('processos')
-        .select('id')
-        .eq('office_id', user.office_id)
-        .eq('numero_processo', numeroLimpo)
-        .maybeSingle();
+      let existing: { id: string } | null = null;
+      if (numeroLimpo) {
+        const { data } = await supabase
+          .from('processos')
+          .select('id')
+          .eq('office_id', user.office_id)
+          .eq('numero_processo', numeroLimpo)
+          .eq('deletado', false)
+          .maybeSingle();
+        existing = data;
+      }
 
       let result;
       if (existing) {

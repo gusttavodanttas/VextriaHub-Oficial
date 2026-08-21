@@ -21,7 +21,7 @@ export const BLOCK_LABELS: Record<string, string> = {
 export const DASH_DEFAULTS: DashPrefs = {
   widgets: { agenda: true, produtividade: true, financeiro: true, grafico: true, prazos: false, tarefas: false, atividade: true, metas: false },
   order: ["agenda", "grafico", "prazos", "tarefas", "produtividade", "financeiro", "atividade", "metas"],
-  actions: { processo: true, prazo: true, agendar: true, cliente: true, tarefa: false, consultivo: false, atendimento: false, audiencia: false, timesheet: false },
+  actions: { caso: true, processo: true, prazo: true, agendar: true, cliente: true, tarefa: false, consultivo: false, atendimento: false, audiencia: false, timesheet: false },
 };
 
 /** Preferências do dashboard por usuário (persistidas no localStorage). */

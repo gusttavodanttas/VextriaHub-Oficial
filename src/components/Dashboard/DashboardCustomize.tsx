@@ -5,6 +5,7 @@ import { ChevronUp, ChevronDown } from "lucide-react";
 import { DashPrefs, BLOCK_LABELS } from "@/hooks/useDashboardPrefs";
 
 const ACTIONS: { key: string; label: string }[] = [
+  { key: "caso", label: "Novo Caso (assistente)" },
   { key: "processo", label: "Novo Processo" },
   { key: "prazo", label: "Novo Prazo" },
   { key: "agendar", label: "Agendar" },

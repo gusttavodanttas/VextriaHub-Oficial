@@ -13,9 +13,10 @@ import { QuickAudienciaDialog } from "@/components/Dashboard/QuickAudienciaDialo
 import { QuickTimesheetDialog } from "@/components/Dashboard/QuickTimesheetDialog";
 import { QuickTarefaDialog } from "@/components/Dashboard/QuickTarefaDialog";
 import { QuickConsultivoDialog } from "@/components/Dashboard/QuickConsultivoDialog";
+import { NovoCasoWizard } from "@/components/Dashboard/NovoCasoWizard";
 import { PrazosBlock, TarefasBlock } from "@/components/Dashboard/ListBlocks";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, FileText, CheckSquare, TrendingUp, ArrowRight, Plus, CalendarCheck, UserCheck, Users2, CalendarPlus, UserPlus, Award, Activity, Clock, Settings2, MessageSquareText } from "lucide-react";
+import { AlertCircle, FileText, CheckSquare, TrendingUp, ArrowRight, Plus, CalendarCheck, UserCheck, Users2, CalendarPlus, UserPlus, Award, Activity, Clock, Settings2, MessageSquareText, FolderPlus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -28,8 +29,9 @@ import { useClientes } from "@/hooks/useClientes";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-type ModalKey = "processo" | "prazo" | "agendar" | "cliente" | "atendimento" | "audiencia" | "timesheet" | "tarefa" | "consultivo";
+type ModalKey = "processo" | "prazo" | "agendar" | "cliente" | "atendimento" | "audiencia" | "timesheet" | "tarefa" | "consultivo" | "caso";
 const ACTION_CONFIG: { key: string; label: string; icon: React.ElementType; to?: string; modal?: ModalKey }[] = [
+  { key: "caso", label: "Novo Caso", icon: FolderPlus, modal: "caso" },
   { key: "processo", label: "Processo", icon: Plus, modal: "processo" },
   { key: "prazo", label: "Prazo", icon: Plus, modal: "prazo" },
   { key: "agendar", label: "Agendar", icon: CalendarPlus, modal: "agendar" },
@@ -327,6 +329,7 @@ const Index = () => {
       <QuickTimesheetDialog open={openModal === "timesheet"} onOpenChange={(o) => !o && setOpenModal(null)} onSuccess={onModalSuccess} />
       <QuickTarefaDialog open={openModal === "tarefa"} onOpenChange={(o) => !o && setOpenModal(null)} onSuccess={onModalSuccess} />
       <QuickConsultivoDialog open={openModal === "consultivo"} onOpenChange={(o) => !o && setOpenModal(null)} onSuccess={onModalSuccess} />
+      <NovoCasoWizard open={openModal === "caso"} onOpenChange={(o) => !o && setOpenModal(null)} onSuccess={onModalSuccess} />
     </div>
   );
 };
