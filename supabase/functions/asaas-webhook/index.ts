@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // asaas-webhook — recebe eventos de cobrança do Asaas e libera/bloqueia o acesso do ESCRITÓRIO.
 // Público (o Asaas chama de fora), protegido por token: header asaas-access-token OU ?token= na URL,
-// comparado com o segredo ASAAS_WEBHOOK_TOKEN. Deploy com --no-verify-jwt.
+// comparado com o segredo ASAAS_WEBHOOK_TOKEN em tempo CONSTANTE. Deploy com --no-verify-jwt.
 serve(async (req) => {
   const json = (b: unknown, s = 200) =>
     new Response(JSON.stringify(b), { status: s, headers: { "Content-Type": "application/json" } });
@@ -11,7 +11,14 @@ serve(async (req) => {
     const SECRET = Deno.env.get("ASAAS_WEBHOOK_TOKEN") || "";
     const url = new URL(req.url);
     const provided = req.headers.get("asaas-access-token") || url.searchParams.get("token") || "";
-    if (!SECRET || provided !== SECRET) return json({ error: "token-invalido" }, 401);
+    // Comparação de tempo constante (evita timing side-channel na verificação do token).
+    const tokenOk = (() => {
+      if (!SECRET || provided.length !== SECRET.length) return false;
+      let r = 0;
+      for (let i = 0; i < SECRET.length; i++) r |= provided.charCodeAt(i) ^ SECRET.charCodeAt(i);
+      return r === 0;
+    })();
+    if (!tokenOk) return json({ error: "token-invalido" }, 401);
 
     const payload = await req.json().catch(() => ({}));
     const event = String(payload?.event || "");
