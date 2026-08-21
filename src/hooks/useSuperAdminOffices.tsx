@@ -73,7 +73,8 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
             plan_name,
             value,
             next_due_date,
-            is_lifetime
+            is_lifetime,
+            manual_discount_percent
           )
         `)
         .order('created_at', { ascending: false });
@@ -153,7 +154,7 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
           is_trial: isTrial,
           active: office.active ?? true,
           is_lifetime: !!isLegacyLifetime,
-          manual_discount_percent: 0,
+          manual_discount_percent: Number(sub?.manual_discount_percent) || 0,
         };
       });
 
@@ -252,7 +253,7 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
     options?: { discount_percent?: number; reason?: string }
   ) => {
     try {
-      const { data, error } = await supabase.functions.invoke('admin-manage-access', {
+      const { data, error } = await supabase.functions.invoke('admin-office-access', {
         body: {
           office_id: officeId,
           action,

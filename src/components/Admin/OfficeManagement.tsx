@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useOfficeManagement } from '@/hooks/useOfficeManagement';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { Building2, Plus, Edit, Users, Settings, Eye, Trash2, Search, Star } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
@@ -44,12 +45,27 @@ export const OfficeManagement: React.FC = () => {
 
     try {
       if (editingOffice) {
-        const updated = await updateOffice(editingOffice.id, formData);
+        // Vitalício e desconto NÃO ficam na tabela offices — vão para office_subscriptions
+        // (fonte da verdade do acesso/cobrança), via função do super-admin. O resto vai para offices.
+        const { is_lifetime, manual_discount_percent, ...officeFields } = formData;
+        const updated = await updateOffice(editingOffice.id, officeFields);
         if (updated) {
-          toast({
-            title: "Escritório atualizado",
-            description: `O escritório "${formData.name}" foi atualizado com sucesso.`,
-          });
+          const accessBody = is_lifetime
+            ? { office_id: editingOffice.id, action: 'grant_lifetime' }
+            : { office_id: editingOffice.id, action: 'apply_discount', discount_percent: Number(manual_discount_percent) || 0 };
+          const { data: accRes, error: accErr } = await supabase.functions.invoke('admin-office-access', { body: accessBody });
+          if (accErr || (accRes as any)?.error) {
+            toast({
+              title: "Escritório salvo, mas o acesso não",
+              description: "Falha ao aplicar vitalício/desconto: " + ((accRes as any)?.error || accErr?.message || 'erro'),
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Escritório atualizado",
+              description: `O escritório "${formData.name}" foi atualizado com sucesso.`,
+            });
+          }
         }
       } else {
         const created = await createOffice(formData);
