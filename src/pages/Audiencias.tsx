@@ -66,7 +66,8 @@ const Audiencias = () => {
 
   const [searchTerm, setSearchTerm] = useState("");
   const dSearch = useDeferredValue(searchTerm);
-  const [statusFilter, setStatusFilter] = useState("todas");
+  // default "ativas": realizadas/canceladas são histórico — ficam a um clique no filtro
+  const [statusFilter, setStatusFilter] = useState("ativas");
   const [tipoFilter, setTipoFilter] = useState("todos");
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -91,7 +92,10 @@ const Audiencias = () => {
   const filtered = useMemo(() => audiencias.filter(a => {
     const q = dSearch.toLowerCase();
     const matchesSearch = !q || a.titulo?.toLowerCase().includes(q) || (a.cliente_nome || "").toLowerCase().includes(q) || (a.local || "").toLowerCase().includes(q);
-    const matchesStatus = statusFilter === "todas" || a.status === statusFilter;
+    const matchesStatus =
+      statusFilter === "todas" ? true :
+      statusFilter === "ativas" ? !["realizada", "cancelada"].includes(a.status || "") :
+      a.status === statusFilter;
     const matchesTipo = tipoFilter === "todos" || a.tipo === tipoFilter;
     return matchesSearch && matchesStatus && matchesTipo;
   }), [audiencias, dSearch, statusFilter, tipoFilter]);
@@ -301,7 +305,8 @@ const Audiencias = () => {
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-full md:w-40 h-11 rounded-xl bg-card/40 border-black/5 dark:border-border font-bold"><SelectValue /></SelectTrigger>
             <SelectContent className="rounded-xl">
-              <SelectItem value="todas">Todos status</SelectItem>
+              <SelectItem value="ativas">Ativas</SelectItem>
+              <SelectItem value="todas">Todas (com histórico)</SelectItem>
               {Object.entries(statusMeta).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
             </SelectContent>
           </Select>
