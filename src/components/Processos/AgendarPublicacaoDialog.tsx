@@ -209,7 +209,9 @@ export const AgendarPublicacaoDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent aria-describedby={undefined} className="max-w-md bg-background border border-border p-0 rounded-[2rem] shadow-2xl overflow-hidden">
+      {/* max-h + grid-rows: o header fica fixo e o form rola — sem isso, o modal
+          estoura a tela em janelas baixas e os botões Salvar/Cancelar ficam inalcançáveis */}
+      <DialogContent aria-describedby={undefined} className="max-w-md bg-background border border-border p-0 rounded-[2rem] shadow-2xl overflow-hidden max-h-[85dvh] grid-rows-[auto_minmax(0,1fr)] gap-0">
         <DialogHeader className="p-6 pb-4 border-b border-border bg-muted/20">
           <DialogTitle className="flex items-center gap-2 text-lg font-black text-foreground">
             <Icon className={`h-5 w-5 ${META[tipo].color}`} />
@@ -220,7 +222,7 @@ export const AgendarPublicacaoDialog = ({
           )}
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
           {/* Seletor de tipo */}
           <div className="space-y-1.5">
             <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Tipo</Label>
