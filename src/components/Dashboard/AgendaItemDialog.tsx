@@ -3,13 +3,15 @@ import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckCircle2, ExternalLink, Calendar, User, AlertCircle, Clock, Headphones, BookOpen, CheckSquare } from "lucide-react";
+import { Loader2, CheckCircle2, ExternalLink, Calendar, User, AlertCircle, Clock, Headphones, BookOpen, CheckSquare, Gavel } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { continueOccurrences, RecRule } from "@/lib/recorrencia";
+import { AgendarPublicacaoDialog } from "@/components/Processos/AgendarPublicacaoDialog";
+import { pareceAudiencia } from "@/components/Prazos/shared";
 
 export type AgendaType = "prazo" | "audiencia" | "tarefa" | "atendimento" | "consultivo";
 
@@ -37,6 +39,7 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
   const [clienteNome, setClienteNome] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [agendarOpen, setAgendarOpen] = useState(false);
 
   const cfg = item ? CFG[item.type] : null;
 
@@ -92,6 +95,7 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
   };
 
   return (
+    <>
     <Dialog open={!!item} onOpenChange={onOpenChange}>
       <DialogContent
         aria-describedby={undefined}
@@ -128,6 +132,11 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
             )}
 
             <div className="flex flex-col sm:flex-row gap-2 pt-1">
+              {item?.type === "prazo" && row.status !== "concluido" && (row.possivel_audiencia || pareceAudiencia(row.descricao || "")) && (
+                <Button onClick={() => setAgendarOpen(true)} className="flex-1 rounded-xl font-bold gap-2 bg-violet-600 hover:bg-violet-700 text-white">
+                  <Gavel className="h-4 w-4" /> Agendar audiência
+                </Button>
+              )}
               {cfg.canConclude && row.status !== "concluido" && !row.concluida && (
                 <Button onClick={concluir} disabled={saving} className="flex-1 rounded-xl font-bold gap-2">
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />} Concluir
@@ -141,5 +150,22 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
         )}
       </DialogContent>
     </Dialog>
+    {row && item?.type === "prazo" && (
+      <AgendarPublicacaoDialog
+        open={agendarOpen}
+        onOpenChange={setAgendarOpen}
+        defaultTipo="audiencia"
+        publicacaoId={row.publicacao_id || undefined}
+        numeroProcesso={row.numero_processo || undefined}
+        processoId={row.processo_id || null}
+        tituloSugerido={row.titulo || undefined}
+        descricaoSugerida={row.descricao || undefined}
+        dataSugerida={row.audiencia_data_sugerida || undefined}
+        horaSugerida={row.audiencia_hora_sugerida || undefined}
+        tipoAudienciaSugerido={row.audiencia_tipo_sugerido || undefined}
+        onSuccess={() => { setAgendarOpen(false); onChanged?.(); onOpenChange(false); }}
+      />
+    )}
+    </>
   );
 }
