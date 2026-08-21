@@ -43,7 +43,7 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
   const [agendarOpen, setAgendarOpen] = useState(false);
   const [agendarRow, setAgendarRow] = useState<any>(null);
   const [editing, setEditing] = useState(false);
-  const [ed, setEd] = useState({ data: "", hora: "", local: "", tipo: "" });
+  const [ed, setEd] = useState({ data: "", hora: "", local: "", tipo: "", titulo: "", prioridade: "media" });
 
   const cfg = item ? CFG[item.type] : null;
 
@@ -99,26 +99,32 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
     onOpenChange(false);
   };
 
-  const startEditAudiencia = () => {
-    const dt = row?.data_audiencia ? new Date(row.data_audiencia) : null;
-    setEd({
-      data: dt ? format(dt, "yyyy-MM-dd") : "",
-      hora: dt ? format(dt, "HH:mm") : "",
-      local: row?.local || "",
-      tipo: row?.tipo || "",
-    });
+  const startEdit = () => {
+    if (item?.type === "audiencia") {
+      const dt = row?.data_audiencia ? new Date(row.data_audiencia) : null;
+      setEd({ data: dt ? format(dt, "yyyy-MM-dd") : "", hora: dt ? format(dt, "HH:mm") : "", local: row?.local || "", tipo: row?.tipo || "", titulo: row?.titulo || "", prioridade: row?.prioridade || "media" });
+    } else {
+      setEd({ data: String(row?.data_fim_prazo || row?.data_vencimento || "").slice(0, 10), hora: "", local: "", tipo: "", titulo: row?.titulo || "", prioridade: row?.prioridade || "media" });
+    }
     setEditing(true);
   };
 
-  const salvarAudiencia = async () => {
-    if (!item || !ed.data) { toast({ title: "Informe a data da audiência", variant: "destructive" }); return; }
+  const salvar = async () => {
+    if (!item || !ed.data) { toast({ title: "Informe a data", variant: "destructive" }); return; }
     setSaving(true);
-    const iso = new Date(`${ed.data}T${ed.hora || "00:00"}`).toISOString();
-    const { error } = await supabase.from("audiencias").update({ data_audiencia: iso, local: ed.local || null, tipo: ed.tipo || null } as any).eq("id", item.id);
+    let error: any = null;
+    if (item.type === "audiencia") {
+      const iso = new Date(`${ed.data}T${ed.hora || "00:00"}`).toISOString();
+      ({ error } = await supabase.from("audiencias").update({ data_audiencia: iso, local: ed.local || null, tipo: ed.tipo || null, titulo: ed.titulo || row.titulo } as any).eq("id", item.id));
+      if (!error) setRow({ ...row, data_audiencia: iso, local: ed.local || null, tipo: ed.tipo || null, titulo: ed.titulo || row.titulo });
+    } else {
+      // prazo: grava as DUAS datas (data_fim_prazo é a que Agenda/Dashboard/Relatórios leem)
+      ({ error } = await supabase.from("prazos").update({ data_fim_prazo: ed.data, data_vencimento: ed.data, titulo: ed.titulo || row.titulo, prioridade: ed.prioridade } as any).eq("id", item.id));
+      if (!error) setRow({ ...row, data_fim_prazo: ed.data, data_vencimento: ed.data, titulo: ed.titulo || row.titulo, prioridade: ed.prioridade });
+    }
     setSaving(false);
     if (error) { toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" }); return; }
-    toast({ title: "Audiência atualizada" });
-    setRow({ ...row, data_audiencia: iso, local: ed.local || null, tipo: ed.tipo || null });
+    toast({ title: `${cfg?.label || "Item"} atualizado` });
     setEditing(false);
     onChanged?.();
   };
@@ -161,24 +167,40 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
           <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary/40" /></div>
         ) : editing ? (
           <div className="space-y-3">
-            <p className="font-black text-base leading-tight">{row[cfg.titleField] || cfg.label}</p>
+            <label className="block text-[11px] font-black uppercase tracking-widest text-muted-foreground/70">Título
+              <Input value={ed.titulo} onChange={(e) => setEd({ ...ed, titulo: e.target.value })} className="rounded-xl mt-1" />
+            </label>
             <div className="grid grid-cols-2 gap-2">
-              <label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground/70">Data
+              <label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground/70">{item?.type === "audiencia" ? "Data da audiência" : "Data do prazo"}
                 <Input type="date" value={ed.data} onChange={(e) => setEd({ ...ed, data: e.target.value })} className="rounded-xl mt-1" />
               </label>
-              <label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground/70">Hora
-                <Input type="time" value={ed.hora} onChange={(e) => setEd({ ...ed, hora: e.target.value })} className="rounded-xl mt-1" />
-              </label>
+              {item?.type === "audiencia" ? (
+                <label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground/70">Hora
+                  <Input type="time" value={ed.hora} onChange={(e) => setEd({ ...ed, hora: e.target.value })} className="rounded-xl mt-1" />
+                </label>
+              ) : (
+                <label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground/70">Prioridade
+                  <select value={ed.prioridade} onChange={(e) => setEd({ ...ed, prioridade: e.target.value })} className="w-full rounded-xl mt-1 h-10 px-3 bg-background border border-input text-sm">
+                    <option value="alta">Alta</option>
+                    <option value="media">Média</option>
+                    <option value="baixa">Baixa</option>
+                  </select>
+                </label>
+              )}
             </div>
-            <label className="block text-[11px] font-black uppercase tracking-widest text-muted-foreground/70">Local
-              <Input value={ed.local} onChange={(e) => setEd({ ...ed, local: e.target.value })} placeholder="Fórum, sala virtual, link..." className="rounded-xl mt-1" />
-            </label>
-            <label className="block text-[11px] font-black uppercase tracking-widest text-muted-foreground/70">Tipo
-              <Input value={ed.tipo} onChange={(e) => setEd({ ...ed, tipo: e.target.value })} placeholder="Ex: Audiência de Conciliação" className="rounded-xl mt-1" />
-            </label>
+            {item?.type === "audiencia" && (
+              <>
+                <label className="block text-[11px] font-black uppercase tracking-widest text-muted-foreground/70">Local
+                  <Input value={ed.local} onChange={(e) => setEd({ ...ed, local: e.target.value })} placeholder="Fórum, sala virtual, link..." className="rounded-xl mt-1" />
+                </label>
+                <label className="block text-[11px] font-black uppercase tracking-widest text-muted-foreground/70">Tipo
+                  <Input value={ed.tipo} onChange={(e) => setEd({ ...ed, tipo: e.target.value })} placeholder="Ex: Audiência de Conciliação" className="rounded-xl mt-1" />
+                </label>
+              </>
+            )}
             <div className="flex gap-2 pt-1">
               <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setEditing(false)} disabled={saving}>Cancelar</Button>
-              <Button className="flex-1 rounded-xl font-bold gap-2" onClick={salvarAudiencia} disabled={saving}>
+              <Button className="flex-1 rounded-xl font-bold gap-2" onClick={salvar} disabled={saving}>
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />} Salvar
               </Button>
             </div>
@@ -203,9 +225,9 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
                   <Gavel className="h-4 w-4" /> Agendar audiência
                 </Button>
               )}
-              {item?.type === "audiencia" && (
-                <Button onClick={startEditAudiencia} className="flex-1 rounded-xl font-bold gap-2 bg-violet-600 hover:bg-violet-700 text-white">
-                  <Pencil className="h-4 w-4" /> Editar audiência
+              {(item?.type === "audiencia" || item?.type === "prazo") && row.status !== "concluido" && (
+                <Button onClick={startEdit} className="flex-1 rounded-xl font-bold gap-2 bg-violet-600 hover:bg-violet-700 text-white">
+                  <Pencil className="h-4 w-4" /> {item?.type === "audiencia" ? "Editar audiência" : "Editar prazo"}
                 </Button>
               )}
               {item?.type === "audiencia" && row.status !== "realizada" && row.status !== "cancelada" && (

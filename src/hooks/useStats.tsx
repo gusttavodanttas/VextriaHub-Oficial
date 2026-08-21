@@ -29,6 +29,13 @@ export function useStats() {
     // Cache curto: ao voltar pro dashboard mostra os últimos números NA HORA e revalida
     // em segundo plano — some o "flash de carregando" que aparecia a cada visita.
     staleTime: 60_000,
+    // Semeia com os últimos números salvos no localStorage → aparecem na hora mesmo após
+    // um F5 (recarga total). initialDataUpdatedAt:0 marca como "velho" → revalida em bg.
+    initialData: () => {
+      if (!officeId) return undefined;
+      try { const c = localStorage.getItem(`stats:${officeId}`); return c ? (JSON.parse(c) as Stats) : undefined; } catch { return undefined; }
+    },
+    initialDataUpdatedAt: 0,
     queryFn: async (): Promise<Stats> => {
       if (!officeId) return ZEROS;
       const [
@@ -48,7 +55,7 @@ export function useStats() {
       const receitas = financeiroResult.data?.filter((f) => f.tipo === 'receita') || [];
       const despesas = financeiroResult.data?.filter((f) => f.tipo === 'despesa') || [];
 
-      return {
+      const result: Stats = {
         processosAtivos: processosResult.count || 0,
         clientes: clientesResult.count || 0,
         tarefasPendentes: todasTarefas.filter((t) => !t.concluida).length,
@@ -59,6 +66,8 @@ export function useStats() {
         despesaMensal: despesas.reduce((s, d) => s + (Number(d.valor) || 0), 0),
         colaboradores: colaboradoresResult.count || 0,
       };
+      try { localStorage.setItem(`stats:${officeId}`, JSON.stringify(result)); } catch { /* ignore */ }
+      return result;
     },
   });
 
