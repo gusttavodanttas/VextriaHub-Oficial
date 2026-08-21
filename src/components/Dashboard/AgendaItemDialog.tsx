@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckCircle2, ExternalLink, Calendar, User, AlertCircle, Clock, Headphones, BookOpen, CheckSquare, Gavel } from "lucide-react";
+import { Loader2, CheckCircle2, ExternalLink, Calendar, User, AlertCircle, Clock, Headphones, BookOpen, CheckSquare, Gavel, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -40,12 +41,15 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [agendarOpen, setAgendarOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [ed, setEd] = useState({ data: "", hora: "", local: "", tipo: "" });
 
   const cfg = item ? CFG[item.type] : null;
 
   useEffect(() => {
     if (!item) { setRow(null); setClienteNome(null); return; }
     let cancel = false;
+    setEditing(false);
     (async () => {
       setLoading(true);
       const table = CFG[item.type].label === "Prazo" ? "prazos" : item.type === "audiencia" ? "audiencias" : item.type === "tarefa" ? "tarefas" : item.type === "atendimento" ? "atendimentos" : "consultivos";
@@ -94,6 +98,30 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
     onOpenChange(false);
   };
 
+  const startEditAudiencia = () => {
+    const dt = row?.data_audiencia ? new Date(row.data_audiencia) : null;
+    setEd({
+      data: dt ? format(dt, "yyyy-MM-dd") : "",
+      hora: dt ? format(dt, "HH:mm") : "",
+      local: row?.local || "",
+      tipo: row?.tipo || "",
+    });
+    setEditing(true);
+  };
+
+  const salvarAudiencia = async () => {
+    if (!item || !ed.data) { toast({ title: "Informe a data da audiência", variant: "destructive" }); return; }
+    setSaving(true);
+    const iso = new Date(`${ed.data}T${ed.hora || "00:00"}`).toISOString();
+    const { error } = await supabase.from("audiencias").update({ data_audiencia: iso, local: ed.local || null, tipo: ed.tipo || null } as any).eq("id", item.id);
+    setSaving(false);
+    if (error) { toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Audiência atualizada" });
+    setRow({ ...row, data_audiencia: iso, local: ed.local || null, tipo: ed.tipo || null });
+    setEditing(false);
+    onChanged?.();
+  };
+
   return (
     <>
     <Dialog open={!!item} onOpenChange={onOpenChange}>
@@ -117,6 +145,30 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
 
         {loading || !row || !cfg ? (
           <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary/40" /></div>
+        ) : editing ? (
+          <div className="space-y-3">
+            <p className="font-black text-base leading-tight">{row[cfg.titleField] || cfg.label}</p>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground/70">Data
+                <Input type="date" value={ed.data} onChange={(e) => setEd({ ...ed, data: e.target.value })} className="rounded-xl mt-1" />
+              </label>
+              <label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground/70">Hora
+                <Input type="time" value={ed.hora} onChange={(e) => setEd({ ...ed, hora: e.target.value })} className="rounded-xl mt-1" />
+              </label>
+            </div>
+            <label className="block text-[11px] font-black uppercase tracking-widest text-muted-foreground/70">Local
+              <Input value={ed.local} onChange={(e) => setEd({ ...ed, local: e.target.value })} placeholder="Fórum, sala virtual, link..." className="rounded-xl mt-1" />
+            </label>
+            <label className="block text-[11px] font-black uppercase tracking-widest text-muted-foreground/70">Tipo
+              <Input value={ed.tipo} onChange={(e) => setEd({ ...ed, tipo: e.target.value })} placeholder="Ex: Audiência de Conciliação" className="rounded-xl mt-1" />
+            </label>
+            <div className="flex gap-2 pt-1">
+              <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setEditing(false)} disabled={saving}>Cancelar</Button>
+              <Button className="flex-1 rounded-xl font-bold gap-2" onClick={salvarAudiencia} disabled={saving}>
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />} Salvar
+              </Button>
+            </div>
+          </div>
         ) : (
           <div className="space-y-4">
             <div>
@@ -135,6 +187,11 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
               {item?.type === "prazo" && row.status !== "concluido" && (row.possivel_audiencia || pareceAudiencia(row.descricao || "")) && (
                 <Button onClick={() => setAgendarOpen(true)} className="flex-1 rounded-xl font-bold gap-2 bg-violet-600 hover:bg-violet-700 text-white">
                   <Gavel className="h-4 w-4" /> Agendar audiência
+                </Button>
+              )}
+              {item?.type === "audiencia" && (
+                <Button onClick={startEditAudiencia} className="flex-1 rounded-xl font-bold gap-2 bg-violet-600 hover:bg-violet-700 text-white">
+                  <Pencil className="h-4 w-4" /> Editar audiência
                 </Button>
               )}
               {cfg.canConclude && row.status !== "concluido" && !row.concluida && (
