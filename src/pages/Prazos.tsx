@@ -40,7 +40,7 @@ import {
 import {
   type Prazo, type Urgency,
   tituloPrazo, getDataPrazo, toLocalDate, getUrgency, getDaysLabel,
-  sortPrazos, ehSugestaoRobo, pareceAudiencia,
+  sortPrazos, ehSugestaoRobo, pareceAudiencia, extrairAudienciaSugerida,
   URGENCY_CONFIG, PRIORITY_CONFIG, SECTION_ORDER, SECTION_LABELS,
 } from '@/components/Prazos/shared';
 import { MonthView } from '@/components/Prazos/MonthView';
@@ -677,9 +677,9 @@ export default function Prazos() {
           processoId={agendarTarget.processo_id || procDoPrazo(agendarTarget)?.id || null}
           tituloSugerido={tituloPrazo(agendarTarget, pubInfo)}
           descricaoSugerida={teorMap[agendarTarget.id]}
-          dataSugerida={agendarTarget.audiencia_data_sugerida || undefined}
-          horaSugerida={agendarTarget.audiencia_hora_sugerida || undefined}
-          tipoAudienciaSugerido={agendarTarget.audiencia_tipo_sugerido || undefined}
+          dataSugerida={(agendarTarget.audiencia_data_sugerida || extrairAudienciaSugerida(teorMap[agendarTarget.id]).data) || undefined}
+          horaSugerida={(agendarTarget.audiencia_hora_sugerida || extrairAudienciaSugerida(teorMap[agendarTarget.id]).hora) || undefined}
+          tipoAudienciaSugerido={(agendarTarget.audiencia_tipo_sugerido || extrairAudienciaSugerida(teorMap[agendarTarget.id]).tipo) || undefined}
           onSuccess={async () => {
             // A sugestão virou audiência/tarefa: descarta o prazo sugerido
             await supabase.from('prazos').update({ deletado: true }).eq('id', agendarTarget.id);

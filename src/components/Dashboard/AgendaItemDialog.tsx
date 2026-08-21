@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { continueOccurrences, RecRule } from "@/lib/recorrencia";
 import { AgendarPublicacaoDialog } from "@/components/Processos/AgendarPublicacaoDialog";
-import { pareceAudiencia } from "@/components/Prazos/shared";
+import { pareceAudiencia, extrairAudienciaSugerida } from "@/components/Prazos/shared";
 
 export type AgendaType = "prazo" | "audiencia" | "tarefa" | "atendimento" | "consultivo";
 
@@ -41,6 +41,7 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [agendarOpen, setAgendarOpen] = useState(false);
+  const [agendarRow, setAgendarRow] = useState<any>(null);
   const [editing, setEditing] = useState(false);
   const [ed, setEd] = useState({ data: "", hora: "", local: "", tipo: "" });
 
@@ -122,6 +123,19 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
     onChanged?.();
   };
 
+  const marcarRealizada = async () => {
+    if (!item) return;
+    setSaving(true);
+    const { error } = await supabase.from("audiencias").update({ status: "realizada" } as any).eq("id", item.id);
+    setSaving(false);
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Audiência marcada como realizada" });
+    onChanged?.();
+    onOpenChange(false);
+  };
+
+  const audSug = agendarRow ? extrairAudienciaSugerida(agendarRow.descricao || "") : { data: null, hora: null, tipo: null };
+
   return (
     <>
     <Dialog open={!!item} onOpenChange={onOpenChange}>
@@ -185,13 +199,18 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
 
             <div className="flex flex-col sm:flex-row gap-2 pt-1">
               {item?.type === "prazo" && row.status !== "concluido" && (row.possivel_audiencia || pareceAudiencia(row.descricao || "")) && (
-                <Button onClick={() => setAgendarOpen(true)} className="flex-1 rounded-xl font-bold gap-2 bg-violet-600 hover:bg-violet-700 text-white">
+                <Button onClick={() => { setAgendarRow(row); setAgendarOpen(true); onOpenChange(false); }} className="flex-1 rounded-xl font-bold gap-2 bg-violet-600 hover:bg-violet-700 text-white">
                   <Gavel className="h-4 w-4" /> Agendar audiência
                 </Button>
               )}
               {item?.type === "audiencia" && (
                 <Button onClick={startEditAudiencia} className="flex-1 rounded-xl font-bold gap-2 bg-violet-600 hover:bg-violet-700 text-white">
                   <Pencil className="h-4 w-4" /> Editar audiência
+                </Button>
+              )}
+              {item?.type === "audiencia" && row.status !== "realizada" && row.status !== "cancelada" && (
+                <Button variant="outline" onClick={marcarRealizada} disabled={saving} className="flex-1 rounded-xl font-bold gap-2 text-emerald-600">
+                  <CheckCircle2 className="h-4 w-4" /> Realizada
                 </Button>
               )}
               {cfg.canConclude && row.status !== "concluido" && !row.concluida && (
@@ -207,20 +226,20 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
         )}
       </DialogContent>
     </Dialog>
-    {row && item?.type === "prazo" && (
+    {agendarRow && (
       <AgendarPublicacaoDialog
         open={agendarOpen}
-        onOpenChange={setAgendarOpen}
+        onOpenChange={(v) => { setAgendarOpen(v); if (!v) setAgendarRow(null); }}
         defaultTipo="audiencia"
-        publicacaoId={row.publicacao_id || undefined}
-        numeroProcesso={row.numero_processo || undefined}
-        processoId={row.processo_id || null}
-        tituloSugerido={row.titulo || undefined}
-        descricaoSugerida={row.descricao || undefined}
-        dataSugerida={row.audiencia_data_sugerida || undefined}
-        horaSugerida={row.audiencia_hora_sugerida || undefined}
-        tipoAudienciaSugerido={row.audiencia_tipo_sugerido || undefined}
-        onSuccess={() => { setAgendarOpen(false); onChanged?.(); onOpenChange(false); }}
+        publicacaoId={agendarRow.publicacao_id || undefined}
+        numeroProcesso={agendarRow.numero_processo || undefined}
+        processoId={agendarRow.processo_id || null}
+        tituloSugerido={agendarRow.titulo || undefined}
+        descricaoSugerida={agendarRow.descricao || undefined}
+        dataSugerida={(agendarRow.audiencia_data_sugerida || audSug.data) || undefined}
+        horaSugerida={(agendarRow.audiencia_hora_sugerida || audSug.hora) || undefined}
+        tipoAudienciaSugerido={(agendarRow.audiencia_tipo_sugerido || audSug.tipo) || undefined}
+        onSuccess={() => { setAgendarOpen(false); setAgendarRow(null); onChanged?.(); }}
       />
     )}
     </>
