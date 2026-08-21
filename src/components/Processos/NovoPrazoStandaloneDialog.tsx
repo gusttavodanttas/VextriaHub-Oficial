@@ -245,7 +245,7 @@ const DraftForm = memo(function DraftForm({ draft, setDraft, saving, onSave, onC
   );
 });
 
-function GerenciarTiposModal({ open, onClose, officeId }: GerenciarTiposProps) {
+export function GerenciarTiposModal({ open, onClose, officeId }: GerenciarTiposProps) {
   const { toast } = useToast();
   const [tipos, setTipos] = useState<TipoAto[]>([]);
   const [loading, setLoading] = useState(false);
