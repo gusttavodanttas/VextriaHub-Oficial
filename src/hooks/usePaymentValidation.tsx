@@ -51,7 +51,9 @@ export const usePaymentValidation = () => {
 
       const today = new Date(); today.setHours(0, 0, 0, 0);
       const trialEnds = sub.trial_ends_at ? new Date(sub.trial_ends_at + 'T00:00:00') : null;
-      const trialActive = sub.status === 'trial' && (!trialEnds || trialEnds >= today);
+      // Espelha office_has_access (servidor): o teste vale para 'trial' E 'pendente' (ex.: boleto
+      // gerado no meio do trial) e exige data futura — evita expulsar do app quem está convertendo.
+      const trialActive = !!trialEnds && trialEnds >= today && (sub.status === 'trial' || sub.status === 'pendente');
       const daysLeft = trialEnds ? Math.max(0, Math.ceil((trialEnds.getTime() - today.getTime()) / 86400000)) : 0;
       const paidAccess = sub.is_lifetime || sub.status === 'ativa' || sub.status === 'cortesia';
 

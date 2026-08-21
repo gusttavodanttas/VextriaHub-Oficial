@@ -73,8 +73,8 @@ serve(async (req) => {
     // SETUP — cria/atualiza a assinatura paga no Asaas.
     if (action === "setup") {
       if (!KEY) return json({ error: "sem-asaas-key" }, 500);
-      const cpfCnpj = String(body?.cpfCnpj || "").replace(/\D/g, "");
-      const cycle = String(body?.cycle || "MONTHLY");
+      const cpfCnpj = String(body?.cpfCnpj || "").replace(/[^0-9]/g, "");
+      let cycle = String(body?.cycle || "MONTHLY");
       const billingType = String(body?.billing_type || "UNDEFINED");
       // Trial SÓ o super_admin concede — senão um admin do próprio escritório se
       // daria trial infinito (trial_days grande) e nunca pagaria. Dias limitados a 30.
@@ -82,19 +82,20 @@ serve(async (req) => {
       const trialDays = Math.min(Math.max(Number(body?.trial_days) || 7, 1), 30);
       const nextDue = trial ? plusDays(trialDays) : String(body?.first_due_date || plusDays(3));
 
-      // Valor/nome do plano: self-serve (admin do escritório) DEVE usar um plano do
-      // catálogo (plan_configs) — o valor vem do SERVIDOR, não do body (anti-fraude).
-      // Super admin pode passar valor livre (negociação/custom).
+      // Valor/nome/CICLO do plano: self-serve (admin do escritório) DEVE usar um plano do
+      // catálogo (plan_configs) — valor E ciclo vêm do SERVIDOR, não do body (anti-fraude:
+      // impede casar preço anual com cobrança mensal). Super admin pode passar valor livre.
       let planName = String(body?.plan_name || "Plano").trim();
       let value = Number(body?.value);
       const planType = String(body?.plan_type || "").trim();
       if (planType) {
         const { data: plan } = await service
-          .from("plan_configs").select("plan_name, price_cents")
+          .from("plan_configs").select("plan_name, price_cents, cycle")
           .eq("plan_type", planType).eq("is_active", true).maybeSingle();
         if (!plan) return json({ error: "plano-invalido" }, 400);
         planName = String(plan.plan_name || planName);
         value = Number(plan.price_cents) / 100;
+        if (plan.cycle) cycle = String(plan.cycle);
       } else if (!isSuper) {
         return json({ error: "plano-obrigatorio" }, 400);
       }

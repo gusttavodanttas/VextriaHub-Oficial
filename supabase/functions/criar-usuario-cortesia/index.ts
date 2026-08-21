@@ -1,3 +1,5 @@
+// NOTA: esta função deploya com o SLUG "super-worker" (é o que a UI chama em
+// CriarUsuarioCortesia.tsx via functions.invoke('super-worker')). Nome ≠ slug.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -100,19 +102,21 @@ Deno.serve(async (req) => {
       .update({ office_id: office.id })
       .eq("user_id", userId);
 
-    // 6. Criar subscription cortesia (sem data de expiração = vitalício)
+    // 6. Assinatura cortesia (vitalícia) em office_subscriptions — fonte-da-verdade do acesso.
+    //    (Antes gravava na tabela Stripe legada 'subscriptions', que o office_has_access NÃO lê,
+    //     então o escritório cortesia nascia SEM acesso / a RLS bloqueava tudo.)
     await supabaseAdmin
-      .from("subscriptions")
-      .insert({
+      .from("office_subscriptions")
+      .upsert({
         office_id: office.id,
-        plan: plano || "professional",
-        status: "active",
-        start_date: new Date().toISOString().split("T")[0],
-        end_date: "2099-12-31",
-        price: 0,
-        payment_status: "courtesy",
-        access_status: "courtesy",
-      });
+        plan_name: "Cortesia",
+        status: "cortesia",
+        is_lifetime: true,
+        value: 0,
+        trial_ends_at: null,
+        next_due_date: null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "office_id" });
 
     // 7. Registrar auditoria
     await supabaseAdmin
