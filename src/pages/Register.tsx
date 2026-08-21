@@ -11,6 +11,7 @@ import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from '@/integrations/supabase/client';
+import { useDefaultBrandOnPublicPage } from '@/lib/brandColor';
 import { formatCpfCnpj, onlyDigits, isValidCpfCnpj } from "@/lib/document";
 import { formatPhoneInput } from "@/utils/formatters";
 
@@ -39,6 +40,8 @@ const Register = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { register } = useAuth();
+
+  useDefaultBrandOnPublicPage();
 
   // Buscar dados do plano selecionado
   useEffect(() => {

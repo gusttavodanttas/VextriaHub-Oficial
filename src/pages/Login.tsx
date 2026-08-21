@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
+import { useDefaultBrandOnPublicPage } from "@/lib/brandColor";
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -31,6 +32,8 @@ const Login = () => {
     isSuperAdmin,
     getRedirectPath
   } = useAuth();
+
+  useDefaultBrandOnPublicPage();
 
   // Se já estiver logado, redirecionar para dashboard
   useEffect(() => {

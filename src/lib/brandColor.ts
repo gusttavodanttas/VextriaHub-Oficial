@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+
 // Personalização da cor primária do escritório.
 // Guardamos o HEX em offices.settings.primary_color e o HSL no localStorage
 // (para aplicar instantaneamente no boot, sem flash).
@@ -31,4 +33,19 @@ export function applyPrimary(hsl: string | null) {
   const root = document.documentElement;
   if (hsl) root.style.setProperty("--primary", hsl);
   else root.style.removeProperty("--primary");
+}
+
+/**
+ * Páginas públicas (landing, login, cadastro) usam a cor PADRÃO da marca.
+ * A cor personalizada é só do painel interno do escritório: aqui removemos o
+ * override no mount e restauramos ao sair (para o app interno manter a cor).
+ */
+export function useDefaultBrandOnPublicPage() {
+  useEffect(() => {
+    applyPrimary(null);
+    return () => {
+      const saved = localStorage.getItem(BRAND_LS_KEY);
+      if (saved) applyPrimary(saved);
+    };
+  }, []);
 }

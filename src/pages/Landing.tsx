@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
-import { applyPrimary, hexToHslString } from "@/lib/brandColor";
+import { useDefaultBrandOnPublicPage } from "@/lib/brandColor";
+import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   ArrowRight,
@@ -17,7 +18,9 @@ import {
   BarChart3,
   FileText,
   Calendar,
-  Menu
+  Menu,
+  Sun,
+  Moon
 } from "lucide-react";
 import { 
   Sheet, 
@@ -27,11 +30,12 @@ import {
   SheetTitle
 } from "@/components/ui/sheet";
 
-const LANDING_COLORS = ['#2563eb', '#7c3aed', '#0ea5e9', '#16a34a', '#ea580c', '#dc2626'];
-
 const Landing: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+  const { actualTheme, setTheme } = useTheme();
+  const isDark = actualTheme === 'dark' || actualTheme === 'blue';
+  useDefaultBrandOnPublicPage();
   const [billingCycle, setBillingCycle] = useState<'MONTHLY' | 'SEMIANNUALLY' | 'YEARLY'>('MONTHLY');
 
   // Planos por ciclo (espelham o catálogo em plan_configs). Semestral = 1 mês grátis, Anual = 2.
@@ -589,27 +593,15 @@ const Landing: React.FC = () => {
         </div>
       </footer>
 
-      {/* Trocador de cor — deixa o visitante ver ao vivo que dá pra personalizar a cor do sistema */}
-      <div className="fixed bottom-4 right-4 z-50 flex items-center gap-1.5 rounded-full bg-background/95 backdrop-blur border border-border shadow-lg px-3 py-2">
-        <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mr-0.5 hidden sm:inline">Cor</span>
-        {LANDING_COLORS.map((c) => (
-          <button
-            key={c}
-            type="button"
-            aria-label={`Aplicar cor ${c}`}
-            onClick={() => applyPrimary(hexToHslString(c))}
-            className="h-6 w-6 rounded-full border border-black/10 dark:border-white/10 transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-ring"
-            style={{ backgroundColor: c }}
-          />
-        ))}
-        <button
-          type="button"
-          onClick={() => applyPrimary(null)}
-          className="ml-0.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground px-1"
-        >
-          reset
-        </button>
-      </div>
+      {/* Alternância claro/escuro */}
+      <button
+        type="button"
+        onClick={() => setTheme(isDark ? 'light' : 'dark')}
+        aria-label={isDark ? 'Ativar modo claro' : 'Ativar modo escuro'}
+        className="fixed bottom-4 right-4 z-50 h-11 w-11 rounded-full bg-background/95 backdrop-blur border border-border shadow-lg flex items-center justify-center text-foreground transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-ring"
+      >
+        {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+      </button>
     </div>
   );
 };
