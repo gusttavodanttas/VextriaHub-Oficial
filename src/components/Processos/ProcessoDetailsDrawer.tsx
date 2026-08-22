@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProcessoSubData } from '@/hooks/useProcessoSubData';
+import { useProcessoMovimentacoes } from '@/hooks/useProcessoMovimentacoes';
 import { getErrorMessage } from '@/lib/errors';
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -48,15 +49,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useOfficeTeams } from '@/hooks/useOfficeTeams';
 import { useOfficeUsers } from '@/hooks/useOfficeUsers';
 import { CompletarDadosDialog } from '@/components/Processos/CompletarDadosDialog';
-
-interface Movimentacao {
-  id: string;
-  data: string;
-  texto: string;
-  tipo?: string | null;
-  fonte?: string;
-  metadata?: Record<string, any>;
-}
 
 interface ProcessoDetailsDrawerProps {
   processo: Processo | null;
@@ -119,21 +111,14 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
   open,
   onOpenChange
 }) => {
-  const { user, profile } = useAuth();
-  const { persistAndamentos, update } = useProcessosV2();
+  const { user } = useAuth();
+  const { update } = useProcessosV2();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { teams: officeTeams } = useOfficeTeams();
   const { users: officeUsers } = useOfficeUsers();
 
-  const [movements, setMovements] = useState<Movimentacao[]>([]);
-  const [loadingMovements, setLoadingMovements] = useState(false);
-  const [confirmDelMov, setConfirmDelMov] = useState<string | null>(null);
-  const [delMovLoading, setDelMovLoading] = useState(false);
-  const [syncing, setSyncing] = useState(false);
   const [completarOpen, setCompletarOpen] = useState(false);
-  const [andamentoConfirm, setAndamentoConfirm] = useState<{ all: any[]; novos: any[]; meta: any; processoId: string } | null>(null);
-  const [lastSyncedProcessoId, setLastSyncedProcessoId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("resumo");
   const [editing, setEditing] = useState(false);
   const navigate = useNavigate();
@@ -152,6 +137,13 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
     loadingSub, addLoading, setAddLoading, fetchSubData,
     expandedPubId, setExpandedPubId, tratandoPubId, setTratandoPubId,
   } = sub;
+
+  // Movimentações/andamentos (busca, exclusão, sync com a fonte) — extraído p/ hook.
+  const {
+    movements, loadingMovements, confirmDelMov, setConfirmDelMov, delMovLoading,
+    syncing, andamentoConfirm, setAndamentoConfirm, lastSyncedProcessoId, setLastSyncedProcessoId,
+    fetchMovements, handleDeleteMovement, syncFromOrigin, confirmAndamentos,
+  } = useProcessoMovimentacoes(processo, open);
 
   // Add forms
   const [showAddPrazo, setShowAddPrazo] = useState(false);
@@ -181,10 +173,6 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
     // SEMPRE zera os dados do processo anterior ao TROCAR de processo ou fechar.
     // (Antes só limpava ao fechar — por isso a confirmação/andamentos de um processo
     //  vazava para o próximo, ex.: andamentos do PH aparecendo na Maria Luiza.)
-    setMovements([]);
-    setAndamentoConfirm(null);
-    setConfirmDelMov(null);
-    setLastSyncedProcessoId(null);
     setShowAddAndamento(false);
     setShowAddPrazo(false);
     setShowAddAudiencia(false);
@@ -276,89 +264,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
     }
   };
 
-  const fetchMovements = useCallback(async () => {
-    if (!processo?.id) return;
-    setLoadingMovements(true);
-    const { data, error } = await supabase
-      .from('movimentacoes_processo')
-      .select('id, data:data_movimentacao, texto:descricao, tipo, metadata')
-      .eq('processo_id', processo.id)
-      .order('data_movimentacao', { ascending: false });
-    if (!error && data) setMovements(data as any);
-    setLoadingMovements(false);
-  }, [processo?.id]);
-
-  // Exclui um andamento (movimentação) específico — usado para remover andamentos errados
-  const handleDeleteMovement = useCallback(async (id: string) => {
-    setDelMovLoading(true);
-    const { error } = await supabase.from('movimentacoes_processo').delete().eq('id', id);
-    setDelMovLoading(false);
-    if (error) { toast({ title: 'Erro ao excluir', description: error.message, variant: 'destructive' }); return; }
-    setMovements(prev => prev.filter(m => (m as any).id !== id));
-    setConfirmDelMov(null);
-    toast({ title: 'Andamento excluído' });
-  }, [toast]);
-
-
-  const syncFromOrigin = useCallback(async () => {
-    if (!processo?.id || !processo.numeroProcesso || syncing) return;
-    setSyncing(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('fetch-processo', {
-        body: { numeroProcesso: processo.numeroProcesso, oab: (profile as any)?.oab, uf: (profile as any)?.oab_uf },
-      });
-      if (error || !data || data.error) {
-        toast({ title: 'Sem dados disponíveis', description: 'Não foi possível buscar andamentos no momento.', variant: 'destructive' });
-        return;
-      }
-      const andamentos = Array.isArray(data.andamentos) ? data.andamentos : [];
-      // Detecta apenas os andamentos NOVOS (não pede pra adicionar o que já existe).
-      // Busca os existentes direto do banco DESTE processo (não do estado, que é limpo ao trocar).
-      const keyOf = (dt: any, tx: any) => `${String(dt || '').slice(0, 10)}|${String(tx || '').toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 60)}`;
-      const { data: existingRows } = await supabase
-        .from('movimentacoes_processo')
-        .select('data_movimentacao, descricao')
-        .eq('processo_id', processo.id);
-      const existing = new Set((existingRows || []).map((m: any) => keyOf(m.data_movimentacao, m.descricao)));
-      const novos = andamentos.filter((a: any) => !existing.has(keyOf(a.data, a.descricao || a.resumo)));
-      if (novos.length === 0) {
-        toast({ title: 'Já atualizado', description: 'Nenhum andamento novo encontrado.' });
-      } else {
-        // Não salva automático: abre confirmação com os novos andamentos (amarrada ao processo atual)
-        setAndamentoConfirm({ all: andamentos, novos, meta: data, processoId: processo.id });
-      }
-      await fetchMovements();
-    } catch (err) { console.error(err); }
-    finally { setSyncing(false); }
-  }, [processo?.id, processo?.numeroProcesso, syncing, user?.office_id, profile, toast, fetchMovements]);
-
-  // Confirma e persiste os andamentos novos
-  const confirmAndamentos = useCallback(async () => {
-    if (!andamentoConfirm || !processo?.id) return;
-    // Segurança: só persiste se a confirmação for DESTE processo (evita salvar andamentos de outro)
-    if (andamentoConfirm.processoId !== processo.id) { setAndamentoConfirm(null); return; }
-    setSyncing(true);
-    try {
-      const data = andamentoConfirm.meta;
-      const inseridos = await persistAndamentos(processo.id, user?.office_id ?? undefined, andamentoConfirm.all, 'datajud');
-      const updatePayload: any = { sincronizado_em: new Date().toISOString() };
-      if (data.titulo && data.titulo !== 'Processo' && (!processo.titulo || processo.titulo.includes('(Auto)'))) updatePayload.titulo = data.titulo;
-      if (data.autor && data.autor !== 'Não identificado' && !processo.parteAutora) updatePayload.parte_autora = data.autor;
-      if (data.reu && data.reu !== 'Não identificado' && !processo.requerido) updatePayload.requerido = data.reu;
-      await supabase.from('processos').update(updatePayload).eq('id', processo.id);
-      queryClient.invalidateQueries({ queryKey: ['processos'] });
-      await fetchMovements();
-      toast({ title: 'Histórico atualizado', description: `${inseridos} movimentação(ões) adicionada(s).` });
-    } finally {
-      setSyncing(false);
-      setAndamentoConfirm(null);
-    }
-  }, [andamentoConfirm, processo, user?.office_id, persistAndamentos, queryClient, fetchMovements, toast]);
-
-  useEffect(() => {
-    if (!processo?.id || !open) return;
-    fetchMovements();
-  }, [processo?.id, open, fetchMovements]);
+  // Movimentações/andamentos: busca, exclusão e sync foram para o hook useProcessoMovimentacoes.
 
   useEffect(() => {
     if (!open || !processo?.id) return;
