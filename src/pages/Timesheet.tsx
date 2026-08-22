@@ -35,6 +35,8 @@ import {
 } from "@/components/Timesheet/shared";
 import { StatCard, TimesheetSettingsDialog } from "@/components/Timesheet/SettingsDialog";
 import { useTimesheetManualEntry } from "@/hooks/useTimesheetManualEntry";
+import { useTimesheetFilters } from "@/hooks/useTimesheetFilters";
+import { useTimesheetTimer } from "@/hooks/useTimesheetTimer";
 
 export default function Timesheet() {
   const navigate = useNavigate();
@@ -73,48 +75,21 @@ export default function Timesheet() {
     openManual, openEdit, saveManual,
   } = useTimesheetManualEntry({ config, update, addManual });
 
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
-
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("new")) {
-      setDialogOpen(true);
-      window.history.replaceState({}, "", "/timesheet");
-    }
-  }, []);
-  const [elapsedTime, setElapsedTime] = useState(0);
-  const [saving, setSaving] = useState(false);
-
-  // Form: timer ao vivo
-  const [descricao, setDescricao] = useState("");
-  const [categoria, setCategoria] = useState<TimesheetCategoria | "">("");
-  const [clienteId, setClienteId] = useState("");
-  const [faturavel, setFaturavel] = useState(true);
-  const [valorHora, setValorHora] = useState("");
   const [clientes, setClientes] = useState<{ id: string; nome: string }[]>([]);
 
-  // Vinculação
-  const [refTipo, setRefTipo] = useState<ReferenciaTipo | "">("");
-  const [refItems, setRefItems] = useState<ReferenciaItem[]>([]);
-  const [refLoading, setRefLoading] = useState(false);
-  const [refId, setRefId] = useState("");
-  const [refLabel, setRefLabel] = useState("");
+  // Timer ao vivo (form + cronômetro + referências) — extraído p/ hook.
+  const {
+    dialogOpen, setDialogOpen, elapsedTime, saving,
+    descricao, setDescricao, categoria, clienteId, setClienteId,
+    faturavel, setFaturavel, valorHora, setValorHora,
+    refTipo, setRefTipo, refItems, setRefItems, refLoading, refId, setRefId, refLabel, setRefLabel,
+    handleSetCategoria, resetDialog, openTimer, handleStart, navigateToRef,
+  } = useTimesheetTimer({ activeTimer, startTimer, config, user, navigate });
 
   // Filtros
-  const [fSearch, setFSearch] = useState("");
-  const [fCategoria, setFCategoria] = useState("todas");
-  const [fCliente, setFCliente] = useState("todos");
-  const [fFaturado, setFFaturado] = useState("todos");
-
-  // Cronômetro
-  useEffect(() => {
-    if (!activeTimer || activeTimer.status !== "ativo") { setElapsedTime(0); return; }
-    const tick = () => setElapsedTime(Math.floor((Date.now() - new Date(activeTimer.data_inicio).getTime()) / 1000));
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [activeTimer]);
+  const { fSearch, setFSearch, fCategoria, setFCategoria, fCliente, setFCliente, fFaturado, setFFaturado, grouped } = useTimesheetFilters(timesheets);
 
   // Clientes (carregados ao montar, para filtros e formulários)
   useEffect(() => {
@@ -125,63 +100,7 @@ export default function Timesheet() {
       .then(({ data }) => setClientes(data || []));
   }, [user?.office_id]);
 
-  // Itens de referência (timer ao vivo)
-  useEffect(() => {
-    if (!refTipo || !user) return;
-    const cfg = REFERENCIA_CONFIG[refTipo];
-    setRefItems([]); setRefId(""); setRefLabel(""); setRefLoading(true);
-    const fetchItems = async () => {
-      try {
-        if (refTipo === "prazo" && clienteId) {
-          const { data: processos } = await supabase.from("processos").select("id").eq("cliente_id", clienteId).eq("deletado", false);
-          const ids = (processos || []).map((p: any) => p.id);
-          if (ids.length === 0) { setRefItems([]); return; }
-          const { data } = await supabase.from("prazos").select("id, titulo, data_vencimento")
-            .in("processo_id", ids).eq("deletado", false).order("data_vencimento", { ascending: true }).limit(50);
-          setRefItems((data || []).map((r: any) => ({ id: r.id, label: r.titulo || "Sem título", sublabel: r.data_vencimento ? `Vence ${new Date(r.data_vencimento).toLocaleDateString("pt-BR")}` : undefined })));
-          return;
-        }
-        let q = (supabase as any).from(cfg.table)
-          .select(`id, ${cfg.labelField}${cfg.dateField ? `, ${cfg.dateField}` : ""}`)
-          .eq("user_id", user.id).eq("deletado", false)
-          .order(cfg.dateField || "created_at", { ascending: false }).limit(50);
-        if (clienteId && cfg.clienteField) q = q.eq(cfg.clienteField, clienteId);
-        const { data } = await q;
-        setRefItems((data || []).map((r: any) => ({ id: r.id, label: r[cfg.labelField] || "Sem título", sublabel: cfg.dateField ? new Date(r[cfg.dateField]).toLocaleDateString("pt-BR") : undefined })));
-      } finally { setRefLoading(false); }
-    };
-    fetchItems();
-  }, [refTipo, clienteId, user]);
-
-  const handleSetCategoria = (cat: TimesheetCategoria) => {
-    setCategoria(cat); setRefId(""); setRefLabel(""); setRefItems([]);
-    setRefTipo(CATEGORIA_TO_REF[cat] ?? "");
-  };
-
-  const resetDialog = () => {
-    setDescricao(""); setCategoria(""); setClienteId(""); setFaturavel(true); setValorHora("");
-    setRefTipo(""); setRefItems([]); setRefId(""); setRefLabel("");
-  };
-
-  const openTimer = () => {
-    setValorHora(config.valorPadrao != null ? String(config.valorPadrao) : "");
-    setDialogOpen(true);
-  };
-
-  const handleStart = async () => {
-    if (!descricao || !categoria) return;
-    setSaving(true);
-    await startTimer(descricao, categoria as TimesheetCategoria, clienteId || undefined, undefined,
-      refTipo || undefined, refId || undefined, refLabel || undefined,
-      { faturavel, valor_hora: valorHora ? Number(valorHora) : null });
-    resetDialog(); setDialogOpen(false); setSaving(false);
-  };
-
-  const navigateToRef = (tipo: string, refId?: string | null) => {
-    const cfg = REFERENCIA_CONFIG[tipo as ReferenciaTipo];
-    if (!cfg) return;
-    navigate(refId ? `${cfg.route}?openId=${refId}` : cfg.route);
-  };
+  // Timer: cronômetro, carga de referências e handlers (start/reset/open/navigate) → useTimesheetTimer.
 
   const todayStats = getTodayStats();
   const weekStats = getWeekStats();
@@ -235,22 +154,7 @@ export default function Timesheet() {
     }
   };
 
-  // Registros filtrados + agrupados por dia
-  const grouped = useMemo(() => {
-    const q = fSearch.toLowerCase();
-    const recs = timesheets.filter(t => {
-      if (t.status === "ativo") return false;
-      const matchSearch = !q || t.tarefa_descricao?.toLowerCase().includes(q) || ((t as any).clientes?.nome || "").toLowerCase().includes(q);
-      const matchCat = fCategoria === "todas" || t.categoria === fCategoria;
-      const matchCli = fCliente === "todos" || t.cliente_id === fCliente;
-      const matchFat = fFaturado === "todos"
-        || (fFaturado === "faturado" ? (t as any).faturado === true : (t as any).faturado !== true);
-      return matchSearch && matchCat && matchCli && matchFat;
-    });
-    const acc: Record<string, any[]> = {};
-    recs.forEach(t => { const day = new Date(t.data_inicio).toDateString(); (acc[day] ||= []).push(t); });
-    return Object.entries(acc).sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime());
-  }, [timesheets, fSearch, fCategoria, fCliente, fFaturado]);
+  // Filtros + agrupamento por dia → useTimesheetFilters.
 
   const catCfg = activeTimer ? CATEGORIA_CONFIG[activeTimer.categoria as TimesheetCategoria] : null;
   const activeRefCfg = activeTimer?.referencia_tipo ? REFERENCIA_CONFIG[activeTimer.referencia_tipo as ReferenciaTipo] : null;
