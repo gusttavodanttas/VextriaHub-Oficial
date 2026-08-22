@@ -22,6 +22,7 @@ import {
 import { useTimesheet } from "@/hooks/useTimesheet";
 import { useTimesheetConfig, roundMinutes, type Arredondamento, type TimesheetConfig } from "@/hooks/useTimesheetConfig";
 import { useOfficeUsers } from "@/hooks/useOfficeUsers";
+import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { TIMESHEET_CATEGORIAS, type TimesheetCategoria } from "@/types/timesheet";
@@ -41,6 +42,7 @@ import { useTimesheetTimer } from "@/hooks/useTimesheetTimer";
 export default function Timesheet() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { toast } = useToast();
   const {
     data: timesheets, loading, activeTimer,
     periodDays, setPeriodDays, scope, setScope,
@@ -133,21 +135,37 @@ export default function Timesheet() {
         const g = (porCliente[cid] ||= { valor: 0, min: 0, ids: [] });
         g.valor += valorDe(t, arred); g.min += roundMinutes(t.duracao_minutos || 0, arred); g.ids.push(t.id);
       });
+      const hoje = new Date();
+      const hojeYmd = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`;
+      let ok = 0, falhas = 0;
       for (const [cid, g] of Object.entries(porCliente)) {
         const valor = Math.round(g.valor * 100) / 100;
         if (valor <= 0) continue;
-        const { data: novo } = await supabase.from("financeiro").insert({
+        const { data: novo, error } = await supabase.from("financeiro").insert({
           tipo: "receita",
           descricao: `Honorários — Timesheet (${formatMinutes(g.min)})`,
           valor,
-          data_vencimento: new Date().toISOString().slice(0, 10),
+          data_vencimento: hojeYmd,
           status: "pendente",
           categoria: "Honorários",
           cliente_id: cid === "__sem__" ? null : cid,
           office_id: officeId,
           user_id: user!.id,
         } as any).select("id").single();
-        await marcarFaturado(g.ids, true, (novo as any)?.id ?? null);
+        // Só marca como faturado se a RECEITA foi criada — senão as horas sumiriam do
+        // "Faturável" sem nenhum lançamento no Financeiro (perda silenciosa de receita).
+        if (error || !novo) { falhas++; continue; }
+        await marcarFaturado(g.ids, true, (novo as any).id);
+        ok++;
+      }
+      if (falhas > 0) {
+        toast({
+          title: ok > 0 ? "Cobrança parcial" : "Falha ao gerar cobrança",
+          description: `${ok} grupo(s) faturado(s), ${falhas} falharam — as horas que falharam continuam em "Faturável".`,
+          variant: "destructive",
+        });
+      } else if (ok > 0) {
+        toast({ title: "Cobrança gerada", description: `${ok} lançamento(s) de receita criado(s) no Financeiro.` });
       }
     } finally {
       setCobrando(false); setCobrarOpen(false);

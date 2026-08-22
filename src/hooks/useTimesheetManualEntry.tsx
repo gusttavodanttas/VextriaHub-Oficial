@@ -8,6 +8,10 @@ interface ManualEntryDeps {
   addManual: (payload: any) => Promise<any>;
 }
 
+// Data em fuso LOCAL — evita o bug do +1 dia que `toISOString()` (UTC) causava em
+// lançamentos noturnos: a hora já é lida em local, então a data tem que casar.
+const toLocalYmd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
 /**
  * Lançamento manual / edição de timesheet: state do formulário + abrir (novo/editar)
  * + salvar (insert/update). Extraído do god-component Timesheet.tsx (mesmo padrão de
@@ -32,7 +36,7 @@ export function useTimesheetManualEntry({ config, update, addManual }: ManualEnt
     const now = new Date();
     setMDesc(""); setMCat(""); setMCli(""); setMFat(true); setMObs("");
     setMValor(config.valorPadrao != null ? String(config.valorPadrao) : "");
-    setMData(now.toISOString().slice(0, 10));
+    setMData(toLocalYmd(now));
     setMInicio("09:00"); setMFim("10:00");
     setManualOpen(true);
   };
@@ -44,7 +48,7 @@ export function useTimesheetManualEntry({ config, update, addManual }: ManualEnt
     setMDesc(t.tarefa_descricao || "");
     setMCat((t.categoria as TimesheetCategoria) || "");
     setMCli(t.cliente_id || "");
-    setMData(ini.toISOString().slice(0, 10));
+    setMData(toLocalYmd(ini));
     setMInicio(ini.toTimeString().slice(0, 5));
     setMFim(fim.toTimeString().slice(0, 5));
     setMFat(t.faturavel !== false);
