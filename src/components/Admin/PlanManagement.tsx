@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { useToast } from '@/hooks/use-toast';
 import { Tag, Plus, Pencil, Loader2, Link2, Check, Power } from 'lucide-react';
 
-interface Plan { id?: string; plan_type: string; plan_name: string; price_cents: number; cycle: string; trial_days: number | null; is_active: boolean; }
+interface Plan { id?: string; plan_type: string; plan_name: string; price_cents: number; cycle: string; trial_days: number | null; is_active: boolean; max_oabs: number; }
 
 const CYCLES = [
   { v: 'MONTHLY', label: 'Mensal' },
@@ -21,7 +21,7 @@ const CYCLES = [
 ];
 const cycleLabel = (c: string) => CYCLES.find((x) => x.v === c)?.label || c;
 const brl = (cents: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((cents || 0) / 100);
-const EMPTY: Plan = { plan_type: '', plan_name: '', price_cents: 0, cycle: 'MONTHLY', trial_days: 7, is_active: true };
+const EMPTY: Plan = { plan_type: '', plan_name: '', price_cents: 0, cycle: 'MONTHLY', trial_days: 7, is_active: true, max_oabs: 1 };
 
 export function PlanManagement() {
   const { toast } = useToast();
@@ -55,6 +55,7 @@ export function PlanManagement() {
       plan_type: form.plan_type.trim().toUpperCase().replace(/\s+/g, '_'),
       plan_name: form.plan_name.trim(), price_cents: cents, cycle: form.cycle,
       trial_days: Number(form.trial_days) || 0, is_active: form.is_active,
+      max_oabs: Math.max(0, Number(form.max_oabs) || 0),
     };
     const res = editing?.id
       ? await supabase.from('plan_configs').update(row).eq('id', editing.id)
@@ -105,7 +106,7 @@ export function PlanManagement() {
                   <span className="font-mono text-[10px] text-muted-foreground">{p.plan_type}</span>
                   {!p.is_active && <Badge variant="outline" className="text-[9px]">inativo</Badge>}
                 </div>
-                <p className="text-xs text-muted-foreground mt-0.5">{brl(p.price_cents)} · {p.trial_days ? `${p.trial_days} dias de trial` : 'sem trial'}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{brl(p.price_cents)} · {p.trial_days ? `${p.trial_days} dias de trial` : 'sem trial'} · {p.max_oabs ?? 1} OAB{(p.max_oabs ?? 1) === 1 ? '' : 's'}</p>
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 <Button variant="ghost" size="sm" onClick={() => copyLink(p)} className="h-8 gap-1.5 text-xs" title="Copiar link de cadastro">
@@ -148,6 +149,11 @@ export function PlanManagement() {
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold">Dias de trial</Label>
                 <Input type="number" min={0} value={form.trial_days ?? 0} onChange={(e) => setForm({ ...form, trial_days: parseInt(e.target.value) || 0 })} className="rounded-xl h-11" />
+              </div>
+              <div className="space-y-1.5 col-span-2">
+                <Label className="text-xs font-bold">OABs monitoradas</Label>
+                <Input type="number" min={0} value={form.max_oabs ?? 1} onChange={(e) => setForm({ ...form, max_oabs: parseInt(e.target.value) || 0 })} className="rounded-xl h-11" />
+                <p className="text-[11px] text-muted-foreground">Quantas OABs o escritório pode monitorar/buscar neste plano. Sugestão: Básico 1 · Intermediário 3 · Avançado 5 · Premium 10.</p>
               </div>
             </div>
             <div className="flex items-center justify-between rounded-xl border border-border p-3">

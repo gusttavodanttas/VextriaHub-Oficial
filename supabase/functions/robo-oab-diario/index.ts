@@ -29,21 +29,37 @@ serve(async (req) => {
   const supa = createClient(SUPABASE_URL, SERVICE_ROLE);
 
   try {
-    // OABs a buscar: cada advogado com OAB + escritório
-    const { data: profs } = await supa
-      .from("profiles")
-      .select("user_id, office_id, oab, oab_uf")
-      .not("oab", "is", null)
-      .not("office_id", "is", null);
+    // OABs a MONITORAR: a lista curada pelo admin (dentro do teto do plano), NÃO mais todo perfil.
+    const { data: mons } = await supa
+      .from("monitored_oabs")
+      .select("office_id, oab, uf, user_id");
+
+    // Só monitora escritórios COM acesso (mesma regra do office_has_access).
+    const officeIds = [...new Set((mons || []).map((m: any) => m.office_id))];
+    const acesso = new Set<string>();
+    if (officeIds.length) {
+      const hoje = new Date().toISOString().slice(0, 10);
+      const { data: subs } = await supa
+        .from("office_subscriptions")
+        .select("office_id, status, is_lifetime, trial_ends_at")
+        .in("office_id", officeIds);
+      for (const s of subs || []) {
+        const ok = (s as any).is_lifetime
+          || ["ativa", "cortesia"].includes((s as any).status)
+          || ((s as any).trial_ends_at && (s as any).trial_ends_at >= hoje && ["trial", "pendente"].includes((s as any).status));
+        if (ok) acesso.add((s as any).office_id);
+      }
+    }
 
     let totalNovos = 0;
     const detalhes: any[] = [];
 
-    for (const p of profs || []) {
-      const oab = onlyDigits((p as any).oab);
-      const uf = (p as any).oab_uf;
-      const officeId = (p as any).office_id;
+    for (const m of mons || []) {
+      const oab = onlyDigits((m as any).oab);
+      const uf = (m as any).uf;
+      const officeId = (m as any).office_id;
       if (!oab || !uf || !officeId) continue;
+      if (!acesso.has(officeId)) continue; // escritório sem acesso não é monitorado
 
       // Busca nacional reutilizando a fetch-by-oab (com secret de robô)
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/fetch-by-oab`, {
@@ -85,7 +101,7 @@ serve(async (req) => {
         reu: i.reu === "Não identificado" ? null : (i.reu || null),
         fonte: i.fonte || "oab",
         payload: i,
-        encontrado_por: (p as any).user_id,
+        encontrado_por: (m as any).user_id ?? null,
       }));
       // ignoreDuplicates → não re-adiciona o que já está na caixa
       await supa.from("processos_encontrados").upsert(rows, { onConflict: "office_id,numero_processo", ignoreDuplicates: true });

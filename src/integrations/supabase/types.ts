@@ -780,6 +780,47 @@ export type Database = {
           },
         ]
       }
+      monitored_oabs: {
+        Row: {
+          added_by: string | null
+          created_at: string
+          id: string
+          label: string | null
+          oab: string
+          office_id: string
+          uf: string
+          user_id: string | null
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string
+          id?: string
+          label?: string | null
+          oab: string
+          office_id: string
+          uf: string
+          user_id?: string | null
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string
+          id?: string
+          label?: string | null
+          oab?: string
+          office_id?: string
+          uf?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monitored_oabs_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       movimentacoes_processo: {
         Row: {
           created_at: string | null
@@ -1150,6 +1191,7 @@ export type Database = {
           features: Json | null
           id: string
           is_active: boolean | null
+          max_oabs: number
           plan_name: string
           plan_type: string
           price_cents: number
@@ -1162,6 +1204,7 @@ export type Database = {
           features?: Json | null
           id?: string
           is_active?: boolean | null
+          max_oabs?: number
           plan_name: string
           plan_type: string
           price_cents?: number
@@ -1174,6 +1217,7 @@ export type Database = {
           features?: Json | null
           id?: string
           is_active?: boolean | null
+          max_oabs?: number
           plan_name?: string
           plan_type?: string
           price_cents?: number
@@ -1313,6 +1357,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      process_search_log: {
+        Row: {
+          created_at: string
+          id: string
+          office_id: string | null
+          user_id: string
+          weight: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          office_id?: string | null
+          user_id: string
+          weight?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          office_id?: string | null
+          user_id?: string
+          weight?: number
+        }
+        Relationships: []
       }
       processos: {
         Row: {
@@ -2137,6 +2205,15 @@ export type Database = {
     }
     Functions: {
       apply_signup_plan: { Args: { p_plan_type: string }; Returns: string }
+      authorize_process_search: {
+        Args: {
+          p_oab: string
+          p_uf: string
+          p_user_id: string
+          p_weight?: number
+        }
+        Returns: Json
+      }
       can_manage_member: {
         Args: { p_member: string; p_office_id: string }
         Returns: boolean
@@ -2154,7 +2231,9 @@ export type Database = {
       get_user_office_ids: { Args: never; Returns: string[] }
       is_office_admin: { Args: { p_office_id: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
+      my_oab_quota: { Args: never; Returns: Json }
       office_has_access: { Args: { p_office: string }; Returns: boolean }
+      office_oab_limit: { Args: { p_office: string }; Returns: number }
       team_visible_user_ids: {
         Args: { p_office_id: string }
         Returns: string[]
