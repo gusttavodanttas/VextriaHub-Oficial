@@ -125,6 +125,7 @@ const Landing: React.FC = () => {
       description: "Ideal para advogados autônomos",
       users: "1 usuário",
       processes: "até 30 processos",
+      oabs: "1 OAB monitorada",
       features: [
         "Painel de processos",
         "Gestão de prazos",
@@ -144,6 +145,7 @@ const Landing: React.FC = () => {
       description: "Para pequenos escritórios",
       users: "até 3 usuários",
       processes: "até 100 processos",
+      oabs: "3 OABs monitoradas",
       features: [
         "Tudo do Básico",
         "Múltiplos usuários",
@@ -163,6 +165,7 @@ const Landing: React.FC = () => {
       description: "Máxima organização",
       users: "até 5 usuários",
       processes: "até 300 processos",
+      oabs: "5 OABs monitoradas",
       features: [
         "Tudo do Intermediário",
         "Módulo financeiro completo",
@@ -182,6 +185,7 @@ const Landing: React.FC = () => {
       description: "Performance máxima",
       users: "até 10 usuários",
       processes: "processos ilimitados",
+      oabs: "10 OABs monitoradas",
       features: [
         "Tudo do Avançado",
         "Módulo de metas",
@@ -439,6 +443,7 @@ const Landing: React.FC = () => {
                   <div className="text-sm text-muted-foreground">
                     <div>{plan.users}</div>
                     <div>{plan.processes}</div>
+                    <div className="font-semibold text-primary/90">{plan.oabs}</div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">

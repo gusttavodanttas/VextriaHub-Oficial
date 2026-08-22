@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { getErrorMessage } from '@/lib/errors';
 import {
   Dialog,
@@ -51,12 +51,7 @@ import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useProcessosV2 } from '@/hooks/useProcessosV2';
-
-const UFs = [
-  'AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 
-  'MG', 'MS', 'MT', 'PA', 'PB', 'PE', 'PI', 'PR', 'RJ', 'RN', 
-  'RO', 'RR', 'RS', 'SC', 'SE', 'SP', 'TO'
-];
+import { useMonitoredOabs } from '@/hooks/useMonitoredOabs';
 
 export interface Andamento {
   data: string | null;
@@ -136,6 +131,18 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
   const [clientPolos, setClientPolos] = useState<Record<string, 'autor' | 'reu'>>({});
   const [previewProc, setPreviewProc] = useState<JudicialProcessResult | null>(null);
   const [loadingAndamentos, setLoadingAndamentos] = useState(false);
+  const { oabs: monitoredOabs, loading: loadingOabs } = useMonitoredOabs();
+  const [selectedOabId, setSelectedOabId] = useState('');
+
+  // A busca só olha as OABs MONITORADAS do escritório — auto-seleciona a primeira.
+  useEffect(() => {
+    if (monitoredOabs.length > 0 && !selectedOabId) {
+      const first = monitoredOabs[0];
+      setSelectedOabId(first.id);
+      setOab(first.oab);
+      setUf(first.uf);
+    }
+  }, [monitoredOabs, selectedOabId]);
 
   const handleSearch = async () => {
     const cleanOab = oab.replace(/\D/g, '');
@@ -418,30 +425,31 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
   return (
     <div className="flex flex-col flex-1 min-h-0 h-full">
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4 items-end p-1">
-        <div className="space-y-2">
-          <Label className="text-muted-foreground/60 font-black uppercase tracking-widest text-[10px] ml-1">UF do Tribunal</Label>
-          <Select value={uf} onValueChange={setUf}>
-            <SelectTrigger className="bg-background border-border text-foreground h-11 rounded-xl font-bold">
-              <SelectValue placeholder="UF" />
-            </SelectTrigger>
-            <SelectContent className="bg-background border-border rounded-2xl shadow-2xl">
-              {UFs.map(state => <SelectItem key={state} value={state}>{state}</SelectItem>)}
-            </SelectContent>
-          </Select>
+        <div className="md:col-span-4 space-y-2">
+          <Label className="text-muted-foreground/60 font-black uppercase tracking-widest text-[10px] ml-1">OAB monitorada</Label>
+          {loadingOabs ? (
+            <div className="h-11 rounded-xl bg-muted/30 border border-border flex items-center px-4"><Loader2 className="h-4 w-4 animate-spin text-primary/40" /></div>
+          ) : monitoredOabs.length === 0 ? (
+            <div className="h-11 rounded-xl bg-amber-500/5 border border-amber-500/20 flex items-center gap-2 px-4 text-xs text-amber-600 font-medium">
+              <AlertCircle className="h-4 w-4 shrink-0" /> Nenhuma OAB monitorada. O admin cadastra em Configurações → OABs monitoradas.
+            </div>
+          ) : (
+            <Select value={selectedOabId} onValueChange={(v) => {
+              const m = monitoredOabs.find((x) => x.id === v);
+              if (m) { setSelectedOabId(m.id); setOab(m.oab); setUf(m.uf); }
+            }}>
+              <SelectTrigger className="bg-background border-border text-foreground h-11 rounded-xl font-bold">
+                <div className="flex items-center gap-2 min-w-0"><ShieldCheck className="h-4 w-4 text-primary shrink-0" /><SelectValue placeholder="Escolha a OAB monitorada" /></div>
+              </SelectTrigger>
+              <SelectContent className="bg-background border-border rounded-2xl shadow-2xl">
+                {monitoredOabs.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>{m.label ? `${m.label} — ` : ''}OAB {m.oab}/{m.uf}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
-        <div className="md:col-span-3 space-y-2">
-          <Label className="text-muted-foreground/60 font-black uppercase tracking-widest text-[10px] ml-1">Número da OAB</Label>
-          <div className="relative group">
-            <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/30 group-focus-within:text-primary transition-colors" />
-            <Input 
-              className="pl-12 bg-background border-border text-foreground h-11 rounded-xl font-bold transition-all focus:ring-4 focus:ring-primary/10"
-              placeholder="Ex: 61199" 
-              value={oab}
-              onChange={(e) => setOab(e.target.value.replace(/\D/g, ''))}
-            />
-          </div>
-        </div>
-        <Button onClick={handleSearch} disabled={loading} className="gap-2 h-11 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-premium">
+        <Button onClick={handleSearch} disabled={loading || monitoredOabs.length === 0} className="gap-2 h-11 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-premium">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
           {loading ? 'Buscando...' : 'Pesquisar'}
         </Button>

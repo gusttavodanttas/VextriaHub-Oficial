@@ -54,6 +54,7 @@ import { Separator } from "@/components/ui/separator";
 import { ChevronDown, FileSpreadsheet, FileText as FileTextIcon } from "lucide-react";
 
 import { usePublicacoes } from "@/hooks/usePublicacoes";
+import { useMonitoredOabs } from "@/hooks/useMonitoredOabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -68,6 +69,7 @@ import { parseLocalDate as parseDataPub, fmtDataBR, localYmd } from "@/lib/dates
 export default function Publicacoes() {
   const { toast } = useToast();
   const { canCreateProcesses } = usePermissions();
+  const { oabs: monitoredOabs } = useMonitoredOabs();
   const { user, profile } = useAuth();
   const { publications, loading, deletePublication, updateStatus, syncByOab, refresh, linkPublicacaoToProcesso, findProcessoIdByCnj } = usePublicacoes();
   const [view, setView] = useState<'grid' | 'table'>('table');
@@ -348,10 +350,15 @@ export default function Publicacoes() {
   };
 
   const handleManualSync = async (days: number) => {
-    if (!profile?.oab || !profile?.oab_uf) {
+    // Sincroniza TODAS as OABs monitoradas do escritório (fallback: OAB do perfil, se ainda não houver lista).
+    const alvos = monitoredOabs.length > 0
+      ? monitoredOabs.map((m) => ({ oab: m.oab, uf: m.uf }))
+      : (profile?.oab && profile?.oab_uf ? [{ oab: profile.oab, uf: profile.oab_uf }] : []);
+
+    if (alvos.length === 0) {
       toast({
-        title: "OAB não configurada",
-        description: "Por favor, cadastre sua OAB no perfil para sincronizar.",
+        title: "Nenhuma OAB monitorada",
+        description: "Cadastre uma OAB em Configurações → OABs monitoradas para sincronizar.",
         variant: "destructive"
       });
       return;
@@ -360,15 +367,19 @@ export default function Publicacoes() {
     setIsSyncing(true);
     toast({
       title: "Sincronizando...",
-      description: `Buscando publicações dos últimos ${days === 1 ? 'dia' : days + ' dias'}...`,
+      description: `Buscando publicações de ${alvos.length} OAB(s), últimos ${days === 1 ? 'dia' : days + ' dias'}...`,
     });
 
     try {
-      const results = await syncByOab(profile.oab, profile.oab_uf, days);
-      if (results.length > 0) {
+      let total = 0;
+      for (const a of alvos) {
+        const results = await syncByOab(a.oab, a.uf, days);
+        total += results.length;
+      }
+      if (total > 0) {
         toast({
           title: "Sincronização concluída",
-          description: `${results.length} novas publicações importadas.`,
+          description: `${total} novas publicações importadas.`,
         });
         refresh();
       } else {
