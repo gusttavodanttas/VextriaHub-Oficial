@@ -178,7 +178,7 @@ const Register = () => {
       // para permitir o login automático abaixo sem clicar no e-mail de confirmação.
       if (isInvite && inviteToken) {
         try {
-          await supabase.rpc('confirm_invited_user' as never, { p_email: formData.email.trim(), p_token: inviteToken } as never);
+          await supabase.rpc('confirm_invited_user', { p_email: formData.email.trim(), p_token: inviteToken });
         } catch (err) {
           console.error('confirm_invited_user failed:', err);
         }
@@ -222,9 +222,9 @@ const Register = () => {
       // acesso exige o pagamento. Cadastro orgânico (sem ?plano=) mantém os 7 dias de teste.
       let planOutcome: string | null = null;
       try {
-        await supabase.rpc('ensure_office_for_user' as never);
+        await supabase.rpc('ensure_office_for_user');
         if (planParam) {
-          const { data } = await supabase.rpc('apply_signup_plan' as never, { p_plan_type: planParam } as never);
+          const { data } = await supabase.rpc('apply_signup_plan', { p_plan_type: planParam });
           planOutcome = (data as string | null) ?? null;
         }
       } catch (setupErr) {

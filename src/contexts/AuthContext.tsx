@@ -225,7 +225,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (profileData) {
             // Garante o escritório no banco antes de ler (atômico, idempotente,
             // self-healing). Substitui a criação frágil de escritório no cliente.
-            try { await supabase.rpc('ensure_office_for_user' as never); }
+            try { await supabase.rpc('ensure_office_for_user'); }
             catch (rpcErr) { console.error('ensure_office_for_user:', rpcErr); }
             const officeData = await fetchOfficeData(sessionUser.id);
             officeUser = officeData.officeUser;

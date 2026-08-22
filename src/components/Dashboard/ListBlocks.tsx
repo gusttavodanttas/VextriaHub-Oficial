@@ -50,7 +50,7 @@ export function PrazosBlock() {
     e.stopPropagation();
     await supabase.from("prazos").update({
       status: "concluido", concluido_em: new Date().toISOString(), concluido_por: user?.id ?? null,
-    } as never).eq("id", id);
+    }).eq("id", id);
     qc.invalidateQueries({ queryKey: ["dashboard-prazos", officeId] });
     qc.invalidateQueries({ queryKey: ["dashboard-stats", officeId] });
   };

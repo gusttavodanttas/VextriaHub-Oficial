@@ -41,19 +41,19 @@ const slugCategoria = (label: string) =>
 async function ensureCategoria(officeId: string, label: string, cor: string, icone: string): Promise<string> {
   const valor = slugCategoria(label);
   const { data: existing } = await supabase
-    .from("consultivo_categorias" as never)
+    .from("consultivo_categorias")
     .select("valor")
     .eq("office_id", officeId)
     .eq("valor", valor)
     .maybeSingle();
   if (existing) return (existing as { valor: string }).valor;
   const { count } = await supabase
-    .from("consultivo_categorias" as never)
+    .from("consultivo_categorias")
     .select("id", { count: "exact", head: true })
     .eq("office_id", officeId);
-  const { error } = await supabase.from("consultivo_categorias" as never).insert({
+  const { error } = await supabase.from("consultivo_categorias").insert({
     office_id: officeId, label, valor, cor, icone, ordem: count ?? 0,
-  } as never);
+  });
   if (error) throw error;
   return valor;
 }
@@ -111,7 +111,7 @@ export function NovoCasoWizard({ open, onOpenChange, onSuccess }: NovoCasoWizard
           responsavel_id: user.id,
           fonte_sincronizacao: "manual",
           nivel_sigilo: 0,
-        } as never).select("id").single();
+        }).select("id").single();
         if (error) {
           if ((error as { code?: string }).code === "23505") {
             throw new Error("Já existe um processo sem número neste escritório. Rode a migration 20260821000001 (permite vários casos a protocolar) ou preencha o número do caso anterior.");
@@ -167,7 +167,7 @@ export function NovoCasoWizard({ open, onOpenChange, onSuccess }: NovoCasoWizard
           prazo: form.prazo || null,
           user_id: user.id,
           office_id: user.office_id,
-        } as never);
+        });
         if (error) throw error;
         toast({ title: `Caso ${tipo === "administrativo" ? "administrativo" : "preventivo"} criado`, description: `Registrado no Consultivo (categoria ${catLabel})${form.prazo ? " com prazo na agenda" : ""}.` });
       }

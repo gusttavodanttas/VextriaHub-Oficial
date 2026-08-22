@@ -161,7 +161,7 @@ export const AgendarPublicacaoDialog = ({
           data_fim_prazo: form.data,
           prioridade: form.prioridade,
           status: "pendente",
-        } as never);
+        });
         if (error) throw error;
       } else if (tipo === "tarefa") {
         const { error } = await supabase.from("tarefas").insert({

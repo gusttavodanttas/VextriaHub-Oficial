@@ -187,10 +187,10 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
   // Exclusão DEFINITIVA (cascata) via RPC delete_office — super-admin + confirmação por nome.
   const deleteOffice = useCallback(async (officeId: string, confirmName: string) => {
     try {
-      const { error } = await supabase.rpc('delete_office' as never, {
+      const { error } = await supabase.rpc('delete_office', {
         p_office_id: officeId,
         p_confirm_name: confirmName,
-      } as never);
+      });
       if (error) throw error;
       toast({ title: 'Escritório excluído', description: 'Escritório, dados e contas dos membros foram removidos.' });
       await fetchAdmins();

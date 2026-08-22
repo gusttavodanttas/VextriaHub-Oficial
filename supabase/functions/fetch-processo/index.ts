@@ -363,29 +363,68 @@ serve(async (req) => {
     const processKey = Deno.env.get("PROCESSO_API_KEY") || PUBLIC_DATAJUD_KEY;
     const authHeader = req.headers.get("Authorization") || req.headers.get("authorization");
 
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Sessão não identificada. Por favor, faça login novamente." }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 401,
-      });
-    }
-
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? ""
-    );
-
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Falha na validação do usuário." }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 401,
-      });
-    }
+    // Bypass p/ chamadas servidor-a-servidor (robôs): service_role ou x-robot-secret.
+    const robotSecret = req.headers.get("x-robot-secret");
+    const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    const isRobot =
+      (!!robotSecret && robotSecret === Deno.env.get("ROBOT_SECRET")) ||
+      (!!serviceRole && authHeader === `Bearer ${serviceRole}`);
 
     const payload = await req.json();
     const { numeroProcesso, oab, uf } = payload;
+
+    if (!isRobot) {
+      if (!authHeader) {
+        return new Response(JSON.stringify({ error: "Sessão não identificada. Por favor, faça login novamente." }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 401,
+        });
+      }
+
+      const supabaseClient = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+      );
+
+      const token = authHeader.replace("Bearer ", "");
+      const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
+      if (userError || !user) {
+        return new Response(JSON.stringify({ error: "Falha na validação do usuário." }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 401,
+        });
+      }
+
+      // Autorização: paywall + rate-limit sempre; escopo de OAB só na busca por OAB.
+      // No modo CNJ a OAB é apenas para enriquecer partes (vem do próprio perfil), sem forçar posse.
+      const isOabSearch = !!oab && !!uf && !numeroProcesso;
+      const admin = createClient(Deno.env.get("SUPABASE_URL") ?? "", serviceRole);
+      const { data: authz, error: authzErr } = await admin.rpc("authorize_process_search", {
+        p_user_id: user.id,
+        p_oab: isOabSearch ? String(oab) : null,
+        p_uf: isOabSearch ? String(uf) : null,
+        p_weight: isOabSearch ? 4 : 1,
+      });
+      if (authzErr) {
+        console.error("[AUTHZ] erro:", authzErr.message);
+        return new Response(JSON.stringify({ error: "Não foi possível validar seu acesso agora. Tente de novo." }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500,
+        });
+      }
+      const gate = (authz ?? {}) as { ok?: boolean; reason?: string };
+      if (!gate.ok) {
+        const MAP: Record<string, { status: number; error: string }> = {
+          no_office:         { status: 403, error: "Seu usuário ainda não está vinculado a um escritório." },
+          no_access:         { status: 402, error: "A consulta de processos faz parte do plano ativo. Renove a assinatura para voltar a usar." },
+          oab_not_in_office: { status: 403, error: "Só dá para pesquisar OABs cadastradas no seu escritório. Cadastre a OAB no perfil do advogado antes de buscar." },
+          rate_limited:      { status: 429, error: "Muitas consultas em pouco tempo. Aguarde um instante e tente de novo." },
+        };
+        const info = MAP[gate.reason ?? ""] ?? { status: 403, error: "Acesso negado para esta consulta." };
+        return new Response(JSON.stringify({ error: info.error, reason: gate.reason }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" }, status: info.status,
+        });
+      }
+    }
 
     console.log(`[FETCH-PROCESSO] CNJ=${!!numeroProcesso} OAB=${!!oab} UF=${uf}`);
 

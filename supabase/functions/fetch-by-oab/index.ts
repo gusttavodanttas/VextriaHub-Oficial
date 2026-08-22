@@ -416,6 +416,9 @@ serve(async (req) => {
     const robotSecret = req.headers.get("x-robot-secret");
     const isRobot = !!robotSecret && robotSecret === Deno.env.get("ROBOT_SECRET");
 
+    const { oab, uf, days, nacional } = await req.json();
+    if (!oab || !uf) throw new Error("OAB e UF são obrigatórios");
+
     if (!isRobot) {
       if (!authHeader) {
         return new Response(JSON.stringify({ error: "Sua sessão expirou. Por favor, faça login novamente." }), {
@@ -435,10 +438,39 @@ serve(async (req) => {
           status: 401,
         });
       }
-    }
 
-    const { oab, uf, days, nacional } = await req.json();
-    if (!oab || !uf) throw new Error("OAB e UF são obrigatórios");
+      // Autorização (paywall + OAB do próprio escritório + rate-limit) via RPC service-role.
+      // O robô (isRobot) já é escopado por escritório/OAB cadastrada, então não passa por aqui.
+      const admin = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+      );
+      const { data: authz, error: authzErr } = await admin.rpc("authorize_process_search", {
+        p_user_id: user.id,
+        p_oab: String(oab),
+        p_uf: String(uf),
+        p_weight: nacional ? 60 : 4,
+      });
+      if (authzErr) {
+        console.error("[AUTHZ] erro:", authzErr.message);
+        return new Response(JSON.stringify({ error: "Não foi possível validar seu acesso agora. Tente de novo." }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500,
+        });
+      }
+      const gate = (authz ?? {}) as { ok?: boolean; reason?: string };
+      if (!gate.ok) {
+        const MAP: Record<string, { status: number; error: string }> = {
+          no_office:         { status: 403, error: "Seu usuário ainda não está vinculado a um escritório." },
+          no_access:         { status: 402, error: "A busca de processos faz parte do plano ativo. Renove a assinatura para voltar a usar." },
+          oab_not_in_office: { status: 403, error: "Só dá para pesquisar OABs cadastradas no seu escritório. Cadastre a OAB no perfil do advogado antes de buscar." },
+          rate_limited:      { status: 429, error: "Muitas buscas em pouco tempo. Aguarde um instante e tente de novo." },
+        };
+        const info = MAP[gate.reason ?? ""] ?? { status: 403, error: "Acesso negado para esta busca." };
+        return new Response(JSON.stringify({ error: info.error, reason: gate.reason }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" }, status: info.status,
+        });
+      }
+    }
 
     const ufUpper = uf.toUpperCase();
     // Nacional: varre TODOS os tribunais do país, mantendo o filtro da OAB/UF do advogado.

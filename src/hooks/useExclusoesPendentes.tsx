@@ -20,18 +20,35 @@ export const useExclusoesPendentes = () => {
 
     try {
       setLoading(true);
-      const { data: result, error } = await supabase
+      const { data: rows, error } = await supabase
         .from('exclusoes_pendentes')
-        .select(`
-          *,
-          user:profiles(full_name, email)
-        `)
+        .select('*')
         .eq('status', 'pendente')
         .order('solicitado_em', { ascending: false });
 
       if (error) throw error;
-      
-      setData(result || []);
+
+      // `exclusoes_pendentes.user_id` NÃO tem FK para `profiles` (só office_id→offices),
+      // então o embed `user:profiles(...)` derrubava a query inteira (PostgREST PGRST200)
+      // e o painel nunca carregava. Buscamos nome/e-mail do solicitante num 2º passo
+      // e juntamos na mão (super-admin tem policy de SELECT em ambas as tabelas).
+      const rowsList = rows ?? [];
+      const userIds = Array.from(
+        new Set(rowsList.map((r) => r.user_id).filter(Boolean))
+      ) as string[];
+      const profMap: Record<string, { full_name: string | null; email: string | null }> = {};
+      if (userIds.length > 0) {
+        const { data: profs } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, email')
+          .in('user_id', userIds);
+        for (const p of profs ?? []) {
+          profMap[p.user_id] = { full_name: p.full_name, email: p.email };
+        }
+      }
+      const enriched = rowsList.map((r) => ({ ...r, user: profMap[r.user_id] ?? null }));
+
+      setData(enriched);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro desconhecido');
