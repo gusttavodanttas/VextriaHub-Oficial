@@ -1,5 +1,6 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { getErrorMessage } from '@/lib/errors';
+import { formatCNJ } from '@/utils/formatCNJ';
 import {
   Dialog,
   DialogContent,
@@ -91,12 +92,6 @@ interface JudicialSyncContentProps {
 }
 
 // ---------- Utils ----------
-function formatCNJ(numero: string | undefined | null): string {
-  const d = (numero ?? '').replace(/\D/g, '');
-  if (d.length !== 20) return numero ?? '';
-  return d.replace(/(\d{7})(\d{2})(\d{4})(\d{1})(\d{2})(\d{4})/, '$1-$2.$3.$4.$5.$6');
-}
-
 function looksLikeContaminatedName(s: string): boolean {
   if (!s) return false;
   if (s.length > 120) return true;
