@@ -34,6 +34,7 @@ import {
   type ReferenciaTipo, type ReferenciaItem,
 } from "@/components/Timesheet/shared";
 import { StatCard, TimesheetSettingsDialog } from "@/components/Timesheet/SettingsDialog";
+import { useTimesheetManualEntry } from "@/hooks/useTimesheetManualEntry";
 
 export default function Timesheet() {
   const navigate = useNavigate();
@@ -64,9 +65,15 @@ export default function Timesheet() {
   const rateParaCliente = (cid?: string | null) =>
     (cid && config.valorClientes[cid] != null) ? config.valorClientes[cid] : config.valorPadrao;
 
+  // Lançamento manual / edição — state + handlers extraídos p/ hook.
+  const {
+    manualOpen, setManualOpen, editTarget,
+    mDesc, setMDesc, mCat, setMCat, mCli, setMCli, mData, setMData,
+    mInicio, setMInicio, mFim, setMFim, mFat, setMFat, mValor, setMValor, mObs, setMObs, mSaving,
+    openManual, openEdit, saveManual,
+  } = useTimesheetManualEntry({ config, update, addManual });
+
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [manualOpen, setManualOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<any | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
 
@@ -248,69 +255,8 @@ export default function Timesheet() {
   const catCfg = activeTimer ? CATEGORIA_CONFIG[activeTimer.categoria as TimesheetCategoria] : null;
   const activeRefCfg = activeTimer?.referencia_tipo ? REFERENCIA_CONFIG[activeTimer.referencia_tipo as ReferenciaTipo] : null;
 
-  // ── Lançamento manual / edição ──
-  const [mDesc, setMDesc] = useState("");
-  const [mCat, setMCat] = useState<TimesheetCategoria | "">("");
-  const [mCli, setMCli] = useState("");
-  const [mData, setMData] = useState("");
-  const [mInicio, setMInicio] = useState("");
-  const [mFim, setMFim] = useState("");
-  const [mFat, setMFat] = useState(true);
-  const [mValor, setMValor] = useState("");
-  const [mObs, setMObs] = useState("");
-  const [mSaving, setMSaving] = useState(false);
 
-  const openManual = () => {
-    setEditTarget(null);
-    const now = new Date();
-    setMDesc(""); setMCat(""); setMCli(""); setMFat(true); setMObs("");
-    setMValor(config.valorPadrao != null ? String(config.valorPadrao) : "");
-    setMData(now.toISOString().slice(0, 10));
-    setMInicio("09:00"); setMFim("10:00");
-    setManualOpen(true);
-  };
-
-  const openEdit = (t: any) => {
-    setEditTarget(t);
-    const ini = new Date(t.data_inicio);
-    const fim = t.data_fim ? new Date(t.data_fim) : new Date(ini.getTime() + (t.duracao_minutos || 0) * 60000);
-    setMDesc(t.tarefa_descricao || "");
-    setMCat((t.categoria as TimesheetCategoria) || "");
-    setMCli(t.cliente_id || "");
-    setMData(ini.toISOString().slice(0, 10));
-    setMInicio(ini.toTimeString().slice(0, 5));
-    setMFim(fim.toTimeString().slice(0, 5));
-    setMFat(t.faturavel !== false);
-    setMValor(t.valor_hora != null ? String(t.valor_hora) : "");
-    setMObs(t.observacoes || "");
-    setManualOpen(true);
-  };
-
-  const saveManual = async () => {
-    if (!mDesc.trim() || !mCat || !mData || !mInicio || !mFim) return;
-    const inicioISO = `${mData}T${mInicio}:00`;
-    const fimISO = `${mData}T${mFim}:00`;
-    const dur = Math.round((new Date(fimISO).getTime() - new Date(inicioISO).getTime()) / 60000);
-    if (dur <= 0) return;
-    setMSaving(true);
-    const billingFields: any = {};
-    if (mValor) billingFields.valor_hora = Number(mValor);
-    if (!mFat) billingFields.faturavel = false;
-    if (editTarget) {
-      await update(editTarget.id, {
-        tarefa_descricao: mDesc.trim(), categoria: mCat, cliente_id: mCli || null,
-        data_inicio: inicioISO, data_fim: fimISO, duracao_minutos: dur,
-        observacoes: mObs.trim() || null, ...billingFields,
-      });
-    } else {
-      await addManual({
-        tarefa_descricao: mDesc.trim(), categoria: mCat as TimesheetCategoria, cliente_id: mCli || null,
-        data_inicio: inicioISO, data_fim: fimISO, duracao_minutos: dur,
-        observacoes: mObs.trim() || null, faturavel: mFat, valor_hora: mValor ? Number(mValor) : null,
-      });
-    }
-    setMSaving(false); setManualOpen(false);
-  };
+  // Lançamento manual: state + openManual/openEdit/saveManual foram para useTimesheetManualEntry.
 
   return (
     <div className="flex-1 p-4 md:p-8 space-y-6 md:space-y-8 overflow-x-hidden entry-animate">
