@@ -1,8 +1,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Sparkles, MessageCircle, Webhook, Plug, Clock } from "lucide-react";
+import { Sparkles, MessageCircle, Webhook, Plug, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { GoogleCalendarCard } from "./GoogleCalendarCard";
 
 interface Integration {
   id: string;
@@ -14,7 +15,6 @@ interface Integration {
 }
 
 const INTEGRATIONS: Integration[] = [
-  { id: "gcal", nome: "Google Calendar", desc: "Sincronize audiências e prazos com sua agenda do Google.", icon: Calendar, color: "text-blue-500 bg-blue-500/10", status: "em_breve" },
   { id: "openai", nome: "OpenAI", desc: "Conecte sua chave da OpenAI para habilitar os recursos de inteligência artificial.", icon: Sparkles, color: "text-teal-600 bg-teal-600/10", status: "em_breve" },
   { id: "whatsapp", nome: "WhatsApp", desc: "Avisos de prazos e atendimentos direto no WhatsApp.", icon: MessageCircle, color: "text-emerald-500 bg-emerald-500/10", status: "em_breve" },
   { id: "webhooks", nome: "API & Webhooks", desc: "Conecte o VextriaHub a outros sistemas via API.", icon: Webhook, color: "text-purple-500 bg-purple-500/10", status: "em_breve" },
@@ -35,6 +35,7 @@ export function IntegrationsPanel() {
 
       <CardContent className="p-5 md:p-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <GoogleCalendarCard />
           {INTEGRATIONS.map((it) => {
             const Icon = it.icon;
             const soon = it.status === "em_breve";

@@ -2225,6 +2225,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      google_status: { Args: never; Returns: { connected: boolean; status: string; google_email: string; last_sync_at: string }[] }
       apply_signup_plan: { Args: { p_plan_type: string }; Returns: string }
       authorize_process_search: {
         Args: {
