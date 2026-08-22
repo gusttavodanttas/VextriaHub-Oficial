@@ -60,8 +60,10 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
       const { data } = await supabase.from(table as any).select("*").eq("id", item.id).maybeSingle();
       if (cancel) return;
       setRow(data);
-      if (data?.cliente_id) {
-        const { data: c } = await supabase.from("clientes").select("nome").eq("id", data.cliente_id).maybeSingle();
+      // `table as any` faz o select retornar SelectQueryError; tipamos o mínimo que usamos.
+      const rec = data as unknown as { cliente_id?: string | null } | null;
+      if (rec?.cliente_id) {
+        const { data: c } = await supabase.from("clientes").select("nome").eq("id", rec.cliente_id).maybeSingle();
         if (!cancel) setClienteNome(c?.nome || null);
       } else setClienteNome(null);
       setLoading(false);

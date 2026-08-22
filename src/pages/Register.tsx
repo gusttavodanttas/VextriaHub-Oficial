@@ -225,7 +225,7 @@ const Register = () => {
         await supabase.rpc('ensure_office_for_user' as never);
         if (planParam) {
           const { data } = await supabase.rpc('apply_signup_plan' as never, { p_plan_type: planParam } as never);
-          planOutcome = (data as string) ?? null;
+          planOutcome = (data as string | null) ?? null;
         }
       } catch (setupErr) {
         console.error('signup plan setup:', setupErr);

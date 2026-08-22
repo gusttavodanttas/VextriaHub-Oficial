@@ -113,15 +113,15 @@ export default function Lixeira() {
         id: p.id, tabela: 'publicacoes',
         titulo: p.titulo,
         descricao: `${fmtDate(p.data_publicacao)} · ${p.tribunal || ''}`,
-        excluido_em: p.created_at, office_id: p.office_id, office_name: officeMap[p.office_id] || '—', user_id: p.user_id, dados: p,
+        excluido_em: p.created_at, office_id: p.office_id, office_name: officeMap[p.office_id] || '—', user_id: p.user_id ?? undefined, dados: p,
       }));
 
-      const { data: prazos } = await applyTenantFilter(supabase.from('prazos').select('*').eq('deletado', true)).order('updated_at', { ascending: false });
+      const { data: prazos } = await applyTenantFilter(supabase.from('prazos').select('*').eq('deletado', true)).order('created_at', { ascending: false });
       (prazos || []).forEach(p => results.push({
         id: p.id, tabela: 'prazos',
-        titulo: p.titulo,
-        descricao: `Vencimento: ${fmtDate(p.data_vencimento)}`,
-        excluido_em: p.updated_at, office_id: p.office_id, office_name: officeMap[p.office_id] || '—', user_id: p.user_id, dados: p,
+        titulo: p.titulo ?? '',
+        descricao: `Vencimento: ${p.data_vencimento ? fmtDate(p.data_vencimento) : '—'}`,
+        excluido_em: p.created_at, office_id: p.office_id, office_name: officeMap[p.office_id] || '—', user_id: p.user_id ?? undefined, dados: p,
       }));
 
       const { data: auds } = await applyTenantFilter(supabase.from('audiencias').select('*').eq('deletado', true)).order('updated_at', { ascending: false });

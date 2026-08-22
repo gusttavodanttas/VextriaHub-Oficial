@@ -12,6 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import type { TablesInsert } from "@/integrations/supabase/rows";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   CalendarClock, Newspaper, Shield, AlertOctagon, Search, X,
@@ -492,17 +493,18 @@ export const NovoPrazoStandaloneDialog = ({
 
   const fetchTipos = async () => {
     if (!user?.office_id) return;
+    const officeId = user.office_id;
     const { data } = await supabase
       .from('tipos_ato_prazo')
       .select('*')
-      .eq('office_id', user.office_id)
+      .eq('office_id', officeId)
       .order('ordem', { ascending: true });
     if (data && data.length > 0) {
       setTipos(data.map(dbToTipoAto));
     } else {
       // Primeiro acesso: seed com padrões
       const rows = TIPOS_ATO_DEFAULT.map(t => ({
-        office_id: user.office_id, value: t.value, label: t.label,
+        office_id: officeId, value: t.value, label: t.label,
         dias_uteis: t.diasUteis, corridos: t.corridos, margem: t.margem, ordem: t.ordem,
       }));
       await supabase.from('tipos_ato_prazo').insert(rows);
@@ -549,10 +551,11 @@ export const NovoPrazoStandaloneDialog = ({
     if (!processoSearch.trim() || processoSearch.length < 2 || !user?.office_id) {
       setProcessoOptions([]); return;
     }
+    const officeId = user.office_id;
     const t = setTimeout(async () => {
       const term = processoSearch.trim();
       const { data } = await supabase.from('processos').select('id, titulo, numero_processo')
-        .eq('office_id', user.office_id).eq('deletado', false)
+        .eq('office_id', officeId).eq('deletado', false)
         .or(`titulo.ilike.%${term}%,numero_processo.ilike.%${term}%`).limit(6);
       setProcessoOptions((data || []) as ProcessoOption[]);
       setShowOptions(true);
@@ -642,10 +645,10 @@ export const NovoPrazoStandaloneDialog = ({
         if (formData.dataPrazoInterno) payload.data_prazo_interno = formData.dataPrazoInterno;
         if (formData.avisosDias != null) payload.avisos_dias = formData.avisosDias;
         payload.titular = formData.titular;
-        let { error } = await supabase.from('prazos').insert(payload);
+        let { error } = await supabase.from('prazos').insert(payload as TablesInsert<'prazos'>);
         if (error && /titular/.test(error.message || '')) { // coluna ainda não criada
           const { titular: _t, ...semTitular } = payload;
-          ({ error } = await supabase.from('prazos').insert(semTitular));
+          ({ error } = await supabase.from('prazos').insert(semTitular as TablesInsert<'prazos'>));
         }
         if (error) throw error;
         toast({ title: "Prazo adicionado", description: "O prazo foi salvo com sucesso." });

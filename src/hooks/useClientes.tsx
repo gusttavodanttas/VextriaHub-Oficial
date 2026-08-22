@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Cliente, NovoCliente, DatabaseHookResult, ClienteComProcessos } from '@/types/database';
 import type { TablesInsert, TablesUpdate } from '@/integrations/supabase/rows';
+import type { Json } from '@/integrations/supabase/types';
 
 export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoCliente> {
   const [data, setData] = useState<ClienteComProcessos[]>([]);
@@ -49,13 +50,14 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
   };
 
   const create = async (newRecord: NovoCliente): Promise<Cliente | null> => {
-    if (!user) return null;
+    if (!user?.office_id) return null;
+    const officeId = user.office_id;
 
     try {
       const payload: TablesInsert<'clientes'> = {
         ...newRecord,
         user_id: user.id,
-        office_id: user.office_id,
+        office_id: officeId,
       };
 
       // PostgreSQL rejeita string vazia em colunas de Data (gera erro 400)
@@ -90,17 +92,18 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
   };
 
   const update = async (id: string, updates: Partial<Cliente>): Promise<Cliente | null> => {
-    if (!user) return null;
+    if (!user?.office_id) return null;
+    const officeId = user.office_id;
 
     try {
       const payload: TablesUpdate<'clientes'> = { ...updates };
       if (payload.data_aniversario === '') payload.data_aniversario = null;
-      
+
       const { data: result, error } = await supabase
         .from('clientes')
         .update(payload)
         .eq('id', id)
-        .eq('office_id', user.office_id)
+        .eq('office_id', officeId)
         .select()
         .single();
 
@@ -128,12 +131,13 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
   };
 
   const requestDelete = async (id: string, motivo?: string): Promise<boolean> => {
-    if (!user) return false;
+    if (!user?.office_id) return false;
+    const officeId = user.office_id;
 
     try {
       const recordToDelete = data.find(item => item.id === id);
       if (!recordToDelete) return false;
-      
+
       const hasAdminRights = isAdmin || isOfficeAdmin || isSuperAdmin;
 
       if (hasAdminRights) {
@@ -142,12 +146,12 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
           .from('clientes')
           .update({ deletado: true })
           .eq('id', id)
-          .eq('office_id', user.office_id);
+          .eq('office_id', officeId);
 
         if (updateError) throw updateError;
-        
+
         setData(prev => prev.filter(item => item.id !== id));
-        
+
         toast({
           title: 'Cliente excluído',
           description: 'O cliente foi excluído com sucesso.',
@@ -158,7 +162,7 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
           .from('clientes')
           .update({ deletado_pendente: true })
           .eq('id', id)
-          .eq('office_id', user.office_id);
+          .eq('office_id', officeId);
 
         if (updateError) throw updateError;
 
@@ -169,7 +173,7 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
               user_id: user.id,
               tabela: 'clientes',
               registro_id: id,
-              dados_registro: recordToDelete,
+              dados_registro: recordToDelete as unknown as Json,
               motivo: motivo,
             }
           ]);
@@ -198,7 +202,8 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
   };
 
   const requestMultipleDelete = async (ids: string[], motivo?: string): Promise<boolean> => {
-    if (!user) return false;
+    if (!user?.office_id) return false;
+    const officeId = user.office_id;
 
     try {
       const recordsToDelete = data.filter(item => ids.includes(item.id));
@@ -210,7 +215,7 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
           .from('clientes')
           .update({ deletado: true })
           .in('id', ids)
-          .eq('office_id', user.office_id);
+          .eq('office_id', officeId);
 
         if (updateError) throw updateError;
 
@@ -226,7 +231,7 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
           .from('clientes')
           .update({ deletado_pendente: true })
           .in('id', ids)
-          .eq('office_id', user.office_id);
+          .eq('office_id', officeId);
 
         if (updateError) throw updateError;
 
@@ -234,7 +239,7 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
           user_id: user.id,
           tabela: 'clientes',
           registro_id: record.id,
-          dados_registro: record,
+          dados_registro: record as unknown as Json,
           motivo: motivo,
         }));
 

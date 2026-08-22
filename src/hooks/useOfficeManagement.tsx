@@ -23,7 +23,7 @@ export const useOfficeManagement = () => {
       // Se não for super admin, buscar apenas o próprio escritório e apenas se estiver ativo
       if (!isSuperAdmin) {
         query = query
-          .eq('office_users.user_id', user?.id)
+          .eq('office_users.user_id', user?.id ?? '')
           .eq('office_users.active', true)
           .eq('active', true);
       }

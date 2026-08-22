@@ -19,6 +19,7 @@ export function MiniFinanceChart() {
 
   useEffect(() => {
     if (!user?.office_id) { setLoading(false); return; }
+    const officeId = user.office_id;
     let cancel = false;
     (async () => {
       setLoading(true);
@@ -28,7 +29,7 @@ export function MiniFinanceChart() {
       const { data: rows } = await supabase
         .from("financeiro")
         .select("tipo, valor, data_vencimento")
-        .eq("office_id", user.office_id)
+        .eq("office_id", officeId)
         .eq("deletado", false)
         .gte("data_vencimento", start.toISOString().slice(0, 10));
       if (cancel) return;

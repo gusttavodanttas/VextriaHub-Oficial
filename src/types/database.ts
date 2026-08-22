@@ -18,7 +18,9 @@ export type ExclusaoPendente = Tables<'exclusoes_pendentes'>;
 export type Office = Tables<'offices'>;
 export type OfficeUser = Tables<'office_users'>;
 export type Invitation = Tables<'invitations'>;
-export type Subscription = Tables<'subscriptions'>;
+// A tabela Stripe legada 'subscriptions' foi removida do schema (cobrança migrou p/ Asaas
+// em 'office_subscriptions'). Os tipos Subscription/NovaSubscription eram apenas definidos,
+// nunca usados — removidos para acompanhar o schema real.
 export type Profile = Tables<'profiles'>;
 
 // Tipos para criação de registros (sem campos automáticos)
@@ -35,7 +37,6 @@ export type NovoFinanceiro = Omit<Financeiro, 'id' | 'user_id' | 'deletado' | 'd
 export type NovoOffice = Omit<Office, 'id' | 'created_at' | 'updated_at' | 'created_by'>;
 export type NovoOfficeUser = Omit<OfficeUser, 'id' | 'joined_at'>;
 export type NovaInvitation = Omit<Invitation, 'id' | 'created_at' | 'token' | 'status' | 'accepted_at' | 'office_id' | 'invited_by'>;
-export type NovaSubscription = Omit<Subscription, 'id' | 'created_at' | 'updated_at'>;
 
 // Interface para hooks de database
 export interface DatabaseHookResult<T, CreateT> {

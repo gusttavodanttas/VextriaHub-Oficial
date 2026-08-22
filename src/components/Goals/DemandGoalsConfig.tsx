@@ -45,9 +45,10 @@ export function DemandGoalsConfig() {
   // Carrega config salva em offices.settings.metas_demanda
   useEffect(() => {
     if (!user?.office_id) return;
+    const officeId = user.office_id;
     (async () => {
       setLoading(true);
-      const { data } = await supabase.from("offices").select("settings").eq("id", user.office_id).maybeSingle();
+      const { data } = await supabase.from("offices").select("settings").eq("id", officeId).maybeSingle();
       const saved: MetaDemanda[] = ((data?.settings as any)?.metas_demanda) || [];
       const counts = await contarProcessos(saved.map(m => m.tipo));
       setMetasDemanda(saved.map(m => ({ ...m, processosAtuais: counts[(m.tipo || "").trim().toLowerCase()] || 0 })));

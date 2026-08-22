@@ -25,6 +25,7 @@ export function useClienteResumo(clientId: string | null, enabled: boolean) {
 
   useEffect(() => {
     if (!enabled || !clientId || !user?.office_id) return;
+    const officeId = user.office_id;
     let cancel = false;
     (async () => {
       setLoading(true);
@@ -33,7 +34,7 @@ export function useClienteResumo(clientId: string | null, enabled: boolean) {
           .from("processos")
           .select("id, titulo, numero_processo, status, created_at")
           .eq("cliente_id", clientId)
-          .eq("office_id", user.office_id)
+          .eq("office_id", officeId)
           .order("created_at", { ascending: false })
           .limit(5),
         supabase

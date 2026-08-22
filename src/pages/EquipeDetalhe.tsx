@@ -289,7 +289,7 @@ function TeamDetailDialog({
         const seen = new Set<string>();
         result = [...(byTeam.data || []), ...(byResp.data || []), ...(byCreator.data || [])]
           .filter(p => { if (seen.has(p.id)) return false; seen.add(p.id); return true; })
-          .map(p => ({ id: p.id, primary: p.titulo || "Processo", secondary: p.numero_processo || "", badge: p.status }));
+          .map(p => ({ id: p.id, primary: p.titulo || "Processo", secondary: p.numero_processo || "", badge: p.status || undefined }));
       } else if (type === "tarefas") {
         const { data } = await supabase.from("tarefas").select("id, titulo, data_vencimento")
           .eq("office_id", officeId).eq("deletado", false).eq("concluida", false)

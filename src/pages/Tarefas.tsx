@@ -77,8 +77,9 @@ const Tarefas = () => {
     queryKey: ["tarefa-coment-counts", user?.office_id],
     enabled: !!user?.office_id,
     queryFn: async () => {
+      if (!user?.office_id) return {};
       const { data, error } = await supabase.from("tarefa_comentarios")
-        .select("tarefa_id").eq("office_id", user!.office_id).eq("deletado", false);
+        .select("tarefa_id").eq("office_id", user.office_id).eq("deletado", false);
       if (error) return {};
       const m: Record<string, number> = {};
       (data || []).forEach((r: any) => { m[r.tarefa_id] = (m[r.tarefa_id] || 0) + 1; });
@@ -91,8 +92,9 @@ const Tarefas = () => {
     queryKey: ["subtarefa-counts", user?.office_id],
     enabled: !!user?.office_id,
     queryFn: async () => {
+      if (!user?.office_id) return {};
       const { data, error } = await supabase.from("tarefa_subtarefas")
-        .select("tarefa_id, concluida").eq("office_id", user!.office_id).eq("deletado", false);
+        .select("tarefa_id, concluida").eq("office_id", user.office_id).eq("deletado", false);
       if (error) return {};
       const m: Record<string, { total: number; done: number }> = {};
       (data || []).forEach((r: any) => { const e = (m[r.tarefa_id] ||= { total: 0, done: 0 }); e.total++; if (r.concluida) e.done++; });

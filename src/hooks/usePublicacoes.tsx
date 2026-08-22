@@ -70,7 +70,7 @@ export const usePublicacoes = () => {
       const { data, error } = await query;
 
       if (error) throw error;
-      setPublications(data || []);
+      setPublications((data || []) as Publication[]);
     } catch {
       // erro silencioso — lista fica vazia
     } finally {
@@ -328,7 +328,7 @@ export const usePublicacoes = () => {
 
       if (error) throw error;
       
-      setPublications(prev => [newPub, ...prev]);
+      setPublications(prev => [newPub as Publication, ...prev]);
       return newPub;
     } catch {
       return null;

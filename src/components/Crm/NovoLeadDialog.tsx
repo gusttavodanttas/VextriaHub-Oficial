@@ -142,7 +142,7 @@ export const NovoLeadDialog = ({ open, onOpenChange, onSave }: NovoLeadDialogPro
 
   const handleSave = async () => {
     if (!validateForm()) return;
-    if (!user?.id) {
+    if (!user?.id || !user?.office_id) {
       toast({
         title: "Erro de autenticação",
         description: "Usuário não autenticado.",
@@ -150,6 +150,7 @@ export const NovoLeadDialog = ({ open, onOpenChange, onSave }: NovoLeadDialogPro
       });
       return;
     }
+    const officeId = user.office_id;
 
     setIsLoading(true);
     try {
@@ -157,7 +158,7 @@ export const NovoLeadDialog = ({ open, onOpenChange, onSave }: NovoLeadDialogPro
         .from('clientes')
         .insert([{
           user_id: user.id,
-          office_id: user.office_id,
+          office_id: officeId,
           nome: formData.nome.trim(),
           email: formData.email.trim() || null,
           telefone: formData.telefone.trim() || null,
@@ -184,10 +185,10 @@ export const NovoLeadDialog = ({ open, onOpenChange, onSave }: NovoLeadDialogPro
         nome: data.nome,
         email: data.email || "",
         telefone: data.telefone || "",
-        cpf_cnpj: data.cpf_cnpj,
+        cpf_cnpj: data.cpf_cnpj ?? undefined,
         tipo_pessoa: data.tipo_pessoa as "fisica" | "juridica",
         origem: data.origem || "",
-        endereco: data.endereco,
+        endereco: data.endereco ?? undefined,
         status: data.status as "lead" | "quente" | "morno" | "frio",
         interesse: formData.interesse,
         observacoes: formData.observacoes

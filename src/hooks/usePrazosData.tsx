@@ -77,7 +77,7 @@ export function usePrazosData(ui: UiCallbacks = {}) {
     queryFn: async () => {
       const { data } = await supabase.from('processos')
         .select('id, numero_processo, cliente_id, clientes(nome)')
-        .eq('office_id', user!.office_id).eq('deletado', false);
+        .eq('office_id', user!.office_id!).eq('deletado', false);
       const byId: Record<string, ProcInfo> = {};
       const byNumero: Record<string, ProcInfo> = {};
       (data || []).forEach((p: any) => {

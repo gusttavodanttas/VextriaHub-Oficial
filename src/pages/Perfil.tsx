@@ -128,6 +128,7 @@ const Perfil = () => {
       if (err) { toast({ variant: "destructive", title: "Imagem inválida", description: err }); return; }
       const targetId = profile?.id || user?.id;
       const targetCol = profile?.id ? "id" : "user_id";
+      if (!targetId) return;
       try {
         setUploadingAvatar(true);
         const url = await uploadPublicImage("avatars", file, user?.id || "user");
@@ -149,6 +150,7 @@ const Perfil = () => {
     if (!avatarUrl) return;
     const targetId = profile?.id || user?.id;
     const targetCol = profile?.id ? "id" : "user_id";
+    if (!targetId) return;
     try {
       setUploadingAvatar(true);
       const { error } = await supabase.from("profiles").update({ avatar_url: null }).eq(targetCol, targetId);
@@ -188,7 +190,8 @@ const Perfil = () => {
       // Update explícito via chave primária (fallback pra .eq('user_id')) se a PK id falhar
       const targetId = profile?.id || user?.id;
       const targetColumn = profile?.id ? 'id' : 'user_id';
-      
+      if (!targetId) { setIsSaving(false); return; }
+
       const { data, error } = await supabase
         .from('profiles')
         .update(updatePayload)

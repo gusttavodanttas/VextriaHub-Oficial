@@ -17,6 +17,7 @@ export function useProximityNotifications() {
 
   useEffect(() => {
     if (!user?.id || !user?.office_id) return;
+    const officeId = user.office_id;
 
     const run = async () => {
       const hojeKey = new Date().toISOString().split("T")[0];
@@ -38,7 +39,7 @@ export function useProximityNotifications() {
       if (prefs.audiencias) {
         const { data } = await supabase.from("audiencias")
           .select("*")
-          .eq("office_id", user.office_id).eq("deletado", false)
+          .eq("office_id", officeId).eq("deletado", false)
           .not("status", "in", "(realizada,cancelada)")
           .gte("data_audiencia", start.toISOString()).lte("data_audiencia", end.toISOString());
         (data || []).forEach((a: any) => {
@@ -61,7 +62,7 @@ export function useProximityNotifications() {
         // data fatal e filtramos o horizonte aqui. (RLS já limita ao escritório.)
         const { data } = await supabase.from("prazos")
           .select("*, publicacoes(titulo)")
-          .eq("office_id", user.office_id).neq("status", "concluido");
+          .eq("office_id", officeId).neq("status", "concluido");
         (data || []).forEach((p: any) => {
           if (p.titular === "contraria") return; // prazo da parte contrária: só monitoramento
           const fatal = dataFatalPrazo(p);
@@ -83,7 +84,7 @@ export function useProximityNotifications() {
       if (prefs.tarefas) {
         const { data } = await supabase.from("tarefas")
           .select("*")
-          .eq("office_id", user.office_id).eq("deletado", false).eq("concluida", false)
+          .eq("office_id", officeId).eq("deletado", false).eq("concluida", false)
           .gte("data_vencimento", startDate).lte("data_vencimento", endDate);
         (data || []).forEach((t: any) => {
           const d = diasAte(t.data_vencimento);
@@ -102,7 +103,7 @@ export function useProximityNotifications() {
       if (prefs.atendimentos) {
         const { data } = await supabase.from("atendimentos")
           .select("*, clientes(nome)")
-          .eq("office_id", user.office_id).eq("deletado", false)
+          .eq("office_id", officeId).eq("deletado", false)
           .in("status", ["agendado", "pendente"])
           .gte("data_atendimento", start.toISOString()).lte("data_atendimento", end.toISOString());
         (data || []).forEach((a: any) => {

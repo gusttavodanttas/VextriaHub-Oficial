@@ -230,6 +230,12 @@ const Clientes = () => {
       endereco: newClient.endereco,
       status: newClient.status || "Ativo",
       data_aniversario: newClient.dataAniversario,
+      // NovoCliente = Omit<Row,...>: colunas nullable continuam de presença
+      // obrigatória. Campos não expostos no formulário entram como null.
+      observacoes: null,
+      proximo_contato: null,
+      team_id: null,
+      valor_estimado: null,
     });
     if (success) toast({ title: "Cliente cadastrado", description: `${newClient.name} cadastrado com sucesso.` });
     return !!success;

@@ -38,6 +38,7 @@ export function PrazosBlock() {
     enabled: !!officeId,
     staleTime: 60_000, // mostra o cache na hora e revalida em bg (sem piscar ao voltar)
     queryFn: async () => {
+      if (!officeId) return [];
       const { data } = await supabase.from("prazos").select("*").eq("office_id", officeId).eq("deletado", false)
         .neq("status", "concluido").order("data_fim_prazo", { ascending: true, nullsFirst: false }).limit(6);
       return data || [];
@@ -86,6 +87,7 @@ export function TarefasBlock() {
     enabled: !!officeId,
     staleTime: 60_000,
     queryFn: async () => {
+      if (!officeId) return [];
       const { data } = await supabase.from("tarefas").select("id, titulo, data_vencimento, prioridade").eq("office_id", officeId).eq("deletado", false).eq("concluida", false)
         .order("data_vencimento", { ascending: true, nullsFirst: false }).limit(6);
       return data || [];

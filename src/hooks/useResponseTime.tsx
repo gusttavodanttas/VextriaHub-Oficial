@@ -14,12 +14,13 @@ export function useResponseTime() {
 
   useEffect(() => {
     if (!user?.office_id) { setLoading(false); return; }
+    const officeId = user.office_id;
     let cancel = false;
     (async () => {
       setLoading(true);
       const [cliRes, atRes] = await Promise.all([
-        supabase.from("clientes").select("id, created_at").eq("office_id", user.office_id).eq("deletado", false),
-        supabase.from("atendimentos").select("cliente_id, data_atendimento, created_at").eq("office_id", user.office_id).eq("deletado", false),
+        supabase.from("clientes").select("id, created_at").eq("office_id", officeId).eq("deletado", false),
+        supabase.from("atendimentos").select("cliente_id, data_atendimento, created_at").eq("office_id", officeId).eq("deletado", false),
       ]);
       if (cancel) return;
 

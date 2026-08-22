@@ -23,10 +23,10 @@ export function useMyActivity(limit = 8) {
 
   useEffect(() => {
     if (!user?.id || !user?.office_id) { setLoading(false); return; }
+    const office = user.office_id, uid = user.id;
     let cancel = false;
     (async () => {
       setLoading(true);
-      const office = user.office_id, uid = user.id;
       const [proc, tar, at] = await Promise.all([
         supabase.from("processos").select("*").eq("office_id", office).eq("user_id", uid).order("created_at", { ascending: false }).limit(5),
         supabase.from("tarefas").select("*").eq("office_id", office).eq("user_id", uid).order("created_at", { ascending: false }).limit(5),

@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { NovoProcesso } from '@/types/database';
 import { Processo } from '@/types/processo';
+import type { TablesInsert } from '@/integrations/supabase/rows';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getErrorMessage } from '@/lib/errors';
 
@@ -158,11 +159,12 @@ export function useProcessosV2() {
       // E ignora deletados — recriar um número que está na lixeira não pode ressuscitá-lo.
       const numeroLimpo = insertPayload.numero_processo;
       let existing: { id: string } | null = null;
-      if (numeroLimpo) {
+      if (numeroLimpo && user.office_id) {
+        const officeId = user.office_id;
         const { data } = await supabase
           .from('processos')
           .select('id')
-          .eq('office_id', user.office_id)
+          .eq('office_id', officeId)
           .eq('numero_processo', numeroLimpo)
           .eq('deletado', false)
           .maybeSingle();
@@ -182,7 +184,10 @@ export function useProcessosV2() {
       } else {
         const { data: inserted, error: insertError } = await supabase
           .from('processos')
-          .insert(insertPayload)
+          // insertPayload é montado dinamicamente (Record<string, any>); asseramos
+          // o shape do Insert. office_id pode vir null aqui — o trigger
+          // trg_office_id preenche a partir do perfil do usuário.
+          .insert(insertPayload as TablesInsert<'processos'>)
           .select('*, cliente:clientes(nome)')
           .single();
         if (insertError) throw insertError;
@@ -437,7 +442,7 @@ export function useProcessosV2() {
         .from('movimentacoes_processo')
         .insert([{
           processo_id: processoId,
-          office_id: user.office_id,
+          office_id: officeId,
           data_movimentacao: targetDate,
           descricao: texto,
           tipo: movData.tipo || null,

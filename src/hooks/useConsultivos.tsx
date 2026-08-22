@@ -36,7 +36,7 @@ export function useConsultivos() {
   useEffect(() => { fetchData(); }, [user?.office_id]);
 
   const create = async (payload: Omit<TablesInsert<"consultivos">, "user_id" | "office_id">): Promise<boolean> => {
-    if (!user) return false;
+    if (!user?.office_id) return false;
     try {
       const { error } = await supabase.from("consultivos").insert({
         ...payload,

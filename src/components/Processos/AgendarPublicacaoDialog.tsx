@@ -132,10 +132,11 @@ export const AgendarPublicacaoDialog = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!user?.id) {
+    if (!user?.id || !user.office_id) {
       toast({ title: "Erro", description: "Usuário não autenticado.", variant: "destructive" });
       return;
     }
+    const officeId = user.office_id;
     const val = agendarPublicacaoSchema.safeParse(form);
     if (!val.success) {
       toast({ title: "Campo obrigatório", description: firstZodError(val.error), variant: "destructive" });
@@ -151,7 +152,7 @@ export const AgendarPublicacaoDialog = ({
       if (tipo === "prazo") {
         const { error } = await supabase.from("prazos").insert({
           user_id: user.id,
-          office_id: user.office_id,
+          office_id: officeId,
           processo_id: processoId,
           titulo: form.titulo,
           descricao: form.descricao,
@@ -165,7 +166,7 @@ export const AgendarPublicacaoDialog = ({
       } else if (tipo === "tarefa") {
         const { error } = await supabase.from("tarefas").insert({
           user_id: user.id,
-          office_id: user.office_id,
+          office_id: officeId,
           processo_id: processoId,
           cliente_id: clienteId,
           titulo: form.titulo,
@@ -180,7 +181,7 @@ export const AgendarPublicacaoDialog = ({
         const datetime = new Date(`${form.data}T${form.hora || "00:00"}`);
         const { error } = await supabase.from("audiencias").insert({
           user_id: user.id,
-          office_id: user.office_id,
+          office_id: officeId,
           processo_id: processoId,
           cliente_id: clienteId,
           titulo: form.titulo,

@@ -35,16 +35,21 @@ export const useNotifications = () => {
 
       if (error) throw error;
 
-      setNotifications((data || []).map(n => ({
-        id: n.id,
-        type: n.type as NotificationType,
-        title: n.title,
-        message: n.message,
-        timestamp: new Date(n.created_at),
-        read: n.read,
-        actionUrl: n.action_url,
-        actionLabel: n.action_label
-      })));
+      setNotifications((data || []).map(n => {
+        // action_url/action_label existem na tabela (migrations 20260417*) mas
+        // faltam no types.ts regenerado — leitura via type assertion, sem `any`.
+        const row = n as typeof n & { action_url?: string | null; action_label?: string | null };
+        return {
+          id: n.id,
+          type: n.type as NotificationType,
+          title: n.title,
+          message: n.message ?? "",
+          timestamp: new Date(n.created_at),
+          read: n.read ?? false,
+          actionUrl: row.action_url ?? undefined,
+          actionLabel: row.action_label ?? undefined,
+        };
+      }));
     } catch (err) {
       console.error('Erro ao buscar notificações:', err);
     } finally {

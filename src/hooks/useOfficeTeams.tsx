@@ -8,7 +8,7 @@ export type OfficeTeam = {
   name: string;
   color: string;
   description: string | null;
-  created_at: string;
+  created_at: string | null;
   member_count?: number;
 };
 

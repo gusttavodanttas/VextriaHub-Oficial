@@ -115,7 +115,7 @@ export function useTarefas() {
     mutationFn: async (input: TarefaInput) => {
       if (!officeId || !user?.id) throw new Error("Sem escritório/usuário");
       const { error } = await supabase.from("tarefas").insert([{
-        ...buildPayload(input), office_id: officeId, user_id: user.id, concluida: false, deletado: false,
+        ...buildPayload(input), titulo: input.titulo, office_id: officeId, user_id: user.id, concluida: false, deletado: false,
       }]);
       if (error) throw error;
     },
@@ -127,7 +127,7 @@ export function useTarefas() {
     mutationFn: async (inputs: TarefaInput[]) => {
       if (!officeId || !user?.id) throw new Error("Sem escritório/usuário");
       const rows = inputs.map(input => ({
-        ...buildPayload(input), office_id: officeId, user_id: user.id, concluida: false, deletado: false,
+        ...buildPayload(input), titulo: input.titulo, office_id: officeId, user_id: user.id, concluida: false, deletado: false,
       }));
       let { error } = await supabase.from("tarefas").insert(rows);
       // Fallback: colunas de série ainda não criadas → recria sem elas

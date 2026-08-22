@@ -16,10 +16,11 @@ export function useOfficeSettingList<T>(key: string, defaults: T[]) {
 
   useEffect(() => {
     if (!user?.office_id) { setLoading(false); return; }
+    const officeId = user.office_id;
     let cancel = false;
     (async () => {
       setLoading(true);
-      const { data } = await supabase.from("offices").select("settings").eq("id", user.office_id).maybeSingle();
+      const { data } = await supabase.from("offices").select("settings").eq("id", officeId).maybeSingle();
       if (cancel) return;
       const stored = (data?.settings as any)?.[key];
       setItems(Array.isArray(stored) ? stored : defaults);

@@ -66,10 +66,10 @@ const COLOR_OPTIONS: { value: string; label: string; color: string; bg: string; 
   { value: "pink",    label: "Rosa",     color: "text-pink-500",    bg: "bg-pink-500/10",    border: "border-l-pink-500" },
 ];
 
-function getColorCfg(cor: string) {
+function getColorCfg(cor: string | null | undefined) {
   return COLOR_OPTIONS.find(c => c.value === cor) ?? COLOR_OPTIONS[0];
 }
-function getIconEl(icone: string): React.ElementType {
+function getIconEl(icone: string | null | undefined): React.ElementType {
   return ICON_OPTIONS.find(i => i.value === icone)?.Icon ?? FileText;
 }
 
@@ -107,7 +107,8 @@ function getPriCls(p: string | null) {
 function getStatusCfg(s: string | null) {
   return STATUS_MAP.find(x => x.value === s) ?? STATUS_MAP[0];
 }
-function fmtDate(d: string) {
+function fmtDate(d: string | null | undefined) {
+  if (!d) return "";
   try { return format(new Date(d), "dd/MM/yyyy", { locale: ptBR }); }
   catch { return d; }
 }
@@ -152,7 +153,7 @@ function CategoryManagerDialog({
 
   const startEdit = (cat: ConsultivoCategoria) => {
     setEditId(cat.id);
-    setForm({ label: cat.label, cor: cat.cor, icone: cat.icone });
+    setForm({ label: cat.label, cor: cat.cor ?? "blue", icone: cat.icone ?? "FileText" });
   };
   const startCreate = () => {
     setEditId(null);

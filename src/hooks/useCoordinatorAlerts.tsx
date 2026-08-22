@@ -15,6 +15,7 @@ export function useCoordinatorAlerts() {
   useEffect(() => {
     if (!user?.id || !user?.office_id || !isAnyCoordinator || !coordinatedMemberIds.length) return;
 
+    const officeId = user.office_id;
     const check = async () => {
       const today = new Date().toISOString().split("T")[0];
       const in2days = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
@@ -28,7 +29,7 @@ export function useCoordinatorAlerts() {
         // Tarefas atrasadas dos membros coordenados
         supabase.from("tarefas")
           .select("id, titulo, user_id")
-          .eq("office_id", user.office_id)
+          .eq("office_id", officeId)
           .eq("deletado", false)
           .eq("concluida", false)
           .lt("data_vencimento", today)
@@ -37,7 +38,7 @@ export function useCoordinatorAlerts() {
         // Prazos vencendo em 2 dias para membros coordenados
         supabase.from("prazos")
           .select("id, tipo_prazo, data_fim_prazo, responsavel_id")
-          .eq("office_id", user.office_id)
+          .eq("office_id", officeId)
           .gte("data_fim_prazo", today)
           .lte("data_fim_prazo", in2days)
           .in("responsavel_id", coordinatedMemberIds),

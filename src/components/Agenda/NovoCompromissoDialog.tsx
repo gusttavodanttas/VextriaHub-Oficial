@@ -133,7 +133,8 @@ export const NovoCompromissoDialog: React.FC<NovoCompromissoDialogProps> = ({
       return;
     }
 
-    if (!user) return;
+    if (!user?.office_id) return;
+    const officeId = user.office_id;
     setLoading(true);
 
     try {
@@ -150,7 +151,7 @@ export const NovoCompromissoDialog: React.FC<NovoCompromissoDialogProps> = ({
 
       if (formData.tipo === "audiencia") {
         ({ error } = await supabase.from("audiencias").insert({
-          user_id: user.id, office_id: user.office_id,
+          user_id: user.id, office_id: officeId,
           cliente_id: clienteId, processo_id: processoId,
           titulo: formData.titulo,
           data_audiencia: datetime.toISOString(),
@@ -161,7 +162,7 @@ export const NovoCompromissoDialog: React.FC<NovoCompromissoDialogProps> = ({
         }));
       } else if (formData.tipo === "tarefa") {
         ({ error } = await supabase.from("tarefas").insert({
-          user_id: user.id, office_id: user.office_id,
+          user_id: user.id, office_id: officeId,
           cliente_id: clienteId, processo_id: processoId,
           titulo: formData.titulo,
           descricao: formData.descricao || null,
@@ -172,18 +173,28 @@ export const NovoCompromissoDialog: React.FC<NovoCompromissoDialogProps> = ({
         }));
       } else if (formData.tipo === "prazo") {
         ({ error } = await supabase.from("prazos").insert({
-          user_id: user.id, office_id: user.office_id,
+          user_id: user.id, office_id: officeId,
           processo_id: processoId,
           titulo: formData.titulo,
           descricao: formData.descricao || null,
           data_fim_prazo: dataYmd,
+          // data_disponibilizacao e data_intimacao são NOT NULL na tabela prazos;
+          // este dialog não as coleta, então usamos a data escolhida como base.
+          data_disponibilizacao: dataYmd,
+          data_intimacao: dataYmd,
           prioridade: "media",
           status: "pendente",
         }));
       } else {
+        // atendimentos.cliente_id é NOT NULL no banco: exige um cliente selecionado.
+        if (!clienteId) {
+          toast({ title: "Selecione um cliente", description: "Reuniões, consultas e atendimentos exigem um cliente.", variant: "destructive" });
+          return;
+        }
+        // Obs.: a tabela atendimentos não possui a coluna processo_id — por isso não é enviada.
         ({ error } = await supabase.from("atendimentos").insert({
-          user_id: user.id, office_id: user.office_id,
-          cliente_id: clienteId, processo_id: processoId,
+          user_id: user.id, office_id: officeId,
+          cliente_id: clienteId,
           tipo_atendimento: formData.tipo,
           data_atendimento: datetime.toISOString(),
           observacoes: formData.descricao,

@@ -152,7 +152,7 @@ export function useMetas() {
   useEffect(() => { fetch(); }, [fetch]);
 
   const create = async (input: NovaMetaInput): Promise<boolean> => {
-    if (!user?.id) return false;
+    if (!user?.id || !user?.office_id) return false;
     const { inicio, fim } = periodToRange(input.periodo, input.dataInicio, input.dataFim);
     const { error } = await supabase.from("metas").insert({
       user_id: user.id, office_id: user.office_id,

@@ -7,15 +7,16 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "12.2.3 (519615d)"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
       atendimentos: {
         Row: {
+          avisos_dias: number[] | null
           cliente_id: string
           created_at: string
           data_atendimento: string
@@ -24,12 +25,19 @@ export type Database = {
           duracao: number | null
           id: string
           observacoes: string | null
+          office_id: string
+          recorrencia_grupo: string | null
+          recorrencia_regra: string | null
+          recorrencia_restantes: number | null
+          responsavel_id: string | null
+          resultado: string | null
           status: string | null
           tipo_atendimento: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          avisos_dias?: number[] | null
           cliente_id: string
           created_at?: string
           data_atendimento: string
@@ -38,12 +46,19 @@ export type Database = {
           duracao?: number | null
           id?: string
           observacoes?: string | null
+          office_id: string
+          recorrencia_grupo?: string | null
+          recorrencia_regra?: string | null
+          recorrencia_restantes?: number | null
+          responsavel_id?: string | null
+          resultado?: string | null
           status?: string | null
           tipo_atendimento: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          avisos_dias?: number[] | null
           cliente_id?: string
           created_at?: string
           data_atendimento?: string
@@ -52,6 +67,12 @@ export type Database = {
           duracao?: number | null
           id?: string
           observacoes?: string | null
+          office_id?: string
+          recorrencia_grupo?: string | null
+          recorrencia_regra?: string | null
+          recorrencia_restantes?: number | null
+          responsavel_id?: string | null
+          resultado?: string | null
           status?: string | null
           tipo_atendimento?: string
           updated_at?: string
@@ -65,10 +86,48 @@ export type Database = {
             referencedRelation: "clientes"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "atendimentos_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audiencia_tipos: {
+        Row: {
+          created_at: string
+          id: string
+          nome: string
+          office_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nome: string
+          office_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nome?: string
+          office_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audiencia_tipos_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
         ]
       }
       audiencias: {
         Row: {
+          aviso_dias: number | null
+          avisos_dias: number[] | null
           cliente_id: string | null
           created_at: string
           data_audiencia: string
@@ -77,7 +136,9 @@ export type Database = {
           id: string
           local: string | null
           observacoes: string | null
+          office_id: string
           processo_id: string | null
+          responsavel_id: string | null
           status: string | null
           tipo: string | null
           titulo: string
@@ -85,6 +146,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          aviso_dias?: number | null
+          avisos_dias?: number[] | null
           cliente_id?: string | null
           created_at?: string
           data_audiencia: string
@@ -93,7 +156,9 @@ export type Database = {
           id?: string
           local?: string | null
           observacoes?: string | null
+          office_id: string
           processo_id?: string | null
+          responsavel_id?: string | null
           status?: string | null
           tipo?: string | null
           titulo: string
@@ -101,6 +166,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          aviso_dias?: number | null
+          avisos_dias?: number[] | null
           cliente_id?: string | null
           created_at?: string
           data_audiencia?: string
@@ -109,7 +176,9 @@ export type Database = {
           id?: string
           local?: string | null
           observacoes?: string | null
+          office_id?: string
           processo_id?: string | null
+          responsavel_id?: string | null
           status?: string | null
           tipo?: string | null
           titulo?: string
@@ -125,6 +194,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "audiencias_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "audiencias_processo_id_fkey"
             columns: ["processo_id"]
             isOneToOne: false
@@ -133,130 +209,47 @@ export type Database = {
           },
         ]
       }
-      user_permissions: {
+      billing_events: {
         Row: {
-          id: string
-          office_id: string | null
-          user_id: string
-          permission_key: string
-          granted: boolean
+          asaas_payment_id: string | null
+          asaas_subscription_id: string | null
           created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          office_id?: string | null
-          user_id: string
-          permission_key: string
-          granted?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          office_id?: string | null
-          user_id?: string
-          permission_key?: string
-          granted?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      consultivo_categorias: {
-        Row: {
+          due_date: string | null
+          event: string | null
           id: string
+          invoice_url: string | null
           office_id: string | null
-          label: string
-          valor: string
-          cor: string
-          icone: string
-          ordem: number
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          office_id?: string | null
-          label: string
-          valor: string
-          cor?: string
-          icone?: string
-          ordem?: number
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          office_id?: string | null
-          label?: string
-          valor?: string
-          cor?: string
-          icone?: string
-          ordem?: number
-          created_at?: string
-        }
-        Relationships: []
-      }
-      consultivos: {
-        Row: {
-          id: string
-          office_id: string | null
-          user_id: string
-          cliente_id: string | null
-          titulo: string
-          descricao: string | null
-          categoria: string
-          prioridade: string | null
+          raw: Json | null
           status: string | null
-          tags: string[] | null
-          observacoes: string | null
-          deletado: boolean
-          deletado_pendente: boolean
-          created_at: string
-          updated_at: string
+          value: number | null
         }
         Insert: {
-          id?: string
-          office_id?: string | null
-          user_id: string
-          cliente_id?: string | null
-          titulo: string
-          descricao?: string | null
-          categoria?: string
-          prioridade?: string | null
-          status?: string | null
-          tags?: string[] | null
-          observacoes?: string | null
-          deletado?: boolean
-          deletado_pendente?: boolean
+          asaas_payment_id?: string | null
+          asaas_subscription_id?: string | null
           created_at?: string
-          updated_at?: string
+          due_date?: string | null
+          event?: string | null
+          id?: string
+          invoice_url?: string | null
+          office_id?: string | null
+          raw?: Json | null
+          status?: string | null
+          value?: number | null
         }
         Update: {
-          id?: string
-          office_id?: string | null
-          user_id?: string
-          cliente_id?: string | null
-          titulo?: string
-          descricao?: string | null
-          categoria?: string
-          prioridade?: string | null
-          status?: string | null
-          tags?: string[] | null
-          observacoes?: string | null
-          deletado?: boolean
-          deletado_pendente?: boolean
+          asaas_payment_id?: string | null
+          asaas_subscription_id?: string | null
           created_at?: string
-          updated_at?: string
+          due_date?: string | null
+          event?: string | null
+          id?: string
+          invoice_url?: string | null
+          office_id?: string | null
+          raw?: Json | null
+          status?: string | null
+          value?: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "consultivos_cliente_id_fkey"
-            columns: ["cliente_id"]
-            isOneToOne: false
-            referencedRelation: "clientes"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       clientes: {
         Row: {
@@ -269,13 +262,17 @@ export type Database = {
           endereco: string | null
           id: string
           nome: string
-          office_id: string | null
+          observacoes: string | null
+          office_id: string
           origem: string | null
+          proximo_contato: string | null
           status: string | null
+          team_id: string | null
           telefone: string | null
           tipo_pessoa: string | null
           updated_at: string
           user_id: string
+          valor_estimado: number | null
         }
         Insert: {
           cpf_cnpj?: string | null
@@ -287,13 +284,17 @@ export type Database = {
           endereco?: string | null
           id?: string
           nome: string
-          office_id?: string | null
+          observacoes?: string | null
+          office_id: string
           origem?: string | null
+          proximo_contato?: string | null
           status?: string | null
+          team_id?: string | null
           telefone?: string | null
           tipo_pessoa?: string | null
           updated_at?: string
           user_id: string
+          valor_estimado?: number | null
         }
         Update: {
           cpf_cnpj?: string | null
@@ -305,12 +306,165 @@ export type Database = {
           endereco?: string | null
           id?: string
           nome?: string
-          office_id?: string | null
+          observacoes?: string | null
+          office_id?: string
           origem?: string | null
+          proximo_contato?: string | null
           status?: string | null
+          team_id?: string | null
           telefone?: string | null
           tipo_pessoa?: string | null
           updated_at?: string
+          user_id?: string
+          valor_estimado?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clientes_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clientes_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "office_teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      consultivo_categorias: {
+        Row: {
+          cor: string | null
+          created_at: string | null
+          icone: string | null
+          id: string
+          label: string
+          office_id: string | null
+          ordem: number | null
+          valor: string
+        }
+        Insert: {
+          cor?: string | null
+          created_at?: string | null
+          icone?: string | null
+          id?: string
+          label: string
+          office_id?: string | null
+          ordem?: number | null
+          valor: string
+        }
+        Update: {
+          cor?: string | null
+          created_at?: string | null
+          icone?: string | null
+          id?: string
+          label?: string
+          office_id?: string | null
+          ordem?: number | null
+          valor?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultivo_categorias_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      consultivos: {
+        Row: {
+          categoria: string
+          cliente_id: string | null
+          created_at: string | null
+          deletado: boolean | null
+          deletado_pendente: boolean | null
+          descricao: string | null
+          id: string
+          observacoes: string | null
+          office_id: string
+          prazo: string | null
+          prioridade: string | null
+          responsavel_id: string | null
+          status: string | null
+          tags: string[] | null
+          titulo: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          categoria?: string
+          cliente_id?: string | null
+          created_at?: string | null
+          deletado?: boolean | null
+          deletado_pendente?: boolean | null
+          descricao?: string | null
+          id?: string
+          observacoes?: string | null
+          office_id: string
+          prazo?: string | null
+          prioridade?: string | null
+          responsavel_id?: string | null
+          status?: string | null
+          tags?: string[] | null
+          titulo: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          categoria?: string
+          cliente_id?: string | null
+          created_at?: string | null
+          deletado?: boolean | null
+          deletado_pendente?: boolean | null
+          descricao?: string | null
+          id?: string
+          observacoes?: string | null
+          office_id?: string
+          prazo?: string | null
+          prioridade?: string | null
+          responsavel_id?: string | null
+          status?: string | null
+          tags?: string[] | null
+          titulo?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultivos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultivos_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_digest_log: {
+        Row: {
+          ref_date: string
+          sent_at: string
+          user_id: string
+        }
+        Insert: {
+          ref_date: string
+          sent_at?: string
+          user_id: string
+        }
+        Update: {
+          ref_date?: string
+          sent_at?: string
           user_id?: string
         }
         Relationships: []
@@ -322,6 +476,7 @@ export type Database = {
           dados_registro: Json
           id: string
           motivo: string | null
+          office_id: string | null
           registro_id: string
           solicitado_em: string
           status: string | null
@@ -334,6 +489,7 @@ export type Database = {
           dados_registro: Json
           id?: string
           motivo?: string | null
+          office_id?: string | null
           registro_id: string
           solicitado_em?: string
           status?: string | null
@@ -346,13 +502,22 @@ export type Database = {
           dados_registro?: Json
           id?: string
           motivo?: string | null
+          office_id?: string | null
           registro_id?: string
           solicitado_em?: string
           status?: string | null
           tabela?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "exclusoes_pendentes_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       financeiro: {
         Row: {
@@ -364,8 +529,13 @@ export type Database = {
           deletado: boolean
           deletado_pendente: boolean
           descricao: string
+          grupo_id: string | null
           id: string
+          office_id: string
+          parcela_numero: number | null
+          parcela_total: number | null
           processo_id: string | null
+          recorrencia: string | null
           status: string | null
           tipo: string
           updated_at: string
@@ -381,8 +551,13 @@ export type Database = {
           deletado?: boolean
           deletado_pendente?: boolean
           descricao: string
+          grupo_id?: string | null
           id?: string
+          office_id: string
+          parcela_numero?: number | null
+          parcela_total?: number | null
           processo_id?: string | null
+          recorrencia?: string | null
           status?: string | null
           tipo: string
           updated_at?: string
@@ -398,8 +573,13 @@ export type Database = {
           deletado?: boolean
           deletado_pendente?: boolean
           descricao?: string
+          grupo_id?: string | null
           id?: string
+          office_id?: string
+          parcela_numero?: number | null
+          parcela_total?: number | null
           processo_id?: string | null
+          recorrencia?: string | null
           status?: string | null
           tipo?: string
           updated_at?: string
@@ -412,6 +592,13 @@ export type Database = {
             columns: ["cliente_id"]
             isOneToOne: false
             referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financeiro_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
             referencedColumns: ["id"]
           },
           {
@@ -478,8 +665,10 @@ export type Database = {
           deletado: boolean
           deletado_pendente: boolean
           id: string
+          office_id: string
           periodo: string
           status: string | null
+          team_id: string | null
           tipo: string
           titulo: string
           updated_at: string
@@ -494,8 +683,10 @@ export type Database = {
           deletado?: boolean
           deletado_pendente?: boolean
           id?: string
+          office_id: string
           periodo: string
           status?: string | null
+          team_id?: string | null
           tipo: string
           titulo: string
           updated_at?: string
@@ -510,8 +701,10 @@ export type Database = {
           deletado?: boolean
           deletado_pendente?: boolean
           id?: string
+          office_id?: string
           periodo?: string
           status?: string | null
+          team_id?: string | null
           tipo?: string
           titulo?: string
           updated_at?: string
@@ -519,7 +712,328 @@ export type Database = {
           valor_atual?: number | null
           valor_meta?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "metas_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "metas_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "office_teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      monitoramento_termos: {
+        Row: {
+          ativo: boolean | null
+          created_at: string
+          id: string
+          office_id: string
+          seccional: string | null
+          termo: string
+          tipo: string
+          ultima_busca: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string
+          id?: string
+          office_id: string
+          seccional?: string | null
+          termo: string
+          tipo?: string
+          ultima_busca?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string
+          id?: string
+          office_id?: string
+          seccional?: string | null
+          termo?: string
+          tipo?: string
+          ultima_busca?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monitoramento_termos_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      movimentacoes_processo: {
+        Row: {
+          created_at: string | null
+          data_movimentacao: string
+          descricao: string
+          id: string
+          metadata: Json | null
+          office_id: string
+          processo_id: string
+          tipo: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          data_movimentacao?: string
+          descricao: string
+          id?: string
+          metadata?: Json | null
+          office_id: string
+          processo_id: string
+          tipo?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          data_movimentacao?: string
+          descricao?: string
+          id?: string
+          metadata?: Json | null
+          office_id?: string
+          processo_id?: string
+          tipo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movimentacoes_processo_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "processos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          data: Json | null
+          id: string
+          message: string | null
+          office_id: string | null
+          read: boolean | null
+          title: string
+          type: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          data?: Json | null
+          id?: string
+          message?: string | null
+          office_id?: string | null
+          read?: boolean | null
+          title: string
+          type?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json | null
+          id?: string
+          message?: string | null
+          office_id?: string | null
+          read?: boolean | null
+          title?: string
+          type?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      office_access_changes: {
+        Row: {
+          action: string
+          changed_by: string
+          created_at: string
+          details: Json | null
+          id: string
+          office_id: string
+        }
+        Insert: {
+          action: string
+          changed_by: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          office_id: string
+        }
+        Update: {
+          action?: string
+          changed_by?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          office_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "office_access_changes_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      office_subscriptions: {
+        Row: {
+          asaas_customer_id: string | null
+          asaas_subscription_id: string | null
+          base_value: number | null
+          billing_type: string
+          created_at: string
+          cycle: string
+          is_lifetime: boolean
+          last_invoice_url: string | null
+          manual_discount_percent: number
+          next_due_date: string | null
+          office_id: string
+          plan_claimed: boolean
+          plan_name: string | null
+          status: string
+          trial_ends_at: string | null
+          updated_at: string
+          value: number
+        }
+        Insert: {
+          asaas_customer_id?: string | null
+          asaas_subscription_id?: string | null
+          base_value?: number | null
+          billing_type?: string
+          created_at?: string
+          cycle?: string
+          is_lifetime?: boolean
+          last_invoice_url?: string | null
+          manual_discount_percent?: number
+          next_due_date?: string | null
+          office_id: string
+          plan_claimed?: boolean
+          plan_name?: string | null
+          status?: string
+          trial_ends_at?: string | null
+          updated_at?: string
+          value?: number
+        }
+        Update: {
+          asaas_customer_id?: string | null
+          asaas_subscription_id?: string | null
+          base_value?: number | null
+          billing_type?: string
+          created_at?: string
+          cycle?: string
+          is_lifetime?: boolean
+          last_invoice_url?: string | null
+          manual_discount_percent?: number
+          next_due_date?: string | null
+          office_id?: string
+          plan_claimed?: boolean
+          plan_name?: string | null
+          status?: string
+          trial_ends_at?: string | null
+          updated_at?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "office_subscriptions_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: true
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      office_team_members: {
+        Row: {
+          created_at: string | null
+          id: string
+          office_id: string
+          role: string
+          team_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          office_id: string
+          role?: string
+          team_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          office_id?: string
+          role?: string
+          team_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "office_team_members_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "office_team_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "office_teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      office_teams: {
+        Row: {
+          color: string
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          office_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          office_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          office_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "office_teams_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       office_users: {
         Row: {
@@ -561,160 +1075,272 @@ export type Database = {
       }
       offices: {
         Row: {
+          access_granted_at: string | null
+          access_granted_by: string | null
+          access_note: string | null
+          access_type: Database["public"]["Enums"]["access_type"]
           active: boolean
           address: string | null
           created_at: string
           created_by: string | null
           email: string | null
           id: string
-          access_type: "trial" | "stripe_paid" | "lifetime" | "courtesy"
           logo_url: string | null
-          manual_discount_percent: number | null
           max_users: number
           name: string
           phone: string | null
-          plan: Database["public"]["Enums"]["subscription_plan"]
+          plan: string
+          settings: Json | null
           updated_at: string
         }
         Insert: {
+          access_granted_at?: string | null
+          access_granted_by?: string | null
+          access_note?: string | null
+          access_type?: Database["public"]["Enums"]["access_type"]
           active?: boolean
           address?: string | null
           created_at?: string
           created_by?: string | null
           email?: string | null
           id?: string
-          access_type?: "trial" | "stripe_paid" | "lifetime" | "courtesy"
           logo_url?: string | null
-          manual_discount_percent?: number | null
           max_users?: number
           name: string
           phone?: string | null
-          plan?: Database["public"]["Enums"]["subscription_plan"]
+          plan?: string
+          settings?: Json | null
           updated_at?: string
         }
         Update: {
+          access_granted_at?: string | null
+          access_granted_by?: string | null
+          access_note?: string | null
+          access_type?: Database["public"]["Enums"]["access_type"]
           active?: boolean
           address?: string | null
           created_at?: string
           created_by?: string | null
           email?: string | null
           id?: string
-          access_type?: "trial" | "stripe_paid" | "lifetime" | "courtesy"
           logo_url?: string | null
-          manual_discount_percent?: number | null
           max_users?: number
           name?: string
           phone?: string | null
-          plan?: Database["public"]["Enums"]["subscription_plan"]
+          plan?: string
+          settings?: Json | null
           updated_at?: string
         }
         Relationships: []
       }
       plan_configs: {
         Row: {
-          created_at: string | null
+          created_at: string
+          cycle: string
           features: Json | null
           id: string
           is_active: boolean | null
           plan_name: string
           plan_type: string
           price_cents: number
+          signup_only: boolean
           trial_days: number | null
-          updated_at: string | null
         }
         Insert: {
-          created_at?: string | null
+          created_at?: string
+          cycle?: string
           features?: Json | null
           id?: string
           is_active?: boolean | null
           plan_name: string
           plan_type: string
-          price_cents: number
+          price_cents?: number
+          signup_only?: boolean
           trial_days?: number | null
-          updated_at?: string | null
         }
         Update: {
-          created_at?: string | null
+          created_at?: string
+          cycle?: string
           features?: Json | null
           id?: string
           is_active?: boolean | null
           plan_name?: string
           plan_type?: string
           price_cents?: number
+          signup_only?: boolean
           trial_days?: number | null
-          updated_at?: string | null
         }
         Relationships: []
       }
       prazos: {
         Row: {
+          audiencia_data_sugerida: string | null
+          audiencia_hora_sugerida: string | null
+          audiencia_tipo_sugerido: string | null
+          aviso_dias: number | null
+          avisos_dias: number[] | null
+          base_legal: string | null
+          calculado_em: string
+          concluido_em: string | null
+          concluido_por: string | null
+          confirmado_em: string | null
+          confirmado_por: string | null
           created_at: string
-          data_vencimento: string
+          data_disponibilizacao: string
+          data_fim_prazo: string | null
+          data_intimacao: string
+          data_prazo_interno: string | null
+          data_publicacao: string | null
+          data_vencimento: string | null
           deletado: boolean
-          deletado_pendente: boolean
           descricao: string | null
+          dias_corridos: boolean
+          dias_uteis: number | null
+          eh_juizado: boolean
           id: string
+          numero_processo: string | null
+          office_id: string
+          possivel_audiencia: boolean
           prioridade: string | null
           processo_id: string | null
-          status: string | null
-          titulo: string
-          updated_at: string
-          user_id: string
+          publicacao_id: string | null
+          responsavel_id: string | null
+          status: string
+          tipo_prazo: string
+          titular: string
+          titulo: string | null
+          user_id: string | null
         }
         Insert: {
+          audiencia_data_sugerida?: string | null
+          audiencia_hora_sugerida?: string | null
+          audiencia_tipo_sugerido?: string | null
+          aviso_dias?: number | null
+          avisos_dias?: number[] | null
+          base_legal?: string | null
+          calculado_em?: string
+          concluido_em?: string | null
+          concluido_por?: string | null
+          confirmado_em?: string | null
+          confirmado_por?: string | null
           created_at?: string
-          data_vencimento: string
+          data_disponibilizacao: string
+          data_fim_prazo?: string | null
+          data_intimacao: string
+          data_prazo_interno?: string | null
+          data_publicacao?: string | null
+          data_vencimento?: string | null
           deletado?: boolean
-          deletado_pendente?: boolean
           descricao?: string | null
+          dias_corridos?: boolean
+          dias_uteis?: number | null
+          eh_juizado?: boolean
           id?: string
+          numero_processo?: string | null
+          office_id: string
+          possivel_audiencia?: boolean
           prioridade?: string | null
           processo_id?: string | null
-          status?: string | null
-          titulo: string
-          updated_at?: string
-          user_id: string
+          publicacao_id?: string | null
+          responsavel_id?: string | null
+          status?: string
+          tipo_prazo?: string
+          titular?: string
+          titulo?: string | null
+          user_id?: string | null
         }
         Update: {
+          audiencia_data_sugerida?: string | null
+          audiencia_hora_sugerida?: string | null
+          audiencia_tipo_sugerido?: string | null
+          aviso_dias?: number | null
+          avisos_dias?: number[] | null
+          base_legal?: string | null
+          calculado_em?: string
+          concluido_em?: string | null
+          concluido_por?: string | null
+          confirmado_em?: string | null
+          confirmado_por?: string | null
           created_at?: string
-          data_vencimento?: string
+          data_disponibilizacao?: string
+          data_fim_prazo?: string | null
+          data_intimacao?: string
+          data_prazo_interno?: string | null
+          data_publicacao?: string | null
+          data_vencimento?: string | null
           deletado?: boolean
-          deletado_pendente?: boolean
           descricao?: string | null
+          dias_corridos?: boolean
+          dias_uteis?: number | null
+          eh_juizado?: boolean
           id?: string
+          numero_processo?: string | null
+          office_id?: string
+          possivel_audiencia?: boolean
           prioridade?: string | null
           processo_id?: string | null
-          status?: string | null
-          titulo?: string
-          updated_at?: string
-          user_id?: string
+          publicacao_id?: string | null
+          responsavel_id?: string | null
+          status?: string
+          tipo_prazo?: string
+          titular?: string
+          titulo?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "prazos_processo_id_fkey"
-            columns: ["processo_id"]
+            foreignKeyName: "prazos_office_id_fkey"
+            columns: ["office_id"]
             isOneToOne: false
-            referencedRelation: "processos"
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prazos_publicacao_id_fkey"
+            columns: ["publicacao_id"]
+            isOneToOne: true
+            referencedRelation: "publicacoes"
             referencedColumns: ["id"]
           },
         ]
       }
       processos: {
         Row: {
+          assunto_principal: string | null
+          classe_judicial: string | null
           cliente_id: string | null
           comarca: string | null
           created_at: string
+          data_ajuizamento: string | null
+          data_distribuicao: string | null
+          data_encerramento: string | null
           data_inicio: string | null
           data_ultima_atualizacao: string | null
           deletado: boolean
           deletado_pendente: boolean
           etiquetas: string[] | null
+          fase_processual: string | null
+          fonte_sincronizacao: string | null
           id: string
+          instancia: string | null
+          juiz: string | null
+          justica_gratuita: boolean | null
+          natureza: string | null
+          nivel_sigilo: number | null
           numero_processo: string
           observacoes: string | null
+          office_id: string
+          orgao_julgador_codigo: string | null
+          parte_autora: string | null
           proximo_prazo: string | null
+          requerido: string | null
+          responsavel_id: string | null
+          resultado: string | null
+          segredo_justica: boolean | null
+          sincronizado_em: string | null
           sistema_tribunal: string | null
           status: string | null
+          team_id: string | null
           tipo_processo: string | null
           titulo: string
           tribunal: string | null
@@ -722,27 +1348,43 @@ export type Database = {
           user_id: string
           valor_causa: number | null
           vara: string | null
-          fase_processual: string | null
-          responsavel_id: string | null
-          requerido: string | null
-          segredo_justica: boolean
-          justica_gratuita: boolean
         }
         Insert: {
+          assunto_principal?: string | null
+          classe_judicial?: string | null
           cliente_id?: string | null
           comarca?: string | null
           created_at?: string
+          data_ajuizamento?: string | null
+          data_distribuicao?: string | null
+          data_encerramento?: string | null
           data_inicio?: string | null
           data_ultima_atualizacao?: string | null
           deletado?: boolean
           deletado_pendente?: boolean
           etiquetas?: string[] | null
+          fase_processual?: string | null
+          fonte_sincronizacao?: string | null
           id?: string
+          instancia?: string | null
+          juiz?: string | null
+          justica_gratuita?: boolean | null
+          natureza?: string | null
+          nivel_sigilo?: number | null
           numero_processo: string
           observacoes?: string | null
+          office_id: string
+          orgao_julgador_codigo?: string | null
+          parte_autora?: string | null
           proximo_prazo?: string | null
+          requerido?: string | null
+          responsavel_id?: string | null
+          resultado?: string | null
+          segredo_justica?: boolean | null
+          sincronizado_em?: string | null
           sistema_tribunal?: string | null
           status?: string | null
+          team_id?: string | null
           tipo_processo?: string | null
           titulo: string
           tribunal?: string | null
@@ -750,27 +1392,43 @@ export type Database = {
           user_id: string
           valor_causa?: number | null
           vara?: string | null
-          fase_processual?: string | null
-          responsavel_id?: string | null
-          requerido?: string | null
-          segredo_justica?: boolean
-          justica_gratuita?: boolean
         }
         Update: {
+          assunto_principal?: string | null
+          classe_judicial?: string | null
           cliente_id?: string | null
           comarca?: string | null
           created_at?: string
+          data_ajuizamento?: string | null
+          data_distribuicao?: string | null
+          data_encerramento?: string | null
           data_inicio?: string | null
           data_ultima_atualizacao?: string | null
           deletado?: boolean
           deletado_pendente?: boolean
           etiquetas?: string[] | null
+          fase_processual?: string | null
+          fonte_sincronizacao?: string | null
           id?: string
+          instancia?: string | null
+          juiz?: string | null
+          justica_gratuita?: boolean | null
+          natureza?: string | null
+          nivel_sigilo?: number | null
           numero_processo?: string
           observacoes?: string | null
+          office_id?: string
+          orgao_julgador_codigo?: string | null
+          parte_autora?: string | null
           proximo_prazo?: string | null
+          requerido?: string | null
+          responsavel_id?: string | null
+          resultado?: string | null
+          segredo_justica?: boolean | null
+          sincronizado_em?: string | null
           sistema_tribunal?: string | null
           status?: string | null
+          team_id?: string | null
           tipo_processo?: string | null
           titulo?: string
           tribunal?: string | null
@@ -778,11 +1436,6 @@ export type Database = {
           user_id?: string
           valor_causa?: number | null
           vara?: string | null
-          fase_processual?: string | null
-          responsavel_id?: string | null
-          requerido?: string | null
-          segredo_justica?: boolean
-          justica_gratuita?: boolean
         }
         Relationships: [
           {
@@ -792,15 +1445,109 @@ export type Database = {
             referencedRelation: "clientes"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "processos_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "processos_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "office_teams"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      processos_descartados: {
+        Row: {
+          created_at: string | null
+          dados_originais: Json | null
+          id: string
+          motivo: string | null
+          numero_processo: string
+          office_id: string
+          titulo: string | null
+          tribunal: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          dados_originais?: Json | null
+          id?: string
+          motivo?: string | null
+          numero_processo: string
+          office_id: string
+          titulo?: string | null
+          tribunal?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          dados_originais?: Json | null
+          id?: string
+          motivo?: string | null
+          numero_processo?: string
+          office_id?: string
+          titulo?: string | null
+          tribunal?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      processos_encontrados: {
+        Row: {
+          autor: string | null
+          created_at: string
+          encontrado_por: string | null
+          fonte: string | null
+          id: string
+          numero_processo: string
+          office_id: string
+          payload: Json | null
+          reu: string | null
+          titulo: string | null
+          tribunal: string | null
+        }
+        Insert: {
+          autor?: string | null
+          created_at?: string
+          encontrado_por?: string | null
+          fonte?: string | null
+          id?: string
+          numero_processo: string
+          office_id: string
+          payload?: Json | null
+          reu?: string | null
+          titulo?: string | null
+          tribunal?: string | null
+        }
+        Update: {
+          autor?: string | null
+          created_at?: string
+          encontrado_por?: string | null
+          fonte?: string | null
+          id?: string
+          numero_processo?: string
+          office_id?: string
+          payload?: Json | null
+          reu?: string | null
+          titulo?: string | null
+          tribunal?: string | null
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
+          address: string | null
+          avatar_url: string | null
+          cpf_cnpj: string | null
           created_at: string
           email: string | null
           full_name: string | null
           id: string
-          address: string | null
           oab: string | null
           oab_uf: string | null
           office_id: string | null
@@ -810,11 +1557,13 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          address?: string | null
+          avatar_url?: string | null
+          cpf_cnpj?: string | null
           created_at?: string
           email?: string | null
           full_name?: string | null
           id?: string
-          address?: string | null
           oab?: string | null
           oab_uf?: string | null
           office_id?: string | null
@@ -824,11 +1573,13 @@ export type Database = {
           user_id: string
         }
         Update: {
+          address?: string | null
+          avatar_url?: string | null
+          cpf_cnpj?: string | null
           created_at?: string
           email?: string | null
           full_name?: string | null
           id?: string
-          address?: string | null
           oab?: string | null
           oab_uf?: string | null
           office_id?: string | null
@@ -847,121 +1598,198 @@ export type Database = {
           },
         ]
       }
-      subscribers: {
+      publicacoes: {
         Row: {
+          cliente_id: string | null
+          comarca: string | null
+          conteudo: string
           created_at: string
-          email: string
+          data_publicacao: string
           id: string
-          stripe_customer_id: string | null
-          subscribed: boolean
-          subscription_end: string | null
-          subscription_tier: string | null
+          instancia: string | null
+          juiz: string | null
+          metadata: Json | null
+          natureza: string | null
+          nome_orgao: string | null
+          numero_processo: string
+          office_id: string
+          processo_id: string | null
+          status: string
+          tags: string[] | null
+          tipo_acao: string | null
+          tipo_documento: string | null
+          titulo: string
+          tribunal: string | null
           updated_at: string
+          urgencia: string
           user_id: string | null
+          vara: string | null
         }
         Insert: {
+          cliente_id?: string | null
+          comarca?: string | null
+          conteudo: string
           created_at?: string
-          email: string
+          data_publicacao: string
           id?: string
-          stripe_customer_id?: string | null
-          subscribed?: boolean
-          subscription_end?: string | null
-          subscription_tier?: string | null
+          instancia?: string | null
+          juiz?: string | null
+          metadata?: Json | null
+          natureza?: string | null
+          nome_orgao?: string | null
+          numero_processo: string
+          office_id: string
+          processo_id?: string | null
+          status?: string
+          tags?: string[] | null
+          tipo_acao?: string | null
+          tipo_documento?: string | null
+          titulo: string
+          tribunal?: string | null
           updated_at?: string
+          urgencia?: string
           user_id?: string | null
+          vara?: string | null
         }
         Update: {
+          cliente_id?: string | null
+          comarca?: string | null
+          conteudo?: string
           created_at?: string
-          email?: string
+          data_publicacao?: string
           id?: string
-          stripe_customer_id?: string | null
-          subscribed?: boolean
-          subscription_end?: string | null
-          subscription_tier?: string | null
-          updated_at?: string
-          user_id?: string | null
-        }
-        Relationships: []
-      }
-      subscriptions: {
-        Row: {
-          access_status: string | null
-          billing_cycle: string | null
-          checkout_expires_at: string | null
-          checkout_url: string | null
-          created_at: string
-          end_date: string | null
-          id: string
-          is_trial: boolean | null
-          office_id: string
-          payment_confirmed: boolean | null
-          payment_status: string | null
-          plan: Database["public"]["Enums"]["subscription_plan"]
-          plan_name: string | null
-          plan_type: string | null
-          price: number | null
-          start_date: string
-          status: Database["public"]["Enums"]["subscription_status"]
-          stripe_customer_id: string | null
-          stripe_subscription_id: string | null
-          trial_end_date: string | null
-          trial_start_date: string | null
-          updated_at: string
-        }
-        Insert: {
-          access_status?: string | null
-          billing_cycle?: string | null
-          checkout_expires_at?: string | null
-          checkout_url?: string | null
-          created_at?: string
-          end_date?: string | null
-          id?: string
-          is_trial?: boolean | null
-          office_id: string
-          payment_confirmed?: boolean | null
-          payment_status?: string | null
-          plan: Database["public"]["Enums"]["subscription_plan"]
-          plan_name?: string | null
-          plan_type?: string | null
-          price?: number | null
-          start_date?: string
-          status?: Database["public"]["Enums"]["subscription_status"]
-          stripe_customer_id?: string | null
-          stripe_subscription_id?: string | null
-          trial_end_date?: string | null
-          trial_start_date?: string | null
-          updated_at?: string
-        }
-        Update: {
-          access_status?: string | null
-          billing_cycle?: string | null
-          checkout_expires_at?: string | null
-          checkout_url?: string | null
-          created_at?: string
-          end_date?: string | null
-          id?: string
-          is_trial?: boolean | null
+          instancia?: string | null
+          juiz?: string | null
+          metadata?: Json | null
+          natureza?: string | null
+          nome_orgao?: string | null
+          numero_processo?: string
           office_id?: string
-          payment_confirmed?: boolean | null
-          payment_status?: string | null
-          plan?: Database["public"]["Enums"]["subscription_plan"]
-          plan_name?: string | null
-          plan_type?: string | null
-          price?: number | null
-          start_date?: string
-          status?: Database["public"]["Enums"]["subscription_status"]
-          stripe_customer_id?: string | null
-          stripe_subscription_id?: string | null
-          trial_end_date?: string | null
-          trial_start_date?: string | null
+          processo_id?: string | null
+          status?: string
+          tags?: string[] | null
+          tipo_acao?: string | null
+          tipo_documento?: string | null
+          titulo?: string
+          tribunal?: string | null
           updated_at?: string
+          urgencia?: string
+          user_id?: string | null
+          vara?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "subscriptions_office_id_fkey"
+            foreignKeyName: "publicacoes_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "publicacoes_office_id_fkey"
             columns: ["office_id"]
             isOneToOne: false
             referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "publicacoes_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "processos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tarefa_comentarios: {
+        Row: {
+          created_at: string
+          deletado: boolean
+          id: string
+          office_id: string
+          tarefa_id: string
+          texto: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          deletado?: boolean
+          id?: string
+          office_id: string
+          tarefa_id: string
+          texto: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          deletado?: boolean
+          id?: string
+          office_id?: string
+          tarefa_id?: string
+          texto?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tarefa_comentarios_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tarefa_comentarios_tarefa_id_fkey"
+            columns: ["tarefa_id"]
+            isOneToOne: false
+            referencedRelation: "tarefas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tarefa_subtarefas: {
+        Row: {
+          concluida: boolean
+          created_at: string
+          deletado: boolean
+          id: string
+          office_id: string
+          ordem: number
+          tarefa_id: string
+          titulo: string
+        }
+        Insert: {
+          concluida?: boolean
+          created_at?: string
+          deletado?: boolean
+          id?: string
+          office_id: string
+          ordem?: number
+          tarefa_id: string
+          titulo: string
+        }
+        Update: {
+          concluida?: boolean
+          created_at?: string
+          deletado?: boolean
+          id?: string
+          office_id?: string
+          ordem?: number
+          tarefa_id?: string
+          titulo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tarefa_subtarefas_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tarefa_subtarefas_tarefa_id_fkey"
+            columns: ["tarefa_id"]
+            isOneToOne: false
+            referencedRelation: "tarefas"
             referencedColumns: ["id"]
           },
         ]
@@ -969,21 +1797,25 @@ export type Database = {
       tarefas: {
         Row: {
           atendimento_id: string | null
+          aviso_dias: number | null
           avisos_dias: number[] | null
           cliente_id: string | null
           concluida: boolean | null
-          recorrencia_grupo: string | null
-          recorrencia_regra: string | null
-          recorrencia_restantes: number | null
-          responsavel_id: string | null
+          concluida_em: string | null
+          concluida_por: string | null
           created_at: string
           data_vencimento: string | null
           deletado: boolean
           deletado_pendente: boolean
           descricao: string | null
           id: string
+          office_id: string
           prioridade: string | null
           processo_id: string | null
+          recorrencia_grupo: string | null
+          recorrencia_regra: string | null
+          recorrencia_restantes: number | null
+          responsavel_id: string | null
           status: string | null
           titulo: string
           updated_at: string
@@ -991,21 +1823,25 @@ export type Database = {
         }
         Insert: {
           atendimento_id?: string | null
+          aviso_dias?: number | null
           avisos_dias?: number[] | null
           cliente_id?: string | null
           concluida?: boolean | null
-          recorrencia_grupo?: string | null
-          recorrencia_regra?: string | null
-          recorrencia_restantes?: number | null
-          responsavel_id?: string | null
+          concluida_em?: string | null
+          concluida_por?: string | null
           created_at?: string
           data_vencimento?: string | null
           deletado?: boolean
           deletado_pendente?: boolean
           descricao?: string | null
           id?: string
+          office_id: string
           prioridade?: string | null
           processo_id?: string | null
+          recorrencia_grupo?: string | null
+          recorrencia_regra?: string | null
+          recorrencia_restantes?: number | null
+          responsavel_id?: string | null
           status?: string | null
           titulo: string
           updated_at?: string
@@ -1013,21 +1849,25 @@ export type Database = {
         }
         Update: {
           atendimento_id?: string | null
+          aviso_dias?: number | null
           avisos_dias?: number[] | null
           cliente_id?: string | null
           concluida?: boolean | null
-          recorrencia_grupo?: string | null
-          recorrencia_regra?: string | null
-          recorrencia_restantes?: number | null
-          responsavel_id?: string | null
+          concluida_em?: string | null
+          concluida_por?: string | null
           created_at?: string
           data_vencimento?: string | null
           deletado?: boolean
           deletado_pendente?: boolean
           descricao?: string | null
           id?: string
+          office_id?: string
           prioridade?: string | null
           processo_id?: string | null
+          recorrencia_grupo?: string | null
+          recorrencia_regra?: string | null
+          recorrencia_restantes?: number | null
+          responsavel_id?: string | null
           status?: string | null
           titulo?: string
           updated_at?: string
@@ -1035,10 +1875,24 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "tarefas_atendimento_id_fkey"
+            columns: ["atendimento_id"]
+            isOneToOne: false
+            referencedRelation: "atendimentos"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tarefas_cliente_id_fkey"
             columns: ["cliente_id"]
             isOneToOne: false
             referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tarefas_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
             referencedColumns: ["id"]
           },
           {
@@ -1060,9 +1914,13 @@ export type Database = {
           deletado: boolean | null
           deletado_pendente: boolean | null
           duracao_minutos: number | null
+          faturado: boolean
+          faturado_em: string | null
+          faturavel: boolean
+          financeiro_id: string | null
           id: string
           observacoes: string | null
-          office_id: string | null
+          office_id: string
           processo_id: string | null
           referencia_id: string | null
           referencia_label: string | null
@@ -1071,19 +1929,24 @@ export type Database = {
           tarefa_descricao: string
           updated_at: string | null
           user_id: string
+          valor_hora: number | null
         }
         Insert: {
           categoria?: string
           cliente_id?: string | null
           created_at?: string | null
           data_fim?: string | null
-          data_inicio: string
+          data_inicio?: string
           deletado?: boolean | null
           deletado_pendente?: boolean | null
           duracao_minutos?: number | null
+          faturado?: boolean
+          faturado_em?: string | null
+          faturavel?: boolean
+          financeiro_id?: string | null
           id?: string
           observacoes?: string | null
-          office_id?: string | null
+          office_id: string
           processo_id?: string | null
           referencia_id?: string | null
           referencia_label?: string | null
@@ -1092,6 +1955,7 @@ export type Database = {
           tarefa_descricao: string
           updated_at?: string | null
           user_id: string
+          valor_hora?: number | null
         }
         Update: {
           categoria?: string
@@ -1102,9 +1966,13 @@ export type Database = {
           deletado?: boolean | null
           deletado_pendente?: boolean | null
           duracao_minutos?: number | null
+          faturado?: boolean
+          faturado_em?: string | null
+          faturavel?: boolean
+          financeiro_id?: string | null
           id?: string
           observacoes?: string | null
-          office_id?: string | null
+          office_id?: string
           processo_id?: string | null
           referencia_id?: string | null
           referencia_label?: string | null
@@ -1113,6 +1981,7 @@ export type Database = {
           tarefa_descricao?: string
           updated_at?: string | null
           user_id?: string
+          valor_hora?: number | null
         }
         Relationships: [
           {
@@ -1120,6 +1989,13 @@ export type Database = {
             columns: ["cliente_id"]
             isOneToOne: false
             referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timesheets_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
             referencedColumns: ["id"]
           },
           {
@@ -1131,26 +2007,113 @@ export type Database = {
           },
         ]
       }
-    }
-    Views: {
-      checkout_dashboard: {
+      tipos_ato_prazo: {
         Row: {
-          checkout_url: string | null
+          corridos: boolean
           created_at: string | null
-          expires_at: string | null
-          id: string | null
-          office_id: string | null
-          office_name: string | null
-          paid_at: string | null
-          plan_name: string | null
-          plan_price_cents: number | null
-          status: string | null
-          status_description: string | null
-          user_email: string | null
-          user_id: string | null
+          dias_uteis: number
+          id: string
+          label: string
+          margem: number
+          office_id: string
+          ordem: number
+          value: string
+        }
+        Insert: {
+          corridos?: boolean
+          created_at?: string | null
+          dias_uteis?: number
+          id?: string
+          label: string
+          margem?: number
+          office_id: string
+          ordem?: number
+          value: string
+        }
+        Update: {
+          corridos?: boolean
+          created_at?: string | null
+          dias_uteis?: number
+          id?: string
+          label?: string
+          margem?: number
+          office_id?: string
+          ordem?: number
+          value?: string
         }
         Relationships: [
           {
+            foreignKeyName: "tipos_ato_prazo_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trial_reminder_log: {
+        Row: {
+          id: string
+          kind: string
+          office_id: string
+          sent_at: string
+          trial_ends_at: string
+        }
+        Insert: {
+          id?: string
+          kind: string
+          office_id: string
+          sent_at?: string
+          trial_ends_at: string
+        }
+        Update: {
+          id?: string
+          kind?: string
+          office_id?: string
+          sent_at?: string
+          trial_ends_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trial_reminder_log_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_permissions: {
+        Row: {
+          created_at: string | null
+          granted: boolean
+          id: string
+          office_id: string | null
+          permission_key: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          granted?: boolean
+          id?: string
+          office_id?: string | null
+          permission_key: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          granted?: boolean
+          id?: string
+          office_id?: string | null
+          permission_key?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_permissions_office_id_fkey"
             columns: ["office_id"]
             isOneToOne: false
             referencedRelation: "offices"
@@ -1159,54 +2122,44 @@ export type Database = {
         ]
       }
     }
+    Views: {
+      [_ in never]: never
+    }
     Functions: {
-      check_trial_access: {
-        Args: { office_uuid: string }
-        Returns: {
-          has_access: boolean
-          is_trial: boolean
-          days_remaining: number
-          status: string
-        }[]
+      apply_signup_plan: { Args: { p_plan_type: string }; Returns: string }
+      can_manage_member: {
+        Args: { p_member: string; p_office_id: string }
+        Returns: boolean
       }
-      expire_old_checkouts: {
-        Args: Record<PropertyKey, never>
-        Returns: number
+      confirm_invited_user: {
+        Args: { p_email: string; p_token: string }
+        Returns: boolean
       }
-      process_checkout_expired: {
-        Args: { p_checkout_id: string }
-        Returns: undefined
+      coordinated_team_ids: { Args: { p_office_id: string }; Returns: string[] }
+      delete_office: {
+        Args: { p_confirm_name: string; p_office_id: string }
+        Returns: Json
       }
-      process_checkout_webhook: {
-        Args: {
-          p_checkout_id: string
-          p_payment_id: string
-          p_status: string
-          p_value_cents: number
-          p_net_value_cents: number
-          p_invoice_url?: string
-          p_bank_slip_url?: string
-          p_pix_qr_code?: string
-          p_pix_qr_code_url?: string
-        }
-        Returns: undefined
+      ensure_office_for_user: { Args: never; Returns: string }
+      get_user_office_ids: { Args: never; Returns: string[] }
+      is_office_admin: { Args: { p_office_id: string }; Returns: boolean }
+      is_super_admin: { Args: never; Returns: boolean }
+      office_has_access: { Args: { p_office: string }; Returns: boolean }
+      team_visible_user_ids: {
+        Args: { p_office_id: string }
+        Returns: string[]
       }
-      start_trial: {
-        Args: { office_uuid: string }
-        Returns: undefined
+      user_belongs_to_office: {
+        Args: { p_office_id: string }
+        Returns: boolean
       }
     }
     Enums: {
-      app_role: "user" | "super_admin" | "admin"
+      access_type: "trial" | "stripe_paid" | "lifetime" | "courtesy"
+      app_role: "user" | "admin" | "super_admin"
       invitation_status: "pending" | "accepted" | "expired"
-      subscription_plan: "trial" | "basico" | "intermediario" | "avancado" | "premium"
-      subscription_status:
-        | "active"
-        | "inactive"
-        | "suspended"
-        | "cancelled"
-        | "trial"
-        | "trial_expired"
+      subscription_plan: "free" | "basic" | "professional" | "enterprise"
+      subscription_status: "active" | "inactive" | "suspended" | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1334,17 +2287,11 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["user", "super_admin", "admin"],
+      access_type: ["trial", "stripe_paid", "lifetime", "courtesy"],
+      app_role: ["user", "admin", "super_admin"],
       invitation_status: ["pending", "accepted", "expired"],
-      subscription_plan: ["trial", "basico", "intermediario", "avancado", "premium"],
-      subscription_status: [
-        "active",
-        "inactive",
-        "suspended",
-        "cancelled",
-        "trial",
-        "trial_expired",
-      ],
+      subscription_plan: ["free", "basic", "professional", "enterprise"],
+      subscription_status: ["active", "inactive", "suspended", "cancelled"],
     },
   },
 } as const

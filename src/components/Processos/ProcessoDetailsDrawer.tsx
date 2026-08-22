@@ -391,7 +391,9 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
 
   const handleAddAndamento = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!processo?.id || !user) return;
+    if (!processo?.id || !user?.office_id) return;
+    const processoId = processo.id;
+    const officeId = user.office_id;
     setAddLoading(true);
     const fd = new FormData(e.currentTarget);
     const descricao = (fd.get('descricao') as string || '').trim();
@@ -401,9 +403,9 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
       setAddLoading(false); return;
     }
     const { error } = await supabase.from('movimentacoes_processo').insert({
-      processo_id: processo.id, office_id: user.office_id,
+      processo_id: processoId, office_id: officeId,
       data_movimentacao: data, descricao,
-      tipo: fd.get('tipo') as string || 'manual', fonte: 'manual',
+      tipo: fd.get('tipo') as string || 'manual',
     });
     if (error) { toast({ title: 'Erro ao registrar andamento', description: error.message, variant: 'destructive' }); }
     else { toast({ title: 'Andamento registrado' }); setShowAddAndamento(false); fetchMovements(); }

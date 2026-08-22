@@ -67,7 +67,8 @@ export function useProcessoSubData(processo: Processo | null) {
 
   const addPrazo = async (e: React.FormEvent<HTMLFormElement>): Promise<boolean> => {
     e.preventDefault();
-    if (!processo?.id || !user) return false;
+    if (!processo?.id || !user?.office_id) return false;
+    const officeId = user.office_id;
     setAddLoading(true);
     const fd = new FormData(e.currentTarget);
     const titulo = (fd.get('titulo') as string || '').trim();
@@ -77,9 +78,14 @@ export function useProcessoSubData(processo: Processo | null) {
       setAddLoading(false); return false;
     }
     const { error } = await supabase.from('prazos').insert({
-      user_id: user.id, office_id: user.office_id, processo_id: processo.id,
+      user_id: user.id, office_id: officeId, processo_id: processo.id,
       titulo, descricao: fd.get('descricao') as string || null,
       data_vencimento: dataVencimento,
+      // data_disponibilizacao/data_intimacao são NOT NULL na tabela (não têm
+      // default nem trigger de auto-fill); prazo manual não tem intimação, então
+      // usamos a própria data de vencimento como base.
+      data_disponibilizacao: dataVencimento,
+      data_intimacao: dataVencimento,
       prioridade: fd.get('prioridade') as string || 'media',
       status: 'pendente',
     });
@@ -93,7 +99,8 @@ export function useProcessoSubData(processo: Processo | null) {
 
   const addAudiencia = async (e: React.FormEvent<HTMLFormElement>): Promise<boolean> => {
     e.preventDefault();
-    if (!processo?.id || !user) return false;
+    if (!processo?.id || !user?.office_id) return false;
+    const officeId = user.office_id;
     setAddLoading(true);
     const fd = new FormData(e.currentTarget);
     const titulo = (fd.get('titulo') as string || '').trim();
@@ -103,7 +110,7 @@ export function useProcessoSubData(processo: Processo | null) {
       setAddLoading(false); return false;
     }
     const { error } = await supabase.from('audiencias').insert({
-      user_id: user.id, office_id: user.office_id, processo_id: processo.id,
+      user_id: user.id, office_id: officeId, processo_id: processo.id,
       titulo,
       data_audiencia: new Date(`${data}T${fd.get('horario') || '00:00'}`).toISOString(),
       local: fd.get('local') as string || null,
@@ -121,13 +128,14 @@ export function useProcessoSubData(processo: Processo | null) {
 
   const addTarefa = async (e: React.FormEvent<HTMLFormElement>): Promise<boolean> => {
     e.preventDefault();
-    if (!processo?.id || !user) return false;
+    if (!processo?.id || !user?.office_id) return false;
+    const officeId = user.office_id;
     setAddLoading(true);
     const fd = new FormData(e.currentTarget);
     const titulo = (fd.get('titulo') as string || '').trim();
     if (!titulo) { toast({ title: 'Título obrigatório', variant: 'destructive' }); setAddLoading(false); return false; }
     const { error } = await supabase.from('tarefas').insert({
-      user_id: user.id, office_id: user.office_id, processo_id: processo.id,
+      user_id: user.id, office_id: officeId, processo_id: processo.id,
       titulo, descricao: fd.get('descricao') as string || null,
       data_vencimento: fd.get('data_vencimento') as string || null,
       prioridade: fd.get('prioridade') as string || 'media',
@@ -143,7 +151,8 @@ export function useProcessoSubData(processo: Processo | null) {
 
   const addTimesheet = async (e: React.FormEvent<HTMLFormElement>): Promise<boolean> => {
     e.preventDefault();
-    if (!processo?.id || !user) return false;
+    if (!processo?.id || !user?.office_id) return false;
+    const officeId = user.office_id;
     setAddLoading(true);
     const fd = new FormData(e.currentTarget);
     const descricao = (fd.get('descricao') as string || '').trim();
@@ -154,7 +163,7 @@ export function useProcessoSubData(processo: Processo | null) {
     }
     const now = new Date();
     const { error } = await supabase.from('timesheets').insert({
-      user_id: user.id, office_id: user.office_id, processo_id: processo.id,
+      user_id: user.id, office_id: officeId, processo_id: processo.id,
       tarefa_descricao: descricao,
       categoria: fd.get('categoria') as string || 'geral',
       data_inicio: new Date(now.getTime() - duracao * 60000).toISOString(),
@@ -171,14 +180,23 @@ export function useProcessoSubData(processo: Processo | null) {
 
   const addAtendimento = async (e: React.FormEvent<HTMLFormElement>): Promise<boolean> => {
     e.preventDefault();
-    if (!processo?.id || !user) return false;
+    if (!processo?.id || !user?.office_id) return false;
+    const officeId = user.office_id;
     setAddLoading(true);
     const fd = new FormData(e.currentTarget);
     const data = fd.get('data') as string;
     if (!data) { toast({ title: 'Data obrigatória', variant: 'destructive' }); setAddLoading(false); return false; }
+    // atendimentos.cliente_id é NOT NULL — sem cliente no processo não dá pra registrar
+    if (!processo.clienteId) {
+      toast({ title: 'Processo sem cliente vinculado', description: 'Vincule um cliente ao processo para registrar um atendimento.', variant: 'destructive' });
+      setAddLoading(false); return false;
+    }
+    const clienteId = processo.clienteId;
+    // NB: a tabela atendimentos NÃO tem coluna processo_id (ver relatório) —
+    // o vínculo é feito por cliente_id.
     const { error } = await supabase.from('atendimentos').insert({
-      user_id: user.id, office_id: user.office_id, processo_id: processo.id,
-      cliente_id: processo.clienteId || null,
+      user_id: user.id, office_id: officeId,
+      cliente_id: clienteId,
       tipo_atendimento: fd.get('tipo') as string || 'reuniao',
       data_atendimento: new Date(`${data}T${fd.get('horario') || '00:00'}`).toISOString(),
       observacoes: fd.get('observacoes') as string || null,
@@ -226,25 +244,32 @@ export function useProcessoSubData(processo: Processo | null) {
   // Tratar publicação: criar prazo/tarefa/audiência a partir dela
   const tratarPub = async (e: React.FormEvent<HTMLFormElement>, pub: any) => {
     e.preventDefault();
-    if (!processo?.id || !user) return;
+    if (!processo?.id || !user?.office_id) return;
+    const officeId = user.office_id;
     setAddLoading(true);
     const fd = new FormData(e.currentTarget);
     const tipo = fd.get('tipo_tratamento') as string;
     const titulo = (fd.get('titulo') as string || '').trim();
     if (!titulo) { toast({ title: 'Título obrigatório', variant: 'destructive' }); setAddLoading(false); return; }
+    const dataVenc = fd.get('data_vencimento') as string;
+    // Base para as datas NOT NULL do prazo: a data de publicação (quando existe)
+    // é a disponibilização real; senão cai no vencimento informado.
+    const dataBase = (pub.data_publicacao as string) || dataVenc;
     let insertError: any = null;
     if (tipo === 'prazo') {
       const { error } = await supabase.from('prazos').insert({
-        user_id: user.id, office_id: user.office_id, processo_id: processo.id,
+        user_id: user.id, office_id: officeId, processo_id: processo.id,
         titulo, descricao: `Originado da publicação de ${fmtPub(pub.data_publicacao)}: ${pub.titulo}`,
-        data_vencimento: fd.get('data_vencimento') as string,
+        data_vencimento: dataVenc,
+        data_disponibilizacao: dataBase,
+        data_intimacao: dataBase,
         prioridade: fd.get('prioridade') as string || 'alta', status: 'pendente',
       });
       insertError = error;
       if (!error) toast({ title: 'Prazo criado a partir da publicação' });
     } else if (tipo === 'tarefa') {
       const { error } = await supabase.from('tarefas').insert({
-        user_id: user.id, processo_id: processo.id,
+        user_id: user.id, office_id: officeId, processo_id: processo.id,
         titulo, descricao: `Originado da publicação de ${fmtPub(pub.data_publicacao)}: ${pub.titulo}`,
         data_vencimento: fd.get('data_vencimento') as string || null,
         prioridade: fd.get('prioridade') as string || 'media', status: 'pendente',
@@ -253,7 +278,7 @@ export function useProcessoSubData(processo: Processo | null) {
       if (!error) toast({ title: 'Tarefa criada a partir da publicação' });
     } else if (tipo === 'audiencia') {
       const { error } = await supabase.from('audiencias').insert({
-        user_id: user.id, office_id: user.office_id, processo_id: processo.id,
+        user_id: user.id, office_id: officeId, processo_id: processo.id,
         titulo, data_audiencia: new Date(`${fd.get('data_vencimento')}T${fd.get('horario') || '00:00'}`).toISOString(),
         observacoes: `Originado da publicação de ${fmtPub(pub.data_publicacao)}`, status: 'agendada',
       });

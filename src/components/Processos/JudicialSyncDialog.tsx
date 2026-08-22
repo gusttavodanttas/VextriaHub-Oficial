@@ -148,6 +148,16 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
       return;
     }
 
+    if (!user?.office_id) {
+      toast({
+        title: "Escritório não identificado",
+        description: "Faça login novamente para sincronizar seus processos.",
+        variant: "destructive"
+      });
+      return;
+    }
+    const officeId = user.office_id;
+
     const key = `${cleanOab}-${uf}`;
 
     setLoading(true);
@@ -192,8 +202,8 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
       const numeros = mappedResults.map(r => (r.numeroProcesso || '').replace(/\D/g, ''));
 
       const [{ data: existentes }, { data: descartados }] = await Promise.all([
-        supabase.from('processos').select('numero_processo').eq('office_id', user?.office_id).in('numero_processo', numeros),
-        supabase.from('processos_descartados').select('numero_processo').eq('office_id', user?.office_id).in('numero_processo', numeros),
+        supabase.from('processos').select('numero_processo').eq('office_id', officeId).in('numero_processo', numeros),
+        supabase.from('processos_descartados').select('numero_processo').eq('office_id', officeId).in('numero_processo', numeros),
       ]);
 
       const ocultos = new Set([
@@ -206,9 +216,9 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
       setSearched(true);
 
       // Salva os achados na caixa "Processos Encontrados" (staging) para revisão posterior
-      if (filteredResults.length > 0 && user?.office_id) {
+      if (filteredResults.length > 0) {
         const rows = filteredResults.map((r) => ({
-          office_id: user.office_id,
+          office_id: officeId,
           numero_processo: (r.numeroProcesso || '').replace(/\D/g, ''),
           titulo: r.titulo || null,
           tribunal: r.tribunal || null,
@@ -327,6 +337,11 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
   };
 
   const handleImport = async () => {
+    if (!user?.office_id) {
+      toast({ title: 'Escritório não identificado', description: 'Faça login novamente para importar.', variant: 'destructive' });
+      return;
+    }
+    const officeId = user.office_id;
     setImporting(true);
     try {
       const processesToImport = results.filter(p => selectedIds.has(p.id));
@@ -359,7 +374,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
               .from('clientes')
               .select('id')
               .eq('nome', nomeCliente)
-              .eq('office_id', user?.office_id)
+              .eq('office_id', officeId)
               .maybeSingle();
 
             if (existingClient) {
@@ -367,10 +382,10 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
             } else {
               const { data: novoCliente, error: errCliente } = await supabase
                 .from('clientes')
-                .insert({ 
-                  nome: nomeCliente, 
-                  office_id: user?.office_id,
-                  user_id: user?.id 
+                .insert({
+                  nome: nomeCliente,
+                  office_id: officeId,
+                  user_id: user.id
                 })
                 .select('id').single();
                 
@@ -797,6 +812,11 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
                     className="font-black uppercase tracking-widest text-[10px] px-8 h-11 rounded-xl shadow-premium transition-all bg-primary hover:bg-primary/90 text-primary-foreground"
                     disabled={importing}
                     onClick={async () => {
+                      if (!user?.office_id) {
+                        toast({ title: 'Escritório não identificado', description: 'Faça login novamente para importar.', variant: 'destructive' });
+                        return;
+                      }
+                      const officeId = user.office_id;
                       setImporting(true);
                       try {
                         const polo = clientPolos[previewProc.id];
@@ -807,12 +827,12 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
                             const nomeCliente = normalizeClientName(rawName);
                             const { data: existing } = await supabase
                               .from('clientes').select('id')
-                              .eq('nome', nomeCliente).eq('office_id', user?.office_id).maybeSingle();
+                              .eq('nome', nomeCliente).eq('office_id', officeId).maybeSingle();
                             if (existing) {
                               finalClienteId = existing.id;
                             } else {
                               const { data: novo } = await supabase.from('clientes')
-                                .insert({ nome: nomeCliente, office_id: user?.office_id, user_id: user?.id })
+                                .insert({ nome: nomeCliente, office_id: officeId, user_id: user.id })
                                 .select('id').single();
                               if (novo) finalClienteId = novo.id;
                             }

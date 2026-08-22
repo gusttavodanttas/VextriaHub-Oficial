@@ -92,6 +92,8 @@ export function NovoCasoWizard({ open, onOpenChange, onSuccess }: NovoCasoWizard
 
   const salvar = async () => {
     if (!user?.id || !user?.office_id || !tipo) return;
+    const userId = user.id;
+    const officeId = user.office_id;
     if (!form.titulo.trim()) { toast({ title: "Informe o título do caso", variant: "destructive" }); return; }
     setSaving(true);
     try {
@@ -120,8 +122,8 @@ export function NovoCasoWizard({ open, onOpenChange, onSuccess }: NovoCasoWizard
         const marcadas = ETAPAS_META.filter((m) => etapas[m.key].on);
         if (marcadas.length > 0) {
           const rows = marcadas.map((m) => ({
-            user_id: user.id,
-            office_id: user.office_id,
+            user_id: userId,
+            office_id: officeId,
             processo_id: (proc as { id: string }).id,
             cliente_id: form.clienteId || null,
             titulo: `${m.label} — ${form.titulo.trim()}`,

@@ -39,7 +39,8 @@ const useFinanceiro = (officeId: string | null | undefined) => {
 
   const create = useMutation({
     mutationFn: async (payload: TablesInsert<"financeiro"> | TablesInsert<"financeiro">[]) => {
-      const { error } = await supabase.from("financeiro").insert(payload);
+      const rows = Array.isArray(payload) ? payload : [payload];
+      const { error } = await supabase.from("financeiro").insert(rows);
       if (error) throw error;
     },
     onSuccess: (_d, payload) => {

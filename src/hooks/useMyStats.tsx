@@ -24,10 +24,10 @@ export function useMyStats(): MyStats {
 
   useEffect(() => {
     if (!user?.id || !user?.office_id) { setStats(s => ({ ...s, loading: false })); return; }
+    const office = user.office_id;
+    const uid = user.id;
     let cancel = false;
     (async () => {
-      const office = user.office_id;
-      const uid = user.id;
       const myProc = (q: any) => q.eq("office_id", office).eq("deletado", false).or(`responsavel_id.eq.${uid},user_id.eq.${uid}`);
 
       const [procAtivos, procEnc, clientes, tarefas, prazos, audiencias] = await Promise.all([

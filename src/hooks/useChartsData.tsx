@@ -96,9 +96,9 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
 
   useEffect(() => {
     if (!user?.office_id) return;
+    const officeId = user.office_id;
     let cancel = false;
     (async () => {
-      const officeId = user.office_id;
       const months = lastMonths(period);
       const since = `${months[0].key}-01T00:00:00`;
 

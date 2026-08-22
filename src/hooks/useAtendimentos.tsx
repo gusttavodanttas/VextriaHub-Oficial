@@ -22,7 +22,10 @@ export const useAtendimentos = (officeId: string | null | undefined) => {
         .eq("office_id", officeId!)
         .order("data_atendimento", { ascending: false });
       if (error) throw error;
-      return (data ?? []).filter((i: any) => !i.deletado) as Atendimento[];
+      // A Row real de atendimentos não expõe processo_id (a coluna não existe na
+      // tabela) e status é string|null, então o shape do banco não sobrepõe o tipo
+      // Atendimento; double-assert via unknown (recomendado pelo próprio TS).
+      return (data ?? []).filter((i: any) => !i.deletado) as unknown as Atendimento[];
     },
   });
 

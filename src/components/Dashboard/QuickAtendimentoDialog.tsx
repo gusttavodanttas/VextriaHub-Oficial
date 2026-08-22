@@ -29,14 +29,19 @@ export function QuickAtendimentoDialog({ open, onOpenChange, onSuccess }: Props)
 
   const salvar = async () => {
     if (!user?.office_id) return;
+    // atendimentos.cliente_id é NOT NULL no banco: exige um cliente selecionado.
+    if (!form.cliente_id) {
+      toast({ variant: "destructive", title: "Selecione um cliente", description: "O atendimento precisa de um cliente." });
+      return;
+    }
     setSaving(true);
+    // Obs.: a tabela atendimentos não possui a coluna processo_id — por isso não é enviada.
     const payload = {
-      tipo_atendimento: form.tipo || null,
+      tipo_atendimento: form.tipo,
       data_atendimento: `${form.data}T${form.hora || "09:00"}:00`,
       observacoes: form.obs.trim() || null,
       status: "agendado",
-      cliente_id: form.cliente_id || null,
-      processo_id: null as string | null,
+      cliente_id: form.cliente_id,
       user_id: user.id,
       office_id: user.office_id,
       deletado: false,
