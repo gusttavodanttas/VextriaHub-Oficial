@@ -3,8 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { format, startOfDay } from "date-fns";
 import { diasAte, proxLabel, marcosDe, deveAvisar, dataFatalPrazo } from "@/lib/proximityAlert";
+import { fetchNotificationPrefs } from "@/lib/notificationPrefs";
 
-const DEFAULT_PREFS: Record<string, boolean> = { prazos: true, audiencias: true, tarefas: true, atendimentos: true, financeiro: false };
 const HORIZONTE_DIAS = 90; // janela máxima de busca (cobre leads de até 30 dias com folga)
 
 /**
@@ -25,9 +25,8 @@ export function useProximityNotifications() {
       if (sessionStorage.getItem(guard)) return;
       sessionStorage.setItem(guard, "1");
 
-      let prefs = DEFAULT_PREFS;
-      try { const raw = localStorage.getItem(`notif_prefs_${user.id}`); if (raw) prefs = { ...DEFAULT_PREFS, ...JSON.parse(raw) }; } catch { /* ignore */ }
-      const padrao = Math.max(1, Number(localStorage.getItem(`notif_lead_${user.id}`)) || 3);
+      // Prefs vêm do banco (sincronizam entre dispositivos); cai pro localStorage/defaults.
+      const { prefs, leadDias: padrao } = await fetchNotificationPrefs(user.id);
 
       const start = startOfDay(new Date());
       const end = new Date(start); end.setDate(end.getDate() + HORIZONTE_DIAS); end.setHours(23, 59, 59, 999);

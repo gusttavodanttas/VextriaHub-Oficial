@@ -2161,6 +2161,27 @@ export type Database = {
           },
         ]
       }
+      user_notification_prefs: {
+        Row: {
+          lead_dias: number
+          prefs: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          lead_dias?: number
+          prefs?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          lead_dias?: number
+          prefs?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_permissions: {
         Row: {
           created_at: string | null

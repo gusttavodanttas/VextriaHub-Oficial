@@ -1,9 +1,8 @@
-import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Bell, Clock, CalendarDays, CheckSquare, Headset, DollarSign, CalendarClock } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useNotificationPrefs } from "@/hooks/useNotificationPrefs";
 
 interface Pref { key: string; label: string; desc: string; icon: React.ComponentType<{ className?: string }>; }
 
@@ -15,34 +14,8 @@ const PREFS: Pref[] = [
   { key: "financeiro", label: "Financeiro", desc: "Recebimentos e contas a pagar", icon: DollarSign },
 ];
 
-const DEFAULTS: Record<string, boolean> = { prazos: true, audiencias: true, tarefas: true, atendimentos: true, financeiro: false };
-
 export function NotificationPrefs() {
-  const { user } = useAuth();
-  const storageKey = `notif_prefs_${user?.id || "anon"}`;
-  const leadKey = `notif_lead_${user?.id || "anon"}`;
-  const [prefs, setPrefs] = useState<Record<string, boolean>>(DEFAULTS);
-  const [leadDias, setLeadDias] = useState<string>("3");
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(storageKey);
-      if (saved) setPrefs({ ...DEFAULTS, ...JSON.parse(saved) });
-      const lead = localStorage.getItem(leadKey);
-      if (lead) setLeadDias(lead);
-    } catch { /* ignore */ }
-  }, [storageKey, leadKey]);
-
-  const toggle = (key: string, value: boolean) => {
-    const next = { ...prefs, [key]: value };
-    setPrefs(next);
-    try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch { /* ignore */ }
-  };
-
-  const saveLead = (v: string) => {
-    setLeadDias(v);
-    try { localStorage.setItem(leadKey, v); } catch { /* ignore */ }
-  };
+  const { prefs, leadDias, toggle, saveLead, loading } = useNotificationPrefs();
 
   return (
     <Card className="glass-card rounded-[2rem] border-black/5 dark:border-border overflow-hidden shadow-premium">
@@ -67,7 +40,7 @@ export function NotificationPrefs() {
               <p className="text-xs text-muted-foreground truncate">Quantos dias antes você quer ser avisado de audiências, prazos e tarefas</p>
             </div>
           </div>
-          <Select value={leadDias} onValueChange={saveLead}>
+          <Select value={String(leadDias)} onValueChange={(v) => saveLead(Number(v))} disabled={loading}>
             <SelectTrigger className="w-40 rounded-xl shrink-0"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="1">1 dia</SelectItem>
@@ -95,13 +68,13 @@ export function NotificationPrefs() {
                     <p className="text-xs text-muted-foreground truncate">{p.desc}</p>
                   </div>
                 </div>
-                <Switch checked={!!prefs[p.key]} onCheckedChange={(v) => toggle(p.key, v)} />
+                <Switch checked={!!prefs[p.key]} onCheckedChange={(v) => toggle(p.key, v)} disabled={loading} />
               </div>
             );
           })}
         </div>
         <p className="text-[11px] text-muted-foreground/60 mt-4">
-          Estas preferências serão aplicadas aos alertas do sistema. O envio por e-mail será ativado quando a integração de e-mail estiver disponível.
+          Suas preferências ficam salvas na sua conta e valem em qualquer dispositivo. O envio por e-mail será ativado quando a integração de e-mail estiver disponível.
         </p>
       </CardContent>
     </Card>
