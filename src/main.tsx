@@ -20,3 +20,11 @@ window.addEventListener("error", (e) => reloadOnceForChunkError(e?.message));
 window.addEventListener("unhandledrejection", (e) => reloadOnceForChunkError((e?.reason && (e.reason.message || String(e.reason))) || ""));
 
 createRoot(document.getElementById("root")!).render(<App />);
+
+// Service worker: torna o app instalável (PWA) + shell offline. Só em produção
+// (o SW cacheia /assets/*, o que atrapalharia o HMR do dev). Falha silenciosa.
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => { /* ignore */ });
+  });
+}
