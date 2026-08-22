@@ -88,7 +88,10 @@ export function useProcessoMovimentacoes(processo: Processo | null, open: boolea
         setAndamentoConfirm({ all: andamentos, novos, meta: data, processoId: processo.id });
       }
       await fetchMovements();
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+      toast({ title: 'Erro ao sincronizar', description: 'Não foi possível buscar os andamentos agora. Tente de novo.', variant: 'destructive' });
+    }
     finally { setSyncing(false); }
   }, [processo?.id, processo?.numeroProcesso, syncing, user?.office_id, profile, toast, fetchMovements]);
 

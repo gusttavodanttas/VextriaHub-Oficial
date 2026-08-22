@@ -831,7 +831,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                 )}
                 {prazos.length > 0 ? prazos.map(p => {
                   const dataFatal = p.data_fim_prazo || p.data_vencimento || null;
-                  const vencido = p.status !== 'concluido' && dataFatal && new Date(dataFatal) < new Date();
+                  const vencido = p.status !== 'concluido' && dataFatal && String(dataFatal).slice(0, 10) < new Date().toLocaleDateString('en-CA');
                   return (
                     <div key={p.id} onClick={() => openInTab('/prazos', p.id)} title="Abrir para editar" className={cn("p-4 rounded-2xl border flex items-center gap-4 cursor-pointer hover:border-primary/40 hover:shadow-sm transition-all", vencido ? 'border-rose-500/20 bg-rose-500/5' : 'border-border bg-muted/10')}>
                       {vencido ? <AlertTriangle className="h-5 w-5 text-rose-500 shrink-0" /> : p.status === 'concluido' ? <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" /> : <CalendarClock className="h-5 w-5 text-amber-500 shrink-0" />}

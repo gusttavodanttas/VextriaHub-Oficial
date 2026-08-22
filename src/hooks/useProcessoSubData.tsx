@@ -219,7 +219,8 @@ export function useProcessoSubData(processo: Processo | null) {
   // ── Publicações ──
 
   const pubStatus = async (id: string, status: string) => {
-    await supabase.from('publicacoes').update({ status }).eq('id', id);
+    const { error } = await supabase.from('publicacoes').update({ status }).eq('id', id);
+    if (error) { toast({ title: 'Erro ao atualizar publicação', description: error.message, variant: 'destructive' }); return; }
     setPublicacoes(prev => prev.map(p => p.id === id ? { ...p, status } : p));
     toast({ title: status === 'lida' ? 'Marcada como lida' : status === 'arquivada' ? 'Arquivada' : 'Atualizada' });
   };
@@ -235,7 +236,8 @@ export function useProcessoSubData(processo: Processo | null) {
   };
 
   const pubUrgencia = async (id: string, urgencia: string) => {
-    await supabase.from('publicacoes').update({ urgencia }).eq('id', id);
+    const { error } = await supabase.from('publicacoes').update({ urgencia }).eq('id', id);
+    if (error) { toast({ title: 'Erro ao atualizar urgência', description: error.message, variant: 'destructive' }); return; }
     setPublicacoes(prev => prev.map(p => p.id === id ? { ...p, urgencia } : p));
     toast({ title: `Urgência: ${urgencia}` });
   };
