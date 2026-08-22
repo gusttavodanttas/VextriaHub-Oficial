@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useSuperAdminOffices, AdminOffice } from '@/hooks/useSuperAdminOffices';
+import { OfficeZapLink } from './OfficeZapLink';
 import {
   Dialog,
   DialogContent,
@@ -395,6 +396,11 @@ export const OfficeControlPanel: React.FC = () => {
                                   </div>
                                 </div>
                               </div>
+                              {admin.office_id && (
+                                <div className="px-6 pb-3 shrink-0">
+                                  <OfficeZapLink officeId={admin.office_id} />
+                                </div>
+                              )}
                               <DialogFooter className="p-6 pt-2">
                                 <Button type="submit" disabled={isSubmitting} className="w-full h-12 rounded-2xl font-black bg-primary text-primary-foreground gap-2 shadow-lg shadow-primary/10">
                                   {isSubmitting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save size={18} />}
