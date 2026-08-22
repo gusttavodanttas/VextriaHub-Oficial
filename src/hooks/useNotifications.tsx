@@ -36,9 +36,8 @@ export const useNotifications = () => {
       if (error) throw error;
 
       setNotifications((data || []).map(n => {
-        // action_url/action_label existem na tabela (migrations 20260417*) mas
-        // faltam no types.ts regenerado — leitura via type assertion, sem `any`.
-        const row = n as typeof n & { action_url?: string | null; action_label?: string | null };
+        // A ação (link) fica no campo `data` (jsonb) — não há colunas action_url/action_label.
+        const meta = (n.data ?? {}) as { action_url?: string | null; action_label?: string | null };
         return {
           id: n.id,
           type: n.type as NotificationType,
@@ -46,8 +45,8 @@ export const useNotifications = () => {
           message: n.message ?? "",
           timestamp: new Date(n.created_at),
           read: n.read ?? false,
-          actionUrl: row.action_url ?? undefined,
-          actionLabel: row.action_label ?? undefined,
+          actionUrl: meta.action_url ?? undefined,
+          actionLabel: meta.action_label ?? undefined,
         };
       }));
     } catch (err) {
@@ -127,6 +126,7 @@ export const useNotifications = () => {
           'postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
           (payload) => {
+            const meta = (payload.new.data ?? {}) as { action_url?: string | null; action_label?: string | null };
             const newNotif: Notification = {
               id: payload.new.id,
               type: payload.new.type as NotificationType,
@@ -134,8 +134,8 @@ export const useNotifications = () => {
               message: payload.new.message,
               timestamp: new Date(payload.new.created_at),
               read: payload.new.read,
-              actionUrl: payload.new.action_url,
-              actionLabel: payload.new.action_label
+              actionUrl: meta.action_url ?? undefined,
+              actionLabel: meta.action_label ?? undefined
             };
             setNotifications(prev => [newNotif, ...prev]);
           }

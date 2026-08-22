@@ -81,11 +81,10 @@ export function useProcessoSubData(processo: Processo | null) {
       user_id: user.id, office_id: officeId, processo_id: processo.id,
       titulo, descricao: fd.get('descricao') as string || null,
       data_vencimento: dataVencimento,
-      // data_disponibilizacao/data_intimacao são NOT NULL na tabela (não têm
-      // default nem trigger de auto-fill); prazo manual não tem intimação, então
-      // usamos a própria data de vencimento como base.
-      data_disponibilizacao: dataVencimento,
-      data_intimacao: dataVencimento,
+      // Prazo manual não tem data de disponibilização/intimação (essas só existem em
+      // prazo vindo de publicação/intimação) — colunas nullable, então ficam nulas.
+      data_disponibilizacao: null,
+      data_intimacao: null,
       prioridade: fd.get('prioridade') as string || 'media',
       status: 'pendente',
     });
@@ -192,10 +191,10 @@ export function useProcessoSubData(processo: Processo | null) {
       setAddLoading(false); return false;
     }
     const clienteId = processo.clienteId;
-    // NB: a tabela atendimentos NÃO tem coluna processo_id (ver relatório) —
-    // o vínculo é feito por cliente_id.
+    // Vínculo com o processo (coluna processo_id opcional) + cliente/lead (cliente_id NOT NULL).
     const { error } = await supabase.from('atendimentos').insert({
       user_id: user.id, office_id: officeId,
+      processo_id: processo.id,
       cliente_id: clienteId,
       tipo_atendimento: fd.get('tipo') as string || 'reuniao',
       data_atendimento: new Date(`${data}T${fd.get('horario') || '00:00'}`).toISOString(),
@@ -252,17 +251,15 @@ export function useProcessoSubData(processo: Processo | null) {
     const titulo = (fd.get('titulo') as string || '').trim();
     if (!titulo) { toast({ title: 'Título obrigatório', variant: 'destructive' }); setAddLoading(false); return; }
     const dataVenc = fd.get('data_vencimento') as string;
-    // Base para as datas NOT NULL do prazo: a data de publicação (quando existe)
-    // é a disponibilização real; senão cai no vencimento informado.
-    const dataBase = (pub.data_publicacao as string) || dataVenc;
     let insertError: any = null;
     if (tipo === 'prazo') {
       const { error } = await supabase.from('prazos').insert({
         user_id: user.id, office_id: officeId, processo_id: processo.id,
         titulo, descricao: `Originado da publicação de ${fmtPub(pub.data_publicacao)}: ${pub.titulo}`,
         data_vencimento: dataVenc,
-        data_disponibilizacao: dataBase,
-        data_intimacao: dataBase,
+        // disponibilização = data da publicação (real); intimação fica nula (evento à parte).
+        data_disponibilizacao: (pub.data_publicacao as string) || null,
+        data_intimacao: null,
         prioridade: fd.get('prioridade') as string || 'alta', status: 'pendente',
       });
       insertError = error;

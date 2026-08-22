@@ -50,7 +50,7 @@ export function useProximityNotifications() {
               user_id: user.id, type: "warning",
               title: `Audiência ${proxLabel(a.data_audiencia)}`,
               message: `${a.titulo} — ${proxLabel(a.data_audiencia)} às ${format(new Date(a.data_audiencia), "HH:mm")}`,
-              action_url: `/audiencias?openId=${a.id}&d=${D}`, action_label: "Ver audiência", read: false,
+              data: { action_url: `/audiencias?openId=${a.id}&d=${D}`, action_label: "Ver audiência" }, read: false,
             });
           });
         });
@@ -75,7 +75,7 @@ export function useProximityNotifications() {
               user_id: user.id, type: "warning",
               title: `Prazo ${proxLabel(fatal)}`,
               message: `${p.publicacoes?.titulo || p.tipo_prazo || p.numero_processo || "Prazo"} — vence ${proxLabel(fatal)}`,
-              action_url: `/prazos?openId=${p.id}&d=${D}`, action_label: "Ver prazo", read: false,
+              data: { action_url: `/prazos?openId=${p.id}&d=${D}`, action_label: "Ver prazo" }, read: false,
             });
           });
         });
@@ -94,7 +94,7 @@ export function useProximityNotifications() {
               user_id: user.id, type: "info",
               title: `Tarefa ${proxLabel(t.data_vencimento)}`,
               message: `${t.titulo} — vence ${proxLabel(t.data_vencimento)}`,
-              action_url: `/tarefas?openId=${t.id}&d=${D}`, action_label: "Ver tarefa", read: false,
+              data: { action_url: `/tarefas?openId=${t.id}&d=${D}`, action_label: "Ver tarefa" }, read: false,
             });
           });
         });
@@ -114,7 +114,7 @@ export function useProximityNotifications() {
               user_id: user.id, type: "info",
               title: `Atendimento ${proxLabel(a.data_atendimento)}`,
               message: `${a.tipo_atendimento || "Atendimento"}${a.clientes?.nome ? ` — ${a.clientes.nome}` : ""} — ${proxLabel(a.data_atendimento)} às ${format(new Date(a.data_atendimento), "HH:mm")}`,
-              action_url: `/atendimentos?openId=${a.id}&d=${D}`, action_label: "Ver atendimento", read: false,
+              data: { action_url: `/atendimentos?openId=${a.id}&d=${D}`, action_label: "Ver atendimento" }, read: false,
             });
           });
         });
@@ -122,9 +122,9 @@ export function useProximityNotifications() {
 
       if (candidatos.length === 0) return;
 
-      const { data: existentes } = await supabase.from("notifications").select("action_url").eq("user_id", user.id);
-      const jaTem = new Set((existentes || []).map((n: any) => n.action_url));
-      const novos = candidatos.filter((c) => !jaTem.has(c.action_url));
+      const { data: existentes } = await supabase.from("notifications").select("data").eq("user_id", user.id);
+      const jaTem = new Set((existentes || []).map((n: any) => n.data?.action_url));
+      const novos = candidatos.filter((c) => !jaTem.has(c.data?.action_url));
       if (novos.length > 0) await supabase.from("notifications").insert(novos);
     };
 

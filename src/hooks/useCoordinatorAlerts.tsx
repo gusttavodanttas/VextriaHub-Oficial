@@ -53,8 +53,7 @@ export function useCoordinatorAlerts() {
           type: "warning",
           title: `${count} tarefa${count > 1 ? "s atrasadas" : " atrasada"} na equipe`,
           message: `Membros da sua equipe têm tarefa${count > 1 ? "s" : ""} vencida${count > 1 ? "s" : ""} que precisam de atenção.`,
-          action_url: "/tarefas",
-          action_label: "Ver tarefas",
+          data: { action_url: "/tarefas", action_label: "Ver tarefas" },
           read: false,
         });
       }
@@ -66,8 +65,7 @@ export function useCoordinatorAlerts() {
           type: "warning",
           title: `${count} prazo${count > 1 ? "s" : ""} vencendo em 2 dias`,
           message: `Membros da sua equipe têm prazo${count > 1 ? "s" : ""} crítico${count > 1 ? "s" : ""} nos próximos 2 dias.`,
-          action_url: "/prazos",
-          action_label: "Ver prazos",
+          data: { action_url: "/prazos", action_label: "Ver prazos" },
           read: false,
         });
       }

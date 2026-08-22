@@ -26,6 +26,7 @@ export type Database = {
           id: string
           observacoes: string | null
           office_id: string
+          processo_id: string | null
           recorrencia_grupo: string | null
           recorrencia_regra: string | null
           recorrencia_restantes: number | null
@@ -47,6 +48,7 @@ export type Database = {
           id?: string
           observacoes?: string | null
           office_id: string
+          processo_id?: string | null
           recorrencia_grupo?: string | null
           recorrencia_regra?: string | null
           recorrencia_restantes?: number | null
@@ -68,6 +70,7 @@ export type Database = {
           id?: string
           observacoes?: string | null
           office_id?: string
+          processo_id?: string | null
           recorrencia_grupo?: string | null
           recorrencia_regra?: string | null
           recorrencia_restantes?: number | null
@@ -91,6 +94,13 @@ export type Database = {
             columns: ["office_id"]
             isOneToOne: false
             referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atendimentos_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "processos"
             referencedColumns: ["id"]
           },
         ]
@@ -1186,9 +1196,9 @@ export type Database = {
           confirmado_em: string | null
           confirmado_por: string | null
           created_at: string
-          data_disponibilizacao: string
+          data_disponibilizacao: string | null
           data_fim_prazo: string | null
-          data_intimacao: string
+          data_intimacao: string | null
           data_prazo_interno: string | null
           data_publicacao: string | null
           data_vencimento: string | null
@@ -1224,9 +1234,9 @@ export type Database = {
           confirmado_em?: string | null
           confirmado_por?: string | null
           created_at?: string
-          data_disponibilizacao: string
+          data_disponibilizacao?: string | null
           data_fim_prazo?: string | null
-          data_intimacao: string
+          data_intimacao?: string | null
           data_prazo_interno?: string | null
           data_publicacao?: string | null
           data_vencimento?: string | null
@@ -1262,9 +1272,9 @@ export type Database = {
           confirmado_em?: string | null
           confirmado_por?: string | null
           created_at?: string
-          data_disponibilizacao?: string
+          data_disponibilizacao?: string | null
           data_fim_prazo?: string | null
-          data_intimacao?: string
+          data_intimacao?: string | null
           data_prazo_interno?: string | null
           data_publicacao?: string | null
           data_vencimento?: string | null

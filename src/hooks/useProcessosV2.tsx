@@ -438,6 +438,10 @@ export function useProcessosV2() {
         return existing;
       }
 
+      // movimentacoes_processo.office_id é NOT NULL e não tem trigger de auto-fill
+      if (!user.office_id) return null;
+      const officeId = user.office_id;
+
       const { data: result, error: movError } = await supabase
         .from('movimentacoes_processo')
         .insert([{
