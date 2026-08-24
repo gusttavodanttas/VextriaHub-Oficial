@@ -58,7 +58,7 @@ async function ensureCategoria(officeId: string, label: string, cor: string, ico
   return valor;
 }
 
-const BLANK = { titulo: "", clienteId: "", parteContraria: "", protocolo: "", orgao: "", prazo: "", observacoes: "" };
+const BLANK = { titulo: "", clienteId: "", clienteNome: "", parteContraria: "", protocolo: "", orgao: "", prazo: "", observacoes: "" };
 
 // Etapas da petição inicial (ramo judicial): elaborar → revisar (se for o caso) → protocolar
 type EtapaKey = "elaborar" | "revisar" | "protocolar";
@@ -106,6 +106,8 @@ export function NovoCasoWizard({ open, onOpenChange, onSuccess }: NovoCasoWizard
           numero_processo: "",
           status: "ativo",
           cliente_id: form.clienteId || null,
+          // Petição inicial: seu cliente é o polo ativo (autor). Sem isso, a pasta abria com "Autor: Não identificado".
+          parte_autora: form.clienteNome.trim() || "",
           requerido: form.parteContraria.trim() || "",
           observacoes: form.observacoes.trim() || "",
           responsavel_id: user.id,
@@ -217,7 +219,7 @@ export function NovoCasoWizard({ open, onOpenChange, onSuccess }: NovoCasoWizard
             </div>
             <div className="space-y-1.5">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Cliente</Label>
-              <ClientSelect value={form.clienteId} onValueChange={(id) => setForm({ ...form, clienteId: id })} placeholder="Selecionar cliente..." />
+              <ClientSelect value={form.clienteId} onValueChange={(id, nome) => setForm({ ...form, clienteId: id, clienteNome: nome })} placeholder="Selecionar cliente..." />
             </div>
             {tipo === "judicial" && (
               <div className="space-y-1.5">

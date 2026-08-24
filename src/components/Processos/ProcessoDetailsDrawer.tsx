@@ -603,6 +603,12 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                   </div>
                 </div>
 
+                {processo.clienteId && processo.cliente && !editing && (
+                  <div className="p-4 rounded-2xl border border-primary/15 bg-primary/5">
+                    <p className="text-[10px] text-primary font-black uppercase tracking-widest mb-1">Cliente</p>
+                    <p className="text-sm font-bold">{processo.cliente}</p>
+                  </div>
+                )}
                 {(processo.parteAutora || processo.requerido) && !editing && (
                   <div className="grid grid-cols-2 gap-4">
                     <div className="p-4 rounded-2xl border border-emerald-500/10 bg-emerald-500/5">
