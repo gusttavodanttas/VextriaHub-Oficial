@@ -195,8 +195,10 @@ export const usePlanFeatures = () => {
       return PLAN_FEATURES.premium;
     }
     
-    // Escritório Vitalício tem acesso completo (Premium)
-    if (office?.access_type === 'lifetime') {
+    // Escritório Vitalício OU Cortesia = acesso completo (Premium/ilimitado).
+    // A cortesia grava offices.plan='cortesia' e access_type='courtesy' — que NÃO são chaves de
+    // plano, então sem isto o escritório caía em 'trial' (máx 10 processos) e travava o cadastro.
+    if (office?.access_type === 'lifetime' || office?.access_type === 'courtesy' || office?.plan === 'cortesia') {
       return PLAN_FEATURES.premium;
     }
     

@@ -683,6 +683,12 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
                         </div>
                       </div>
 
+                      {isLimitReached && (
+                        <div className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-800 dark:text-amber-300">
+                          Você atingiu o limite de {limits.processes.max} processos do seu plano.{" "}
+                          <a href="/pagamento" className="font-bold underline">Fazer upgrade</a> para cadastrar mais.
+                        </div>
+                      )}
                       <DialogFooter className="pt-2">
                         <Button variant="ghost" type="button" onClick={() => setStep('choice')}>Cancelar</Button>
                         <Button type="submit" disabled={isLoading || isLimitReached} className="px-8">
