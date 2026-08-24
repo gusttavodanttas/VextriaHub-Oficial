@@ -112,6 +112,8 @@ const Index = () => {
   const [sheetView, setSheetView] = useState<SheetView>(null);
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [openModal, setOpenModal] = useState<ModalKey | null>(null);
+  // Sinal de refresh p/ os widgets do dashboard que buscam sozinhos (CalendarWidget não usa React Query).
+  const [dashRefresh, setDashRefresh] = useState(0);
 
   // Robô de busca por OAB roda só no SERVIDOR (cron robo-oab-diario), que filtra
   // os descartados com service role. O robô do front-end foi desativado para
@@ -155,8 +157,6 @@ const Index = () => {
     setOpenModal(null);
   };
 
-  // Sinal de refresh p/ os widgets do dashboard que buscam sozinhos (CalendarWidget não usa React Query).
-  const [dashRefresh, setDashRefresh] = useState(0);
   const onModalSuccess = () => { refresh(); setDashRefresh((n) => n + 1); setOpenModal(null); };
 
   // Blocos grandes (coluna principal) vs cards (lateral), na ordem do usuário.
