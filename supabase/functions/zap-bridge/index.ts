@@ -16,49 +16,51 @@ async function listQualified(userId: string, since: string) {
     headers: { "Content-Type": "application/json", "x-bridge-secret": Deno.env.get("BRIDGE_SECRET") || "" },
     body: JSON.stringify({ action: "list_qualified_leads", user_ids: [userId], since }),
   });
+  // NÃO engolir erro HTTP: se retornasse [], o chamador avançaria o cursor e perderia
+  // pra sempre os leads da janela de instabilidade do Zap. Lançar → o cursor fica intacto.
+  if (!res.ok) throw new Error(`zap-bridge-http-${res.status}`);
   const data = await res.json().catch(() => ({}));
-  return res.ok ? (data.leads || []) : [];
+  return data.leads || [];
 }
 
 // deno-lint-ignore no-explicit-any
 async function pullForOffice(service: any, link: any) {
   const since = link.last_lead_pull_at || "1970-01-01T00:00:00Z";
-  const leads = await listQualified(link.zap_user_id, since);
-  if (leads.length === 0) {
-    await service.from("office_zap_link").update({ last_lead_pull_at: new Date().toISOString() }).eq("office_id", link.office_id);
-    return { office: link.office_id, novos: 0 };
-  }
+  const leads = await listQualified(link.zap_user_id, since); // lança em erro HTTP → cursor preservado
+  if (leads.length === 0) return { office: link.office_id, novos: 0 }; // nada novo: não mexe no cursor
 
-  // user_id do cliente = dono do escritório (fallback: quem vinculou).
+  // Dono do cliente = admin ATIVO do escritório (não o super-admin que vinculou, que não é membro).
+  const { data: adm } = await service.from("office_users").select("user_id")
+    .eq("office_id", link.office_id).eq("role", "admin").eq("active", true).limit(1).maybeSingle();
   const { data: off } = await service.from("offices").select("created_by").eq("id", link.office_id).maybeSingle();
-  const ownerId = off?.created_by || link.linked_by;
-
-  // Quais leads já foram importados? (dedup)
-  const ids = leads.map((l: { id: string }) => l.id);
-  const { data: jaSync } = await service.from("zap_synced_leads").select("zap_lead_id").eq("office_id", link.office_id).in("zap_lead_id", ids);
-  const jaTem = new Set((jaSync || []).map((r: { zap_lead_id: string }) => r.zap_lead_id));
+  const ownerId = adm?.user_id || off?.created_by || link.linked_by;
+  if (!ownerId) return { office: link.office_id, novos: 0, erro: "sem-dono" }; // não insere com user_id nulo
 
   let novos = 0;
-  let maxUpdated = since;
-  for (const l of leads) {
-    if (l.updated_at > maxUpdated) maxUpdated = l.updated_at;
-    if (jaTem.has(l.id)) continue;
+  let cursor = since; // só avança em lead EFETIVAMENTE tratado (import ou já-sincronizado)
+  for (const l of leads) { // ordenados por updated_at asc
+    // Reserva atômica: se outra puxada (cron × pós-vínculo) já pegou este lead, o PK
+    // (office_id,zap_lead_id) barra e ignoreDuplicates devolve vazio → pula sem duplicar cliente.
+    const { data: reserved } = await service.from("zap_synced_leads")
+      .upsert({ office_id: link.office_id, zap_lead_id: l.id }, { onConflict: "office_id,zap_lead_id", ignoreDuplicates: true })
+      .select("zap_lead_id");
+    if (!reserved || reserved.length === 0) { cursor = l.updated_at; continue; } // já tratado
+
     const obs = [l.company ? `Empresa: ${l.company}` : "", l.cargo ? `Cargo: ${l.cargo}` : "", "Origem: lead qualificado no Vextria Zap"].filter(Boolean).join("\n");
     const { data: cli, error } = await service.from("clientes").insert({
-      office_id: link.office_id,
-      user_id: ownerId,
-      nome: l.name || "(sem nome)",
-      email: l.email || null,
-      telefone: l.phone || null,
-      origem: "Vextria Zap",
-      status: "lead",
-      observacoes: obs || null,
+      office_id: link.office_id, user_id: ownerId, nome: l.name || "(sem nome)",
+      email: l.email || null, telefone: l.phone || null, origem: "Vextria Zap", status: "lead", observacoes: obs || null,
     }).select("id").maybeSingle();
-    if (error || !cli) continue; // não marca como sincronizado se não gravou
-    await service.from("zap_synced_leads").insert({ office_id: link.office_id, zap_lead_id: l.id, cliente_id: cli.id });
+    if (error || !cli) {
+      // Não gravou: solta a reserva e PARA (não passa o cursor deste lead → re-tenta na próxima puxada).
+      await service.from("zap_synced_leads").delete().eq("office_id", link.office_id).eq("zap_lead_id", l.id);
+      break;
+    }
+    await service.from("zap_synced_leads").update({ cliente_id: cli.id }).eq("office_id", link.office_id).eq("zap_lead_id", l.id);
+    cursor = l.updated_at;
     novos++;
   }
-  await service.from("office_zap_link").update({ last_lead_pull_at: maxUpdated }).eq("office_id", link.office_id);
+  await service.from("office_zap_link").update({ last_lead_pull_at: cursor }).eq("office_id", link.office_id);
   return { office: link.office_id, novos };
 }
 

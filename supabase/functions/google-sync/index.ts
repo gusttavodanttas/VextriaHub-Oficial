@@ -42,18 +42,29 @@ async function validToken(service: any, gi: any, CLIENT_ID: string, CLIENT_SECRE
   return tok.access_token;
 }
 
+// Data de HOJE no fuso do Brasil (não UTC) — senão o prazo/audiência de hoje some ~3h antes à noite.
+function localYmd(d: Date): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+}
+// Id determinístico do evento no Google (só [a-v0-9], 5-1024 chars) → o create vira IDEMPOTENTE:
+// um retry após falha parcial devolve 409 (já existe) em vez de criar evento duplicado.
+function eventId(sourceType: string, sourceId: string): string {
+  return "vh" + sourceType[0] + sourceId.replace(/-/g, "");
+}
+
 // deno-lint-ignore no-explicit-any
 async function syncOne(service: any, gi: any, CLIENT_ID: string, CLIENT_SECRET: string) {
   const token = await validToken(service, gi, CLIENT_ID, CLIENT_SECRET);
   const cal = gi.calendar_id;
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = localYmd(new Date());
   // deno-lint-ignore no-explicit-any
   const items: { source_type: string; source_id: string; event: any }[] = [];
 
   if (gi.office_id) {
-    const { data: prazos } = await service.from("prazos")
+    const { data: prazos, error: ep } = await service.from("prazos")
       .select("id,titulo,descricao,tipo_prazo,numero_processo,data_fim_prazo,data_vencimento,status,deletado,titular")
       .eq("office_id", gi.office_id).neq("status", "concluido");
+    if (ep) throw new Error("read-prazos:" + ep.message); // ABORTA — nunca apagar a agenda por erro de leitura
     // deno-lint-ignore no-explicit-any
     for (const p of (prazos || []) as any[]) {
       if (p.deletado || p.titular === "contraria") continue;
@@ -66,13 +77,14 @@ async function syncOne(service: any, gi: any, CLIENT_ID: string, CLIENT_SECRET: 
       }});
     }
 
-    const { data: auds } = await service.from("audiencias")
+    const { data: auds, error: ea } = await service.from("audiencias")
       .select("id,titulo,data_audiencia,local,status,deletado")
       .eq("office_id", gi.office_id).not("status", "in", "(realizada,cancelada)");
+    if (ea) throw new Error("read-audiencias:" + ea.message); // ABORTA
     // deno-lint-ignore no-explicit-any
     for (const a of (auds || []) as any[]) {
       if (a.deletado || !a.data_audiencia) continue;
-      if (new Date(a.data_audiencia).toISOString().slice(0, 10) < hoje) continue;
+      if (localYmd(new Date(a.data_audiencia)) < hoje) continue; // corte "é de hoje?" no fuso local
       const start = new Date(a.data_audiencia);
       const end = new Date(start.getTime() + 60 * 60 * 1000);
       items.push({ source_type: "audiencia", source_id: a.id, event: {
@@ -89,17 +101,23 @@ async function syncOne(service: any, gi: any, CLIENT_ID: string, CLIENT_SECRET: 
   const seen = new Set<string>();
   let created = 0, updated = 0, deleted = 0;
 
+  // deno-lint-ignore no-explicit-any
+  const postEvent = (evId: string, event: any) =>
+    fetch(CAL(cal), { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ ...event, id: evId }) });
+
   for (const it of items) {
     const key = it.source_type + ":" + it.source_id;
     seen.add(key);
     const h = await sha1(JSON.stringify(it.event));
+    const evId = eventId(it.source_type, it.source_id);
     // deno-lint-ignore no-explicit-any
     const existing = mapByKey.get(key) as any;
     if (!existing) {
-      const r = await fetch(CAL(cal), { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(it.event) });
-      const ev = await r.json();
-      if (r.ok && ev.id) {
-        await service.from("google_calendar_map").insert({ user_id: gi.user_id, source_type: it.source_type, source_id: it.source_id, google_event_id: ev.id, content_hash: h });
+      const r = await postEvent(evId, it.event); // id determinístico → 409 (já existe) = ok, não duplica
+      if (r.ok || r.status === 409) {
+        await service.from("google_calendar_map").upsert(
+          { user_id: gi.user_id, source_type: it.source_type, source_id: it.source_id, google_event_id: evId, content_hash: h },
+          { onConflict: "user_id,source_type,source_id" });
         created++;
       }
     } else if (existing.content_hash !== h) {
@@ -107,17 +125,27 @@ async function syncOne(service: any, gi: any, CLIENT_ID: string, CLIENT_SECRET: 
       if (r.ok) {
         await service.from("google_calendar_map").update({ content_hash: h, updated_at: new Date().toISOString() }).eq("user_id", gi.user_id).eq("source_type", it.source_type).eq("source_id", it.source_id);
         updated++;
+      } else if (r.status === 404 || r.status === 410) {
+        // Sumiu do Google (o usuário apagou) → recria e reamarra o mapa (senão fica 404 em loop pra sempre).
+        const rc = await postEvent(evId, it.event);
+        if (rc.ok || rc.status === 409) {
+          await service.from("google_calendar_map").update({ google_event_id: evId, content_hash: h, updated_at: new Date().toISOString() }).eq("user_id", gi.user_id).eq("source_type", it.source_type).eq("source_id", it.source_id);
+          created++;
+        }
       }
     }
   }
 
-  // Remove do Google o que não é mais ativo (concluído/excluído/passou).
+  // Remove do Google o que não é mais ativo. Só tira do mapa se o DELETE confirmou (ok/404/410);
+  // num erro transitório (5xx/401) MANTÉM o mapa pra tentar de novo (não deixa evento órfão perdido).
   // deno-lint-ignore no-explicit-any
   for (const m of (mapRows || []) as any[]) {
     if (seen.has(m.source_type + ":" + m.source_id)) continue;
-    await fetch(CAL(cal, "/" + m.google_event_id), { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
-    await service.from("google_calendar_map").delete().eq("user_id", gi.user_id).eq("source_type", m.source_type).eq("source_id", m.source_id);
-    deleted++;
+    const r = await fetch(CAL(cal, "/" + m.google_event_id), { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+    if (r.ok || r.status === 404 || r.status === 410) {
+      await service.from("google_calendar_map").delete().eq("user_id", gi.user_id).eq("source_type", m.source_type).eq("source_id", m.source_id);
+      deleted++;
+    }
   }
 
   await service.from("google_integrations").update({ last_sync_at: new Date().toISOString(), last_error: null }).eq("user_id", gi.user_id);

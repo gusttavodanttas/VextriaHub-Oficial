@@ -114,8 +114,11 @@ serve(async (req) => {
       // Troca de plano / re-setup: cancela a assinatura ANTIGA no Asaas antes de
       // criar a nova — senão as duas coexistem e o cliente é cobrado em duplicidade
       // (o id local é sobrescrito logo abaixo e a antiga ficaria órfã, cobrando pra sempre).
+      // CHECA o resultado: se o cancelamento falhar, ABORTA (não cria a nova por cima da
+      // antiga viva). Sem isso, um hiccup no DELETE resultava em cobrança em dobro.
       if (sub?.asaas_subscription_id) {
-        await asaas(`/subscriptions/${sub.asaas_subscription_id}`, "DELETE");
+        const del = await asaas(`/subscriptions/${sub.asaas_subscription_id}`, "DELETE");
+        if (!del.ok) return json({ error: "falha ao cancelar a assinatura anterior; tente de novo", etapa: "cancel-old" }, 400);
       }
 
       const s = await asaas("/subscriptions", "POST", {
