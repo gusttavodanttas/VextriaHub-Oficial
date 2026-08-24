@@ -142,7 +142,7 @@ function fixAccents(s: string | null | undefined): string {
     [/\bC\?VEL\b/gi, "CÍVEL"],
     [/\bCRIMINAL\b/gi, "CRIMINAL"],
     [/\bFAM\?LIA\b/gi, "FAMÍLIA"],
-    [/\b\?RF\?OS\b/gi, "ÓRFÃOS"],
+    [/\?RF\?OS/gi, "ÓRFÃOS"], // sem \b inicial: "?" não é char de palavra, então \b antes do "?" nunca casa (bug)
     [/\bSUCESS\?ES\b/gi, "SUCESSÕES"],
     [/\bEXECU\?\?O\b/gi, "EXECUÇÃO"],
     [/\bEXECU\?\?ES\b/gi, "EXECUÇÕES"],
