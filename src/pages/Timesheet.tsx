@@ -151,7 +151,7 @@ export default function Timesheet() {
           cliente_id: cid === "__sem__" ? null : cid,
           office_id: officeId,
           user_id: user!.id,
-        } as any).select("id").single();
+        }).select("id").single();
         // Só marca como faturado se a RECEITA foi criada — senão as horas sumiriam do
         // "Faturável" sem nenhum lançamento no Financeiro (perda silenciosa de receita).
         if (error || !novo) { falhas++; continue; }

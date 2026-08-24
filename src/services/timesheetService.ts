@@ -53,7 +53,7 @@ export const timesheetService = {
         ...newRecord,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      } as any)
+      })
       .select('*, clientes(nome)')
       .single();
 
@@ -64,7 +64,7 @@ export const timesheetService = {
   async update(id: string, userId: string, updates: any) {
     const { data, error } = await supabase
       .from('timesheets')
-      .update({ ...updates, updated_at: new Date().toISOString() } as any)
+      .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', id)
       .eq('user_id', userId)
       .select('*, clientes(nome)')

@@ -84,7 +84,7 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
     const now = new Date().toISOString();
     let error: any = null;
     if (item.type === "tarefa") {
-      ({ error } = await supabase.from("tarefas").update({ concluida: true, concluida_em: now, concluida_por: user?.id, recorrencia_restantes: 0 } as any).eq("id", item.id));
+      ({ error } = await supabase.from("tarefas").update({ concluida: true, concluida_em: now, concluida_por: user?.id, recorrencia_restantes: 0 }).eq("id", item.id));
       if (error) ({ error } = await supabase.from("tarefas").update({ concluida: true }).eq("id", item.id));
       // recorrência encadeada: gera a próxima ocorrência
       if (!error && row?.recorrencia_regra && (row.recorrencia_restantes ?? 0) > 0 && row.data_vencimento) {
@@ -99,7 +99,7 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
         }]);
       }
     } else if (item.type === "prazo") {
-      ({ error } = await supabase.from("prazos").update({ status: "concluido", concluido_em: now, concluido_por: user?.id } as any).eq("id", item.id));
+      ({ error } = await supabase.from("prazos").update({ status: "concluido", concluido_em: now, concluido_por: user?.id }).eq("id", item.id));
       if (error) ({ error } = await supabase.from("prazos").update({ status: "concluido" }).eq("id", item.id));
     } else if (item.type === "consultivo") {
       ({ error } = await supabase.from("consultivos").update({ status: "concluido" }).eq("id", item.id));
@@ -129,11 +129,11 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
     let error: any = null;
     if (item.type === "audiencia") {
       const iso = new Date(`${ed.data}T${ed.hora || "00:00"}`).toISOString();
-      ({ error } = await supabase.from("audiencias").update({ data_audiencia: iso, local: ed.local || null, tipo: ed.tipo || null, titulo: ed.titulo || row.titulo } as any).eq("id", item.id));
+      ({ error } = await supabase.from("audiencias").update({ data_audiencia: iso, local: ed.local || null, tipo: ed.tipo || null, titulo: ed.titulo || row.titulo }).eq("id", item.id));
       if (!error) setRow({ ...row, data_audiencia: iso, local: ed.local || null, tipo: ed.tipo || null, titulo: ed.titulo || row.titulo });
     } else {
       // prazo: grava as DUAS datas (data_fim_prazo é a que Agenda/Dashboard/Relatórios leem)
-      ({ error } = await supabase.from("prazos").update({ data_fim_prazo: ed.data, data_vencimento: ed.data, titulo: ed.titulo || row.titulo, prioridade: ed.prioridade } as any).eq("id", item.id));
+      ({ error } = await supabase.from("prazos").update({ data_fim_prazo: ed.data, data_vencimento: ed.data, titulo: ed.titulo || row.titulo, prioridade: ed.prioridade }).eq("id", item.id));
       if (!error) setRow({ ...row, data_fim_prazo: ed.data, data_vencimento: ed.data, titulo: ed.titulo || row.titulo, prioridade: ed.prioridade });
     }
     setSaving(false);
@@ -147,7 +147,7 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
   const marcarRealizada = async () => {
     if (!item) return;
     setSaving(true);
-    const { error } = await supabase.from("audiencias").update({ status: "realizada" } as any).eq("id", item.id);
+    const { error } = await supabase.from("audiencias").update({ status: "realizada" }).eq("id", item.id);
     setSaving(false);
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
     toast({ title: "Audiência marcada como realizada" });

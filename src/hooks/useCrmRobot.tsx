@@ -80,7 +80,7 @@ export function useCrmRobot(
       const novaData = toStr(addDays(new Date(), followupDias));
       const { error } = await supabase
         .from("clientes")
-        .update({ proximo_contato: novaData } as any)
+        .update({ proximo_contato: novaData })
         .in("id", semData)
         .eq("office_id", officeId);
       if (!error) {
@@ -110,7 +110,7 @@ export function useCrmRobot(
   const marcarContatado = async (id: string) => {
     if (!user?.office_id) return;
     const novaData = toStr(addDays(new Date(), followupDias));
-    await supabase.from("clientes").update({ proximo_contato: novaData } as any).eq("id", id).eq("office_id", user.office_id);
+    await supabase.from("clientes").update({ proximo_contato: novaData }).eq("id", id).eq("office_id", user.office_id);
     refresh?.();
   };
 

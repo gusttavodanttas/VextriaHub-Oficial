@@ -410,7 +410,7 @@ export const usePublicacoes = () => {
             vara: item.vara || null,
             tipo_documento: item.tipo_documento || null,
             nome_orgao: item.nome_orgao || null,
-          } as any);
+          });
           if (saved) {
             savedResults.push(saved);
             await calcularEPersistirPrazo(saved.id, { ...item, data_publicacao: dataPublicacao });

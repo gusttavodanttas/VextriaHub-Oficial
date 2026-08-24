@@ -703,9 +703,9 @@ export default function Prazos() {
             if (ehSugestaoRobo(editTarget)) {
               const agora = new Date().toISOString();
               const { error } = await supabase.from('prazos')
-                .update({ confirmado_em: agora, confirmado_por: user?.id } as any)
+                .update({ confirmado_em: agora, confirmado_por: user?.id })
                 .eq('id', editTarget.id);
-              if (error) await supabase.from('prazos').update({ confirmado_em: agora } as any).eq('id', editTarget.id);
+              if (error) await supabase.from('prazos').update({ confirmado_em: agora }).eq('id', editTarget.id);
             }
             queryClient.invalidateQueries({ queryKey: ['prazos'] });
             setEditTarget(null);

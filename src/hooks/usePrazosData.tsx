@@ -135,10 +135,10 @@ export function usePrazosData(ui: UiCallbacks = {}) {
     mutationFn: async (id: string) => {
       const agora = new Date().toISOString();
       let { error } = await supabase.from('prazos')
-        .update({ confirmado_em: agora, confirmado_por: user?.id } as any)
+        .update({ confirmado_em: agora, confirmado_por: user?.id })
         .eq('id', id);
       // se a coluna de autor não existir, grava só a data
-      if (error) ({ error } = await supabase.from('prazos').update({ confirmado_em: agora } as any).eq('id', id));
+      if (error) ({ error } = await supabase.from('prazos').update({ confirmado_em: agora }).eq('id', id));
       if (error) throw error;
     },
     onSuccess: () => {
@@ -156,7 +156,7 @@ export function usePrazosData(ui: UiCallbacks = {}) {
     mutationFn: async (id: string) => {
       // tenta gravar auditoria (data/autor); se as colunas não existirem, grava só o status
       let { error } = await supabase.from('prazos')
-        .update({ status: 'concluido', concluido_em: new Date().toISOString(), concluido_por: user?.id } as any)
+        .update({ status: 'concluido', concluido_em: new Date().toISOString(), concluido_por: user?.id })
         .eq('id', id);
       if (error) ({ error } = await supabase.from('prazos').update({ status: 'concluido' }).eq('id', id));
       if (error) throw error;
@@ -170,7 +170,7 @@ export function usePrazosData(ui: UiCallbacks = {}) {
   const reopenMutation = useMutation({
     mutationFn: async (id: string) => {
       let { error } = await supabase.from('prazos')
-        .update({ status: 'pendente', concluido_em: null, concluido_por: null } as any)
+        .update({ status: 'pendente', concluido_em: null, concluido_por: null })
         .eq('id', id);
       if (error) ({ error } = await supabase.from('prazos').update({ status: 'pendente' }).eq('id', id));
       if (error) throw error;
@@ -198,7 +198,7 @@ export function usePrazosData(ui: UiCallbacks = {}) {
   const bulkConcludeMutation = useMutation({
     mutationFn: async (ids: string[]) => {
       let { error } = await supabase.from('prazos')
-        .update({ status: 'concluido', concluido_em: new Date().toISOString(), concluido_por: user?.id } as any)
+        .update({ status: 'concluido', concluido_em: new Date().toISOString(), concluido_por: user?.id })
         .in('id', ids);
       if (error) ({ error } = await supabase.from('prazos').update({ status: 'concluido' }).in('id', ids));
       if (error) throw error;

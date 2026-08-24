@@ -32,11 +32,11 @@ export function QuickConsultivoDialog({ open, onOpenChange, onSuccess }: Props) 
     const ok = await create({
       titulo: form.titulo.trim(),
       descricao: form.descricao.trim() || null,
-      categoria: form.categoria.trim() || null,
+      categoria: form.categoria.trim() || undefined,
       prioridade: form.prioridade,
       status: "pendente",
       cliente_id: form.cliente_id || null,
-    } as any);
+    });
     setSaving(false);
     if (ok) { onSuccess?.(); onOpenChange(false); }
   };
