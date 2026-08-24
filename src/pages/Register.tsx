@@ -13,7 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from '@/integrations/supabase/client';
 import { useDefaultBrandOnPublicPage } from '@/lib/brandColor';
 import { formatCpfCnpj, onlyDigits, isValidCpfCnpj } from "@/lib/document";
-import { formatPhoneInput } from "@/utils/formatters";
+import { formatPhone } from "@/lib/phone";
 
 const Register = () => {
   const [searchParams] = useSearchParams();
@@ -416,7 +416,7 @@ const Register = () => {
                   maxLength={15}
                   placeholder="(11) 99999-9999"
                   value={formData.phone}
-                  onChange={(e) => handleInputChange("phone", formatPhoneInput(e.target.value))}
+                  onChange={(e) => handleInputChange("phone", formatPhone(e.target.value))}
                   className="w-full"
                 />
               </div>

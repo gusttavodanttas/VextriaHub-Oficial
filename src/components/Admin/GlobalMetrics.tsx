@@ -138,8 +138,6 @@ export const GlobalMetrics: React.FC = () => {
           icon={Building2}
           color="text-blue-500"
           bg="from-blue-500/15 to-blue-500/5"
-          badge={`+0%`}
-          badgeColor="text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
         />
         <MetricCard
           title="Usuários Totais"
@@ -148,8 +146,6 @@ export const GlobalMetrics: React.FC = () => {
           icon={Users}
           color="text-purple-500"
           bg="from-purple-500/15 to-purple-500/5"
-          badge={`+0%`}
-          badgeColor="text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
         />
         <MetricCard
           title="Assinaturas Ativas"
@@ -168,7 +164,6 @@ export const GlobalMetrics: React.FC = () => {
           icon={TrendingUp}
           color="text-emerald-500"
           bg="from-emerald-500/15 to-emerald-500/5"
-          trend="ativo"
         />
         <MetricCard
           title="Média Usuários"
