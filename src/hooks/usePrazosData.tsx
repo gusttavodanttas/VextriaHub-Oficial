@@ -145,11 +145,14 @@ export function usePrazosData(ui: UiCallbacks = {}) {
       queryClient.invalidateQueries({ queryKey: ['prazos'] });
       toast({ title: 'Sugestão aceita', description: 'O prazo foi confirmado e passa a ser acompanhado normalmente.' });
     },
-    onError: (e: any) => toast({
-      title: 'Não foi possível aceitar',
-      description: `${e.message}. Se a coluna "confirmado_em" ainda não existe, rode a migration de confirmação de prazos.`,
-      variant: 'destructive',
-    }),
+    onError: (e: any) => {
+      console.error('aceitar sugestão de prazo:', e);
+      toast({
+        title: 'Não foi possível aceitar',
+        description: 'Tente novamente em instantes.',
+        variant: 'destructive',
+      });
+    },
   });
 
   const concludeMutation = useMutation({

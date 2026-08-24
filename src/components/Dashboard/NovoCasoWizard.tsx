@@ -114,7 +114,7 @@ export function NovoCasoWizard({ open, onOpenChange, onSuccess }: NovoCasoWizard
         }).select("id").single();
         if (error) {
           if ((error as { code?: string }).code === "23505") {
-            throw new Error("Já existe um processo sem número neste escritório. Rode a migration 20260821000001 (permite vários casos a protocolar) ou preencha o número do caso anterior.");
+            throw new Error("Este caso parece já ter sido cadastrado. Verifique na lista de Processos antes de criar de novo.");
           }
           throw error;
         }
