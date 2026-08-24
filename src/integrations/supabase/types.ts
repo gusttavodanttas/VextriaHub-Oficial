@@ -620,6 +620,102 @@ export type Database = {
           },
         ]
       }
+      google_calendar_map: {
+        Row: {
+          content_hash: string | null
+          google_event_id: string
+          source_id: string
+          source_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content_hash?: string | null
+          google_event_id: string
+          source_id: string
+          source_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content_hash?: string | null
+          google_event_id?: string
+          source_id?: string
+          source_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      google_integrations: {
+        Row: {
+          access_token: string | null
+          calendar_id: string | null
+          created_at: string
+          google_email: string | null
+          last_error: string | null
+          last_sync_at: string | null
+          office_id: string | null
+          refresh_token: string | null
+          status: string
+          token_expiry: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token?: string | null
+          calendar_id?: string | null
+          created_at?: string
+          google_email?: string | null
+          last_error?: string | null
+          last_sync_at?: string | null
+          office_id?: string | null
+          refresh_token?: string | null
+          status?: string
+          token_expiry?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string | null
+          calendar_id?: string | null
+          created_at?: string
+          google_email?: string | null
+          last_error?: string | null
+          last_sync_at?: string | null
+          office_id?: string | null
+          refresh_token?: string | null
+          status?: string
+          token_expiry?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      google_oauth_states: {
+        Row: {
+          created_at: string
+          office_id: string | null
+          redirect_uri: string | null
+          state: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          office_id?: string | null
+          redirect_uri?: string | null
+          state: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          office_id?: string | null
+          redirect_uri?: string | null
+          state?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       invitations: {
         Row: {
           accepted_at: string | null
@@ -1119,6 +1215,47 @@ export type Database = {
             foreignKeyName: "office_users_office_id_fkey"
             columns: ["office_id"]
             isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      office_zap_link: {
+        Row: {
+          active: boolean
+          last_lead_pull_at: string | null
+          linked_at: string
+          linked_by: string | null
+          office_id: string
+          updated_at: string
+          zap_email: string | null
+          zap_user_id: string
+        }
+        Insert: {
+          active?: boolean
+          last_lead_pull_at?: string | null
+          linked_at?: string
+          linked_by?: string | null
+          office_id: string
+          updated_at?: string
+          zap_email?: string | null
+          zap_user_id: string
+        }
+        Update: {
+          active?: boolean
+          last_lead_pull_at?: string | null
+          linked_at?: string
+          linked_by?: string | null
+          office_id?: string
+          updated_at?: string
+          zap_email?: string | null
+          zap_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "office_zap_link_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: true
             referencedRelation: "offices"
             referencedColumns: ["id"]
           },
@@ -2220,12 +2357,47 @@ export type Database = {
           },
         ]
       }
+      zap_synced_leads: {
+        Row: {
+          cliente_id: string | null
+          office_id: string
+          synced_at: string
+          zap_lead_id: string
+        }
+        Insert: {
+          cliente_id?: string | null
+          office_id: string
+          synced_at?: string
+          zap_lead_id: string
+        }
+        Update: {
+          cliente_id?: string | null
+          office_id?: string
+          synced_at?: string
+          zap_lead_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zap_synced_leads_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zap_synced_leads_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      google_status: { Args: never; Returns: { connected: boolean; status: string; google_email: string; last_sync_at: string }[] }
       apply_signup_plan: { Args: { p_plan_type: string }; Returns: string }
       authorize_process_search: {
         Args: {
@@ -2251,9 +2423,19 @@ export type Database = {
       }
       ensure_office_for_user: { Args: never; Returns: string }
       get_user_office_ids: { Args: never; Returns: string[] }
+      google_status: {
+        Args: never
+        Returns: {
+          connected: boolean
+          google_email: string
+          last_sync_at: string
+          status: string
+        }[]
+      }
       is_office_admin: { Args: { p_office_id: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
       my_oab_quota: { Args: never; Returns: Json }
+      my_office_has_zap: { Args: never; Returns: boolean }
       office_has_access: { Args: { p_office: string }; Returns: boolean }
       office_oab_limit: { Args: { p_office: string }; Returns: number }
       team_visible_user_ids: {
