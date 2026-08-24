@@ -17,6 +17,7 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [loginInProgress, setLoginInProgress] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const {
@@ -120,11 +121,22 @@ const Login = () => {
       } = await login(email, password);
       if (error) {
         console.error('Login failed:', error);
-        toast({
-          title: "Erro no login",
-          description: error.message || "Credenciais inválidas. Tente novamente.",
-          variant: "destructive"
-        });
+        const msg = String(error.message || '');
+        if (/not confirmed|n[ãa]o confirmad|email_not_confirmed/i.test(msg)) {
+          setUnconfirmedEmail(email.trim());
+          toast({
+            title: "Confirme seu e-mail",
+            description: "Sua conta ainda não foi confirmada. Verifique sua caixa de entrada — ou reenvie o e-mail abaixo.",
+            variant: "destructive"
+          });
+        } else {
+          setUnconfirmedEmail(null);
+          toast({
+            title: "Não foi possível entrar",
+            description: "E-mail ou senha incorretos. Tente novamente.",
+            variant: "destructive"
+          });
+        }
         setLoginInProgress(false);
         return;
       }
@@ -189,6 +201,22 @@ const Login = () => {
                   {isSubmitting ? 'Fazendo login...' : 'Carregando...'}
                 </> : 'Entrar'}
             </Button>
+
+              {unconfirmedEmail && (
+                <div className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3 text-center space-y-2">
+                  <p className="text-xs text-amber-800 dark:text-amber-300">
+                    Seu e-mail ainda não foi confirmado. Verifique a caixa de entrada (e o spam).
+                  </p>
+                  <Button type="button" variant="outline" size="sm" onClick={async () => {
+                    const { error } = await resendConfirmation(unconfirmedEmail);
+                    toast(error
+                      ? { title: "Não consegui reenviar", description: error.message, variant: "destructive" }
+                      : { title: "E-mail reenviado", description: "Confira sua caixa de entrada para confirmar a conta." });
+                  }}>
+                    Reenviar e-mail de confirmação
+                  </Button>
+                </div>
+              )}
 
               {/* Forgot Password */}
               <div className="text-center">

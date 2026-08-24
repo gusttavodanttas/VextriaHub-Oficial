@@ -8,13 +8,26 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatCpfCnpj, onlyDigits, isValidCpfCnpj } from '@/lib/document';
-import { CreditCard, FileText, QrCode, Loader2, CheckCircle2, ExternalLink, Copy, Check } from 'lucide-react';
+import { CreditCard, FileText, QrCode, Loader2, CheckCircle2, ExternalLink, Copy, Check, RefreshCw } from 'lucide-react';
 
 interface Plan { plan_type: string; plan_name: string; price_cents: number; cycle?: string; signup_only?: boolean }
 const cicloLabel: Record<string, string> = { MONTHLY: 'por mês', QUARTERLY: 'por trimestre', SEMIANNUALLY: 'por semestre', YEARLY: 'por ano' };
 interface Sub { status: string; plan_name: string | null; next_due_date: string | null; last_invoice_url: string | null }
 
 const brl = (cents: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100);
+const ERROS_COBRANCA: Record<string, string> = {
+  'plano-invalido': 'Plano indisponível. Escolha outro plano.',
+  'sem-asaas-key': 'Pagamento temporariamente indisponível. Tente de novo em instantes.',
+  'sem-assinatura': 'Não encontramos sua assinatura. Recarregue a página.',
+  'nao-autorizado': 'Sua sessão expirou. Entre novamente.',
+  'escritorio-nao-encontrado': 'Escritório não encontrado. Recarregue a página.',
+};
+const mapErroCobranca = (code?: string) => {
+  if (!code) return 'Não foi possível criar a cobrança. Tente novamente.';
+  if (ERROS_COBRANCA[code]) return ERROS_COBRANCA[code];
+  if (code.includes(' ')) return code; // já é uma frase amigável vinda do servidor
+  return 'Não foi possível criar a cobrança. Tente novamente.';
+};
 const BILLING = [
   { v: 'PIX', label: 'PIX (instantâneo)', icon: QrCode },
   { v: 'BOLETO', label: 'Boleto bancário', icon: FileText },
@@ -25,9 +38,10 @@ function Pagamento() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
-  const { office } = useAuth();
+  const { office, user } = useAuth();
 
   const [loading, setLoading] = useState(true);
+  const [verificando, setVerificando] = useState(false);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [sub, setSub] = useState<Sub | null>(null);
   const [planType, setPlanType] = useState('');
@@ -42,10 +56,13 @@ function Pagamento() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [{ data: planRows }, subRes] = await Promise.all([
+    const [{ data: planRows }, subRes, profRes] = await Promise.all([
       supabase.from('plan_configs').select('plan_type, plan_name, price_cents, cycle, signup_only').eq('is_active', true).order('price_cents'),
       office?.id
         ? supabase.from('office_subscriptions').select('status, plan_name, next_due_date, last_invoice_url').eq('office_id', office.id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      user?.id
+        ? supabase.from('profiles').select('cpf_cnpj').eq('user_id', user.id).maybeSingle()
         : Promise.resolve({ data: null }),
     ]);
     const rows = ((planRows as Plan[]) || []).filter((p) => !p.signup_only);
@@ -56,8 +73,11 @@ function Pagamento() {
     if (subRes.data?.last_invoice_url && ['pendente', 'atrasada', 'trial'].includes(subRes.data.status)) {
       setInvoiceUrl(subRes.data.last_invoice_url);
     }
+    // Pré-preenche o CPF/CNPJ já coletado no cadastro (menos fricção na hora de pagar).
+    const docPerfil = (profRes.data as { cpf_cnpj?: string } | null)?.cpf_cnpj;
+    if (docPerfil) setCpf((prev) => prev || formatCpfCnpj(docPerfil));
     setLoading(false);
-  }, [office?.id, searchParams]);
+  }, [office?.id, user?.id, searchParams]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -73,12 +93,27 @@ function Pagamento() {
     let payload: { error?: string; invoice_url?: string } | null = data;
     if (error) { try { payload = await (error as { context?: Response }).context?.json(); } catch { payload = null; } }
     if (payload?.error || error) {
-      toast({ title: 'Não consegui criar a cobrança', description: payload?.error || 'Tente novamente.', variant: 'destructive' });
+      toast({ title: 'Não consegui criar a cobrança', description: mapErroCobranca(payload?.error), variant: 'destructive' });
       return;
     }
     toast({ title: 'Cobrança criada!', description: 'Use o link para pagar por Pix, boleto ou cartão.' });
     setInvoiceUrl(payload?.invoice_url || null);
     load();
+  };
+
+  // "Já paguei" — reconsulta o Asaas na hora (não espera o webhook) e libera se pago.
+  const verificarPagamento = async () => {
+    if (!office?.id) return;
+    setVerificando(true);
+    const { data } = await supabase.functions.invoke('asaas-billing', { body: { action: 'sync', office_id: office.id } });
+    const st = (data as { status?: string } | null)?.status;
+    await load();
+    setVerificando(false);
+    if (st && ['ativa', 'cortesia'].includes(st)) {
+      toast({ title: 'Pagamento confirmado!', description: 'Seu acesso está ativo.' });
+    } else {
+      toast({ title: 'Pagamento ainda não identificado', description: 'Pix e boleto podem levar alguns minutos para compensar. Tente de novo em instantes.' });
+    }
   };
 
   const copy = async () => {
@@ -127,6 +162,9 @@ function Pagamento() {
                 {copied ? <><Check className="h-4 w-4 text-emerald-500" /> Copiado</> : <><Copy className="h-4 w-4" /> Copiar link</>}
               </Button>
             </div>
+            <Button variant="secondary" onClick={verificarPagamento} disabled={verificando} className="gap-2">
+              {verificando ? <><Loader2 className="h-4 w-4 animate-spin" /> Verificando…</> : <><RefreshCw className="h-4 w-4" /> Já paguei — verificar acesso</>}
+            </Button>
             <Button variant="ghost" size="sm" onClick={() => setInvoiceUrl(null)}>Trocar de plano</Button>
           </CardContent>
         </Card>

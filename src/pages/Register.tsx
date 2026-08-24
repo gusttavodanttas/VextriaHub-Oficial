@@ -18,7 +18,7 @@ import { formatPhone } from "@/lib/phone";
 const Register = () => {
   const [searchParams] = useSearchParams();
   const planParam = searchParams.get('plano') || searchParams.get('plan');
-  const selectedPlan = planParam || 'BASIC';
+  const selectedPlan = planParam; // sem plano na URL = cadastro orgânico (trial), NÃO forçar BASIC
   const isInvite = searchParams.get('convite') === '1';
   const inviteToken = searchParams.get('token') || '';
 
@@ -46,12 +46,13 @@ const Register = () => {
   // Buscar dados do plano selecionado
   useEffect(() => {
     const fetchPlanData = async () => {
-      const { data, error } = await supabase
+      if (!selectedPlan) { setPlanData(null); return; } // orgânico: sem badge de plano/preço
+      const { data } = await supabase
         .from('plan_configs')
         .select('*')
         .eq('plan_type', selectedPlan)
         .maybeSingle();
-      
+
       if (data) {
         setPlanData(data);
       }
@@ -461,11 +462,11 @@ const Register = () => {
                 />
                 <Label htmlFor="terms" className="text-sm">
                   Aceito os{" "}
-                  <a href="#" className="text-primary hover:underline">
+                  <a href="/politica-privacidade" target="_blank" rel="noreferrer" className="text-primary hover:underline">
                     termos de uso
                   </a>{" "}
                   e{" "}
-                  <a href="#" className="text-primary hover:underline">
+                  <a href="/politica-privacidade" target="_blank" rel="noreferrer" className="text-primary hover:underline">
                     política de privacidade
                   </a>
                 </Label>
@@ -477,7 +478,7 @@ const Register = () => {
                 className="w-full"
                 disabled={isLoading}
               >
-                {isLoading ? "Processando..." : isInvite ? "Criar minha conta" : planParam ? "Criar conta e continuar para pagamento" : "Criar conta e começar"}
+                {isLoading ? "Processando..." : isInvite ? "Criar minha conta" : (planParam && semTrial) ? "Criar conta e ir para o pagamento" : planParam ? "Criar conta e começar o teste" : "Criar conta e começar"}
               </Button>
 
               {/* Login Link */}
