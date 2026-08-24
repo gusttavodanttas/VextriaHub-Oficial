@@ -150,6 +150,30 @@ export function useTarefas() {
     onError: (e: any) => toast({ title: "Erro ao atualizar", description: e.message, variant: "destructive" }),
   });
 
+  // Gera a PRÓXIMA ocorrência de uma tarefa recorrente concluída (best-effort). Usado
+  // tanto na conclusão individual quanto EM MASSA (antes o bulk encerrava a série).
+  const gerarProximaOcorrencia = async (tarefa: Tarefa) => {
+    if (!(tarefa.recorrencia_regra && (tarefa.recorrencia_restantes ?? 0) > 0 && tarefa.data_vencimento && officeId && user?.id)) return;
+    const base = new Date(`${tarefa.data_vencimento}T12:00:00`);
+    const next = continueOccurrences(base, tarefa.recorrencia_regra as RecRule, 1)[0];
+    const row: any = {
+      titulo: tarefa.titulo,
+      descricao: tarefa.descricao ?? null,
+      prioridade: tarefa.prioridade ?? "media",
+      cliente_id: tarefa.cliente_id ?? null,
+      processo_id: tarefa.processo_id ?? null,
+      atendimento_id: tarefa.atendimento_id ?? null,
+      responsavel_id: tarefa.responsavel_id ?? null,
+      recorrencia_grupo: tarefa.recorrencia_grupo ?? null,
+      recorrencia_regra: tarefa.recorrencia_regra,
+      recorrencia_restantes: (tarefa.recorrencia_restantes ?? 0) - 1,
+      data_vencimento: format(next, "yyyy-MM-dd"),
+      office_id: officeId, user_id: user.id, concluida: false, deletado: false,
+      ...(Array.isArray(tarefa.avisos_dias) ? { avisos_dias: tarefa.avisos_dias } : {}),
+    };
+    await supabase.from("tarefas").insert([row]);
+  };
+
   const toggle = useMutation({
     mutationFn: async ({ id, concluida, tarefa }: { id: string; concluida: boolean; tarefa?: Tarefa }) => {
       const now = new Date().toISOString();
@@ -162,26 +186,7 @@ export function useTarefas() {
       if (error) throw error;
 
       // 2) recorrência encadeada: ao concluir, gera a PRÓXIMA ocorrência
-      if (concluida && tarefa?.recorrencia_regra && (tarefa.recorrencia_restantes ?? 0) > 0 && tarefa.data_vencimento && officeId && user?.id) {
-        const base = new Date(`${tarefa.data_vencimento}T12:00:00`);
-        const next = continueOccurrences(base, tarefa.recorrencia_regra as RecRule, 1)[0];
-        const row: any = {
-          titulo: tarefa.titulo,
-          descricao: tarefa.descricao ?? null,
-          prioridade: tarefa.prioridade ?? "media",
-          cliente_id: tarefa.cliente_id ?? null,
-          processo_id: tarefa.processo_id ?? null,
-          atendimento_id: tarefa.atendimento_id ?? null,
-          responsavel_id: tarefa.responsavel_id ?? null,
-          recorrencia_grupo: tarefa.recorrencia_grupo ?? null,
-          recorrencia_regra: tarefa.recorrencia_regra,
-          recorrencia_restantes: (tarefa.recorrencia_restantes ?? 0) - 1,
-          data_vencimento: format(next, "yyyy-MM-dd"),
-          office_id: officeId, user_id: user.id, concluida: false, deletado: false,
-          ...(Array.isArray(tarefa.avisos_dias) ? { avisos_dias: tarefa.avisos_dias } : {}),
-        };
-        await supabase.from("tarefas").insert([row]); // best-effort (não bloqueia a conclusão)
-      }
+      if (concluida && tarefa) await gerarProximaOcorrencia(tarefa);
     },
     onSuccess: () => invalidate(),
     onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
@@ -200,11 +205,20 @@ export function useTarefas() {
   const bulkPatch = useMutation({
     mutationFn: async ({ ids, patch, concluir }: { ids: string[]; patch?: Record<string, any>; concluir?: boolean }) => {
       const now = new Date().toISOString();
+      // Snapshot ANTES do update: captura as recorrentes com ocorrências restantes
+      // (o update zera recorrencia_restantes, então precisa ser antes).
+      let recorrentes: Tarefa[] = [];
+      if (concluir === true) {
+        const { data } = await supabase.from("tarefas").select("*").in("id", ids);
+        recorrentes = ((data || []) as Tarefa[]).filter((t) => t.recorrencia_regra && (t.recorrencia_restantes ?? 0) > 0 && t.data_vencimento);
+      }
       const payload: Record<string, any> = { ...(patch || {}) };
-      if (concluir === true) Object.assign(payload, { concluida: true, concluida_em: now, concluida_por: user?.id ?? null });
+      if (concluir === true) Object.assign(payload, { concluida: true, concluida_em: now, concluida_por: user?.id ?? null, recorrencia_restantes: 0 });
       if (concluir === false) Object.assign(payload, { concluida: false, concluida_em: null, concluida_por: null });
       const { error } = await supabase.from("tarefas").update(payload).in("id", ids);
       if (error) throw error;
+      // Gera a próxima ocorrência de cada recorrente concluída (não deixa a série morrer no bulk).
+      for (const t of recorrentes) await gerarProximaOcorrencia(t);
     },
     onSuccess: () => { invalidate(); toast({ title: "Tarefas atualizadas" }); },
     onError: (e: any) => toast({ title: "Erro ao atualizar", description: e.message, variant: "destructive" }),
