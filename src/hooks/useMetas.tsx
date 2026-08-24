@@ -71,9 +71,13 @@ export function useMetas() {
     try {
       switch (tipo) {
         case "receita": {
+          // Só receita EFETIVAMENTE recebida (data_pagamento preenchida), no período em
+          // que foi paga — antes somava receita pendente/cancelada por created_at e
+          // superestimava o caixa.
           const { data } = await scope(supabase.from("financeiro").select("valor")
             .eq("office_id", office).eq("deletado", false).eq("tipo", "receita")
-            .gte("created_at", startIso).lte("created_at", endIso), "user_id");
+            .not("data_pagamento", "is", null)
+            .gte("data_pagamento", inicio).lte("data_pagamento", fim), "user_id");
           return (data || []).reduce((s: number, r: any) => s + (Number(r.valor) || 0), 0);
         }
         case "clientes": {

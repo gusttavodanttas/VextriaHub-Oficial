@@ -32,7 +32,6 @@ export const OfficeControlPanel: React.FC = () => {
     updateOfficeStatus,
     updateOfficeFull,
     manageAccess,
-    sendPaymentReminder,
     deleteOffice
   } = useSuperAdminOffices();
 
@@ -410,9 +409,6 @@ export const OfficeControlPanel: React.FC = () => {
                             </form>
                           </DialogContent>
                         </Dialog>
-                        <Button type="button" variant="ghost" size="sm" onClick={() => sendPaymentReminder(admin.email || '', admin.office_name || '')} className="h-8 w-8 p-0 text-blue-500/60 hover:text-blue-500 hover:bg-blue-500/5 transition-colors">
-                          <CreditCard size={15} />
-                        </Button>
                         <Button type="button" variant="ghost" size="sm" onClick={() => updateOfficeStatus(admin.office_id || '', !admin.active)}
                           className={`h-8 w-8 p-0 rounded-full transition-colors ${admin.active ? 'text-rose-500/60 hover:text-rose-500 hover:bg-rose-500/5' : 'text-emerald-500/60 hover:text-emerald-500 hover:bg-emerald-500/5'}`}>
                           {admin.active ? <UserX size={15} /> : <UserCheck size={15} />}

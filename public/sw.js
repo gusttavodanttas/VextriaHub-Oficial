@@ -13,6 +13,14 @@ const VERSION = 'v1';
 const SHELL = `vextria-shell-${VERSION}`;
 const ASSETS = `vextria-assets-${VERSION}`;
 const OFFLINE_URL = '/index.html';
+const ASSET_MAX = 80; // teto de entradas no cache de assets (evita crescer sem limite entre deploys)
+
+// Mantém o cache de assets limitado: como o nome tem hash e é imutável, os chunks
+// de builds antigos acumulariam pra sempre; aqui removemos os mais antigos (FIFO).
+async function trimCache(cache, max) {
+  const keys = await cache.keys();
+  for (let i = 0; i < keys.length - max; i++) await cache.delete(keys[i]);
+}
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -56,7 +64,7 @@ self.addEventListener('fetch', (event) => {
       const hit = await cache.match(req);
       if (hit) return hit;
       const res = await fetch(req);
-      if (res && res.ok) cache.put(req, res.clone());
+      if (res && res.ok) { await cache.put(req, res.clone()); await trimCache(cache, ASSET_MAX); }
       return res;
     })());
     return;

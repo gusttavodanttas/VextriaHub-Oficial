@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 import {
   fetchNotificationPrefs,
   saveNotificationPrefs,
@@ -14,9 +15,17 @@ import {
  */
 export function useNotificationPrefs() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [prefs, setPrefs] = useState<Record<string, boolean>>(DEFAULT_PREFS);
   const [leadDias, setLeadDias] = useState<number>(DEFAULT_LEAD_DIAS);
   const [loading, setLoading] = useState(true);
+
+  // Salva e avisa se o banco recusar (não deixa a UI dizer "salvo" só no localStorage).
+  const persist = useCallback((uid: string, p: { prefs: Record<string, boolean>; leadDias: number }) => {
+    saveNotificationPrefs(uid, p).then(({ error }) => {
+      if (error) toast({ title: 'Não foi possível salvar a preferência', description: 'Verifique a conexão e tente de novo.', variant: 'destructive' });
+    });
+  }, [toast]);
 
   useEffect(() => {
     let alive = true;
@@ -35,16 +44,16 @@ export function useNotificationPrefs() {
     if (!user?.id) return;
     setPrefs((prev) => {
       const next = { ...prev, [key]: value };
-      void saveNotificationPrefs(user.id, { prefs: next, leadDias });
+      persist(user.id, { prefs: next, leadDias });
       return next;
     });
-  }, [user?.id, leadDias]);
+  }, [user?.id, leadDias, persist]);
 
   const saveLead = useCallback((v: number) => {
     if (!user?.id) return;
     setLeadDias(v);
-    void saveNotificationPrefs(user.id, { prefs, leadDias: v });
-  }, [user?.id, prefs]);
+    persist(user.id, { prefs, leadDias: v });
+  }, [user?.id, prefs, persist]);
 
   return { prefs, leadDias, toggle, saveLead, loading };
 }

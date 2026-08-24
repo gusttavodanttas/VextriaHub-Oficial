@@ -71,8 +71,9 @@ export const usePublicacoes = () => {
 
       if (error) throw error;
       setPublications((data || []) as Publication[]);
-    } catch {
-      // erro silencioso — lista fica vazia
+    } catch (err) {
+      // Não engolir: falha de RLS/rede vira "caixa vazia" enganosa sem isto.
+      toast({ title: 'Erro ao carregar publicações', description: getErrorMessage(err, 'Tente novamente em instantes.'), variant: 'destructive' });
     } finally {
       setLoading(false);
     }

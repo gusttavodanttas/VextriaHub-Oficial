@@ -62,11 +62,16 @@ export async function fetchNotificationPrefs(userId: string): Promise<NotifPrefs
   return readLocalPrefs(userId);
 }
 
-/** Salva no banco (upsert por user_id) e espelha no localStorage (cache do gerador). */
-export async function saveNotificationPrefs(userId: string, p: NotifPrefs): Promise<void> {
+/**
+ * Salva no banco (upsert por user_id) e espelha no localStorage (cache do gerador).
+ * Retorna o erro do banco (ou null) — o chamador avisa se a persistência falhou, em
+ * vez de a UI dizer "salvo" com o valor só no localStorage (divergiria entre dispositivos).
+ */
+export async function saveNotificationPrefs(userId: string, p: NotifPrefs): Promise<{ error: unknown | null }> {
   writeLocalPrefs(userId, p);
-  await supabase.from('user_notification_prefs').upsert(
+  const { error } = await supabase.from('user_notification_prefs').upsert(
     { user_id: userId, prefs: p.prefs, lead_dias: p.leadDias, updated_at: new Date().toISOString() },
     { onConflict: 'user_id' },
   );
+  return { error: error ?? null };
 }

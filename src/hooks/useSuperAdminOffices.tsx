@@ -37,7 +37,6 @@ export interface UseSuperAdminOfficesResult {
     action: 'apply_discount' | 'grant_lifetime' | 'revoke_lifetime' | 'grant_trial',
     options?: { discount_percent?: number; trial_days?: number; reason?: string }
   ) => Promise<boolean>;
-  sendPaymentReminder: (email: string, officeName: string) => Promise<boolean>;
   deleteOffice: (officeId: string, confirmName: string) => Promise<boolean>;
   isEmpty: boolean;
 }
@@ -287,11 +286,6 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
     }
   }, [toast, fetchAdmins]);
 
-  const sendPaymentReminder = useCallback(async (_email: string, _officeName: string) => {
-    toast({ title: 'E-mail de lembrete enviado.' });
-    return true;
-  }, [toast]);
-
   useEffect(() => {
     fetchAdmins();
   }, [fetchAdmins]);
@@ -304,7 +298,6 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
     updateOfficeStatus,
     updateOfficeFull,
     manageAccess,
-    sendPaymentReminder,
     deleteOffice,
     isEmpty: admins.length === 0,
   };

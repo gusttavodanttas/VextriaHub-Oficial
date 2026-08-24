@@ -112,6 +112,11 @@ export const AtendimentoFormDialog: React.FC<{
       toast({ title: "Campos obrigatórios", description: firstZodError(val.error), variant: "destructive" });
       return;
     }
+    // A coluna cliente_id é NOT NULL no banco — exige aqui (senão o insert falha com "Erro ao criar").
+    if (!form.cliente_id) {
+      toast({ title: "Selecione o cliente", description: "Todo atendimento precisa estar vinculado a um cliente.", variant: "destructive" });
+      return;
+    }
     const datetime = `${form.data_atendimento}T${form.hora_atendimento}:00`;
     const recorrente = !editId && form.recorrencia !== "nenhuma";
     const payload: any = {
