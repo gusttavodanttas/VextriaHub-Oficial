@@ -168,7 +168,10 @@ export const NovoLeadDialog = ({ open, onOpenChange, onSave }: NovoLeadDialogPro
           endereco: formData.endereco?.trim() || null,
           status: formData.status,
           valor_estimado: Number(formData.valor_estimado) || 0,
-          observacoes: formData.observacoes?.trim() || null
+          // "Área de interesse" não tem coluna própria em clientes → guarda junto das observações
+          // (antes era coletada no form e jogada fora silenciosamente).
+          observacoes: [formData.interesse ? `Área de interesse: ${formData.interesse}` : '', formData.observacoes?.trim() || '']
+            .filter(Boolean).join('\n') || null
         }])
         .select()
         .single();

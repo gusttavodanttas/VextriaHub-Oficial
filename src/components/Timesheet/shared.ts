@@ -29,7 +29,7 @@ const REFERENCIA_CONFIG: Record<ReferenciaTipo, {
 }> = {
   atendimento: { label: "Atendimento", Icon: Phone,             color: "bg-blue-500/10 text-blue-600 dark:text-blue-400",          table: "atendimentos", labelField: "observacoes", dateField: "data_atendimento", clienteField: "cliente_id", route: "/atendimentos" },
   audiencia:   { label: "Audiência",   Icon: Gavel,             color: "bg-red-500/10 text-red-600 dark:text-red-400",             table: "audiencias",   labelField: "titulo",      dateField: "data_audiencia",   clienteField: "cliente_id", route: "/audiencias" },
-  prazo:       { label: "Prazo",       Icon: AlertCircle,       color: "bg-orange-500/10 text-orange-600 dark:text-orange-400",    table: "prazos",       labelField: "titulo",      dateField: "data_vencimento",  route: "/prazos" },
+  prazo:       { label: "Prazo",       Icon: AlertCircle,       color: "bg-orange-500/10 text-orange-600 dark:text-orange-400",    table: "prazos",       labelField: "titulo",      dateField: "data_fim_prazo",   route: "/prazos" },
   tarefa:      { label: "Tarefa",      Icon: CheckSquare,       color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400", table: "tarefas",      labelField: "titulo",      dateField: "data_vencimento",  clienteField: "cliente_id", route: "/tarefas" },
   consultivo:  { label: "Consultivo",  Icon: MessageSquareText, color: "bg-teal-500/10 text-teal-600 dark:text-teal-400",          table: "processos",    labelField: "titulo",      dateField: "created_at",       clienteField: "cliente_id", route: "/consultivo" },
 };

@@ -60,9 +60,9 @@ export function useTimesheetTimer({ activeTimer, startTimer, config, user, navig
           const { data: processos } = await supabase.from("processos").select("id").eq("cliente_id", clienteId).eq("deletado", false);
           const ids = (processos || []).map((p: any) => p.id);
           if (ids.length === 0) { setRefItems([]); return; }
-          const { data } = await supabase.from("prazos").select("id, titulo, data_vencimento")
-            .in("processo_id", ids).eq("deletado", false).order("data_vencimento", { ascending: true }).limit(50);
-          setRefItems((data || []).map((r: any) => ({ id: r.id, label: r.titulo || "Sem título", sublabel: r.data_vencimento ? `Vence ${new Date(r.data_vencimento).toLocaleDateString("pt-BR")}` : undefined })));
+          const { data } = await supabase.from("prazos").select("id, titulo, data_fim_prazo, data_vencimento")
+            .in("processo_id", ids).eq("deletado", false).order("data_fim_prazo", { ascending: true }).limit(50);
+          setRefItems((data || []).map((r: any) => { const dt = r.data_fim_prazo || r.data_vencimento; return { id: r.id, label: r.titulo || "Sem título", sublabel: dt ? `Vence ${new Date(dt).toLocaleDateString("pt-BR")}` : undefined }; }));
           return;
         }
         let q = (supabase as any).from(cfg.table)

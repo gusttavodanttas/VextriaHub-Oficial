@@ -18,6 +18,7 @@ import { PrazosBlock, TarefasBlock } from "@/components/Dashboard/ListBlocks";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, FileText, CheckSquare, TrendingUp, ArrowRight, Plus, CalendarCheck, UserCheck, Users2, CalendarPlus, UserPlus, Award, Activity, Clock, Settings2, MessageSquareText, FolderPlus } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useStats } from "@/hooks/useStats";
@@ -109,6 +110,7 @@ const Index = () => {
   const { canViewMetas, canCreateProcesses } = usePermissions();
   const { create: createCliente } = useClientes();
   const { toast } = useToast();
+  const qc = useQueryClient();
   const [sheetView, setSheetView] = useState<SheetView>(null);
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [openModal, setOpenModal] = useState<ModalKey | null>(null);
@@ -157,7 +159,15 @@ const Index = () => {
     setOpenModal(null);
   };
 
-  const onModalSuccess = () => { refresh(); setDashRefresh((n) => n + 1); setOpenModal(null); };
+  // Além do sinal p/ os widgets self-fetch, invalida as listas React Query do dashboard
+  // (bloco Prazos/Tarefas) — senão o item criado só aparece na lista após o staleTime (60s).
+  const onModalSuccess = () => {
+    refresh();
+    setDashRefresh((n) => n + 1);
+    qc.invalidateQueries({ queryKey: ['dashboard-prazos'] });
+    qc.invalidateQueries({ queryKey: ['dashboard-tarefas'] });
+    setOpenModal(null);
+  };
 
   // Blocos grandes (coluna principal) vs cards (lateral), na ordem do usuário.
   const MAIN_KEYS = ["agenda", "grafico", "prazos", "tarefas"];

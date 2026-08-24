@@ -48,7 +48,10 @@ export function useStats() {
         supabase.from('audiencias').select('id', { count: 'exact' }).eq('office_id', officeId).eq('deletado', false).gte('data_audiencia', new Date().toISOString()).lte('data_audiencia', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()),
         // "prazos vencendo": não-deletados, não-concluídos, com fatal até 3 dias à frente — INCLUINDO vencidos (o mais urgente num produto jurídico). Antes contava lixeira e ignorava atrasados.
         supabase.from('prazos').select('id', { count: 'exact' }).eq('office_id', officeId).eq('deletado', false).neq('status', 'concluido').lte('data_fim_prazo', new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]),
-        supabase.from('financeiro').select('tipo, valor').eq('office_id', officeId).eq('deletado', false).gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()),
+        // "do mês" pela data_vencimento (data de negócio), igual à página Financeiro — antes era created_at e os totais divergiam.
+        supabase.from('financeiro').select('tipo, valor').eq('office_id', officeId).eq('deletado', false)
+          .gte('data_vencimento', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0])
+          .lte('data_vencimento', new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0]),
         supabase.from('office_users').select('id', { count: 'exact' }).eq('office_id', officeId).eq('active', true),
       ]);
 
