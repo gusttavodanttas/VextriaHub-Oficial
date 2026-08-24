@@ -81,6 +81,7 @@ export function useProcessoSubData(processo: Processo | null) {
       user_id: user.id, office_id: officeId, processo_id: processo.id,
       titulo, descricao: fd.get('descricao') as string || null,
       data_vencimento: dataVencimento,
+      data_fim_prazo: dataVencimento, // campo canônico da data fatal (o que Agenda/bloco Prazos/KPI/google-sync leem)
       // Prazo manual não tem data de disponibilização/intimação (essas só existem em
       // prazo vindo de publicação/intimação) — colunas nullable, então ficam nulas.
       data_disponibilizacao: null,
@@ -259,6 +260,7 @@ export function useProcessoSubData(processo: Processo | null) {
         user_id: user.id, office_id: officeId, processo_id: processo.id,
         titulo, descricao: `Originado da publicação de ${fmtPub(pub.data_publicacao)}: ${pub.titulo}`,
         data_vencimento: dataVenc,
+        data_fim_prazo: dataVenc, // campo canônico da data fatal (Agenda/bloco Prazos/KPI/google-sync)
         // disponibilização = data da publicação (real); intimação fica nula (evento à parte).
         data_disponibilizacao: (pub.data_publicacao as string) || null,
         data_intimacao: null,
