@@ -24,7 +24,7 @@ const EVENT_STYLE: Record<DayEvent["type"], { cls: string; Icon: any }> = {
   consultivo: { cls: "border-indigo-500/15 bg-indigo-500/5 text-indigo-600 dark:text-indigo-400", Icon: BookOpen },
 };
 
-export function CalendarWidget() {
+export function CalendarWidget({ refreshKey }: { refreshKey?: number }) {
   const { user } = useAuth();
   const [selected, setSelected] = useState<Date | undefined>(new Date());
   const [eventMap, setEventMap] = useState<Record<string, DayEvent[]>>({});
@@ -96,7 +96,8 @@ export function CalendarWidget() {
       setLoading(false);
   }, [user?.office_id]);
 
-  useEffect(() => { load(); }, [load]);
+  // recarrega no mount, ao trocar de escritório E quando o dashboard sinaliza criação (refreshKey)
+  useEffect(() => { load(); }, [load, refreshKey]);
 
   const markedDates = Object.keys(eventMap).map(k => parseISO(k));
   const selectedKey = selected ? format(selected, "yyyy-MM-dd") : null;

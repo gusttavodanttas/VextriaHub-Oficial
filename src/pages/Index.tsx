@@ -155,7 +155,9 @@ const Index = () => {
     setOpenModal(null);
   };
 
-  const onModalSuccess = () => { refresh(); setOpenModal(null); };
+  // Sinal de refresh p/ os widgets do dashboard que buscam sozinhos (CalendarWidget não usa React Query).
+  const [dashRefresh, setDashRefresh] = useState(0);
+  const onModalSuccess = () => { refresh(); setDashRefresh((n) => n + 1); setOpenModal(null); };
 
   // Blocos grandes (coluna principal) vs cards (lateral), na ordem do usuário.
   const MAIN_KEYS = ["agenda", "grafico", "prazos", "tarefas"];
@@ -168,7 +170,7 @@ const Index = () => {
       case "agenda":
         return (
           <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 shadow-sm overflow-hidden h-full">
-            <CalendarWidget />
+            <CalendarWidget refreshKey={dashRefresh} />
           </div>
         );
       case "produtividade":
@@ -201,7 +203,7 @@ const Index = () => {
           </div>
         );
       case "grafico":
-        return <MiniFinanceChart />;
+        return <MiniFinanceChart refreshKey={dashRefresh} />;
       case "prazos":
         return <PrazosBlock />;
       case "tarefas":

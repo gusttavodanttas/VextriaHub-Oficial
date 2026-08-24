@@ -10,7 +10,7 @@ const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", c
 
 interface Bucket { mes: string; receita: number; despesa: number; }
 
-export function MiniFinanceChart() {
+export function MiniFinanceChart({ refreshKey }: { refreshKey?: number }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [data, setData] = useState<Bucket[]>([]);
@@ -55,7 +55,7 @@ export function MiniFinanceChart() {
       setLoading(false);
     })();
     return () => { cancel = true; };
-  }, [user?.office_id, meses]);
+  }, [user?.office_id, meses, refreshKey]);
 
   const totais = useMemo(() => {
     const receita = data.reduce((s, d) => s + d.receita, 0);
