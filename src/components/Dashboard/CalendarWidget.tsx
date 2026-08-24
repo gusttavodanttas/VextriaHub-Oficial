@@ -40,7 +40,7 @@ export function CalendarWidget({ refreshKey }: { refreshKey?: number }) {
       const [{ data: prazos }, { data: audiencias }, { data: tarefas }, { data: atendimentos }, { data: consultivos }] = await Promise.all([
         // fatal = data_fim_prazo OU, em prazo sem fim (ex.: criado inline no processo, que grava
         // data_vencimento), a data_vencimento — senão esse prazo some da agenda (igual useAgendaEvents).
-        supabase.from("prazos").select("id, tipo_prazo, numero_processo, data_fim_prazo, data_vencimento, publicacoes(titulo)")
+        supabase.from("prazos").select("id, titulo, tipo_prazo, numero_processo, data_fim_prazo, data_vencimento, publicacoes(titulo)")
           .eq("office_id", user.office_id).neq("status", "concluido").eq("deletado", false)
           .or(`and(data_fim_prazo.gte.${start},data_fim_prazo.lte.${end}),and(data_fim_prazo.is.null,data_vencimento.gte.${start},data_vencimento.lte.${end})`),
         // realizada/cancelada saem do painel — aqui é "o que tenho pela frente"
@@ -69,7 +69,7 @@ export function CalendarWidget({ refreshKey }: { refreshKey?: number }) {
         if (!fatal) continue;
         const k = String(fatal).slice(0, 10);
         if (!map[k]) map[k] = [];
-        map[k].push({ type: "prazo", id: p.id, titulo: p.publicacoes?.titulo || p.tipo_prazo || p.numero_processo || "Prazo" });
+        map[k].push({ type: "prazo", id: p.id, titulo: p.titulo || p.publicacoes?.titulo || p.tipo_prazo || p.numero_processo || "Prazo" });
       }
       for (const a of audiencias || []) {
         if (!a.data_audiencia) continue;

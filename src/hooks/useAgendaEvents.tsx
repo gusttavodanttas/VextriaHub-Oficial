@@ -106,7 +106,7 @@ export const useAgendaEvents = (targetDate: Date) => {
         })),
         ...(prazos || []).map((p: any) => ({
           id: p.id,
-          name: p.publicacoes?.titulo || p.tipo_prazo || p.numero_processo || 'Prazo',
+          name: p.titulo || p.publicacoes?.titulo || p.tipo_prazo || p.numero_processo || 'Prazo',
           time: '—',
           datetime: `${p.data_fim_prazo || p.data_vencimento}T12:00:00`,
           type: 'prazo' as const,
