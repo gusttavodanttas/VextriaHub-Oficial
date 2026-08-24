@@ -28,3 +28,18 @@ export function extractYearFromCNJ(numero: string | undefined | null): string | 
   }
   return null;
 }
+
+/**
+ * Máscara de digitação: formata o CNJ progressivamente enquanto o usuário digita
+ * (0000000-00.0000.0.00.0000). Diferente de formatCNJ, que só formata com os 20 dígitos completos.
+ */
+export function maskCNJ(value: string): string {
+  const d = value.replace(/\D/g, '');
+  if (!d) return '';
+  if (d.length <= 7) return d;
+  if (d.length <= 9) return `${d.slice(0, 7)}-${d.slice(7)}`;
+  if (d.length <= 13) return `${d.slice(0, 7)}-${d.slice(7, 9)}.${d.slice(9)}`;
+  if (d.length <= 14) return `${d.slice(0, 7)}-${d.slice(7, 9)}.${d.slice(9, 13)}.${d.slice(13)}`;
+  if (d.length <= 16) return `${d.slice(0, 7)}-${d.slice(7, 9)}.${d.slice(9, 13)}.${d.slice(13, 14)}.${d.slice(14)}`;
+  return `${d.slice(0, 7)}-${d.slice(7, 9)}.${d.slice(9, 13)}.${d.slice(13, 14)}.${d.slice(14, 16)}.${d.slice(16, 20)}`;
+}

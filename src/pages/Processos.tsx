@@ -126,7 +126,6 @@ const Processos = () => {
     status: 'all',
     cliente: 'all',
     numeroProcesso: '',
-    area: 'all',
     movimentacao: 'all',
   });
 
@@ -152,12 +151,11 @@ const Processos = () => {
         p.cliente.toLowerCase().includes(q) ||
         (p.numeroProcesso && p.numeroProcesso.includes(dSearch));
       const matchesCliente = filters.cliente === 'all' || p.cliente === filters.cliente;
-      const matchesArea = filters.area === 'all' || p.area === filters.area;
       const matchesTab = tab ? tab.match(p) : true;
       const matchesTeam = !teamMemberIds || teamMemberIds.includes(p.responsavelId ?? '');
-      return matchesSearch && matchesCliente && matchesArea && matchesTab && matchesTeam;
+      return matchesSearch && matchesCliente && matchesTab && matchesTeam;
     });
-  }, [processos, dSearch, filters.cliente, filters.area, activeTab, teamFilter, myTeams]);
+  }, [processos, dSearch, filters.cliente, activeTab, teamFilter, myTeams]);
 
   const clientesDisponiveis = useMemo(() => {
     const unique = new Set(processos.map(p => p.cliente));
@@ -167,12 +165,11 @@ const Processos = () => {
   const activeFiltersCount = useMemo(() => {
     let count = 0;
     if (filters.cliente !== 'all') count++;
-    if (filters.area !== 'all') count++;
     return count;
   }, [filters]);
 
   const handleClearFilters = useCallback(() => {
-    setFilters({ search: '', status: 'all', cliente: 'all', area: 'all', movimentacao: 'all', numeroProcesso: '' });
+    setFilters({ search: '', status: 'all', cliente: 'all', movimentacao: 'all', numeroProcesso: '' });
   }, []);
 
   if (loading && processos.length === 0) {

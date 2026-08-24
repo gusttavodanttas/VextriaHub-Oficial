@@ -1,8 +1,8 @@
 ﻿import React from 'react';
-import { Filter, Calendar, User, Scale, Hash } from 'lucide-react';
+import { Filter, Calendar, User, Hash } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { ProcessoFilters as IProcessoFilters, statusProcesso, areasJuridicas } from '@/types/processo';
+import { ProcessoFilters as IProcessoFilters, statusProcesso } from '@/types/processo';
 
 interface ProcessoFiltersProps {
   filters: IProcessoFilters;
@@ -42,22 +42,6 @@ export const ProcessoFilters: React.FC<ProcessoFiltersProps> = ({
             <SelectItem value="all" className="font-black text-[10px] uppercase tracking-widest">Todos os clientes</SelectItem>
             {clientes.map((cliente) => (
               <SelectItem key={cliente} value={cliente} className="font-bold text-xs">{cliente}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {/* Filtro de Área */}
-        <Select value={filters.area} onValueChange={(value) => handleFilterChange('area', value)}>
-          <SelectTrigger className="w-auto min-w-[160px] h-12 bg-white dark:bg-black/20 border-black/5 dark:border-border rounded-xl font-black text-[10px] uppercase tracking-widest focus:ring-primary/20 transition-all hover:bg-black/5 dark:hover:bg-muted/30 shadow-premium">
-            <div className="flex items-center gap-2 pr-2">
-              <Scale className="h-4 w-4 text-primary" />
-              <SelectValue placeholder="Área" />
-            </div>
-          </SelectTrigger>
-          <SelectContent className="glass-card border-black/10 dark:border-border rounded-2xl shadow-2xl">
-            <SelectItem value="all" className="font-black text-[10px] uppercase tracking-widest">Todas as áreas</SelectItem>
-            {areasJuridicas.map((area) => (
-              <SelectItem key={area} value={area} className="font-bold text-xs">{area}</SelectItem>
             ))}
           </SelectContent>
         </Select>

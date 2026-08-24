@@ -190,7 +190,10 @@ export default function Lixeira() {
         await tenantGuard(supabase.from('processos_descartados').delete().eq('id', item.id), item);
       } else {
         if (!TABELAS_PERMITIDAS.has(item.tabela)) throw new Error('Tabela não permitida');
-        await tenantGuard(fromTabela(item.tabela).update({ deletado: false, deletado_pendente: false }).eq('id', item.id), item);
+        // prazos não tem a coluna deletado_pendente — enviar o campo faz o restore inteiro falhar (item fica preso na lixeira).
+        const restorePatch: Record<string, unknown> = { deletado: false };
+        if (item.tabela !== 'prazos') restorePatch.deletado_pendente = false;
+        await tenantGuard(fromTabela(item.tabela).update(restorePatch).eq('id', item.id), item);
       }
       toast({ title: 'Restaurado', description: `${TABELA_CONFIG[item.tabela]?.label || item.tabela} restaurado com sucesso.` });
       setItems(prev => prev.filter(i => i.id !== item.id));

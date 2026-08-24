@@ -113,7 +113,7 @@ export const AtendimentoFormDialog: React.FC<{
       return;
     }
     // A coluna cliente_id é NOT NULL no banco — exige aqui (senão o insert falha com "Erro ao criar").
-    if (!form.cliente_id) {
+    if (!form.cliente_id || form.cliente_id === NONE) {
       toast({ title: "Selecione o cliente", description: "Todo atendimento precisa estar vinculado a um cliente.", variant: "destructive" });
       return;
     }

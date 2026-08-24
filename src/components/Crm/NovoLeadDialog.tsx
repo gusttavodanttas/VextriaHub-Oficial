@@ -167,7 +167,8 @@ export const NovoLeadDialog = ({ open, onOpenChange, onSave }: NovoLeadDialogPro
           origem: formData.origem || null,
           endereco: formData.endereco?.trim() || null,
           status: formData.status,
-          valor_estimado: Number(formData.valor_estimado) || 0
+          valor_estimado: Number(formData.valor_estimado) || 0,
+          observacoes: formData.observacoes?.trim() || null
         }])
         .select()
         .single();

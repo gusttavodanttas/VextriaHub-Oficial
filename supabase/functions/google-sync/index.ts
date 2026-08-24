@@ -104,6 +104,14 @@ async function syncOne(service: any, gi: any, CLIENT_ID: string, CLIENT_SECRET: 
   // deno-lint-ignore no-explicit-any
   const postEvent = (evId: string, event: any) =>
     fetch(CAL(cal), { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ ...event, id: evId }) });
+  // Cria; se o id já existe no Google (409 — evento apagado que reteve o id, ex.: prazo
+  // concluído e REABERTO), reativa via PATCH com status=confirmed em vez de ignorar.
+  // deno-lint-ignore no-explicit-any
+  const createOrReactivate = async (evId: string, event: any) => {
+    const r = await postEvent(evId, event);
+    if (r.status !== 409) return r;
+    return await fetch(CAL(cal, "/" + evId), { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ ...event, status: "confirmed" }) });
+  };
 
   for (const it of items) {
     const key = it.source_type + ":" + it.source_id;
@@ -113,8 +121,8 @@ async function syncOne(service: any, gi: any, CLIENT_ID: string, CLIENT_SECRET: 
     // deno-lint-ignore no-explicit-any
     const existing = mapByKey.get(key) as any;
     if (!existing) {
-      const r = await postEvent(evId, it.event); // id determinístico → 409 (já existe) = ok, não duplica
-      if (r.ok || r.status === 409) {
+      const r = await createOrReactivate(evId, it.event); // 409 (id retido) → reativa via PATCH
+      if (r.ok) {
         await service.from("google_calendar_map").upsert(
           { user_id: gi.user_id, source_type: it.source_type, source_id: it.source_id, google_event_id: evId, content_hash: h },
           { onConflict: "user_id,source_type,source_id" });
@@ -127,8 +135,8 @@ async function syncOne(service: any, gi: any, CLIENT_ID: string, CLIENT_SECRET: 
         updated++;
       } else if (r.status === 404 || r.status === 410) {
         // Sumiu do Google (o usuário apagou) → recria e reamarra o mapa (senão fica 404 em loop pra sempre).
-        const rc = await postEvent(evId, it.event);
-        if (rc.ok || rc.status === 409) {
+        const rc = await createOrReactivate(evId, it.event);
+        if (rc.ok) {
           await service.from("google_calendar_map").update({ google_event_id: evId, content_hash: h, updated_at: new Date().toISOString() }).eq("user_id", gi.user_id).eq("source_type", it.source_type).eq("source_id", it.source_id);
           created++;
         }

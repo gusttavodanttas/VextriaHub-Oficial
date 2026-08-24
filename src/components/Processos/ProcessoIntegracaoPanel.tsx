@@ -6,7 +6,7 @@ import { JudicialSyncContent, JudicialProcessResult } from './JudicialSyncDialog
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { formatCNJ } from '@/lib/formatters';
+import { maskCNJ } from '@/utils/formatCNJ';
 import { useToast } from '@/hooks/use-toast';
 import { getErrorMessage } from '@/lib/errors';
 import { supabase } from '@/integrations/supabase/client';
@@ -215,7 +215,7 @@ const ProcessoIntegracaoBody: React.FC<ProcessoIntegracaoBodyProps> = ({
                 <Input 
                   placeholder="0000000-00.0000.0.00.0000"
                   value={cnjInput}
-                  onChange={(e) => setCnjInput(formatCNJ(e.target.value))}
+                  onChange={(e) => setCnjInput(maskCNJ(e.target.value))}
                   className="h-14 bg-background border-border text-foreground rounded-2xl font-mono text-center tracking-widest text-xl"
                 />
               </div>
@@ -424,7 +424,7 @@ const ManualProcessoForm: React.FC<ManualProcessoFormProps> = ({ initialData, on
             <Label className="text-muted-foreground/60 ml-1 font-black uppercase tracking-widest text-[10px]">Número do Processo (CNJ)</Label>
             <Input 
               value={formData.numeroProcesso}
-              onChange={(e) => setFormData({...formData, numeroProcesso: formatCNJ(e.target.value)})}
+              onChange={(e) => setFormData({...formData, numeroProcesso: maskCNJ(e.target.value)})}
               placeholder="0000000-00.0000.0.00.0000"
               className="h-12 bg-background border-border text-foreground rounded-xl font-mono font-bold tracking-wider"
             />

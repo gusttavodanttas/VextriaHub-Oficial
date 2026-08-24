@@ -107,12 +107,12 @@ export default function Crm() {
     if (!error) refresh();
   };
 
-  // Define a data do próximo contato (follow-up) — requer coluna proximo_contato em clientes
+  // Define a data do próximo contato (follow-up) do cliente.
   const setFollowup = async (id: string, date: string) => {
     if (!user?.office_id) return;
     const { error } = await supabase.from("clientes").update({ proximo_contato: date || null }).eq("id", id).eq("office_id", user.office_id);
     if (error) {
-      toast({ title: "Follow-up não ativado", description: "Rode o SQL para criar a coluna 'proximo_contato' (veja as instruções).", variant: "destructive" });
+      toast({ title: "Não foi possível salvar o follow-up", description: error.message, variant: "destructive" });
       return;
     }
     refresh();

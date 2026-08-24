@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatCNJ, cleanCNJ, extractYearFromCNJ } from "@/utils/formatCNJ";
+import { formatCNJ, cleanCNJ, extractYearFromCNJ, maskCNJ } from "@/utils/formatCNJ";
 
 describe("formatCNJ", () => {
   it("formata 20 dígitos no padrão CNJ", () => {
@@ -24,6 +24,23 @@ describe("cleanCNJ", () => {
   });
   it("vazio/nulo vira string vazia", () => {
     expect(cleanCNJ(null)).toBe("");
+  });
+});
+
+describe("maskCNJ", () => {
+  it("formata parcialmente enquanto digita", () => {
+    expect(maskCNJ("0707058")).toBe("0707058");
+    expect(maskCNJ("070705818")).toBe("0707058-18");
+    expect(maskCNJ("0707058182026")).toBe("0707058-18.2026");
+  });
+  it("formata os 20 dígitos completos no padrão CNJ", () => {
+    expect(maskCNJ("07070581820268070006")).toBe("0707058-18.2026.8.07.0006");
+  });
+  it("ignora não-dígitos e limita a 20 dígitos", () => {
+    expect(maskCNJ("abc07070581820268070006999")).toBe("0707058-18.2026.8.07.0006");
+  });
+  it("vazio vira string vazia", () => {
+    expect(maskCNJ("")).toBe("");
   });
 });
 

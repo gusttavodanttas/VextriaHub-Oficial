@@ -33,7 +33,7 @@ import { useOfficeSettingList } from '@/hooks/useOfficeSettingList';
 import { CreatableSelect } from '@/components/Settings/CreatableSelect';
 import { TIPOS_PROCESSO_DEFAULT, type TipoProcesso } from '@/components/Settings/ProcessTypeSimple';
 import { Separator } from '@/components/ui/separator';
-import { formatCNJ, unformatCNJ } from '@/lib/formatters';
+import { maskCNJ } from '@/utils/formatCNJ';
 import { tribunalFromCNJ } from '@/utils/tribunalCNJ';
 import { JudicialSyncDialog, JudicialSyncContent } from './JudicialSyncDialog';
 import { useProcessosV2 } from '@/hooks/useProcessosV2';
@@ -503,7 +503,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
                           <Input
                             placeholder="0000000-00.0000.0.00.0000"
                             value={cnjInput}
-                            onChange={(e) => setCnjInput(formatCNJ(e.target.value))}
+                            onChange={(e) => setCnjInput(maskCNJ(e.target.value))}
                             className="h-12 rounded-xl font-mono text-center tracking-widest text-lg"
                           />
                         </div>
@@ -629,7 +629,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
                             <Input
                               id="numeroProcesso"
                               value={formData.numeroProcesso || ''}
-                              onChange={(e) => handleChange('numeroProcesso', formatCNJ(e.target.value))}
+                              onChange={(e) => handleChange('numeroProcesso', maskCNJ(e.target.value))}
                               placeholder="0000000-00.0000.0.00.0000"
                               className="font-mono h-11 rounded-xl text-primary"
                             />

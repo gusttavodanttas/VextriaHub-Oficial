@@ -118,7 +118,9 @@ serve(async (req) => {
       // antiga viva). Sem isso, um hiccup no DELETE resultava em cobrança em dobro.
       if (sub?.asaas_subscription_id) {
         const del = await asaas(`/subscriptions/${sub.asaas_subscription_id}`, "DELETE");
-        if (!del.ok) return json({ error: "falha ao cancelar a assinatura anterior; tente de novo", etapa: "cancel-old" }, 400);
+        // Tolera 404: a assinatura antiga já não existe no Asaas (ex.: foi cancelada antes, mas
+        // o id local ficou) — seguir e criar a nova. Sem isso, reassinar travava em 404-loop.
+        if (!del.ok && del.status !== 404) return json({ error: "falha ao cancelar a assinatura anterior; tente de novo", etapa: "cancel-old" }, 400);
       }
 
       const s = await asaas("/subscriptions", "POST", {
@@ -169,8 +171,10 @@ serve(async (req) => {
         if (!KEY) return json({ error: "sem-asaas-key" }, 500);
         await asaas(`/subscriptions/${sub.asaas_subscription_id}`, "DELETE");
       }
+      // Zera o id da assinatura: sem isso, o setup seguinte tentaria DELETE numa sub já
+      // deletada (404) e travava. (Mesmo padrão do admin-office-access.)
       await service.from("office_subscriptions").update({
-        status: "cancelada", updated_at: new Date().toISOString(),
+        status: "cancelada", asaas_subscription_id: null, updated_at: new Date().toISOString(),
       }).eq("office_id", officeId);
       return json({ ok: true, status: "cancelada" });
     }

@@ -41,10 +41,18 @@ async function pullForOffice(service: any, link: any) {
   for (const l of leads) { // ordenados por updated_at asc
     // Reserva atômica: se outra puxada (cron × pós-vínculo) já pegou este lead, o PK
     // (office_id,zap_lead_id) barra e ignoreDuplicates devolve vazio → pula sem duplicar cliente.
-    const { data: reserved } = await service.from("zap_synced_leads")
+    const { data: reserved, error: resErr } = await service.from("zap_synced_leads")
       .upsert({ office_id: link.office_id, zap_lead_id: l.id }, { onConflict: "office_id,zap_lead_id", ignoreDuplicates: true })
       .select("zap_lead_id");
-    if (!reserved || reserved.length === 0) { cursor = l.updated_at; continue; } // já tratado
+    if (resErr) break; // erro transitório na reserva → NÃO avança o cursor (re-tenta na próxima puxada)
+    if (!reserved || reserved.length === 0) {
+      // Já existe reserva. Distingue "já sincronizado" (tem cliente) de ÓRFÃ (reservada mas o
+      // processo morreu antes de criar o cliente) — a órfã, antes, era pulada pra sempre.
+      const { data: prev } = await service.from("zap_synced_leads").select("cliente_id")
+        .eq("office_id", link.office_id).eq("zap_lead_id", l.id).maybeSingle();
+      if (prev?.cliente_id) { cursor = l.updated_at; continue; } // já tem cliente = tratado de fato
+      // senão: órfã → cai no insert do cliente abaixo e reamarra a reserva
+    }
 
     const obs = [l.company ? `Empresa: ${l.company}` : "", l.cargo ? `Cargo: ${l.cargo}` : "", "Origem: lead qualificado no Vextria Zap"].filter(Boolean).join("\n");
     const { data: cli, error } = await service.from("clientes").insert({

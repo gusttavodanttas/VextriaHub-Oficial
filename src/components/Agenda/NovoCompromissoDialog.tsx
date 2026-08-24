@@ -191,10 +191,9 @@ export const NovoCompromissoDialog: React.FC<NovoCompromissoDialogProps> = ({
           toast({ title: "Selecione um cliente", description: "Reuniões, consultas e atendimentos exigem um cliente.", variant: "destructive" });
           return;
         }
-        // Obs.: a tabela atendimentos não possui a coluna processo_id — por isso não é enviada.
         ({ error } = await supabase.from("atendimentos").insert({
           user_id: user.id, office_id: officeId,
-          cliente_id: clienteId,
+          cliente_id: clienteId, processo_id: processoId,
           tipo_atendimento: formData.tipo,
           data_atendimento: datetime.toISOString(),
           observacoes: formData.descricao,

@@ -72,7 +72,6 @@ export interface ProcessoFilters {
   status: string;
   cliente: string;
   numeroProcesso: string;
-  area: string;
   movimentacao: string; // '7dias', '15dias', 'all'
 }
 
