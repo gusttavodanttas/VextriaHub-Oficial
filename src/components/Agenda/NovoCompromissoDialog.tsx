@@ -191,12 +191,19 @@ export const NovoCompromissoDialog: React.FC<NovoCompromissoDialogProps> = ({
           toast({ title: "Selecione um cliente", description: "Reuniões, consultas e atendimentos exigem um cliente.", variant: "destructive" });
           return;
         }
+        // atendimentos NÃO tem colunas titulo/local. Sem dobrar na observação, o
+        // título (campo obrigatório!) e o local digitados sumiam silenciosamente. (v11)
+        const obsAtend = [
+          formData.titulo,
+          formData.local ? `Local: ${formData.local}` : null,
+          formData.descricao || null,
+        ].filter(Boolean).join("\n");
         ({ error } = await supabase.from("atendimentos").insert({
           user_id: user.id, office_id: officeId,
           cliente_id: clienteId, processo_id: processoId,
           tipo_atendimento: formData.tipo,
           data_atendimento: datetime.toISOString(),
-          observacoes: formData.descricao,
+          observacoes: obsAtend || null,
           // atendimentos usam status no masculino (agendado/realizado/...)
           status: normalizeAtendimentoStatus(formData.status),
         }));

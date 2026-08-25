@@ -15,6 +15,8 @@ export interface Audiencia {
   cliente_id: string | null;
   processo_id: string | null;
   cliente_nome?: string | null;
+  responsavel_id?: string | null;
+  avisos_dias?: number[] | null;
 }
 
 export interface AudienciaInput {
@@ -58,6 +60,10 @@ export function useAudiencias() {
         cliente_id: a.cliente_id,
         processo_id: a.processo_id,
         cliente_nome: a.clientes?.nome || null,
+        // Sem estes dois, editar uma audiência REATRIBUÍa o responsável para quem
+        // editava e ZERAVA os avisos personalizados (buildForm lia undefined). (v11)
+        responsavel_id: a.responsavel_id ?? null,
+        avisos_dias: a.avisos_dias ?? null,
       }));
     },
     enabled: !!officeId,

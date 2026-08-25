@@ -228,7 +228,9 @@ const Clientes = () => {
       tipo_pessoa: newClient.tipoPessoa,
       origem: newClient.origem,
       endereco: newClient.endereco,
-      status: newClient.status || "Ativo",
+      // status em minúsculo: os filtros/KPIs e as metas casam "ativo"/"convertido"
+      // (o backfill v10 padronizou; gravar "Ativo" reintroduzia a divergência). (v11)
+      status: (newClient.status || "ativo").toLowerCase(),
       data_aniversario: newClient.dataAniversario,
       // NovoCliente = Omit<Row,...>: colunas nullable continuam de presença
       // obrigatória. Campos não expostos no formulário entram como null.

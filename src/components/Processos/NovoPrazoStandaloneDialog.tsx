@@ -42,6 +42,7 @@ export interface PrazoFormData {
   processo_id?: string | null;
   office_id?: string | null;
   user_id?: string;
+  responsavel_id?: string | null;
   avisos_dias?: number[] | null;
   titular?: string | null;
 }
@@ -189,8 +190,8 @@ function prazoToForm(p: PrazoFormData, userId = ""): FormState {
     dataPrazoInterno: p.data_prazo_interno || "",
     dataPrazoFatal: p.data_fim_prazo || "",
     prioridade: p.prioridade || "media",
-    responsavel_id: (p as any).responsavel_id || userId,
-    avisosDias: (p as any).avisos_dias ?? null,
+    responsavel_id: p.responsavel_id || userId,
+    avisosDias: p.avisos_dias ?? null,
     titular: (p as any).titular || "nosso",
   };
 }

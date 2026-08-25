@@ -55,16 +55,21 @@ function PrazosView({ officeId }: { officeId: string }) {
       const today = new Date().toISOString().split("T")[0];
       const { data } = await supabase
         .from("prazos")
-        .select("id, tipo_prazo, numero_processo, data_fim_prazo, publicacoes(titulo)")
+        .select("id, titulo, tipo_prazo, numero_processo, data_fim_prazo, status, deletado, publicacoes(titulo)")
         .eq("office_id", officeId)
         .gte("data_fim_prazo", today)
         .order("data_fim_prazo", { ascending: true })
         .limit(20);
-      setItems((data || []).map((p: any) => {
+      setItems((data || [])
+        // Sem isto, prazos na lixeira ou já concluídos entravam como "fantasmas"
+        // na visão rápida (filtro em JS resiliente a null, como no usePrazosData). (v11)
+        .filter((p: any) => !p.deletado && p.status !== "concluido")
+        .map((p: any) => {
         const diff = Math.ceil((new Date(p.data_fim_prazo).getTime() - new Date().setHours(0,0,0,0)) / 86400000);
         return {
           id: p.id,
-          titulo: p.publicacoes?.titulo || p.tipo_prazo || p.numero_processo || "Prazo",
+          // titulo próprio primeiro — senão prazo manual aparecia como "Prazo". (v11)
+          titulo: p.titulo || p.publicacoes?.titulo || p.tipo_prazo || p.numero_processo || "Prazo",
           data_fim_prazo: p.data_fim_prazo,
           prioridade: diff <= 2 ? "alta" : diff <= 4 ? "media" : "baixa",
         };

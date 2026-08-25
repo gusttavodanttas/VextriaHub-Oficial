@@ -63,6 +63,7 @@ export function useProximityNotifications() {
           .select("*, publicacoes(titulo)")
           .eq("office_id", officeId).neq("status", "concluido");
         (data || []).forEach((p: any) => {
+          if (p.deletado) return; // prazo na lixeira não gera aviso no sino (v11)
           if (p.titular === "contraria") return; // prazo da parte contrária: só monitoramento
           const fatal = dataFatalPrazo(p);
           if (!fatal) return;

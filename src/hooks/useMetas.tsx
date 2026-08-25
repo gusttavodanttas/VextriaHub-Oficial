@@ -82,7 +82,8 @@ export function useMetas() {
         }
         case "clientes": {
           const { count } = await scope(supabase.from("clientes").select("id", { count: "exact", head: true })
-            .eq("office_id", office).eq("deletado", false).in("status", ["ativo", "convertido"])
+            // case-insensitive: pega "ativo" e legado "Ativo"/"Convertido" (v11)
+            .eq("office_id", office).eq("deletado", false).or("status.ilike.ativo,status.ilike.convertido")
             .gte("created_at", startIso).lte("created_at", endIso), "user_id");
           return count || 0;
         }

@@ -110,7 +110,7 @@ export function GlobalSearchBar() {
           .eq("office_id", oid).eq("deletado", false).ilike("titulo", wild).limit(5),
         supabase.from("clientes").select("id, nome, email, tipo_pessoa")
           .eq("office_id", oid).eq("deletado", false).ilike("nome", wild).limit(5),
-        supabase.from("prazos").select("id, tipo_prazo, numero_processo, data_fim_prazo, publicacoes(titulo)")
+        supabase.from("prazos").select("id, titulo, tipo_prazo, numero_processo, data_fim_prazo, status, deletado, publicacoes(titulo)")
           .eq("office_id", oid).ilike("numero_processo", wild).limit(4),
         supabase.from("audiencias").select("id, titulo, local, data_audiencia")
           .eq("office_id", oid).eq("deletado", false).ilike("titulo", wild).limit(4),
@@ -129,9 +129,11 @@ export function GlobalSearchBar() {
           sub: c.email || undefined, url: `/clientes?openId=${c.id}`,
           badge: c.tipo_pessoa || undefined, badgeColor: "text-emerald-600 bg-emerald-500/10",
         })),
-        ...(praz || []).map((p: any) => ({
+        // Filtra fantasmas (lixeira/concluído) — filtro em JS resiliente a null. (v11)
+        ...(praz || []).filter((p: any) => !p.deletado && p.status !== "concluido").map((p: any) => ({
           id: p.id, group: "prazos" as Group,
-          label: p.publicacoes?.titulo || p.tipo_prazo || p.numero_processo || "Prazo",
+          // titulo próprio primeiro — senão prazo manual aparecia como "Prazo". (v11)
+          label: p.titulo || p.publicacoes?.titulo || p.tipo_prazo || p.numero_processo || "Prazo",
           sub: p.data_fim_prazo
             ? `Vence ${format(parseISO(p.data_fim_prazo), "dd 'de' MMM", { locale: ptBR })}`
             : undefined,

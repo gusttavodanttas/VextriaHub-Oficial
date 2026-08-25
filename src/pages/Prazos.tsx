@@ -145,6 +145,9 @@ export default function Prazos() {
     processo_id: p.processo_id || procDoPrazo(p)?.id || null,
     office_id: p.office_id,
     user_id: p.user_id,
+    // Sem isto, editar um prazo pela página reatribuía o responsável para quem
+    // editava (buildForm caía no userId). (v11)
+    responsavel_id: p.responsavel_id ?? null,
     avisos_dias: (p as any).avisos_dias ?? null,
     titular: p.titular ?? 'nosso',
   });

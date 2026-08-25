@@ -36,7 +36,7 @@ const ORIGENS_DEFAULT = ["Indicação", "Marketing Digital", "Redes Sociais", "S
 
 const EMPTY: ClientInput = {
   name: "", email: "", phone: "", cpfCnpj: "", tipoPessoa: "fisica",
-  origem: "", endereco: "", dataAniversario: "", status: "Ativo",
+  origem: "", endereco: "", dataAniversario: "", status: "ativo",
 };
 
 export const NovoClienteDialog = ({ open, onOpenChange, onSave, initialName }: NovoClienteDialogProps) => {
