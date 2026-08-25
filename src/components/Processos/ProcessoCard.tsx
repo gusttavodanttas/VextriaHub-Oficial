@@ -66,7 +66,9 @@ export const ProcessoCard: React.FC<ProcessoCardProps> = ({
 
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
-    return new Date(dateString).toLocaleDateString('pt-BR');
+    // Ancora data-only ao MEIO-DIA local: new Date("YYYY-MM-DD")=UTC mostrava 1 dia antes. (v12)
+    const dt = new Date(String(dateString).length <= 10 ? `${dateString}T12:00:00` : String(dateString));
+    return isNaN(dt.getTime()) ? '' : dt.toLocaleDateString('pt-BR');
   };
 
   const isOverdue = () => {

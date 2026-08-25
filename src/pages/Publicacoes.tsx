@@ -141,7 +141,7 @@ export default function Publicacoes() {
       tribunal: pub.tribunal,
       vara: pub.vara,
       comarca: pub.comarca,
-      descricao: `Cadastrado a partir da publicação em ${pub.data_publicacao ? new Date(pub.data_publicacao).toLocaleDateString('pt-BR') : 'data não identificada'}.`,
+      descricao: `Cadastrado a partir da publicação em ${pub.data_publicacao ? fmtDataBR(pub.data_publicacao) : 'data não identificada'}.`,
     };
 
     try {

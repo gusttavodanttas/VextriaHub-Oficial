@@ -30,8 +30,9 @@ const DETAIL_CONFIG: Record<DetailType, { title: string; route: string; icon: an
 
 function fmtDate(d: string | null | undefined) {
   if (!d) return "";
-  try { return new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }); }
-  catch { return ""; }
+  // Ancora data-only ao MEIO-DIA local: new Date("YYYY-MM-DD")=UTC mostrava 1 dia antes. (v12)
+  const dt = new Date(String(d).length <= 10 ? `${d}T12:00:00` : String(d));
+  return isNaN(dt.getTime()) ? "" : dt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 }
 
 type Period = "week" | "month" | "quarter" | "year";

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { fmtDataBR } from "@/lib/dates";
 import { deepCleanHTML } from "@/lib/cleanHtml";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -136,7 +137,7 @@ export const PublicationDetailsDialog = ({
                   </span>
                   <span className="text-muted-foreground/30">·</span>
                   <span className="text-[11px] text-muted-foreground/60 font-medium">
-                    {new Date(publication.data_publicacao).toLocaleDateString('pt-BR')}
+                    {fmtDataBR(publication.data_publicacao)}
                   </span>
                 </div>
               </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { fmtDataBR } from '@/lib/dates';
 import { TimesheetCategoria } from '@/types/timesheet';
 import type { TimesheetConfig } from '@/hooks/useTimesheetConfig';
 import { REFERENCIA_CONFIG, CATEGORIA_TO_REF, type ReferenciaTipo, type ReferenciaItem } from '@/components/Timesheet/shared';
@@ -62,7 +63,7 @@ export function useTimesheetTimer({ activeTimer, startTimer, config, user, navig
           if (ids.length === 0) { setRefItems([]); return; }
           const { data } = await supabase.from("prazos").select("id, titulo, data_fim_prazo, data_vencimento")
             .in("processo_id", ids).eq("deletado", false).order("data_fim_prazo", { ascending: true }).limit(50);
-          setRefItems((data || []).map((r: any) => { const dt = r.data_fim_prazo || r.data_vencimento; return { id: r.id, label: r.titulo || "Sem título", sublabel: dt ? `Vence ${new Date(dt).toLocaleDateString("pt-BR")}` : undefined }; }));
+          setRefItems((data || []).map((r: any) => { const dt = r.data_fim_prazo || r.data_vencimento; return { id: r.id, label: r.titulo || "Sem título", sublabel: dt ? `Vence ${fmtDataBR(dt)}` : undefined }; }));
           return;
         }
         let q = (supabase as any).from(cfg.table)
@@ -71,7 +72,7 @@ export function useTimesheetTimer({ activeTimer, startTimer, config, user, navig
           .order(cfg.dateField || "created_at", { ascending: false }).limit(50);
         if (clienteId && cfg.clienteField) q = q.eq(cfg.clienteField, clienteId);
         const { data } = await q;
-        setRefItems((data || []).map((r: any) => ({ id: r.id, label: r[cfg.labelField] || "Sem título", sublabel: cfg.dateField ? new Date(r[cfg.dateField]).toLocaleDateString("pt-BR") : undefined })));
+        setRefItems((data || []).map((r: any) => ({ id: r.id, label: r[cfg.labelField] || "Sem título", sublabel: cfg.dateField ? fmtDataBR(r[cfg.dateField]) : undefined })));
       } finally { setRefLoading(false); }
     };
     fetchItems();

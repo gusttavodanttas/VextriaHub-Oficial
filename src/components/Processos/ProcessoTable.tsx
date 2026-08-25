@@ -8,6 +8,7 @@ import {
   TableRow 
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { fmtDataBR } from '@/lib/dates';
 import { Processo } from '@/types/processo';
 import { Button } from '@/components/ui/button';
 import { MoreHorizontal, Edit, Trash2, FileText, Building2, ExternalLink, CalendarDays } from 'lucide-react';
@@ -88,7 +89,7 @@ export const ProcessoTable: React.FC<ProcessoTableProps> = ({
                     {processo.dataInicio && (
                       <div className="flex items-center gap-1.5 pl-3.5">
                         <CalendarDays className="h-3 w-3 text-muted-foreground/40" />
-                        <span className="text-[10px] text-muted-foreground/60">Distribuído em {new Date(processo.dataInicio).toLocaleDateString('pt-BR')}</span>
+                        <span className="text-[10px] text-muted-foreground/60">Distribuído em {fmtDataBR(processo.dataInicio)}</span>
                       </div>
                     )}
                   </div>
