@@ -479,7 +479,18 @@ const Tarefas = () => {
         )}>
         <div className="flex items-start gap-2">
           <span className={cn("mt-1 h-2 w-2 rounded-full shrink-0", meta.dot)} />
-          <p className={cn("text-sm font-bold leading-snug", t.concluida && "line-through text-muted-foreground")}>{t.titulo}</p>
+          <p className={cn("flex-1 text-sm font-bold leading-snug", t.concluida && "line-through text-muted-foreground")}>{t.titulo}</p>
+          {/* Adiar 1 dia direto no card do Kanban (stopPropagation p/ não abrir o form
+              nem iniciar o arrasto) */}
+          {!t.concluida && (
+            <button type="button" draggable={false}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); adiar.mutate(t); }}
+              title="Adiar para o dia seguinte"
+              className="shrink-0 -mt-0.5 -mr-0.5 h-6 w-6 rounded-md flex items-center justify-center text-amber-600 hover:text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 transition-colors">
+              <CalendarClock className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[10px] text-muted-foreground font-medium pl-4">
           {t.cliente_nome && <span className="flex items-center gap-1 truncate max-w-[140px]"><User className="h-3 w-3 shrink-0" />{t.cliente_nome}</span>}
