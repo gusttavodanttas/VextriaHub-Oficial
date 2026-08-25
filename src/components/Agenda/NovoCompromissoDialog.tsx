@@ -144,8 +144,10 @@ export const NovoCompromissoDialog: React.FC<NovoCompromissoDialogProps> = ({
         datetime.setHours(h, m);
       }
       const dataYmd = format(formData.data, "yyyy-MM-dd");
-      const clienteId = formData.cliente_id === NONE ? null : formData.cliente_id;
-      const processoId = formData.processo_id === NONE ? null : formData.processo_id;
+      // Trata NONE E "" como null: o ClientSelect emite "" ao limpar (botão X), e
+      // "" numa coluna uuid dá "invalid input syntax for type uuid". (v12)
+      const clienteId = formData.cliente_id === NONE || formData.cliente_id === "" ? null : formData.cliente_id;
+      const processoId = formData.processo_id === NONE || formData.processo_id === "" ? null : formData.processo_id;
 
       let error: any;
 

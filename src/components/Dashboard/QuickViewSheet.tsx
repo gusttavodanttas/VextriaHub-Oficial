@@ -52,18 +52,21 @@ function PrazosView({ officeId }: { officeId: string }) {
 
   useEffect(() => {
     const fetch = async () => {
-      const today = new Date().toISOString().split("T")[0];
+      // Espelha o KPI "Prazos vencendo" (useStats): pendentes, não-deletados, com
+      // fatal até hoje+3, INCLUINDO os vencidos. Antes o .gte(hoje) escondia os
+      // atrasados — o card contava 3 e o vencido sumia da lista ao clicar. (v12)
+      const horizonte = new Date(Date.now() + 3 * 86400000).toISOString().split("T")[0];
       const { data } = await supabase
         .from("prazos")
         .select("id, titulo, tipo_prazo, numero_processo, data_fim_prazo, status, deletado, publicacoes(titulo)")
         .eq("office_id", officeId)
-        .gte("data_fim_prazo", today)
+        .eq("deletado", false)
+        .neq("status", "concluido")
+        .lte("data_fim_prazo", horizonte)
         .order("data_fim_prazo", { ascending: true })
         .limit(20);
       setItems((data || [])
-        // Sem isto, prazos na lixeira ou já concluídos entravam como "fantasmas"
-        // na visão rápida (filtro em JS resiliente a null, como no usePrazosData). (v11)
-        .filter((p: any) => !p.deletado && p.status !== "concluido")
+        .filter((p: any) => !p.deletado && p.status !== "concluido" && p.data_fim_prazo)
         .map((p: any) => {
         const diff = Math.ceil((new Date(p.data_fim_prazo).getTime() - new Date().setHours(0,0,0,0)) / 86400000);
         return {
@@ -87,13 +90,14 @@ function PrazosView({ officeId }: { officeId: string }) {
 
   const getDaysLabel = (dateStr: string) => {
     const diff = differenceInDays(parseISO(dateStr), new Date());
+    if (diff < 0) return { label: `Vencido há ${Math.abs(diff)}d`, cls: "text-red-600 font-black" };
     if (diff === 0) return { label: "Hoje", cls: "text-red-500 font-black" };
     if (diff === 1) return { label: "Amanhã", cls: "text-orange-500 font-bold" };
     return { label: `em ${diff}d`, cls: "text-muted-foreground" };
   };
 
   if (loading) return <LoadingRows />;
-  if (!items.length) return <EmptyItem label="Nenhum prazo pendente nos próximos dias" />;
+  if (!items.length) return <EmptyItem label="Nenhum prazo vencido ou vencendo" />;
 
   return (
     <div className="space-y-2">
