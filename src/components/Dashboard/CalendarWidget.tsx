@@ -65,12 +65,13 @@ export function CalendarWidget({ refreshKey }: { refreshKey?: number }) {
           .gte("prazo", start).lte("prazo", end),
       ]);
 
-      // Nº do processo das audiências (para mostrar na frente) — resolve processo_id → numero em 1 query.
+      // Cliente + nº do processo das audiências (para mostrar na frente) — a audiência
+      // costuma não ter cliente direto, só o processo; então o nome vem do processo. (v11)
       const audProcIds = Array.from(new Set(((audiencias as any[]) || []).map(a => a.processo_id).filter(Boolean)));
-      let procMap: Record<string, string> = {};
+      let procMap: Record<string, { numero?: string; cliente?: string }> = {};
       if (audProcIds.length) {
-        const { data: procs } = await supabase.from("processos").select("id, numero_processo").in("id", audProcIds);
-        procMap = Object.fromEntries(((procs as any[]) || []).map(p => [p.id, p.numero_processo]));
+        const { data: procs } = await supabase.from("processos").select("id, numero_processo, parte_autora, clientes!cliente_id(nome)").in("id", audProcIds);
+        procMap = Object.fromEntries(((procs as any[]) || []).map(p => [p.id, { numero: p.numero_processo, cliente: p.clientes?.nome || p.parte_autora || undefined }]));
       }
 
       const map: Record<string, DayEvent[]> = {};
@@ -87,8 +88,9 @@ export function CalendarWidget({ refreshKey }: { refreshKey?: number }) {
         const d = new Date(a.data_audiencia);
         const k = format(d, "yyyy-MM-dd");
         if (!map[k]) map[k] = [];
-        const parte = a.clientes?.nome as string | undefined;
-        const numero = a.processo_id ? procMap[a.processo_id] : undefined;
+        const info = a.processo_id ? procMap[a.processo_id] : undefined;
+        const parte = (a.clientes?.nome as string | undefined) || info?.cliente; // audiência própria → processo
+        const numero = info?.numero;
         map[k].push({
           type: "audiencia", id: a.id, titulo: a.titulo || "Audiência", hora: format(d, "HH:mm"),
           sub: [parte, numero].filter(Boolean).join(" · ") || undefined,

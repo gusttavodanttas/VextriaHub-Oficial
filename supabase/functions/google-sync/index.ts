@@ -82,12 +82,13 @@ async function syncOne(service: any, gi: any, CLIENT_ID: string, CLIENT_SECRET: 
       .eq("office_id", gi.office_id).not("status", "in", "(realizada,cancelada)");
     if (ea) throw new Error("read-audiencias:" + ea.message); // ABORTA
 
-    // Nº do processo das audiências (para pôr no evento) — resolve processo_id → numero.
+    // Cliente + nº do processo das audiências — a audiência costuma não ter cliente
+    // direto, só o processo; então o nome da parte vem do processo.
     const audProcIds = [...new Set(((auds || []) as any[]).map((a) => a.processo_id).filter(Boolean))];
-    const audProcNum: Record<string, string> = {};
+    const audProc: Record<string, { numero?: string; cliente?: string }> = {};
     if (audProcIds.length) {
-      const { data: procs } = await service.from("processos").select("id, numero_processo").in("id", audProcIds);
-      for (const p of (procs || []) as any[]) audProcNum[p.id] = p.numero_processo;
+      const { data: procs } = await service.from("processos").select("id, numero_processo, parte_autora, clientes!cliente_id(nome)").in("id", audProcIds);
+      for (const p of (procs || []) as any[]) audProc[p.id] = { numero: p.numero_processo, cliente: p.clientes?.nome || p.parte_autora || undefined };
     }
     // deno-lint-ignore no-explicit-any
     for (const a of (auds || []) as any[]) {
@@ -95,8 +96,9 @@ async function syncOne(service: any, gi: any, CLIENT_ID: string, CLIENT_SECRET: 
       if (localYmd(new Date(a.data_audiencia)) < hoje) continue; // corte "é de hoje?" no fuso local
       const start = new Date(a.data_audiencia);
       const end = new Date(start.getTime() + 60 * 60 * 1000);
-      const parte = a.clientes?.nome as string | undefined;
-      const numero = a.processo_id ? audProcNum[a.processo_id] : undefined;
+      const info = a.processo_id ? audProc[a.processo_id] : undefined;
+      const parte = (a.clientes?.nome as string | undefined) || info?.cliente;
+      const numero = info?.numero;
       const summary = `🏛️ ${a.titulo || "Audiência"}${parte ? " — " + parte : ""}`;
       const description = [numero ? "Processo: " + numero : null, parte ? "Parte: " + parte : null].filter(Boolean).join("\n") || undefined;
       items.push({ source_type: "audiencia", source_id: a.id, event: {
