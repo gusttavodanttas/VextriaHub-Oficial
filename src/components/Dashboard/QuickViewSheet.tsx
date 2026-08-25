@@ -351,7 +351,7 @@ function ClientesView({ officeId }: { officeId: string }) {
         .eq("office_id", officeId)
         .eq("deletado", false)
         .eq("deletado_pendente", false)
-        .in("status", ["ativo", "convertido"])
+        .or("status.ilike.ativo,status.ilike.convertido")
         .order("nome", { ascending: true })
         .limit(20);
       setItems(data || []);

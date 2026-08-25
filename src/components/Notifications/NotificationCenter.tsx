@@ -7,6 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications, NotificationType } from '@/hooks/useNotifications';
 
@@ -50,6 +51,7 @@ export const NotificationCenter: React.FC = () => {
   } = useNotifications();
   
   const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
   const { user } = useAuth();
 
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -181,7 +183,10 @@ export const NotificationCenter: React.FC = () => {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   if (notification.actionUrl) {
-                                    window.location.href = notification.actionUrl;
+                                    setIsOpen(false);
+                                    // SPA nav p/ rota interna (evita reload cheio); externa cai no href.
+                                    if (notification.actionUrl.startsWith('/')) navigate(notification.actionUrl);
+                                    else window.location.href = notification.actionUrl;
                                   }
                                 }}
                                 className="h-auto py-1 px-2 text-xs text-primary hover:text-primary"
@@ -216,7 +221,7 @@ export const NotificationCenter: React.FC = () => {
               variant="ghost" 
               size="sm" 
               className="w-full text-xs"
-              onClick={() => setIsOpen(false)}
+              onClick={() => { setIsOpen(false); navigate('/notificacoes'); }}
             >
               Ver todas as notificações
             </Button>

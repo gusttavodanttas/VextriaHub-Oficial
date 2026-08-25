@@ -46,7 +46,8 @@ export function useStats() {
         // case-insensitive: o status é gravado misturado ('ativo' e 'Ativo') → o KPI divergia da tela Clientes.
         supabase.from('clientes').select('id', { count: 'exact' }).eq('office_id', officeId).eq('deletado', false).eq('deletado_pendente', false).or('status.ilike.ativo,status.ilike.convertido'),
         supabase.from('tarefas').select('concluida', { count: 'exact' }).eq('office_id', officeId).eq('deletado', false),
-        supabase.from('audiencias').select('id', { count: 'exact' }).eq('office_id', officeId).eq('deletado', false).gte('data_audiencia', new Date().toISOString()).lte('data_audiencia', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()),
+        // exclui canceladas/realizadas (igual CalendarWidget/useAgendaEvents) — senão o KPI inflava. (v12)
+        supabase.from('audiencias').select('id', { count: 'exact' }).eq('office_id', officeId).eq('deletado', false).not('status', 'in', '(cancelada,realizada)').gte('data_audiencia', new Date().toISOString()).lte('data_audiencia', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()),
         // "prazos vencendo": não-deletados, não-concluídos, com fatal até 3 dias à frente — INCLUINDO vencidos (o mais urgente num produto jurídico). Antes contava lixeira e ignorava atrasados.
         supabase.from('prazos').select('id', { count: 'exact' }).eq('office_id', officeId).eq('deletado', false).neq('status', 'concluido').lte('data_fim_prazo', new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]),
         // "do mês" pela data_vencimento (data de negócio), igual à página Financeiro — antes era created_at e os totais divergiam.

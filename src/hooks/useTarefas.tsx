@@ -200,9 +200,11 @@ export function useTarefas() {
     mutationFn: async ({ id, concluida, tarefa }: { id: string; concluida: boolean; tarefa?: Tarefa }) => {
       const now = new Date().toISOString();
       // 1) marca concluída/reaberta com auditoria (data/autor); fallback se as colunas não existirem
+      // Seta status junto de concluida — antes ficava 'pendente' com concluida=true,
+      // e qualquer relatório que filtre por status contava errado. (v12)
       const full: any = concluida
-        ? { concluida: true, concluida_em: now, concluida_por: user?.id, recorrencia_restantes: 0 }
-        : { concluida: false, concluida_em: null, concluida_por: null };
+        ? { concluida: true, status: 'concluida', concluida_em: now, concluida_por: user?.id, recorrencia_restantes: 0 }
+        : { concluida: false, status: 'pendente', concluida_em: null, concluida_por: null };
       let { error } = await supabase.from("tarefas").update(full).eq("id", id);
       if (error) ({ error } = await supabase.from("tarefas").update({ concluida }).eq("id", id));
       if (error) throw error;
@@ -235,8 +237,8 @@ export function useTarefas() {
         recorrentes = ((data || []) as Tarefa[]).filter((t) => t.recorrencia_regra && (t.recorrencia_restantes ?? 0) > 0 && t.data_vencimento);
       }
       const payload: Record<string, any> = { ...(patch || {}) };
-      if (concluir === true) Object.assign(payload, { concluida: true, concluida_em: now, concluida_por: user?.id ?? null, recorrencia_restantes: 0 });
-      if (concluir === false) Object.assign(payload, { concluida: false, concluida_em: null, concluida_por: null });
+      if (concluir === true) Object.assign(payload, { concluida: true, status: 'concluida', concluida_em: now, concluida_por: user?.id ?? null, recorrencia_restantes: 0 });
+      if (concluir === false) Object.assign(payload, { concluida: false, status: 'pendente', concluida_em: null, concluida_por: null });
       const { error } = await supabase.from("tarefas").update(payload).in("id", ids);
       if (error) throw error;
       // Gera a próxima ocorrência de cada recorrente concluída (não deixa a série morrer no bulk).
