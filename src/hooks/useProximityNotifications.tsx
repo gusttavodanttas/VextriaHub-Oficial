@@ -73,7 +73,7 @@ export function useProximityNotifications() {
             candidatos.push({
               user_id: user.id, type: "warning",
               title: `Prazo ${proxLabel(fatal)}`,
-              message: `${p.publicacoes?.titulo || p.tipo_prazo || p.numero_processo || "Prazo"} — vence ${proxLabel(fatal)}`,
+              message: `${p.titulo || p.publicacoes?.titulo || p.tipo_prazo || p.numero_processo || "Prazo"} — vence ${proxLabel(fatal)}`,
               data: { action_url: `/prazos?openId=${p.id}&d=${D}`, action_label: "Ver prazo" }, read: false,
             });
           });

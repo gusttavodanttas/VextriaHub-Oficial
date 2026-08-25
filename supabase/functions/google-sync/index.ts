@@ -70,8 +70,8 @@ async function syncOne(service: any, gi: any, CLIENT_ID: string, CLIENT_SECRET: 
       if (p.deletado || p.titular === "contraria") continue;
       const fatal = p.data_fim_prazo || p.data_vencimento;
       if (!fatal || String(fatal) < hoje) continue;
-      const summary = `⚖️ ${p.tipo_prazo || "Prazo"}${p.numero_processo ? " — " + p.numero_processo : ""}`;
-      const description = [p.titulo, p.descricao].filter(Boolean).join("\n") || undefined;
+      const summary = `⚖️ ${p.titulo || p.tipo_prazo || "Prazo"}${p.numero_processo ? " — " + p.numero_processo : ""}`;
+      const description = [p.tipo_prazo, p.descricao].filter(Boolean).join("\n") || undefined;
       items.push({ source_type: "prazo", source_id: p.id, event: {
         summary, description, start: { date: String(fatal) }, end: { date: addDay(String(fatal)) },
       }});
