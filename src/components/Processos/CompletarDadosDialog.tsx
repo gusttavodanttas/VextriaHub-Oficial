@@ -52,7 +52,18 @@ export function CompletarDadosDialog({ open, onOpenChange, processoId, numeroPro
       const { data, error } = await supabase.functions.invoke("fetch-processo", {
         body: { numeroProcesso, oab: (profile as any)?.oab, uf: (profile as any)?.oab_uf },
       });
-      if (error || !data) throw new Error(error?.message || "Processo não localizado no tribunal.");
+      if (error) {
+        // A FunctionsHttpError do supabase-js esconde o corpo (mostra só "non-2xx status
+        // code"). Lê a mensagem REAL do edge (404 "não encontrado", 402 paywall, etc.). (v12)
+        let msg = "Processo não localizado no tribunal.";
+        try { const body = await (error as any).context?.json?.(); if (body?.error) msg = String(body.error); } catch { /* usa o default */ }
+        // Recém-protocolado costuma não estar no DataJud/PJe ainda → dica clara e acionável.
+        if (/não encontrad|não localizad/i.test(msg)) {
+          msg = "Processo não encontrado nos tribunais (DataJud/PJe). Se foi protocolado há pouco, pode levar alguns dias para ser indexado — o número já está salvo e você pode tentar de novo mais tarde.";
+        }
+        throw new Error(msg);
+      }
+      if (!data) throw new Error("Processo não localizado no tribunal.");
 
       // Estado atual do processo (só as colunas que podemos completar)
       const cols = FIELDS.map((f) => f.col).join(", ");
