@@ -43,22 +43,28 @@ export interface TarefaInput {
   avisos_dias?: number[] | null;
 }
 
+// Coloca null onde chega string vazia numa coluna uuid — senão o Postgres rejeita
+// com "invalid input syntax for type uuid: \"\"". `?? null` NÃO pega "" (só null/
+// undefined), então "" de qualquer chamador (inclusive bundle antigo em cache)
+// quebrava o salvar. Aqui é o gargalo único de todo write de tarefa. (v11)
+const uuidOrNull = (v: unknown) => (v === "" || v == null ? null : (v as string));
+
 // Monta o payload de insert/update incluindo atendimento_id só quando há valor
 // (evita erro caso a coluna ainda não tenha sido criada via SQL).
 function buildPayload(input: Partial<TarefaInput>) {
   const p: TablesUpdate<"tarefas"> = {};
   if (input.titulo !== undefined) p.titulo = input.titulo;
   if (input.descricao !== undefined) p.descricao = input.descricao;
-  if (input.data_vencimento !== undefined) p.data_vencimento = input.data_vencimento;
+  if (input.data_vencimento !== undefined) p.data_vencimento = input.data_vencimento || null;
   if (input.prioridade !== undefined) p.prioridade = input.prioridade;
-  if (input.cliente_id !== undefined) p.cliente_id = input.cliente_id;
-  if (input.processo_id !== undefined) p.processo_id = input.processo_id;
+  if (input.cliente_id !== undefined) p.cliente_id = uuidOrNull(input.cliente_id);
+  if (input.processo_id !== undefined) p.processo_id = uuidOrNull(input.processo_id);
   if (input.atendimento_id) p.atendimento_id = input.atendimento_id;
   // Recorrência: usa "in" para permitir limpar (null) ao editar a série.
-  if ("recorrencia_grupo" in input) p.recorrencia_grupo = input.recorrencia_grupo ?? null;
+  if ("recorrencia_grupo" in input) p.recorrencia_grupo = uuidOrNull(input.recorrencia_grupo);
   if ("recorrencia_regra" in input) p.recorrencia_regra = input.recorrencia_regra ?? null;
   if ("recorrencia_restantes" in input) p.recorrencia_restantes = input.recorrencia_restantes ?? null;
-  if (input.responsavel_id !== undefined) p.responsavel_id = input.responsavel_id;
+  if (input.responsavel_id !== undefined) p.responsavel_id = uuidOrNull(input.responsavel_id);
   if (input.avisos_dias !== undefined) p.avisos_dias = input.avisos_dias;
   return p;
 }
@@ -150,6 +156,22 @@ export function useTarefas() {
     onError: (e: any) => toast({ title: "Erro ao atualizar", description: e.message, variant: "destructive" }),
   });
 
+  // Adia o vencimento para o dia seguinte (1 clique, sem abrir o formulário).
+  // Nunca puxa pra trás: parte do MAIOR entre hoje e o vencimento atual, +1 dia —
+  // então tarefa vencida/de hoje vai pra amanhã e tarefa futura anda 1 dia. (v11)
+  const adiar = useMutation({
+    mutationFn: async (tarefa: Tarefa) => {
+      const hoje = new Date(); hoje.setHours(12, 0, 0, 0);
+      const due = tarefa.data_vencimento ? new Date(`${tarefa.data_vencimento}T12:00:00`) : hoje;
+      const base = due > hoje ? due : hoje;
+      base.setDate(base.getDate() + 1);
+      const { error } = await supabase.from("tarefas").update({ data_vencimento: format(base, "yyyy-MM-dd") }).eq("id", tarefa.id);
+      if (error) throw error;
+    },
+    onSuccess: () => { invalidate(); toast({ title: "Tarefa adiada", description: "Vencimento movido para o dia seguinte." }); },
+    onError: (e: any) => toast({ title: "Erro ao adiar", description: e.message, variant: "destructive" }),
+  });
+
   // Gera a PRÓXIMA ocorrência de uma tarefa recorrente concluída (best-effort). Usado
   // tanto na conclusão individual quanto EM MASSA (antes o bulk encerrava a série).
   const gerarProximaOcorrencia = async (tarefa: Tarefa) => {
@@ -224,5 +246,5 @@ export function useTarefas() {
     onError: (e: any) => toast({ title: "Erro ao atualizar", description: e.message, variant: "destructive" }),
   });
 
-  return { tarefas, isLoading, create, createMany, update, toggle, remove, bulkPatch };
+  return { tarefas, isLoading, create, createMany, update, adiar, toggle, remove, bulkPatch };
 }

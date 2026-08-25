@@ -53,7 +53,7 @@ function StatCard({ icon: Icon, label, value, color, bg, active, onClick }: { ic
 
 const Tarefas = () => {
   const navigate = useNavigate();
-  const { tarefas, isLoading, create, createMany, update, toggle, remove, bulkPatch } = useTarefas();
+  const { tarefas, isLoading, create, createMany, update, adiar, toggle, remove, bulkPatch } = useTarefas();
   const { data: clientesData } = useClientes();
   const { data: processosData } = useProcessosV2();
   const { users: officeUsers } = useOfficeUsers();
@@ -429,13 +429,28 @@ const Tarefas = () => {
         )}
 
         {/* Ações (sempre visíveis no mobile; hover no desktop) */}
+        {/* Adiar 1 dia: SEMPRE visível (triagem rápida do dia, 1 clique, sem abrir o form) */}
+        {!t.concluida && (
+          <Button variant="ghost" size="sm"
+            className="h-8 shrink-0 px-2 gap-1.5 rounded-lg text-amber-600 hover:text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 border border-amber-500/20"
+            onClick={(e) => { e.stopPropagation(); adiar.mutate(t); }}
+            title="Adiar para o dia seguinte">
+            <CalendarClock className="h-3.5 w-3.5" /><span className="hidden sm:inline text-[11px] font-bold">Adiar</span>
+          </Button>
+        )}
+
         <div onClick={(e) => e.stopPropagation()} className="flex items-center max-sm:opacity-100 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
           <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg" onClick={() => openEdit(t)}><Pencil className="h-3.5 w-3.5" /></Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg"><MoreHorizontal className="h-4 w-4" /></Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="rounded-xl w-40">
+            <DropdownMenuContent align="end" className="rounded-xl w-44">
+              {!t.concluida && (
+                <DropdownMenuItem className="rounded-lg gap-2" onClick={() => adiar.mutate(t)}>
+                  <CalendarClock className="h-4 w-4" /> Adiar p/ o dia seguinte
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem className="rounded-lg gap-2" onClick={() => toggle.mutate({ id: t.id, concluida: !t.concluida, tarefa: t })}>
                 <CheckCircle2 className="h-4 w-4" /> {t.concluida ? "Reabrir" : "Concluir"}
               </DropdownMenuItem>
