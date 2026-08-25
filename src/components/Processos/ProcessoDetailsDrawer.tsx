@@ -155,6 +155,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
 
   const [editData, setEditData] = useState({
     titulo: '',
+    numero_processo: '',
     parte_autora: '',
     requerido: '',
     classe_judicial: '',
@@ -184,6 +185,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
     if (processo && open) {
       setEditData({
         titulo: processo.titulo || '',
+        numero_processo: processo.numeroProcesso || '',
         parte_autora: processo.parteAutora || '',
         requerido: processo.requerido || '',
         classe_judicial: processo.classeJudicial || processo.tipoProcesso || '',
@@ -213,6 +215,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
     try {
       await update(processo.id, {
         titulo: editData.titulo,
+        numeroProcesso: editData.numero_processo,
         parteAutora: editData.parte_autora,
         requerido: editData.requerido,
         classeJudicial: editData.classe_judicial,
@@ -229,7 +232,14 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
       } as any);
       setEditing(false);
     } catch (e: unknown) {
-      toast({ title: 'Erro ao salvar', description: getErrorMessage(e), variant: 'destructive' });
+      // Nº CNJ duplicado bate no índice único (office_id, numero_processo) → mensagem amigável.
+      const msg = getErrorMessage(e);
+      const dup = /duplicate|unique|23505|numero_processo/i.test(msg);
+      toast({
+        title: dup ? 'Número já cadastrado' : 'Erro ao salvar',
+        description: dup ? 'Já existe um processo com esse número neste escritório.' : msg,
+        variant: 'destructive',
+      });
     } finally {
       setSaving(false);
     }
@@ -415,8 +425,22 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
               )}
 
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-primary/50 animate-pulse" />
-                <span className="font-mono text-sm font-bold text-primary tracking-tight">{formatCNJ(processo.numeroProcesso)}</span>
+                <div className="w-2 h-2 rounded-full bg-primary/50 animate-pulse shrink-0" />
+                {editing ? (
+                  <Input
+                    className="font-mono text-sm h-9 rounded-lg bg-background border-border max-w-[24rem]"
+                    value={editData.numero_processo}
+                    onChange={(e) => setEditData({ ...editData, numero_processo: e.target.value })}
+                    placeholder="Número CNJ — preencher após protocolar"
+                  />
+                ) : processo.numeroProcesso ? (
+                  <span className="font-mono text-sm font-bold text-primary tracking-tight">{formatCNJ(processo.numeroProcesso)}</span>
+                ) : (
+                  <button type="button" onClick={() => setEditing(true)}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline">
+                    <Edit className="h-3.5 w-3.5" /> Sem número — adicionar o número do processo
+                  </button>
+                )}
               </div>
             </div>
 
