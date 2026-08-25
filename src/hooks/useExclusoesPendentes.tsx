@@ -8,11 +8,14 @@ export const useExclusoesPendentes = () => {
   const [data, setData] = useState<ExclusaoPendente[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { user, isSuperAdmin } = useAuth();
+  const { user, isSuperAdmin, isOfficeAdmin } = useAuth();
   const { toast } = useToast();
+  // Admin do escritório também gerencia as exclusões do PRÓPRIO escritório (a RLS
+  // excl_*_office_admin garante o escopo por office_id); super_admin vê tudo. (v11)
+  const canManage = isSuperAdmin || isOfficeAdmin;
 
   const fetchData = useCallback(async () => {
-    if (!user || !isSuperAdmin) {
+    if (!user || !canManage) {
       setData([]);
       setLoading(false);
       return;
@@ -56,10 +59,10 @@ export const useExclusoesPendentes = () => {
     } finally {
       setLoading(false);
     }
-  }, [user, isSuperAdmin, toast]);
+  }, [user, canManage, toast]);
 
   const aprovarExclusao = useCallback(async (exclusaoId: string) => {
-    if (!user || !isSuperAdmin) return false;
+    if (!user || !canManage) return false;
 
     try {
       const exclusao = data.find(e => e.id === exclusaoId);
@@ -105,10 +108,10 @@ export const useExclusoesPendentes = () => {
       });
       return false;
     }
-  }, [data, user, isSuperAdmin, toast]);
+  }, [data, user, canManage, toast]);
 
   const rejeitarExclusao = useCallback(async (exclusaoId: string) => {
-    if (!user || !isSuperAdmin) return false;
+    if (!user || !canManage) return false;
 
     try {
       const exclusao = data.find(e => e.id === exclusaoId);
@@ -151,10 +154,10 @@ export const useExclusoesPendentes = () => {
       });
       return false;
     }
-  }, [data, user, isSuperAdmin, toast]);
+  }, [data, user, canManage, toast]);
 
   const aprovarMultiplasExclusoes = useCallback(async (exclusaoIds: string[]) => {
-    if (!user || !isSuperAdmin) return false;
+    if (!user || !canManage) return false;
 
     try {
       const exclusoes = data.filter(e => exclusaoIds.includes(e.id));
@@ -200,7 +203,7 @@ export const useExclusoesPendentes = () => {
       });
       return false;
     }
-  }, [data, user, isSuperAdmin, toast]);
+  }, [data, user, canManage, toast]);
 
   useEffect(() => {
     fetchData();
@@ -215,6 +218,6 @@ export const useExclusoesPendentes = () => {
     rejeitarExclusao,
     aprovarMultiplasExclusoes,
     isEmpty: data.length === 0 && !loading,
-    canManage: isSuperAdmin,
-  }), [data, loading, error, fetchData, aprovarExclusao, rejeitarExclusao, aprovarMultiplasExclusoes, isSuperAdmin]);
+    canManage,
+  }), [data, loading, error, fetchData, aprovarExclusao, rejeitarExclusao, aprovarMultiplasExclusoes, canManage]);
 };

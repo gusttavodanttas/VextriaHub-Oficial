@@ -182,6 +182,22 @@ export function AppSidebar() {
                         </SidebarMenuItem>
                       ));
                     })()}
+                    {/* Admin do escritório (sem canViewAdmin) gerencia as exclusões do
+                        próprio escritório — link dedicado e claro (a página /admin cai
+                        na visão "Solicitações de Exclusão" para não-super). (v11) */}
+                    {canManageOffice && !canViewAdmin && !isSuperAdmin && (() => {
+                      const isActive = isLinkActive('/admin');
+                      return wrapTooltip('solicitacoes', 'Solicitações de Exclusão', (
+                        <SidebarMenuItem key="solicitacoes">
+                          <SidebarMenuButton asChild className="p-0" isActive={isActive}>
+                            <NavLink to="/admin?tab=requests" className={() => getNavClasses(isActive)}>
+                              <AlertCircle className="h-4 w-4 shrink-0" />
+                              {!collapsed && <span className="truncate">Solicitações</span>}
+                            </NavLink>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      ));
+                    })()}
                     {canManageOffice && !isSuperAdmin && (() => {
                       const isActive = isLinkActive('/escritorio');
                       return wrapTooltip('escritorio', 'Meu Escritório', (

@@ -112,7 +112,9 @@ const Admin = () => {
     );
   }
 
-  if (!canViewAdminFeatures) {
+  // Admin do escritório (canManage) entra para gerenciar as exclusões do próprio
+  // escritório — cai na "Non-super admin view" (só Solicitações de Exclusão). (v11)
+  if (!canViewAdminFeatures && !canManage) {
     return (
       <div className="container mx-auto p-6 flex items-center justify-center min-h-[60vh]">
         <Card className="max-w-md w-full">
