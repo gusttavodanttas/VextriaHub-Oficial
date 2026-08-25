@@ -156,6 +156,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
   const [editData, setEditData] = useState({
     titulo: '',
     numero_processo: '',
+    status: 'Em andamento',
     parte_autora: '',
     requerido: '',
     classe_judicial: '',
@@ -186,6 +187,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
       setEditData({
         titulo: processo.titulo || '',
         numero_processo: processo.numeroProcesso || '',
+        status: processo.status || 'Em andamento',
         parte_autora: processo.parteAutora || '',
         requerido: processo.requerido || '',
         classe_judicial: processo.classeJudicial || processo.tipoProcesso || '',
@@ -216,6 +218,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
       await update(processo.id, {
         titulo: editData.titulo,
         numeroProcesso: editData.numero_processo,
+        status: editData.status,
         parteAutora: editData.parte_autora,
         requerido: editData.requerido,
         classeJudicial: editData.classe_judicial,
@@ -599,6 +602,25 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                         )}
                       </div>
                     )}
+
+                    {/* Situação / Status do processo (Em andamento / Suspenso / Concluído) */}
+                    <div className="space-y-1.5">
+                      <p className="text-[10px] text-muted-foreground/60 uppercase font-black tracking-widest">Situação</p>
+                      {editing ? (
+                        <Select value={editData.status || 'Em andamento'} onValueChange={(v) => setEditData({ ...editData, status: v })}>
+                          <SelectTrigger className="h-10 text-sm rounded-xl bg-background border-border"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Em andamento">Em andamento</SelectItem>
+                            <SelectItem value="Suspenso">Suspenso</SelectItem>
+                            <SelectItem value="Concluído">Concluído / Encerrado</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <div className="flex items-center gap-2 min-h-[40px] px-3 py-2 rounded-xl bg-muted/20 border border-transparent">
+                          <p className="text-sm font-semibold">{editData.status || 'Em andamento'}</p>
+                        </div>
+                      )}
+                    </div>
 
                     {/* Resultado / Desfecho */}
                     <div className="space-y-1.5">

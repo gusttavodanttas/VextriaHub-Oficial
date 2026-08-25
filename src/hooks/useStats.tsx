@@ -42,7 +42,8 @@ export function useStats() {
         processosResult, clientesResult, tarefasResult, audienciasResult,
         prazosResult, financeiroResult, colaboradoresResult,
       ] = await Promise.all([
-        supabase.from('processos').select('id', { count: 'exact' }).eq('office_id', officeId).eq('deletado', false).neq('status', 'encerrado'),
+        // ativos = status 'ativo' (= display "Em andamento"). Concluído/Suspenso saem do KPI. (v12)
+        supabase.from('processos').select('id', { count: 'exact' }).eq('office_id', officeId).eq('deletado', false).eq('status', 'ativo'),
         // case-insensitive: o status é gravado misturado ('ativo' e 'Ativo') → o KPI divergia da tela Clientes.
         supabase.from('clientes').select('id', { count: 'exact' }).eq('office_id', officeId).eq('deletado', false).eq('deletado_pendente', false).or('status.ilike.ativo,status.ilike.convertido'),
         supabase.from('tarefas').select('concluida', { count: 'exact' }).eq('office_id', officeId).eq('deletado', false),
