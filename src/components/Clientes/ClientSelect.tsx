@@ -64,18 +64,39 @@ export const ClientSelect: React.FC<ClientSelectProps> = ({ value, onValueChange
     return base.slice(0, 50);
   }, [clients, query]);
 
+  // Já existe um cliente com EXATAMENTE este nome (normalizado)? Então não oferecemos
+  // "cadastrar novo" — evita o usuário duplicar o cliente ao adicionar tarefa/etc. (v11)
+  const exactMatch = useMemo(() => {
+    const q = norm(query);
+    return q ? clients.find((c) => norm(c.nome) === q) : undefined;
+  }, [clients, query]);
+
   const pick = (id: string, nome: string) => { onValueChange(id, nome); setQuery(nome); setOpen(false); };
 
-  const openCreate = () => { setCreateName(query.trim()); setOpen(false); setCreateOpen(true); };
+  const openCreate = () => {
+    // Dedup: se o nome digitado bate com um cliente existente, SELECIONA em vez de
+    // abrir o cadastro (senão vira cliente duplicado).
+    if (exactMatch) { pick(exactMatch.id, exactMatch.nome); return; }
+    setCreateName(query.trim()); setOpen(false); setCreateOpen(true);
+  };
 
   // Cadastra um novo cliente na hora e já seleciona
   const handleCreate = async (c: any): Promise<boolean> => {
     if (!user?.office_id) return false;
+    // Guarda final contra duplicata: se já há cliente com o mesmo nome (normalizado),
+    // seleciona-o em vez de inserir de novo. Cobre também lista carregada há pouco.
+    const dupe = clients.find((cl) => norm(cl.nome) === norm(c.name));
+    if (dupe) {
+      onValueChange(dupe.id, dupe.nome);
+      setQuery(dupe.nome);
+      toast({ title: "Cliente já cadastrado", description: `${dupe.nome} foi selecionado (não dupliquei).` });
+      return true;
+    }
     const payload = {
       nome: c.name, email: c.email || null, telefone: c.phone || null,
       cpf_cnpj: onlyDigits(c.cpfCnpj) || null, tipo_pessoa: c.tipoPessoa,
       origem: c.origem || null, endereco: c.endereco || null,
-      status: c.status || 'Ativo', data_aniversario: c.dataAniversario || null,
+      status: (c.status || 'ativo').toLowerCase(), data_aniversario: c.dataAniversario || null,
       user_id: user.id, office_id: user.office_id,
     };
     const { data: created, error } = await supabase.from('clientes').insert(payload).select('id, nome').single();
@@ -131,13 +152,19 @@ export const ClientSelect: React.FC<ClientSelectProps> = ({ value, onValueChange
                   {query.trim() ? `Nenhum cliente com "${query.trim()}".` : "Nenhum cliente cadastrado."}
                 </p>
               )}
-              <button
-                type="button"
-                onClick={openCreate}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm font-bold text-primary hover:bg-primary/10 transition-colors border-t border-border mt-1"
-              >
-                <UserPlus className="h-4 w-4 shrink-0" /> Cadastrar novo cliente
-              </button>
+              {exactMatch ? (
+                <p className="px-3 py-2 text-xs text-emerald-600 dark:text-emerald-400 border-t border-border mt-1 flex items-center gap-2">
+                  <Check className="h-4 w-4 shrink-0" /> Já cadastrado — clique no nome acima para vincular.
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={openCreate}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm font-bold text-primary hover:bg-primary/10 transition-colors border-t border-border mt-1"
+                >
+                  <UserPlus className="h-4 w-4 shrink-0" /> {query.trim() ? `Cadastrar "${query.trim()}"` : "Cadastrar novo cliente"}
+                </button>
+              )}
             </div>
           </div>
         )}
