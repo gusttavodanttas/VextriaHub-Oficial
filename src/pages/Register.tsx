@@ -194,6 +194,10 @@ const Register = () => {
 
       if (loginError) {
         console.error('Automatic login failed after register:', loginError);
+        // Confirmação de e-mail LIGADA: o auto-login falha aqui. Guarda o plano escolhido pra
+        // aplicar no 1º login pós-confirmação (AuthContext) — senão a escolha se perde e cai no
+        // trial genérico de 7 dias (o apply_signup_plan abaixo nunca roda neste caminho).
+        if (planParam) localStorage.setItem('pending_signup_plan', planParam);
         toast({
           title: "Cadastro realizado!",
           description: "Enviamos um e-mail de confirmação — confirme para entrar.",

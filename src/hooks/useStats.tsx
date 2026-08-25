@@ -43,7 +43,8 @@ export function useStats() {
         prazosResult, financeiroResult, colaboradoresResult,
       ] = await Promise.all([
         supabase.from('processos').select('id', { count: 'exact' }).eq('office_id', officeId).eq('deletado', false).neq('status', 'encerrado'),
-        supabase.from('clientes').select('id', { count: 'exact' }).eq('office_id', officeId).eq('deletado', false).eq('deletado_pendente', false).in('status', ['ativo', 'convertido']),
+        // case-insensitive: o status é gravado misturado ('ativo' e 'Ativo') → o KPI divergia da tela Clientes.
+        supabase.from('clientes').select('id', { count: 'exact' }).eq('office_id', officeId).eq('deletado', false).eq('deletado_pendente', false).or('status.ilike.ativo,status.ilike.convertido'),
         supabase.from('tarefas').select('concluida', { count: 'exact' }).eq('office_id', officeId).eq('deletado', false),
         supabase.from('audiencias').select('id', { count: 'exact' }).eq('office_id', officeId).eq('deletado', false).gte('data_audiencia', new Date().toISOString()).lte('data_audiencia', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()),
         // "prazos vencendo": não-deletados, não-concluídos, com fatal até 3 dias à frente — INCLUINDO vencidos (o mais urgente num produto jurídico). Antes contava lixeira e ignorava atrasados.

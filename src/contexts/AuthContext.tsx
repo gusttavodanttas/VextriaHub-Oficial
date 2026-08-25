@@ -227,6 +227,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // self-healing). Substitui a criação frágil de escritório no cliente.
             try { await supabase.rpc('ensure_office_for_user'); }
             catch (rpcErr) { console.error('ensure_office_for_user:', rpcErr); }
+            // Cadastro por link de plano com confirmação de e-mail: o apply_signup_plan não roda no
+            // Register (o auto-login falha). Aplica o plano guardado agora, no 1º login pós-confirmação.
+            // Idempotente (guard plan_claimed no RPC); roda uma vez e limpa a flag.
+            const pendingPlan = localStorage.getItem('pending_signup_plan');
+            if (pendingPlan) {
+              try { await supabase.rpc('apply_signup_plan', { p_plan_type: pendingPlan }); }
+              catch (planErr) { console.error('apply_signup_plan (pós-confirmação):', planErr); }
+              localStorage.removeItem('pending_signup_plan');
+            }
             const officeData = await fetchOfficeData(sessionUser.id);
             officeUser = officeData.officeUser;
             office = officeData.office;

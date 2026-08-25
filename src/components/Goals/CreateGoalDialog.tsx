@@ -4,7 +4,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -262,16 +261,6 @@ export const CreateGoalDialog = ({ open, onOpenChange, onSave, initial, teams = 
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="descricao">Descrição</Label>
-            <Textarea
-              id="descricao"
-              placeholder="Descreva os detalhes da meta..."
-              value={formData.descricao}
-              onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
-              rows={3}
-            />
-          </div>
 
           <div className="flex gap-2 pt-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="flex-1">

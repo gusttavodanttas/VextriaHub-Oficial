@@ -252,9 +252,13 @@ export default function Publicacoes() {
                            (pub.conteudo || '').toLowerCase().includes(searchTerm);
       
       // 'all' exclui arquivadas — arquivadas só aparecem quando filtro = 'arquivada'
+      // "Tratadas" (value 'lida') = lida OU processada (o marcar-tratada grava 'lida', o vincular grava
+      // 'processada') — senão o card "Tratadas" mostra 11 e ZERA a lista ao clicar.
       const matchesStatus = filters.status === 'all'
         ? pub.status !== 'arquivada'
-        : pub.status === filters.status;
+        : filters.status === 'lida'
+          ? (pub.status === 'lida' || pub.status === 'processada')
+          : pub.status === filters.status;
       const matchesUrgencia = filters.urgencia === 'all' || pub.urgencia === filters.urgencia;
       const matchesVinculo = filters.vinculo === 'all'
         || (filters.vinculo === 'sem' ? !pub.processo_id : !!pub.processo_id);

@@ -116,7 +116,6 @@ export const PublicationFilters = ({
             <SelectContent className="bg-background border-border rounded-xl">
               <SelectItem value="all">Todos Status</SelectItem>
               <SelectItem value="nova">Novas</SelectItem>
-              <SelectItem value="pendente">Pendentes</SelectItem>
               <SelectItem value="lida">Tratadas</SelectItem>
               <SelectItem value="arquivada">Arquivadas</SelectItem>
             </SelectContent>

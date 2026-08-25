@@ -355,9 +355,11 @@ export const OfficeControlPanel: React.FC = () => {
                                           </SelectTrigger>
                                           <SelectContent>
                                             <SelectItem value="trial">Trial</SelectItem>
-                                            <SelectItem value="starter">Starter</SelectItem>
-                                            <SelectItem value="pro">Pro</SelectItem>
-                                            <SelectItem value="business">Business</SelectItem>
+                                            <SelectItem value="basico">Básico</SelectItem>
+                                            <SelectItem value="intermediario">Intermediário</SelectItem>
+                                            <SelectItem value="avancado">Avançado</SelectItem>
+                                            <SelectItem value="premium">Premium</SelectItem>
+                                            <SelectItem value="cortesia">Cortesia</SelectItem>
                                           </SelectContent>
                                         </Select>
                                       </div>

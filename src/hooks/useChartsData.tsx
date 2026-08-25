@@ -124,7 +124,7 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
         inMembers(supabase.from("atendimentos").select("created_at, responsavel_id, user_id")
           .eq("office_id", officeId).eq("deletado", false).gte("created_at", since), "responsavel_id"),
         inMembers(supabase.from("financeiro").select("tipo, valor, categoria, created_at, user_id")
-          .eq("office_id", officeId).eq("deletado", false).gte("created_at", since), "user_id"),
+          .eq("office_id", officeId).eq("deletado", false).neq("status", "cancelado").gte("created_at", since), "user_id"),
         inMembers(supabase.from("consultivos").select("created_at, status, user_id, responsavel_id")
           .eq("office_id", officeId).eq("deletado", false).gte("created_at", since), "responsavel_id"),
         inMembers(supabase.from("timesheets").select("created_at, duracao_minutos, user_id")
