@@ -120,6 +120,29 @@ export function useProximityNotifications() {
         });
       }
 
+      if (prefs.financeiro) {
+        // O toggle "Financeiro" existia mas NENHUM gerador o lia (morto). Agora avisa
+        // recebimentos/contas a pagar em aberto (pendente) que vencem no horizonte. (v11)
+        const { data } = await supabase.from("financeiro")
+          .select("id, tipo, descricao, categoria, data_vencimento, status")
+          .eq("office_id", officeId).eq("deletado", false)
+          .in("status", ["pendente", "vencido"])
+          .gte("data_vencimento", startDate).lte("data_vencimento", endDate);
+        (data || []).forEach((f: any) => {
+          const d = diasAte(f.data_vencimento);
+          marcosDe(f, padrao).forEach((D) => {
+            if (d < 0 || d > D) return;
+            const kind = f.tipo === "receita" ? "Recebimento" : "Conta a pagar";
+            candidatos.push({
+              user_id: user.id, type: "info",
+              title: `Financeiro ${proxLabel(f.data_vencimento)}`,
+              message: `${kind}: ${f.descricao || f.categoria || "Lançamento"} — vence ${proxLabel(f.data_vencimento)}`,
+              data: { action_url: `/financeiro?openId=${f.id}&d=${D}`, action_label: "Ver no financeiro" }, read: false,
+            });
+          });
+        });
+      }
+
       if (candidatos.length === 0) return;
 
       const { data: existentes } = await supabase.from("notifications").select("data").eq("user_id", user.id);

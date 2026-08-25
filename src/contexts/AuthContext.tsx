@@ -232,9 +232,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Idempotente (guard plan_claimed no RPC); roda uma vez e limpa a flag.
             const pendingPlan = localStorage.getItem('pending_signup_plan');
             if (pendingPlan) {
-              try { await supabase.rpc('apply_signup_plan', { p_plan_type: pendingPlan }); }
-              catch (planErr) { console.error('apply_signup_plan (pós-confirmação):', planErr); }
-              localStorage.removeItem('pending_signup_plan');
+              try {
+                await supabase.rpc('apply_signup_plan', { p_plan_type: pendingPlan });
+                // Só limpa a flag se APLICOU. Antes o removeItem rodava sempre: uma falha
+                // transitória do RPC perdia o plano pago escolhido para sempre. O RPC é
+                // idempotente (no-op quando já reivindicado), então repetir no próximo
+                // login é seguro. (v11)
+                localStorage.removeItem('pending_signup_plan');
+              } catch (planErr) {
+                console.error('apply_signup_plan (pós-confirmação):', planErr);
+                // mantém a flag para tentar de novo no próximo login
+              }
             }
             const officeData = await fetchOfficeData(sessionUser.id);
             officeUser = officeData.officeUser;

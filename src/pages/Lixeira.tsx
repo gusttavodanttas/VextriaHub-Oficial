@@ -145,7 +145,9 @@ export default function Lixeira() {
         id: t.id, tabela: 'tarefas',
         titulo: t.titulo,
         descricao: t.descricao || '',
-        excluido_em: t.updated_at, user_id: t.user_id, dados: t,
+        // office_id/office_name faltavam só aqui: a lista de admin mostrava escritório
+        // em branco e o tenantGuard do restore ficava sem escopo (só a RLS segurava). (v11)
+        excluido_em: t.updated_at, office_id: t.office_id, office_name: officeMap[t.office_id] || '—', user_id: t.user_id, dados: t,
       }));
 
       const { data: tss } = await applyTenantFilter(supabase.from('timesheets').select('*').eq('deletado', true)).order('updated_at', { ascending: false });

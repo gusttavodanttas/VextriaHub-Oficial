@@ -30,6 +30,9 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
         .eq('office_id', user.office_id)
         .eq('deletado', false)
         .eq('deletado_pendente', false)
+        // Leads CRM puros (status 'lead') moram no funil, não na lista de clientes
+        // reais. null-safe: mantém clientes legados sem status. (v11)
+        .or('status.is.null,status.neq.lead')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
