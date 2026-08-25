@@ -72,16 +72,26 @@ Deno.serve(async (req) => {
       return json({ error: officeError.message }, 400)
     }
 
-    await service.from('profiles').upsert({
+    // profiles é CRÍTICO: sem ele o membro loga mas fica sem office_id/role → busca de processo
+    // (authorize_process_search) e permissões quebram. Checa e faz ROLLBACK completo em falha.
+    const { error: profileError } = await service.from('profiles').upsert({
       user_id: userId, email, full_name: full_name || null, office_id, role: safeRole,
     }, { onConflict: 'user_id' })
+    if (profileError) {
+      await service.from('office_users').delete().eq('user_id', userId).eq('office_id', office_id)
+      await service.auth.admin.deleteUser(userId)
+      return json({ error: profileError.message }, 400)
+    }
 
     if (permissions && permissions.length > 0) {
-      await service.from('user_permissions').insert(
+      const { error: permError } = await service.from('user_permissions').insert(
         permissions.map((p: { key: string; granted: boolean }) => ({
           office_id, user_id: userId, permission_key: p.key, granted: p.granted,
         }))
       )
+      // permissões são não-críticas: o membro já está provisionado (auth+office+profile);
+      // loga mas NÃO derruba — o admin pode reconfigurar as permissões depois.
+      if (permError) console.error('user_permissions insert falhou (membro criado):', permError.message)
     }
 
     return json({ user_id: userId }, 200)
