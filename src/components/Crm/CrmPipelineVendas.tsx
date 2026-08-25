@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { ClienteComProcessos } from "@/types/database";
 import { cn } from "@/lib/utils";
+import { formatBRL } from "@/lib/currency";
 
 interface Props {
   onBack: () => void;
@@ -16,7 +17,7 @@ export function CrmPipelineVendas({ onBack, data = [], loading = false }: Props)
   // Valores reais (R$) com base no valor estimado de cada negócio
   const confirmedValue = data.filter(c => (c.status || "").toLowerCase() === "convertido").reduce((s, c) => s + val(c), 0);
   const potentialValue = leads.reduce((s, c) => s + val(c), 0);
-  const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+  const brl = (v: number) => formatBRL(v, { decimals: 0 });
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">

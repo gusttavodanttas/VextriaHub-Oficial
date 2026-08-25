@@ -9,9 +9,9 @@ import {
   DollarSign, Star, Zap, ShieldCheck, ArrowUpRight, Globe
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatBRL } from "@/lib/currency";
 
-const formatCurrency = (v: number) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v);
+const formatCurrency = (v: number) => formatBRL(v, { decimals: 0 });
 
 interface MetricCardProps {
   title: string;

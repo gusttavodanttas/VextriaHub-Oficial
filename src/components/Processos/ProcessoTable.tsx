@@ -21,6 +21,7 @@ import {
 import { PermissionGuard } from '@/components/Auth/PermissionGuard';
 import { cn } from '@/lib/utils';
 import { formatCNJ } from '@/utils/formatCNJ';
+import { formatBRL } from "@/lib/currency";
 
 interface ProcessoTableProps {
   processos: Processo[];
@@ -103,7 +104,7 @@ export const ProcessoTable: React.FC<ProcessoTableProps> = ({
                       <div className="flex items-center gap-1.5">
                         <span className="text-[10px] uppercase font-black tracking-widest text-emerald-500/80">Valor:</span>
                         <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(processo.valorCausa)}
+                          {formatBRL(processo.valorCausa)}
                         </span>
                       </div>
                     )}

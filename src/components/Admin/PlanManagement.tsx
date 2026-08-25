@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Tag, Plus, Pencil, Loader2, Link2, Check, Power } from 'lucide-react';
+import { centsToBRL } from "@/lib/currency";
 
 interface Plan { id?: string; plan_type: string; plan_name: string; price_cents: number; cycle: string; trial_days: number | null; is_active: boolean; max_oabs: number; }
 
@@ -20,7 +21,7 @@ const CYCLES = [
   { v: 'YEARLY', label: 'Anual' },
 ];
 const cycleLabel = (c: string) => CYCLES.find((x) => x.v === c)?.label || c;
-const brl = (cents: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((cents || 0) / 100);
+const brl = (cents: number) => centsToBRL(cents);
 const EMPTY: Plan = { plan_type: '', plan_name: '', price_cents: 0, cycle: 'MONTHLY', trial_days: 7, is_active: true, max_oabs: 1 };
 
 export function PlanManagement() {

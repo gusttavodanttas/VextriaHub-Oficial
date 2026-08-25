@@ -57,7 +57,8 @@ function formatMinutes(min: number) {
   if (h > 0) return `${h}h`;
   return `${m}m`;
 }
-const formatBRL = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+// Reexporta a formatação central (era um toLocaleString local, 2 casas = mesmo comportamento).
+export { formatBRL } from "@/lib/currency";
 const valorDe = (t: any, arred: Arredondamento = "nenhum") =>
   t.faturavel !== false && t.valor_hora && t.duracao_minutos
     ? (roundMinutes(t.duracao_minutos, arred) / 60) * t.valor_hora
@@ -75,6 +76,6 @@ const NONE = "__none__";
 
 export {
   NONE, CATEGORIA_CONFIG, REFERENCIA_CONFIG, CATEGORIA_TO_REF, REF_LIVRES, PERIODOS,
-  formatSeconds, formatMinutes, formatBRL, valorDe, formatDateHeader,
+  formatSeconds, formatMinutes, valorDe, formatDateHeader,
 };
 export type { ReferenciaTipo, ReferenciaItem };

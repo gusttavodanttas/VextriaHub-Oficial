@@ -27,7 +27,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { TIMESHEET_CATEGORIAS, type TimesheetCategoria } from "@/types/timesheet";
 import { cn } from "@/lib/utils";
-import { formatBRL } from "./shared";
+import { formatBRL } from "@/lib/currency";
 
 function StatCard({ label, value, sub, Icon, color }: { label: string; value: string; sub?: string; Icon: React.FC<any>; color: string }) {
   return (
@@ -112,7 +112,7 @@ const TimesheetSettingsDialog: React.FC<{
               {Object.entries(mapa).map(([cid, rate]) => (
                 <div key={cid} className="flex items-center gap-2 rounded-lg border border-black/5 dark:border-border px-3 py-1.5">
                   <span className="flex-1 text-sm font-semibold truncate">{nomeCli(cid)}</span>
-                  <span className="text-sm font-bold tabular-nums">{rate.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}/h</span>
+                  <span className="text-sm font-bold tabular-nums">{formatBRL(rate)}/h</span>
                   <button onClick={() => setMapa(m => { const n = { ...m }; delete n[cid]; return n; })} className="text-muted-foreground/40 hover:text-rose-500"><Trash2 className="h-3.5 w-3.5" /></button>
                 </div>
               ))}

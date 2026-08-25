@@ -8,6 +8,7 @@ import { getErrorMessage } from "@/lib/errors";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { tribunalFromCNJ } from "@/utils/tribunalCNJ";
+import { formatBRL } from "@/lib/currency";
 
 interface Props {
   open: boolean;
@@ -17,7 +18,7 @@ interface Props {
   onApplied?: () => void;
 }
 
-const brl = (v: any) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(v) || 0);
+const brl = (v: any) => formatBRL(Number(v) || 0);
 
 // Campos que o robô pode completar (coluna no banco ↔ valor vindo do tribunal)
 const FIELDS: { col: string; label: string; get: (d: any) => any; fmt?: (v: any) => string }[] = [

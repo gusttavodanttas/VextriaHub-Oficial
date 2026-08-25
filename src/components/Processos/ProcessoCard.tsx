@@ -13,6 +13,7 @@ import {
 import { PermissionGuard } from '@/components/Auth/PermissionGuard';
 import { Processo } from '@/types/processo';
 import { cn } from '@/lib/utils';
+import { formatBRL } from "@/lib/currency";
 
 interface ProcessoCardProps {
   processo: Processo;
@@ -195,7 +196,7 @@ export const ProcessoCard: React.FC<ProcessoCardProps> = ({
           <div className="bg-emerald-500/[0.03] dark:bg-emerald-500/5 p-3 rounded-2xl border border-emerald-500/10 flex items-center justify-between group-hover:bg-emerald-500/[0.05] transition-all">
             <span className="text-[10px] text-emerald-600 dark:text-emerald-500 font-black uppercase tracking-widest">Valor da Causa</span>
             <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
-              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(processo.valorCausa)}
+              {formatBRL(processo.valorCausa)}
             </span>
           </div>
         )}

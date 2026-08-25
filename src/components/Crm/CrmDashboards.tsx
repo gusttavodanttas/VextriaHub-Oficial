@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { format, isSameMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useResponseTime } from "@/hooks/useResponseTime";
+import { formatBRL } from "@/lib/currency";
 
 interface BaseProps {
   onBack: () => void;
@@ -25,7 +26,7 @@ export function CrmRelatorios({ onBack, data = [], loading = false }: BaseProps)
 
   const crmTotal = leads.length + clients.length;
   const conversionRate = crmTotal > 0 ? Math.round((clients.length / crmTotal) * 100) : 0;
-  const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+  const brl = (v: number) => formatBRL(v, { decimals: 0 });
   const val = (c: any) => Number(c.valor_estimado) || 0;
   const pipelineValue = leads.reduce((s, c) => s + val(c), 0);
   const convertedValue = clients.reduce((s, c) => s + val(c), 0);
@@ -163,7 +164,7 @@ export function CrmMetas({ onBack, data = [], loading = false }: BaseProps) {
   const leadProgress = Math.min(100, Math.round((leadsThisMonth / leadTarget) * 100));
   const convProgress = Math.min(100, Math.round((conversionsThisMonth / convTarget) * 100));
 
-  const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+  const brl = (v: number) => formatBRL(v, { decimals: 0 });
   const val = (c: any) => Number(c.valor_estimado) || 0;
   const pipelineValue = data.filter(c => ["lead", "quente", "morno", "frio"].includes((c.status || "").toLowerCase())).reduce((s, c) => s + val(c), 0);
   const convertedValue = data.filter(c => (c.status || "").toLowerCase() === "convertido").reduce((s, c) => s + val(c), 0);

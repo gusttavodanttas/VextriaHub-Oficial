@@ -7,6 +7,7 @@ import { formatPhone } from "@/lib/phone";
 import { onlyDigits } from "@/lib/document";
 import { cn } from "@/lib/utils";
 import type { ClienteComProcessos } from "@/types/database";
+import { formatBRL } from "@/lib/currency";
 
 interface Props {
   onBack: () => void;
@@ -14,7 +15,7 @@ interface Props {
   data?: ClienteComProcessos[];
 }
 
-const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+const brl = (v: number) => formatBRL(v, { decimals: 0 });
 
 export function CrmOportunidades({ onBack, onOpportunityClick, data = [] }: Props) {
   // Oportunidades = leads qualificados (quente/morno), ordenados por valor estimado

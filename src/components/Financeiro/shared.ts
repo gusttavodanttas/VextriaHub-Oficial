@@ -1,6 +1,7 @@
 // Constantes, tipos e helpers do módulo Financeiro — extraídos de
 // pages/Financeiro.tsx (código idêntico; movido para reuso e leitura).
 import { format } from "date-fns";
+import { formatBRL } from "@/lib/currency";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -84,8 +85,7 @@ const statusConfig: Record<StatusType, { label: string; className: string }> = {
   cancelado: { label: "Cancelado", className: "border-muted/30 text-muted-foreground bg-muted/10 font-bold" },
 };
 
-const fmt = (v: number) =>
-  v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const fmt = (v: number) => formatBRL(v); // 2 casas = mesmo comportamento do toLocaleString anterior
 
 export { NONE, DEFAULT_CATEGORIAS_RECEITA, DEFAULT_CATEGORIAS_DESPESA, toNull, defaultForm, statusConfig, fmt };
 export type { StatusType, TipoType, FinanceiroItem, ClienteOption, ProcessoOption, ModoLancamento, RecorrenciaTipo, FormState };

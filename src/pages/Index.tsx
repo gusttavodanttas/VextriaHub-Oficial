@@ -29,6 +29,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useClientes } from "@/hooks/useClientes";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { formatBRL } from "@/lib/currency";
 
 type ModalKey = "processo" | "prazo" | "agendar" | "cliente" | "atendimento" | "audiencia" | "timesheet" | "tarefa" | "consultivo" | "caso";
 const ACTION_CONFIG: { key: string; label: string; icon: React.ElementType; to?: string; modal?: ModalKey }[] = [
@@ -142,7 +143,7 @@ const Index = () => {
     );
   }
 
-  const brl = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v);
+  const brl = (v: number) => formatBRL(v, { decimals: 0 });
 
   const handleAction = (a: typeof ACTION_CONFIG[number]) => {
     if (a.modal) setOpenModal(a.modal);

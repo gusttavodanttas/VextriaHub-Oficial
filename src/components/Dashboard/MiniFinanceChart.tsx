@@ -4,9 +4,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { TrendingUp, Loader2, ArrowRight } from "lucide-react";
+import { formatBRL } from "@/lib/currency";
 
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v || 0);
+const brl = (v: number) => formatBRL(v, { decimals: 0 });
 
 interface Bucket { mes: string; receita: number; despesa: number; }
 

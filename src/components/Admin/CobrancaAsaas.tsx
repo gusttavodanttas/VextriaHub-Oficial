@@ -9,6 +9,7 @@ import {
   Loader2, RefreshCw, Search, CreditCard, Copy, Check, XCircle, RotateCw, ExternalLink, Gift, Users, TrendingUp, AlertTriangle, CheckCircle2,
 } from "lucide-react";
 import { formatCpfCnpj, onlyDigits, isValidCpfCnpj } from "@/lib/document";
+import { formatBRL } from "@/lib/currency";
 
 interface SubRow {
   asaas_subscription_id?: string | null;
@@ -26,7 +27,7 @@ const BILLING = [
   { v: "BOLETO", l: "Boleto" }, { v: "CREDIT_CARD", l: "Cartão" },
 ];
 const TRIAL_DAYS = 7;
-const brl = (n: number | null) => (n == null ? "—" : n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }));
+const brl = (n: number | null) => (n == null ? "—" : formatBRL(n));
 const fmtDate = (d: string | null) => (d ? new Date(d + "T00:00:00").toLocaleDateString("pt-BR") : "—");
 const maskMoney = (s: string) => { const d = onlyDigits(s); return d ? (parseInt(d, 10) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : ""; };
 const moneyToNumber = (s: string) => { const d = onlyDigits(s); return d ? parseInt(d, 10) / 100 : 0; };

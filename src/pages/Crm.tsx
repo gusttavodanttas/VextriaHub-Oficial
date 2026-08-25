@@ -32,6 +32,7 @@ import { CrmFunilVendas } from "@/components/Crm/CrmFunilVendas";
 import { CrmOportunidades } from "@/components/Crm/CrmOportunidades";
 import { CrmOportunidadeDetail } from "@/components/Crm/CrmOportunidadeDetail";
 import { CrmRelatorios, CrmMetas } from "@/components/Crm/CrmDashboards";
+import { formatBRL } from "@/lib/currency";
 
 const TEMPERATURAS = [
   { v: "lead", label: "Novo" },
@@ -53,7 +54,7 @@ export default function Crm() {
   const dSearch = useDeferredValue(searchQuery);
   const [statusFilter, setStatusFilter] = useState<string>("todos");
 
-  const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+  const brl = (v: number) => formatBRL(v, { decimals: 0 });
 
   const leadsStatuses = ["lead", "quente", "morno", "frio"];
 

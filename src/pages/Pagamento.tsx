@@ -9,12 +9,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatCpfCnpj, onlyDigits, isValidCpfCnpj } from '@/lib/document';
 import { CreditCard, FileText, QrCode, Loader2, CheckCircle2, ExternalLink, Copy, Check, RefreshCw } from 'lucide-react';
+import { centsToBRL } from "@/lib/currency";
 
 interface Plan { plan_type: string; plan_name: string; price_cents: number; cycle?: string; signup_only?: boolean }
 const cicloLabel: Record<string, string> = { MONTHLY: 'por mês', QUARTERLY: 'por trimestre', SEMIANNUALLY: 'por semestre', YEARLY: 'por ano' };
 interface Sub { status: string; plan_name: string | null; next_due_date: string | null; last_invoice_url: string | null }
 
-const brl = (cents: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100);
+const brl = (cents: number) => centsToBRL(cents);
 const ERROS_COBRANCA: Record<string, string> = {
   'plano-invalido': 'Plano indisponível. Escolha outro plano.',
   'sem-asaas-key': 'Pagamento temporariamente indisponível. Tente de novo em instantes.',

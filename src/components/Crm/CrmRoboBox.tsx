@@ -5,8 +5,9 @@ import { useCrmRobot } from "@/hooks/useCrmRobot";
 import { useOfficeSettingValue } from "@/hooks/useOfficeSettingValue";
 import { gerarMensagemContato, linkWhatsapp, linkEmail } from "@/lib/crmMessage";
 import { useToast } from "@/hooks/use-toast";
+import { formatBRL } from "@/lib/currency";
 
-const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+const brl = (v: number) => formatBRL(v, { decimals: 0 });
 
 interface Props {
   data: any[];

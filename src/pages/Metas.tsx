@@ -14,11 +14,12 @@ import { useMetas, type Meta } from "@/hooks/useMetas";
 import { useOfficeTeams } from "@/hooks/useOfficeTeams";
 import { Users } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatBRL } from "@/lib/currency";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 const fmtMeta = (value: number, tipo: string) =>
   tipo === "receita"
-    ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(value)
+    ? formatBRL(value, { decimals: 0 })
     : String(value);
 
 type MetaStatus = {
@@ -174,10 +175,7 @@ const Metas = () => {
 
   const formatValue = (value: number, tipo: string) => {
     if (tipo === "receita") {
-      return new Intl.NumberFormat('pt-BR', {
-        style: 'currency',
-        currency: 'BRL'
-      }).format(value);
+      return formatBRL(value);
     }
     return value.toString();
   };

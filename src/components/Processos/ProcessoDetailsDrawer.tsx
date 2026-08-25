@@ -41,6 +41,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { formatCNJ } from '@/utils/formatCNJ';
+import { formatBRL } from "@/lib/currency";
 import { useProcessosV2 } from '@/hooks/useProcessosV2';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -477,7 +478,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                       <Input type="number" className="h-10 rounded-xl bg-background border-border" value={editData.valor_causa} onChange={(e) => setEditData({ ...editData, valor_causa: Number(e.target.value) || 0 })} />
                     ) : (
                       <p className="text-xl font-black text-emerald-600 dark:text-emerald-400 tracking-tighter">
-                        {processo.valorCausa ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(processo.valorCausa) : 'R$ 0,00'}
+                        {formatBRL(processo.valorCausa)}
                       </p>
                     )}
                   </div>

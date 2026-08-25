@@ -7,6 +7,7 @@ import { formatPhone } from "@/lib/phone";
 import { onlyDigits } from "@/lib/document";
 import { cn } from "@/lib/utils";
 import type { ClienteComProcessos } from "@/types/database";
+import { formatBRL } from "@/lib/currency";
 
 const COLUNAS = [
   { key: "lead", label: "Novos", accent: "border-slate-400/40", dot: "bg-slate-400" },
@@ -16,7 +17,7 @@ const COLUNAS = [
   { key: "convertido", label: "Convertidos", accent: "border-emerald-500/40", dot: "bg-emerald-500" },
 ];
 
-const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+const brl = (v: number) => formatBRL(v, { decimals: 0 });
 
 interface Props {
   data: ClienteComProcessos[];

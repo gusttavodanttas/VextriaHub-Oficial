@@ -7,10 +7,11 @@ import { UserManagement } from "@/components/Office/UserManagement";
 import { Building2, Users, Settings, FileText, UserCheck, Clock, CalendarDays, DollarSign } from "lucide-react";
 import { useStats } from "@/hooks/useStats";
 import { cn } from "@/lib/utils";
+import { formatBRL } from "@/lib/currency";
 
 const Escritorio = () => {
   const { stats, loading } = useStats();
-  const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v || 0);
+  const brl = (v: number) => formatBRL(v, { decimals: 0 });
   const kpis = [
     { label: "Colaboradores", value: stats.colaboradores, icon: Users, color: "text-primary", bg: "bg-primary/10" },
     { label: "Processos ativos", value: stats.processosAtivos, icon: FileText, color: "text-blue-500", bg: "bg-blue-500/10" },

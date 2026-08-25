@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useDefaultBrandOnPublicPage } from '@/lib/brandColor';
 import { formatCpfCnpj, onlyDigits, isValidCpfCnpj } from "@/lib/document";
 import { formatPhone } from "@/lib/phone";
+import { centsToBRL } from "@/lib/currency";
 
 const Register = () => {
   const [searchParams] = useSearchParams();
@@ -300,7 +301,7 @@ const Register = () => {
             {!isInvite && planData && (
               <div className="text-center">
                 <Badge variant="outline" className="text-sm">
-                  Plano {planData.plan_name} - R$ {(planData.price_cents / 100).toFixed(2)}{cycleSuffix}
+                  Plano {planData.plan_name} - {centsToBRL(planData.price_cents)}{cycleSuffix}
                 </Badge>
               </div>
             )}

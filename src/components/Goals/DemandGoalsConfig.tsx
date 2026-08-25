@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { formatBRL } from "@/lib/currency";
 
 type MetaDemanda = {
   id: string;
@@ -94,7 +95,7 @@ export function DemandGoalsConfig() {
 
   const calc = (atual: number, meta: number) => (meta > 0 ? Math.round((atual / meta) * 100) : 0);
   const barColor = (pct: number) => (pct >= 100 ? "bg-emerald-500" : pct >= 60 ? "bg-blue-500" : "bg-amber-500");
-  const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+  const brl = (v: number) => formatBRL(v, { decimals: 0 });
 
   const totais = metasDemanda.reduce((acc, m) => ({
     procAtual: acc.procAtual + m.processosAtuais,

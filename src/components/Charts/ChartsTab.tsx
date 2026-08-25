@@ -17,8 +17,9 @@ import {
 import {
   FileText, Users, MessageSquare, TrendingUp, TrendingDown, BarChart3, Trophy, Settings2, Clock,
 } from "lucide-react";
+import { formatBRL } from "@/lib/currency";
 
-const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+const brl = (v: number) => formatBRL(v, { decimals: 0 });
 
 function TrendBadge({ delta }: { delta: number | null }) {
   if (delta === null || delta === 0) return null;

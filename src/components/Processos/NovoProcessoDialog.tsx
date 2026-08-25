@@ -40,6 +40,7 @@ import { useProcessosV2 } from '@/hooks/useProcessosV2';
 import { useClientes } from '@/hooks/useClientes';
 import { ClientSelect } from '@/components/Clientes/ClientSelect';
 import { supabase } from '@/integrations/supabase/client';
+import { formatBRL } from "@/lib/currency";
 
 interface NovoProcessoDialogProps {
   // Opcional: se não passado, usamos useProcessosV2.create direto
@@ -672,7 +673,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
                               id="valorCausa"
                               inputMode="numeric"
                               placeholder="R$ 0,00"
-                              value={formData.valorCausa ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(formData.valorCausa) : ''}
+                              value={formData.valorCausa ? formatBRL(formData.valorCausa) : ''}
                               onChange={(e) => {
                                 const digits = e.target.value.replace(/\D/g, '');
                                 handleChange('valorCausa', digits ? Number(digits) / 100 : 0);
