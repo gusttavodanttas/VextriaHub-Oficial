@@ -41,7 +41,7 @@ export function CalendarWidget({ refreshKey }: { refreshKey?: number }) {
       const [{ data: prazos }, { data: audiencias }, { data: tarefas }, { data: atendimentos }, { data: consultivos }] = await Promise.all([
         // fatal = data_fim_prazo OU, em prazo sem fim (ex.: criado inline no processo, que grava
         // data_vencimento), a data_vencimento — senão esse prazo some da agenda (igual useAgendaEvents).
-        supabase.from("prazos").select("id, titulo, tipo_prazo, numero_processo, data_fim_prazo, data_vencimento, publicacoes(titulo)")
+        supabase.from("prazos").select("id, titulo, tipo_prazo, numero_processo, processo_id, data_fim_prazo, data_vencimento, publicacoes(titulo)")
           .eq("office_id", user.office_id).neq("status", "concluido").eq("deletado", false)
           .or(`and(data_fim_prazo.gte.${start},data_fim_prazo.lte.${end}),and(data_fim_prazo.is.null,data_vencimento.gte.${start},data_vencimento.lte.${end})`),
         // realizada/cancelada saem do painel — aqui é "o que tenho pela frente".
@@ -65,12 +65,15 @@ export function CalendarWidget({ refreshKey }: { refreshKey?: number }) {
           .gte("prazo", start).lte("prazo", end),
       ]);
 
-      // Cliente + nº do processo das audiências (para mostrar na frente) — a audiência
-      // costuma não ter cliente direto, só o processo; então o nome vem do processo. (v11)
-      const audProcIds = Array.from(new Set(((audiencias as any[]) || []).map(a => a.processo_id).filter(Boolean)));
+      // Cliente + nº do processo (prazo E audiência costumam vir ligados só por
+      // processo_id, sem número/cliente próprios) → resolve tudo pelo processo. (v11)
+      const allProcIds = Array.from(new Set([
+        ...(((prazos as any[]) || []).map(p => p.processo_id)),
+        ...(((audiencias as any[]) || []).map(a => a.processo_id)),
+      ].filter(Boolean)));
       let procMap: Record<string, { numero?: string; cliente?: string }> = {};
-      if (audProcIds.length) {
-        const { data: procs } = await supabase.from("processos").select("id, numero_processo, parte_autora, clientes!cliente_id(nome)").in("id", audProcIds);
+      if (allProcIds.length) {
+        const { data: procs } = await supabase.from("processos").select("id, numero_processo, parte_autora, clientes!cliente_id(nome)").in("id", allProcIds);
         procMap = Object.fromEntries(((procs as any[]) || []).map(p => [p.id, { numero: p.numero_processo, cliente: p.clientes?.nome || p.parte_autora || undefined }]));
       }
 
@@ -80,7 +83,12 @@ export function CalendarWidget({ refreshKey }: { refreshKey?: number }) {
         if (!fatal) continue;
         const k = String(fatal).slice(0, 10);
         if (!map[k]) map[k] = [];
-        map[k].push({ type: "prazo", id: p.id, titulo: p.titulo || p.publicacoes?.titulo || p.tipo_prazo || p.numero_processo || "Prazo", sub: p.numero_processo || undefined });
+        const info = p.processo_id ? procMap[p.processo_id] : undefined;
+        const numero = p.numero_processo || info?.numero;
+        map[k].push({
+          type: "prazo", id: p.id, titulo: p.titulo || p.publicacoes?.titulo || p.tipo_prazo || p.numero_processo || "Prazo",
+          sub: [info?.cliente, numero].filter(Boolean).join(" · ") || undefined,
+        });
       }
       for (const a of (audiencias as any[]) || []) {
         if (!a.data_audiencia) continue;

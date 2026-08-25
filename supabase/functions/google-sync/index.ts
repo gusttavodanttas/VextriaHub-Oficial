@@ -62,41 +62,49 @@ async function syncOne(service: any, gi: any, CLIENT_ID: string, CLIENT_SECRET: 
 
   if (gi.office_id) {
     const { data: prazos, error: ep } = await service.from("prazos")
-      .select("id,titulo,descricao,tipo_prazo,numero_processo,data_fim_prazo,data_vencimento,status,deletado,titular")
+      .select("id,titulo,descricao,tipo_prazo,numero_processo,processo_id,data_fim_prazo,data_vencimento,status,deletado,titular")
       .eq("office_id", gi.office_id).neq("status", "concluido");
     if (ep) throw new Error("read-prazos:" + ep.message); // ABORTA — nunca apagar a agenda por erro de leitura
-    // deno-lint-ignore no-explicit-any
-    for (const p of (prazos || []) as any[]) {
-      if (p.deletado || p.titular === "contraria") continue;
-      const fatal = p.data_fim_prazo || p.data_vencimento;
-      if (!fatal || String(fatal) < hoje) continue;
-      const summary = `⚖️ ${p.titulo || p.tipo_prazo || "Prazo"}${p.numero_processo ? " — " + p.numero_processo : ""}`;
-      const description = [p.tipo_prazo, p.descricao].filter(Boolean).join("\n") || undefined;
-      items.push({ source_type: "prazo", source_id: p.id, event: {
-        summary, description, start: { date: String(fatal) }, end: { date: addDay(String(fatal)) },
-      }});
-    }
 
     const { data: auds, error: ea } = await service.from("audiencias")
       .select("id,titulo,data_audiencia,local,status,deletado,processo_id,clientes!cliente_id(nome)")
       .eq("office_id", gi.office_id).not("status", "in", "(realizada,cancelada)");
     if (ea) throw new Error("read-audiencias:" + ea.message); // ABORTA
 
-    // Cliente + nº do processo das audiências — a audiência costuma não ter cliente
-    // direto, só o processo; então o nome da parte vem do processo.
-    const audProcIds = [...new Set(((auds || []) as any[]).map((a) => a.processo_id).filter(Boolean))];
-    const audProc: Record<string, { numero?: string; cliente?: string }> = {};
-    if (audProcIds.length) {
-      const { data: procs } = await service.from("processos").select("id, numero_processo, parte_autora, clientes!cliente_id(nome)").in("id", audProcIds);
-      for (const p of (procs || []) as any[]) audProc[p.id] = { numero: p.numero_processo, cliente: p.clientes?.nome || p.parte_autora || undefined };
+    // Cliente + nº do processo — prazo E audiência costumam vir ligados só por
+    // processo_id (sem número/cliente próprios); então resolve tudo pelo processo.
+    const allProcIds = [...new Set([
+      ...((prazos || []) as any[]).map((p) => p.processo_id),
+      ...((auds || []) as any[]).map((a) => a.processo_id),
+    ].filter(Boolean))];
+    const procInfo: Record<string, { numero?: string; cliente?: string }> = {};
+    if (allProcIds.length) {
+      const { data: procs } = await service.from("processos").select("id, numero_processo, parte_autora, clientes!cliente_id(nome)").in("id", allProcIds);
+      for (const p of (procs || []) as any[]) procInfo[p.id] = { numero: p.numero_processo, cliente: p.clientes?.nome || p.parte_autora || undefined };
     }
+
+    // deno-lint-ignore no-explicit-any
+    for (const p of (prazos || []) as any[]) {
+      if (p.deletado || p.titular === "contraria") continue;
+      const fatal = p.data_fim_prazo || p.data_vencimento;
+      if (!fatal || String(fatal) < hoje) continue;
+      const info = p.processo_id ? procInfo[p.processo_id] : undefined;
+      const numero = p.numero_processo || info?.numero;
+      const parte = info?.cliente;
+      const summary = `⚖️ ${p.titulo || p.tipo_prazo || "Prazo"}${parte ? " — " + parte : ""}`;
+      const description = [numero ? "Processo: " + numero : null, p.tipo_prazo, p.descricao].filter(Boolean).join("\n") || undefined;
+      items.push({ source_type: "prazo", source_id: p.id, event: {
+        summary, description, start: { date: String(fatal) }, end: { date: addDay(String(fatal)) },
+      }});
+    }
+
     // deno-lint-ignore no-explicit-any
     for (const a of (auds || []) as any[]) {
       if (a.deletado || !a.data_audiencia) continue;
       if (localYmd(new Date(a.data_audiencia)) < hoje) continue; // corte "é de hoje?" no fuso local
       const start = new Date(a.data_audiencia);
       const end = new Date(start.getTime() + 60 * 60 * 1000);
-      const info = a.processo_id ? audProc[a.processo_id] : undefined;
+      const info = a.processo_id ? procInfo[a.processo_id] : undefined;
       const parte = (a.clientes?.nome as string | undefined) || info?.cliente;
       const numero = info?.numero;
       const summary = `🏛️ ${a.titulo || "Audiência"}${parte ? " — " + parte : ""}`;
