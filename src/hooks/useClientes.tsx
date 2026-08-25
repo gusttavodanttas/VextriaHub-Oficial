@@ -30,9 +30,9 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
         .eq('office_id', user.office_id)
         .eq('deletado', false)
         .eq('deletado_pendente', false)
-        // Leads CRM puros (status 'lead') moram no funil, não na lista de clientes
-        // reais. null-safe: mantém clientes legados sem status. (v11)
-        .or('status.is.null,status.neq.lead')
+        // NÃO filtrar 'lead' aqui: este hook é COMPARTILHADO com o CRM (Crm.tsx),
+        // que PRECISA dos leads pro funil. Filtrar aqui zerava o funil (regressão v11).
+        // A exclusão de lead é só na PÁGINA de Clientes (Clientes.tsx). (v12)
         .order('created_at', { ascending: false });
 
       if (error) throw error;

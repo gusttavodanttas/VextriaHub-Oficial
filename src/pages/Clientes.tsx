@@ -62,7 +62,9 @@ const Clientes = () => {
   const [teamFilter, setTeamFilter] = useState<string | null>(null);
 
   const clients: Client[] = useMemo(() =>
-    dbClientes.map((c) => ({
+    // Leads CRM puros (status 'lead') moram no funil (Crm), não na lista de clientes
+    // reais. Filtro AQUI (na página), não no hook useClientes — que o CRM compartilha. (v12)
+    dbClientes.filter((c) => ((c.status as string) || "").toLowerCase() !== "lead").map((c) => ({
       id: c.id,
       name: c.nome,
       email: c.email || "",
