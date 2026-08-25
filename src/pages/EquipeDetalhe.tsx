@@ -301,9 +301,9 @@ function TeamDetailDialog({
           .gte("data_audiencia", now.toISOString()).lte("data_audiencia", in7days).in("user_id", memberIds);
         result = (data || []).map(a => ({ id: a.id, primary: a.titulo || "Audiência", secondary: `${fmtDate(a.data_audiencia)}${a.local ? ` · ${a.local}` : ""}` }));
       } else if (type === "prazos") {
-        const { data } = await supabase.from("prazos").select("id, tipo_prazo, data_fim_prazo")
+        const { data } = await supabase.from("prazos").select("id, titulo, tipo_prazo, data_fim_prazo")
           .eq("office_id", officeId).gte("data_fim_prazo", today).lte("data_fim_prazo", in3days).in("responsavel_id", memberIds);
-        result = (data || []).map(p => ({ id: p.id, primary: p.tipo_prazo || "Prazo", secondary: p.data_fim_prazo ? `Fatal ${fmtDate(p.data_fim_prazo)}` : "" }));
+        result = (data || []).map(p => ({ id: p.id, primary: p.titulo || p.tipo_prazo || "Prazo", secondary: p.data_fim_prazo ? `Fatal ${fmtDate(p.data_fim_prazo)}` : "" }));
       } else if (type === "atendimentos") {
         const { data } = await supabase.from("atendimentos").select("id, tipo_atendimento, data_atendimento")
           .eq("office_id", officeId).eq("deletado", false)
