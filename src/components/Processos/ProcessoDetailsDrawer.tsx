@@ -245,7 +245,9 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
         return;
       }
       const nomeCliente = rawName.replace(/\s+/g, ' ').trim().split(' ').slice(0, 8).join(' ').slice(0, 100);
-      const { data: existing } = await supabase.from('clientes').select('id').eq('nome', nomeCliente).eq('office_id', user.office_id).maybeSingle();
+      // Dedup case-insensitive: nome de parte do tribunal costuma vir em CAIXA ALTA,
+      // e o `.eq` exato criava um cliente duplicado do já cadastrado em título. (v11)
+      const { data: existing } = await supabase.from('clientes').select('id').ilike('nome', nomeCliente).eq('office_id', user.office_id).limit(1).maybeSingle();
       let clienteId: string;
       if (existing) {
         clienteId = existing.id;
