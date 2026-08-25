@@ -80,7 +80,10 @@ serve(async (req) => {
       // daria trial infinito (trial_days grande) e nunca pagaria. Dias limitados a 30.
       const trial = isSuper && !!body?.trial;
       const trialDays = Math.min(Math.max(Number(body?.trial_days) || 7, 1), 30);
-      const nextDue = trial ? plusDays(trialDays) : String(body?.first_due_date || plusDays(3));
+      // first_due_date NÃO é aceito do body para admin self-serve (não-super): senão o admin
+      // do próprio escritório setava uma data futura e, com a carência do office_has_access,
+      // se daria acesso grátis. Só super_admin passa data livre; self-serve = fixo hoje+3.
+      const nextDue = trial ? plusDays(trialDays) : (isSuper ? String(body?.first_due_date || plusDays(3)) : plusDays(3));
 
       // Valor/nome/CICLO do plano: self-serve (admin do escritório) DEVE usar um plano do
       // catálogo (plan_configs) — valor E ciclo vêm do SERVIDOR, não do body (anti-fraude:

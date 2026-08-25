@@ -4,6 +4,7 @@
 // portão do servidor office_has_access() (usado pelas policies RLS):
 //   is_lifetime OR status in ('ativa','cortesia')
 //   OR (trial_ends_at >= hoje AND status in ('trial','pendente'))
+//   OR (status='pendente' AND hoje <= trial_ends_at + 7 dias)   [carência pós-trial]
 //
 // Ao mudar a regra, mude AQUI e na migration do office_has_access JUNTAS —
 // os testes em src/tests/lib/billing.test.ts travam este comportamento e vão
@@ -89,10 +90,15 @@ export function evaluateAccess(input: AccessInput): AccessDecision {
   // O teste vale para 'trial' E 'pendente' (ex.: boleto gerado no meio do trial)
   // e exige data futura — evita expulsar do app quem está convertendo.
   const trialActive = !!trialEnds && trialEnds >= today && (sub.status === 'trial' || sub.status === 'pendente');
+  // Carência: 'pendente' (1º boleto por vencer) tem acesso até 7 dias após o fim do trial.
+  // ESPELHA office_has_access; ancorado no trial_ends_at (que o usuário NÃO controla) — não em
+  // next_due_date, que o admin controlava e abria bypass de paywall (v11).
+  const pendenteGrace = !!trialEnds && sub.status === 'pendente' &&
+    today.getTime() <= trialEnds.getTime() + 7 * 86400000;
   const daysLeft = trialEnds ? Math.max(0, Math.ceil((trialEnds.getTime() - today.getTime()) / 86400000)) : 0;
   const paidAccess = !!sub.is_lifetime || sub.status === 'ativa' || sub.status === 'cortesia';
 
-  if (paidAccess || trialActive) {
+  if (paidAccess || trialActive || pendenteGrace) {
     return {
       needsPayment: false,
       hasActiveSubscription: true,

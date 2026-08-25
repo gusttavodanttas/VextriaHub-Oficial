@@ -102,6 +102,37 @@ describe('evaluateAccess — portão de acesso (espelha office_has_access)', () 
     });
   });
 
+  describe('carência pós-trial (pendente — 7 dias após o fim do trial)', () => {
+    // Ancorada em trial_ends_at (que o usuário NÃO controla) — não em next_due_date,
+    // que abria bypass de paywall (v11). Cobre o pagamento do 1º boleto de quem
+    // assina perto do fim do teste, sem virar acesso grátis eterno.
+    it('pendente com trial vencido há 2 dias AINDA libera (dentro dos 7 de carência)', () => {
+      // TODAY=22/08; trial_ends 20/08 → +7 = 27/08 → hoje dentro da carência.
+      const d = evaluateAccess(base({ subscription: { status: 'pendente', trial_ends_at: '2026-08-20', is_lifetime: false } }));
+      expect(d.needsPayment).toBe(false);
+      expect(d.hasActiveSubscription).toBe(true);
+    });
+
+    it('pendente no ÚLTIMO dia da carência (trial+7 = hoje) ainda libera', () => {
+      // trial_ends 15/08 → +7 = 22/08 = hoje → limite inclusivo.
+      const d = evaluateAccess(base({ subscription: { status: 'pendente', trial_ends_at: '2026-08-15', is_lifetime: false } }));
+      expect(d.needsPayment).toBe(false);
+    });
+
+    it('pendente com trial vencido há mais de 7 dias BLOQUEIA', () => {
+      // trial_ends 14/08 → +7 = 21/08 < hoje (22/08) → carência acabou.
+      const d = evaluateAccess(base({ subscription: { status: 'pendente', trial_ends_at: '2026-08-14', is_lifetime: false } }));
+      expect(d.needsPayment).toBe(true);
+      expect(d.paymentStatus).toBe('pending');
+    });
+
+    it('a carência é só de pendente: trial EXPIRADO (status trial) não ganha carência', () => {
+      // status 'trial' vencido há 2 dias continua bloqueado — a carência é pós-conversão (pendente).
+      const d = evaluateAccess(base({ subscription: { status: 'trial', trial_ends_at: '2026-08-20', is_lifetime: false } }));
+      expect(d.needsPayment).toBe(true);
+    });
+  });
+
   describe('bloqueios', () => {
     it('atrasada bloqueia com aviso de regularizar', () => {
       const d = evaluateAccess(base({ subscription: { status: 'atrasada', trial_ends_at: null, is_lifetime: false } }));
