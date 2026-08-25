@@ -13,6 +13,7 @@ interface DayEvent {
   id: string;
   titulo: string;
   hora?: string;
+  sub?: string; // nome da parte / número do processo (mostrado sob o título)
 }
 
 // Estilo/ícone por tipo de evento da agenda
@@ -43,8 +44,9 @@ export function CalendarWidget({ refreshKey }: { refreshKey?: number }) {
         supabase.from("prazos").select("id, titulo, tipo_prazo, numero_processo, data_fim_prazo, data_vencimento, publicacoes(titulo)")
           .eq("office_id", user.office_id).neq("status", "concluido").eq("deletado", false)
           .or(`and(data_fim_prazo.gte.${start},data_fim_prazo.lte.${end}),and(data_fim_prazo.is.null,data_vencimento.gte.${start},data_vencimento.lte.${end})`),
-        // realizada/cancelada saem do painel — aqui é "o que tenho pela frente"
-        supabase.from("audiencias").select("id, titulo, data_audiencia")
+        // realizada/cancelada saem do painel — aqui é "o que tenho pela frente".
+        // Puxa cliente (nome da parte) e processo_id (nº do processo vem no map abaixo).
+        supabase.from("audiencias").select("id, titulo, data_audiencia, processo_id, clientes!cliente_id(nome)")
           .eq("office_id", user.office_id).eq("deletado", false)
           .not("status", "in", "(cancelada,realizada)")
           .gte("data_audiencia", start).lte("data_audiencia", end),
@@ -63,19 +65,34 @@ export function CalendarWidget({ refreshKey }: { refreshKey?: number }) {
           .gte("prazo", start).lte("prazo", end),
       ]);
 
+      // Nº do processo das audiências (para mostrar na frente) — resolve processo_id → numero em 1 query.
+      const audProcIds = Array.from(new Set(((audiencias as any[]) || []).map(a => a.processo_id).filter(Boolean)));
+      let procMap: Record<string, string> = {};
+      if (audProcIds.length) {
+        const { data: procs } = await supabase.from("processos").select("id, numero_processo").in("id", audProcIds);
+        procMap = Object.fromEntries(((procs as any[]) || []).map(p => [p.id, p.numero_processo]));
+      }
+
       const map: Record<string, DayEvent[]> = {};
       for (const p of (prazos as any[]) || []) {
         const fatal = p.data_fim_prazo || p.data_vencimento;
         if (!fatal) continue;
         const k = String(fatal).slice(0, 10);
         if (!map[k]) map[k] = [];
-        map[k].push({ type: "prazo", id: p.id, titulo: p.titulo || p.publicacoes?.titulo || p.tipo_prazo || p.numero_processo || "Prazo" });
+        map[k].push({ type: "prazo", id: p.id, titulo: p.titulo || p.publicacoes?.titulo || p.tipo_prazo || p.numero_processo || "Prazo", sub: p.numero_processo || undefined });
       }
-      for (const a of audiencias || []) {
+      for (const a of (audiencias as any[]) || []) {
         if (!a.data_audiencia) continue;
-        const k = a.data_audiencia.split("T")[0];
+        // data_audiencia é timestamptz → converter pro fuso LOCAL (o split cru mostrava UTC, hora errada).
+        const d = new Date(a.data_audiencia);
+        const k = format(d, "yyyy-MM-dd");
         if (!map[k]) map[k] = [];
-        map[k].push({ type: "audiencia", id: a.id, titulo: a.titulo || "Audiência", hora: a.data_audiencia.split("T")[1]?.slice(0, 5) });
+        const parte = a.clientes?.nome as string | undefined;
+        const numero = a.processo_id ? procMap[a.processo_id] : undefined;
+        map[k].push({
+          type: "audiencia", id: a.id, titulo: a.titulo || "Audiência", hora: format(d, "HH:mm"),
+          sub: [parte, numero].filter(Boolean).join(" · ") || undefined,
+        });
       }
       for (const t of (tarefas as any[]) || []) {
         if (!t.data_vencimento) continue;
@@ -85,9 +102,10 @@ export function CalendarWidget({ refreshKey }: { refreshKey?: number }) {
       }
       for (const at of (atendimentos as any[]) || []) {
         if (!at.data_atendimento) continue;
-        const k = at.data_atendimento.split("T")[0];
+        const d = new Date(at.data_atendimento); // timestamptz → fuso local (não o split cru = UTC)
+        const k = format(d, "yyyy-MM-dd");
         if (!map[k]) map[k] = [];
-        map[k].push({ type: "atendimento", id: at.id, titulo: at.tipo_atendimento || "Atendimento", hora: at.data_atendimento.split("T")[1]?.slice(0, 5) });
+        map[k].push({ type: "atendimento", id: at.id, titulo: at.tipo_atendimento || "Atendimento", hora: format(d, "HH:mm") });
       }
       for (const co of (consultivos as any[]) || []) {
         if (!co.prazo) continue;
@@ -168,7 +186,10 @@ export function CalendarWidget({ refreshKey }: { refreshKey?: number }) {
                       <button key={i} onClick={() => setOpenItem({ type: e.type, id: e.id })}
                         className={cn("w-full flex items-center gap-2.5 px-3 py-2 rounded-xl border text-xs text-left hover:brightness-95 dark:hover:brightness-125 transition-all", st.cls)}>
                         <st.Icon className="h-3 w-3 shrink-0" />
-                        <span className="font-semibold truncate flex-1">{e.titulo}</span>
+                        <span className="flex-1 min-w-0 flex flex-col">
+                          <span className="font-semibold truncate">{e.titulo}</span>
+                          {e.sub && <span className="text-[10px] opacity-60 truncate">{e.sub}</span>}
+                        </span>
                         <span className="text-[10px] opacity-60 shrink-0">{format(parseISO(e.dateKey), "dd/MM")}{e.hora ? ` ${e.hora}` : ""}</span>
                       </button>
                     );
@@ -187,7 +208,10 @@ export function CalendarWidget({ refreshKey }: { refreshKey?: number }) {
                   <button key={i} onClick={() => setOpenItem({ type: e.type, id: e.id })}
                     className={cn("w-full flex items-center gap-2.5 px-3 py-2 rounded-xl border text-xs text-left hover:brightness-95 dark:hover:brightness-125 transition-all", st.cls)}>
                     <st.Icon className="h-3 w-3 shrink-0" />
-                    <span className="font-semibold truncate flex-1">{e.titulo}</span>
+                    <span className="flex-1 min-w-0 flex flex-col">
+                      <span className="font-semibold truncate">{e.titulo}</span>
+                      {e.sub && <span className="text-[10px] opacity-60 truncate">{e.sub}</span>}
+                    </span>
                     {e.hora && <span className="text-[10px] opacity-60 shrink-0">{e.hora}</span>}
                   </button>
                 );

@@ -78,17 +78,30 @@ async function syncOne(service: any, gi: any, CLIENT_ID: string, CLIENT_SECRET: 
     }
 
     const { data: auds, error: ea } = await service.from("audiencias")
-      .select("id,titulo,data_audiencia,local,status,deletado")
+      .select("id,titulo,data_audiencia,local,status,deletado,processo_id,clientes!cliente_id(nome)")
       .eq("office_id", gi.office_id).not("status", "in", "(realizada,cancelada)");
     if (ea) throw new Error("read-audiencias:" + ea.message); // ABORTA
+
+    // Nº do processo das audiências (para pôr no evento) — resolve processo_id → numero.
+    const audProcIds = [...new Set(((auds || []) as any[]).map((a) => a.processo_id).filter(Boolean))];
+    const audProcNum: Record<string, string> = {};
+    if (audProcIds.length) {
+      const { data: procs } = await service.from("processos").select("id, numero_processo").in("id", audProcIds);
+      for (const p of (procs || []) as any[]) audProcNum[p.id] = p.numero_processo;
+    }
     // deno-lint-ignore no-explicit-any
     for (const a of (auds || []) as any[]) {
       if (a.deletado || !a.data_audiencia) continue;
       if (localYmd(new Date(a.data_audiencia)) < hoje) continue; // corte "é de hoje?" no fuso local
       const start = new Date(a.data_audiencia);
       const end = new Date(start.getTime() + 60 * 60 * 1000);
+      const parte = a.clientes?.nome as string | undefined;
+      const numero = a.processo_id ? audProcNum[a.processo_id] : undefined;
+      const summary = `🏛️ ${a.titulo || "Audiência"}${parte ? " — " + parte : ""}`;
+      const description = [numero ? "Processo: " + numero : null, parte ? "Parte: " + parte : null].filter(Boolean).join("\n") || undefined;
       items.push({ source_type: "audiencia", source_id: a.id, event: {
-        summary: `🏛️ ${a.titulo || "Audiência"}`,
+        summary,
+        description,
         location: a.local || undefined,
         start: { dateTime: start.toISOString(), timeZone: TZ },
         end: { dateTime: end.toISOString(), timeZone: TZ },
