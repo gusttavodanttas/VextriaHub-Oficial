@@ -185,7 +185,10 @@ export function useTimesheet() {
   const estornarCobranca = async (financeiroId: string): Promise<boolean> => {
     if (!user) return false;
     try {
-      await supabase.from('financeiro').update({ deletado: true }).eq('id', financeiroId);
+      // Checa o soft-delete da receita ANTES de reabrir as horas — senão a receita
+      // fantasma ficava (recebível órfão) e as horas voltavam re-faturáveis. (v12)
+      const { error: delErr } = await supabase.from('financeiro').update({ deletado: true }).eq('id', financeiroId);
+      if (delErr) throw delErr;
       const { error } = await supabase.from('timesheets')
         .update({ faturado: false, faturado_em: null, financeiro_id: null, updated_at: new Date().toISOString() })
         .eq('financeiro_id', financeiroId);

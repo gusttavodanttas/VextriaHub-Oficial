@@ -37,11 +37,13 @@ interface Section {
 const SECTIONS: Section[] = [
   { id: "geral", label: "Aparência", desc: "Tema da plataforma", icon: Palette, group: "Preferências" },
   { id: "notificacoes", label: "Notificações", desc: "Alertas que você recebe", icon: Bell, group: "Preferências" },
-  { id: "clientes", label: "Clientes", desc: "Origens de captação", icon: Users, group: "Operação" },
-  { id: "processos", label: "Processos", desc: "Tipos de processo", icon: FileText, group: "Operação" },
-  { id: "prazos", label: "Prazos", desc: "Tipos de prazo e atos", icon: Clock, group: "Operação" },
+  // Estas seções gravam em offices.settings (só admin escreve, via RLS). Sem adminOnly,
+  // o usuário comum via a tela, editava e levava "Salvo" falso (UPDATE de 0 linhas). (v12)
+  { id: "clientes", label: "Clientes", desc: "Origens de captação", icon: Users, group: "Operação", adminOnly: true },
+  { id: "processos", label: "Processos", desc: "Tipos de processo", icon: FileText, group: "Operação", adminOnly: true },
+  { id: "prazos", label: "Prazos", desc: "Tipos de prazo e atos", icon: Clock, group: "Operação", adminOnly: true },
   { id: "oabs", label: "OABs monitoradas", desc: "Advogados que o robô acompanha", icon: Radar, group: "Operação", adminOnly: true },
-  { id: "equipes", label: "Equipes", desc: "Times e membros", icon: Users2, group: "Operação" },
+  { id: "equipes", label: "Equipes", desc: "Times e membros", icon: Users2, group: "Operação", adminOnly: true },
   { id: "integracao", label: "Integração", desc: "Apps conectados", icon: Plug, group: "Integrações" },
 ];
 

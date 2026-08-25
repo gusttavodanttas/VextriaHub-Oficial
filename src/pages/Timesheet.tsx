@@ -155,7 +155,13 @@ export default function Timesheet() {
         // Só marca como faturado se a RECEITA foi criada — senão as horas sumiriam do
         // "Faturável" sem nenhum lançamento no Financeiro (perda silenciosa de receita).
         if (error || !novo) { falhas++; continue; }
-        await marcarFaturado(g.ids, true, (novo as any).id);
+        const marcado = await marcarFaturado(g.ids, true, (novo as any).id);
+        if (!marcado) {
+          // Compensa: a receita nasceu mas as horas NÃO foram marcadas faturadas → apaga
+          // a receita pra não gerar cobrança EM DOBRO na próxima "Gerar cobrança". (v12)
+          await supabase.from("financeiro").update({ deletado: true }).eq("id", (novo as any).id);
+          falhas++; continue;
+        }
         ok++;
       }
       if (falhas > 0) {
