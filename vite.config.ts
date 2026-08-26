@@ -48,5 +48,10 @@ export default defineConfig(({ mode }) => ({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/tests/setup.ts'],
+    // 5s (default) piscava vermelho no CI (2 núcleos): o NovaAudienciaDialog "abre
+    // PREENCHIDO" estourava por CARGA, não por asserção. 15s dá folga sem mascarar
+    // bug real (teste travado de verdade ainda falha). (v12)
+    testTimeout: 15000,
+    hookTimeout: 15000,
   },
 }));

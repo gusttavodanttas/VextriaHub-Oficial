@@ -27,6 +27,15 @@ jobs:
       - name: Lint (eslint — falha só em erros; warnings não quebram)
         run: npx eslint . --quiet
 
+      - name: Catraca de warnings (o 'any' não pode crescer além do teto)
+        # Trava o débito de qualidade: se os warnings de lint (majoritariamente
+        # no-explicit-any) passarem de 720, a CI falha — obriga a não adicionar
+        # 'any' novo sem limpar outro. Conta via JSON (sem despejar 720 linhas).
+        run: |
+          W=$(npx eslint . -f json | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>process.stdout.write(String(JSON.parse(d).reduce((s,f)=>s+f.warningCount,0))))")
+          echo "eslint warnings: $W (teto 720)"
+          test "$W" -le 720 || { echo "::error::warnings de lint passaram de 720 ($W) — evite adicionar 'any' novo (ou limpe outros para compensar)"; exit 1; }
+
       - name: Type-check (tsc)
         # -p tsconfig.app.json é obrigatório: `tsc --noEmit` puro usa o tsconfig.json
         # raiz (files:[] + references) e NÃO checa nada em src. Este aponta pro projeto real.
