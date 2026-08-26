@@ -1,5 +1,5 @@
 ﻿import React from 'react';
-import { Calendar, FileText, Edit, Trash2, Clock, Building2, MapPin, ChevronRight, MoreHorizontal } from 'lucide-react';
+import { Calendar, FileText, Edit, Trash2, Clock, Building2, MapPin, ChevronRight, MoreHorizontal, Share2 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -111,6 +111,15 @@ export const ProcessoCard: React.FC<ProcessoCardProps> = ({
               {(processo.classeJudicial || processo.tipoProcesso) && (
                 <span className="text-[9px] bg-black/5 dark:bg-muted/30 text-muted-foreground/60 dark:text-muted-foreground px-2 py-0.5 rounded-full font-black uppercase tracking-wider border border-black/5 dark:border-border">
                   {processo.classeJudicial || processo.tipoProcesso}
+                </span>
+              )}
+              {processo.sharedFrom && (
+                <span
+                  className="flex items-center gap-1 text-[9px] bg-sky-500/10 text-sky-600 dark:text-sky-400 px-2 py-0.5 rounded-full font-black uppercase tracking-wider border border-sky-500/20"
+                  title={`Compartilhado por ${processo.sharedFrom}${processo.sharePermission === 'editar' ? ' — você pode editar' : ' — somente leitura'}`}
+                >
+                  <Share2 className="h-2.5 w-2.5" />
+                  {processo.sharedFrom}
                 </span>
               )}
             </div>

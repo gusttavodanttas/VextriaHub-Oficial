@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { fmtDataBR } from '@/lib/dates';
 import { Processo } from '@/types/processo';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Edit, Trash2, FileText, Building2, ExternalLink, CalendarDays } from 'lucide-react';
+import { MoreHorizontal, Edit, Trash2, FileText, Building2, ExternalLink, CalendarDays, Share2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -101,6 +101,12 @@ export const ProcessoTable: React.FC<ProcessoTableProps> = ({
                     <span className="font-bold text-[15px] truncate group-hover:text-primary dark:group-hover:text-foreground transition-colors">
                       {processo.titulo}
                     </span>
+                    {processo.sharedFrom && (
+                      <span className="flex items-center gap-1 text-[9px] w-fit bg-sky-500/10 text-sky-600 dark:text-sky-400 px-2 py-0.5 rounded-full font-black uppercase tracking-wider border border-sky-500/20"
+                        title={`Compartilhado por ${processo.sharedFrom}${processo.sharePermission === 'editar' ? ' — você pode editar' : ' — somente leitura'}`}>
+                        <Share2 className="h-2.5 w-2.5" /> {processo.sharedFrom}
+                      </span>
+                    )}
                     {processo.valorCausa && processo.valorCausa > 0 && (
                       <div className="flex items-center gap-1.5">
                         <span className="text-[10px] uppercase font-black tracking-widest text-emerald-500/80">Valor:</span>

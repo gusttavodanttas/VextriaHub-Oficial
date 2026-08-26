@@ -37,6 +37,10 @@ import {
   Circle,
   Sparkles,
   Trash2,
+  Share2,
+  Lock,
+  Eye,
+  PencilLine,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
@@ -49,7 +53,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useOfficeTeams } from '@/hooks/useOfficeTeams';
 import { useOfficeUsers } from '@/hooks/useOfficeUsers';
+import { usePermissions } from '@/hooks/usePermissions';
 import { CompletarDadosDialog } from '@/components/Processos/CompletarDadosDialog';
+import { ProcessoShareManager } from '@/components/Processos/ProcessoShareManager';
 
 interface ProcessoDetailsDrawerProps {
   processo: Processo | null;
@@ -118,6 +124,16 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
   const queryClient = useQueryClient();
   const { teams: officeTeams } = useOfficeTeams();
   const { users: officeUsers } = useOfficeUsers();
+  const { canManageOffice } = usePermissions();
+
+  // ── Contexto de compartilhamento entre escritórios ──
+  // Se o processo veio COMPARTILHADO por um parceiro (sharedFrom preenchido pela página),
+  // ele não é "meu": o cabeçalho fica só-leitura e as ações seguem a permissão do share.
+  const isSharedIn = !!processo?.sharedFrom;
+  const canEditShared = processo?.sharePermission === 'editar';
+  const isMine = !isSharedIn;
+  const canWrite = isMine || canEditShared;           // registrar andamento
+  const canManageShares = isMine && canManageOffice;  // dono admin gerencia parceiros
 
   const [completarOpen, setCompletarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("resumo");
@@ -317,9 +333,12 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
 
   const handleAddAndamento = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!processo?.id || !user?.office_id) return;
+    // Carimba o andamento no escritório DONO do processo (processo.officeId). Em processo
+    // próprio é o meu; em processo compartilhado é o do parceiro — assim os dois lados veem
+    // o andamento e o paywall segue ancorado em quem é dono do dado.
+    const officeId = processo?.officeId || user?.office_id;
+    if (!processo?.id || !officeId) return;
     const processoId = processo.id;
-    const officeId = user.office_id;
     setAddLoading(true);
     const fd = new FormData(e.currentTarget);
     const descricao = (fd.get('descricao') as string || '').trim();
@@ -398,6 +417,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
     { value: 'tarefas', label: 'Tarefas', icon: ListTodo },
     { value: 'timesheet', label: 'Timesheet', icon: Timer },
     { value: 'partes', label: 'Partes', icon: User },
+    ...(canManageShares ? [{ value: 'compartilhar', label: 'Compartilhar', icon: Share2 }] : []),
   ];
 
   if (!processo) return null;
@@ -457,7 +477,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                   <Button variant="ghost" size="sm" onClick={() => setEditing(false)} className="h-9 rounded-xl text-xs gap-1.5"><X className="h-3.5 w-3.5" /> Cancelar</Button>
                   <Button size="sm" onClick={handleSave} disabled={saving} className="h-9 rounded-xl text-xs gap-1.5 shadow-md"><Save className="h-3.5 w-3.5" /> {saving ? 'Salvando...' : 'Salvar'}</Button>
                 </>
-              ) : (
+              ) : isMine ? (
                 <div className="flex gap-2">
                   {processo.numeroProcesso && (
                     <Button variant="outline" size="sm" onClick={() => setCompletarOpen(true)} className="h-9 rounded-xl text-xs gap-1.5 border-border" title="Buscar dados no tribunal e completar os campos vazios">
@@ -466,6 +486,11 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                   )}
                   <Button variant="outline" size="sm" onClick={() => setEditing(true)} className="h-9 rounded-xl text-xs gap-1.5 border-border"><Edit className="h-3.5 w-3.5" /> Editar</Button>
                 </div>
+              ) : (
+                <Badge variant="outline" className={cn("h-9 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest gap-1.5 flex items-center", canEditShared ? "border-amber-500/30 text-amber-600 bg-amber-500/10" : "border-sky-500/30 text-sky-600 bg-sky-500/10")}>
+                  {canEditShared ? <PencilLine className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  {canEditShared ? 'Compartilhado · pode editar' : 'Compartilhado · leitura'}
+                </Badge>
               )}
             </div>
           </div>
@@ -497,6 +522,20 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
         {/* ═══ CONTEÚDO ═══ */}
         <div className="flex-1 min-h-0 overflow-y-auto">
           <div className="p-8">
+
+            {isSharedIn && (
+              <div className="mb-6 flex items-center gap-3 p-4 rounded-2xl border border-sky-500/20 bg-sky-500/5">
+                <div className="p-2 rounded-xl bg-sky-500/10 text-sky-600 shrink-0"><Share2 className="h-4 w-4" /></div>
+                <div className="text-sm min-w-0">
+                  <span className="font-bold text-foreground">Compartilhado por {processo.sharedFrom}.</span>{' '}
+                  <span className="text-muted-foreground">
+                    {canEditShared
+                      ? 'Você acompanha e pode registrar andamentos. O cabeçalho do processo é editado só pelo escritório dono.'
+                      : 'Acesso somente leitura — você acompanha o andamento, mas não edita.'}
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* ── RESUMO ── */}
             {activeTab === 'resumo' && (
@@ -685,13 +724,17 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                     {syncing ? 'Sincronizando…' : `${movements.length} movimentação(ões)`}
                   </p>
                   <div className="flex items-center gap-3">
-                    <Button variant="outline" size="sm" onClick={() => setShowAddAndamento(true)} className="h-7 rounded-xl text-[10px] gap-1 px-3 font-black uppercase tracking-widest">
-                      <Plus className="h-3 w-3" /> Andamento Manual
-                    </Button>
-                    <button onClick={() => syncFromOrigin()} disabled={syncing} className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-black text-primary/70 hover:text-primary disabled:opacity-30 transition-colors">
-                      <RotateCw className={cn("h-3 w-3", syncing && "animate-spin")} />
-                      {syncing ? 'Atualizando' : 'Atualizar'}
-                    </button>
+                    {canWrite && (
+                      <Button variant="outline" size="sm" onClick={() => setShowAddAndamento(true)} className="h-7 rounded-xl text-[10px] gap-1 px-3 font-black uppercase tracking-widest">
+                        <Plus className="h-3 w-3" /> Andamento Manual
+                      </Button>
+                    )}
+                    {isMine && (
+                      <button onClick={() => syncFromOrigin()} disabled={syncing} className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-black text-primary/70 hover:text-primary disabled:opacity-30 transition-colors">
+                        <RotateCw className={cn("h-3 w-3", syncing && "animate-spin")} />
+                        {syncing ? 'Atualizando' : 'Atualizar'}
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -777,12 +820,18 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-[10px] font-black text-primary/80 bg-primary/5 px-2.5 py-0.5 rounded-lg">{fmtDate(pub.data_publicacao)}</span>
                             {pub.tipo_documento && <Badge variant="outline" className="text-[9px] font-bold uppercase">{pub.tipo_documento}</Badge>}
-                            {/* Urgência clicável */}
-                            <button onClick={() => handlePubUrgencia(pub.id, pub.urgencia === 'alta' ? 'media' : pub.urgencia === 'media' ? 'baixa' : 'alta')}>
-                              <Badge variant="outline" className={cn("text-[9px] font-bold uppercase cursor-pointer hover:opacity-80", pub.urgencia === 'alta' ? 'border-rose-500/30 text-rose-600 bg-rose-500/10' : pub.urgencia === 'media' ? 'border-amber-500/30 text-amber-600 bg-amber-500/10' : 'border-slate-500/30 text-slate-500')}>
+                            {/* Urgência — clicável só no processo próprio */}
+                            {isMine ? (
+                              <button onClick={() => handlePubUrgencia(pub.id, pub.urgencia === 'alta' ? 'media' : pub.urgencia === 'media' ? 'baixa' : 'alta')}>
+                                <Badge variant="outline" className={cn("text-[9px] font-bold uppercase cursor-pointer hover:opacity-80", pub.urgencia === 'alta' ? 'border-rose-500/30 text-rose-600 bg-rose-500/10' : pub.urgencia === 'media' ? 'border-amber-500/30 text-amber-600 bg-amber-500/10' : 'border-slate-500/30 text-slate-500')}>
+                                  {pub.urgencia === 'alta' ? '● Alta' : pub.urgencia === 'media' ? '● Média' : '● Baixa'}
+                                </Badge>
+                              </button>
+                            ) : (
+                              <Badge variant="outline" className={cn("text-[9px] font-bold uppercase", pub.urgencia === 'alta' ? 'border-rose-500/30 text-rose-600 bg-rose-500/10' : pub.urgencia === 'media' ? 'border-amber-500/30 text-amber-600 bg-amber-500/10' : 'border-slate-500/30 text-slate-500')}>
                                 {pub.urgencia === 'alta' ? '● Alta' : pub.urgencia === 'media' ? '● Média' : '● Baixa'}
                               </Badge>
-                            </button>
+                            )}
                           </div>
                           <Badge variant="outline" className={cn("text-[9px] font-bold uppercase", pub.status === 'nova' ? 'border-blue-500/30 text-blue-600 bg-blue-500/10' : pub.status === 'lida' ? 'border-emerald-500/30 text-emerald-600' : 'border-slate-500/30 text-slate-500')}>
                             {pub.status}
@@ -813,23 +862,27 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                         <Button variant="ghost" size="sm" className="h-7 rounded-xl text-[10px] gap-1 font-bold uppercase tracking-widest" onClick={() => handleCopyPub(pub.conteudo)}>
                           <Check className="h-3 w-3" /> Copiar
                         </Button>
-                        {pub.status === 'nova' && (
-                          <Button variant="ghost" size="sm" className="h-7 rounded-xl text-[10px] gap-1 font-bold uppercase tracking-widest text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10" onClick={() => handlePubStatus(pub.id, 'lida')}>
-                            <CheckCircle2 className="h-3 w-3" /> Marcar como Lida
-                          </Button>
-                        )}
-                        {pub.status === 'lida' && (
-                          <Button variant="ghost" size="sm" className="h-7 rounded-xl text-[10px] gap-1 font-bold uppercase tracking-widest text-blue-600 hover:text-blue-700 hover:bg-blue-500/10" onClick={() => handlePubStatus(pub.id, 'processada')}>
-                            <CheckCircle2 className="h-3 w-3" /> Marcar como Processada
-                          </Button>
-                        )}
-                        <Button variant="ghost" size="sm" className="h-7 rounded-xl text-[10px] gap-1 font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground" onClick={() => handlePubStatus(pub.id, 'arquivada')}>
-                          <X className="h-3 w-3" /> Arquivar
-                        </Button>
-                        {pub.status !== 'processada' && (
-                          <Button variant="ghost" size="sm" className="h-7 rounded-xl text-[10px] gap-1 font-bold uppercase tracking-widest text-violet-600 hover:text-violet-700 hover:bg-violet-500/10" onClick={() => setTratandoPubId(tratandoPubId === pub.id ? null : pub.id)}>
-                            <CalendarClock className="h-3 w-3" /> Tratar
-                          </Button>
+                        {isMine && (
+                          <>
+                            {pub.status === 'nova' && (
+                              <Button variant="ghost" size="sm" className="h-7 rounded-xl text-[10px] gap-1 font-bold uppercase tracking-widest text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10" onClick={() => handlePubStatus(pub.id, 'lida')}>
+                                <CheckCircle2 className="h-3 w-3" /> Marcar como Lida
+                              </Button>
+                            )}
+                            {pub.status === 'lida' && (
+                              <Button variant="ghost" size="sm" className="h-7 rounded-xl text-[10px] gap-1 font-bold uppercase tracking-widest text-blue-600 hover:text-blue-700 hover:bg-blue-500/10" onClick={() => handlePubStatus(pub.id, 'processada')}>
+                                <CheckCircle2 className="h-3 w-3" /> Marcar como Processada
+                              </Button>
+                            )}
+                            <Button variant="ghost" size="sm" className="h-7 rounded-xl text-[10px] gap-1 font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground" onClick={() => handlePubStatus(pub.id, 'arquivada')}>
+                              <X className="h-3 w-3" /> Arquivar
+                            </Button>
+                            {pub.status !== 'processada' && (
+                              <Button variant="ghost" size="sm" className="h-7 rounded-xl text-[10px] gap-1 font-bold uppercase tracking-widest text-violet-600 hover:text-violet-700 hover:bg-violet-500/10" onClick={() => setTratandoPubId(tratandoPubId === pub.id ? null : pub.id)}>
+                                <CalendarClock className="h-3 w-3" /> Tratar
+                              </Button>
+                            )}
+                          </>
                         )}
                       </div>
 
@@ -872,7 +925,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
             {/* ── PRAZOS ── */}
             {activeTab === 'prazos' && (
               <div className="space-y-4">
-                <SectionHeader label="prazo(s)" count={prazos.length} onAdd={() => setShowAddPrazo(true)} />
+                <SectionHeader label="prazo(s)" count={prazos.length} onAdd={isMine ? () => setShowAddPrazo(true) : undefined} />
                 {showAddPrazo && (
                   <AddForm loading={addLoading} onSubmit={handleAddPrazo} onCancel={() => setShowAddPrazo(false)}>
                     <Input name="titulo" placeholder="Título do prazo" required className="h-9 rounded-xl text-sm" />
@@ -911,7 +964,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
             {/* ── AUDIÊNCIAS ── */}
             {activeTab === 'audiencias' && (
               <div className="space-y-4">
-                <SectionHeader label="audiência(s)" count={audiencias.length} onAdd={() => setShowAddAudiencia(true)} />
+                <SectionHeader label="audiência(s)" count={audiencias.length} onAdd={isMine ? () => setShowAddAudiencia(true) : undefined} />
                 {showAddAudiencia && (
                   <AddForm loading={addLoading} onSubmit={handleAddAudiencia} onCancel={() => setShowAddAudiencia(false)}>
                     <Input name="titulo" placeholder="Título da audiência" required className="h-9 rounded-xl text-sm" />
@@ -944,7 +997,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
             {/* ── ATENDIMENTOS ── */}
             {activeTab === 'atendimentos' && (
               <div className="space-y-4">
-                <SectionHeader label="atendimento(s)" count={atendimentos.length} onAdd={() => setShowAddAtendimento(true)} />
+                <SectionHeader label="atendimento(s)" count={atendimentos.length} onAdd={isMine ? () => setShowAddAtendimento(true) : undefined} />
                 {showAddAtendimento && (
                   <AddForm loading={addLoading} onSubmit={handleAddAtendimento} onCancel={() => setShowAddAtendimento(false)}>
                     <Input name="tipo" placeholder="Tipo (reunião, ligação, email...)" required className="h-9 rounded-xl text-sm" />
@@ -974,7 +1027,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
             {/* ── TAREFAS ── */}
             {activeTab === 'tarefas' && (
               <div className="space-y-4">
-                <SectionHeader label="tarefa(s)" count={tarefas.length} onAdd={() => setShowAddTarefa(true)} />
+                <SectionHeader label="tarefa(s)" count={tarefas.length} onAdd={isMine ? () => setShowAddTarefa(true) : undefined} />
                 {showAddTarefa && (
                   <AddForm loading={addLoading} onSubmit={handleAddTarefa} onCancel={() => setShowAddTarefa(false)}>
                     <Input name="titulo" placeholder="Título da tarefa" required className="h-9 rounded-xl text-sm" />
@@ -1010,7 +1063,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
             {/* ── TIMESHEET ── */}
             {activeTab === 'timesheet' && (
               <div className="space-y-4">
-                <SectionHeader label="registro(s)" count={timesheets.length} onAdd={() => setShowAddTimesheet(true)} />
+                <SectionHeader label="registro(s)" count={timesheets.length} onAdd={isMine ? () => setShowAddTimesheet(true) : undefined} />
                 {showAddTimesheet && (
                   <AddForm loading={addLoading} onSubmit={handleAddTimesheet} onCancel={() => setShowAddTimesheet(false)}>
                     <Input name="descricao" placeholder="Descrição da atividade" required className="h-9 rounded-xl text-sm" />
@@ -1064,9 +1117,11 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                   ) : (
                     <p className="text-base font-bold text-foreground leading-relaxed">{processo.parteAutora || <span className="text-muted-foreground/50 italic">Não identificado</span>}</p>
                   )}
-                  <Button variant={processo.clienteId && processo.cliente === (processo.parteAutora || '') ? 'default' : 'outline'} size="sm" className="w-full rounded-xl gap-2 font-black text-[10px] h-9 uppercase tracking-widest" disabled={savingCliente || !(editData.parte_autora || processo.parteAutora)} onClick={() => handleSetCliente('autor')}>
-                    {savingCliente ? <RotateCw className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />} Este é meu cliente
-                  </Button>
+                  {isMine && (
+                    <Button variant={processo.clienteId && processo.cliente === (processo.parteAutora || '') ? 'default' : 'outline'} size="sm" className="w-full rounded-xl gap-2 font-black text-[10px] h-9 uppercase tracking-widest" disabled={savingCliente || !(editData.parte_autora || processo.parteAutora)} onClick={() => handleSetCliente('autor')}>
+                      {savingCliente ? <RotateCw className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />} Este é meu cliente
+                    </Button>
+                  )}
                 </div>
 
                 <div className="p-6 rounded-2xl border border-rose-500/15 bg-rose-500/5 space-y-4">
@@ -1079,9 +1134,11 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                   ) : (
                     <p className="text-base font-bold text-foreground leading-relaxed">{processo.requerido || <span className="text-muted-foreground/50 italic">Não identificado</span>}</p>
                   )}
-                  <Button variant={processo.clienteId && processo.cliente === (processo.requerido || '') ? 'default' : 'outline'} size="sm" className="w-full rounded-xl gap-2 font-black text-[10px] h-9 uppercase tracking-widest" disabled={savingCliente || !(editData.requerido || processo.requerido)} onClick={() => handleSetCliente('reu')}>
-                    {savingCliente ? <RotateCw className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />} Este é meu cliente
-                  </Button>
+                  {isMine && (
+                    <Button variant={processo.clienteId && processo.cliente === (processo.requerido || '') ? 'default' : 'outline'} size="sm" className="w-full rounded-xl gap-2 font-black text-[10px] h-9 uppercase tracking-widest" disabled={savingCliente || !(editData.requerido || processo.requerido)} onClick={() => handleSetCliente('reu')}>
+                      {savingCliente ? <RotateCw className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />} Este é meu cliente
+                    </Button>
+                  )}
                 </div>
 
                 {editing && (
@@ -1091,6 +1148,11 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                   </div>
                 )}
               </div>
+            )}
+
+            {/* ── COMPARTILHAR (dono admin) ── */}
+            {activeTab === 'compartilhar' && canManageShares && (
+              <ProcessoShareManager processoId={processo.id} active={activeTab === 'compartilhar'} />
             )}
 
           </div>

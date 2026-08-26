@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProcessosV2 } from '@/hooks/useProcessosV2';
+import { useProcessShares } from '@/hooks/useProcessShares';
 import { FileText, Loader2, RotateCw, Search, Plus, Database, Scale, CheckCircle2, PauseCircle, FolderOpen, Users, Inbox } from 'lucide-react';
 import { useMyTeams } from '@/hooks/useMyTeams';
 import { useProcessosEncontrados } from '@/hooks/useProcessosEncontrados';
@@ -80,11 +81,19 @@ const Processos = () => {
   const { count: encontradosCount, refetch: refetchEncontrados } = useProcessosEncontrados();
 
   const {
-    data: processos,
+    data: processosRaw,
     loading,
     refresh,
     requestDelete,
   } = useProcessosV2();
+
+  // Marca os processos que um escritório parceiro compartilhou comigo (badge + modo do drawer)
+  const { sharedInMap } = useProcessShares();
+  const processos = useMemo(() =>
+    processosRaw.map((p) => {
+      const s = sharedInMap.get(p.id);
+      return s ? { ...p, sharedFrom: s.ownerOfficeName, sharePermission: s.permission } : p;
+    }), [processosRaw, sharedInMap]);
 
   // equipe selecionada para filtro (null = todos)
   const [teamFilter, setTeamFilter] = useState<string | null>(null);

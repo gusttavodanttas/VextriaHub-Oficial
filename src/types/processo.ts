@@ -37,6 +37,10 @@ export interface Processo {
   team_id?: string | null;
   responsavel_id?: string | null;
   resultado?: string | null;
+  officeId?: string | null; // escritório dono (para carimbar filhos no escritório certo)
+  // Preenchidos quando o processo foi COMPARTILHADO com o meu escritório por um parceiro:
+  sharedFrom?: string; // nome do escritório que compartilhou
+  sharePermission?: 'ver' | 'editar';
 }
 
 export interface NovoProcessoForm {

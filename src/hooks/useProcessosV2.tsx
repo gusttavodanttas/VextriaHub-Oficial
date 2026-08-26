@@ -52,6 +52,7 @@ export function useProcessosV2() {
       team_id: dbRecord.team_id || null,
       responsavel_id: dbRecord.responsavel_id || dbRecord.user_id || null,
       resultado: dbRecord.resultado || null,
+      officeId: dbRecord.office_id || null,
     };
   };
 
