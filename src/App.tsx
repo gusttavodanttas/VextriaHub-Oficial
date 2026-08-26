@@ -2,7 +2,8 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from "@tanstack/react-query";
+import { captureError } from "@/lib/monitoring";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
@@ -50,6 +51,15 @@ const Pagamento = lazy(() => import("./pages/Pagamento"));
 const Lixeira = lazy(() => import("./pages/Lixeira"));
 
 const queryClient = new QueryClient({
+  // Observabilidade: reporta TODA falha de query/mutation ao Sentry num lugar só —
+  // antes ~30 catch só faziam console.error (invisível em prod). O toast local nos
+  // hooks continua; isto só ADICIONA o reporte central. (v12) [[vextriahub-audit-ago2026]]
+  queryCache: new QueryCache({
+    onError: (error, query) => captureError(error, { scope: "query", queryKey: query.queryKey }),
+  }),
+  mutationCache: new MutationCache({
+    onError: (error, _vars, _ctx, mutation) => captureError(error, { scope: "mutation", mutationKey: mutation.options.mutationKey }),
+  }),
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000, // 5 minutes

@@ -258,9 +258,13 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
         return;
       }
       const nomeCliente = rawName.replace(/\s+/g, ' ').trim().split(' ').slice(0, 8).join(' ').slice(0, 100);
-      // Dedup case-insensitive: nome de parte do tribunal costuma vir em CAIXA ALTA,
-      // e o `.eq` exato criava um cliente duplicado do já cadastrado em título. (v11)
-      const { data: existing } = await supabase.from('clientes').select('id').ilike('nome', nomeCliente).eq('office_id', user.office_id).limit(1).maybeSingle();
+      // Dedup insensível a acento/caixa/espaço: nome de parte do tribunal vem em CAIXA
+      // ALTA e às vezes sem acento ("JOSE" vs "José") — o .ilike anterior (acento-sensível)
+      // ainda duplicava. Normaliza e compara em JS (mesma norma do ClientSelect). (v12)
+      const norm = (s: string) => (s || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/\s+/g, ' ').trim();
+      const alvo = norm(nomeCliente);
+      const { data: candidatos } = await supabase.from('clientes').select('id, nome').eq('office_id', user.office_id).eq('deletado', false);
+      const existing = (candidatos || []).find((c: any) => norm(c.nome) === alvo) || null;
       let clienteId: string;
       if (existing) {
         clienteId = existing.id;
