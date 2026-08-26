@@ -7,7 +7,7 @@ import { Calendar as CalendarUI } from "@/components/ui/calendar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Calendar, Clock, MapPin, User, Users, Plus, Search, Trash2, Pencil,
-  CheckCircle2, XCircle, MoreHorizontal, CalendarCheck, CalendarClock, Gavel, Loader2, AlertTriangle, FileText,
+  CheckCircle2, XCircle, MoreHorizontal, CalendarCheck, CalendarClock, Gavel, Loader2, AlertTriangle, FileText, Handshake,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
@@ -20,6 +20,8 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMultiSelect } from "@/hooks/useMultiSelect";
 import { useAudiencias, type Audiencia, type AudienciaInput } from "@/hooks/useAudiencias";
+import { useCorrespondentes } from "@/hooks/useCorrespondentes";
+import { DesignarCorrespondenteDialog } from "@/components/Correspondentes/DesignarCorrespondenteDialog";
 import { useOpenItemFromSearch } from "@/hooks/useOpenItemFromSearch";
 import { supabase } from "@/integrations/supabase/client";
 import { useClientes } from "@/hooks/useClientes";
@@ -63,6 +65,18 @@ const Audiencias = () => {
     [processosData]
   );
   const processoMap = useMemo(() => Object.fromEntries(processosOpts.map(p => [p.id, p.label])), [processosOpts]);
+
+  // Correspondentes: mapa audiência → diligência designada (para selo + ação)
+  const { diligencias, correspondentes } = useCorrespondentes();
+  const diligenciaPorAudiencia = useMemo(() => {
+    const corr = new Map(correspondentes.map(c => [c.id, c.nome]));
+    const m = new Map<string, string | null>();
+    for (const d of diligencias) {
+      if (d.audiencia_id) m.set(d.audiencia_id, d.correspondente_id ? (corr.get(d.correspondente_id) || 'Correspondente') : null);
+    }
+    return m;
+  }, [diligencias, correspondentes]);
+  const [designarTarget, setDesignarTarget] = useState<Audiencia | null>(null);
 
   const [searchTerm, setSearchTerm] = useState("");
   const dSearch = useDeferredValue(searchTerm);
@@ -228,9 +242,14 @@ const Audiencias = () => {
           </div>
 
           <div className="flex items-center justify-between gap-2 pt-1">
-            {a.tipo
-              ? <Badge variant="outline" className="rounded-lg border-primary/20 text-primary bg-primary/5 text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5">{a.tipo}</Badge>
-              : <span />}
+            <div className="flex items-center gap-2 flex-wrap min-w-0">
+              {a.tipo && <Badge variant="outline" className="rounded-lg border-primary/20 text-primary bg-primary/5 text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5">{a.tipo}</Badge>}
+              {diligenciaPorAudiencia.has(a.id) && (
+                <Badge variant="outline" className="rounded-lg border-sky-500/30 text-sky-600 dark:text-sky-400 bg-sky-500/10 text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5 gap-1">
+                  <Handshake className="h-2.5 w-2.5" />{diligenciaPorAudiencia.get(a.id) || 'Correspondente'}
+                </Badge>
+              )}
+            </div>
             <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <Button variant="ghost" size="sm" className="h-8 px-2 rounded-lg gap-1 text-xs font-bold" onClick={() => openEdit(a)}>
                 <Pencil className="h-3.5 w-3.5" /> Editar
@@ -248,6 +267,10 @@ const Audiencias = () => {
                   </DropdownMenuItem>
                   <DropdownMenuItem className="rounded-lg gap-2 text-rose-600 focus:text-rose-600" onClick={() => updateStatus.mutate({ id: a.id, status: "cancelada" })}>
                     <XCircle className="h-4 w-4" /> Cancelar
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="rounded-lg gap-2 text-sky-600 focus:text-sky-600" onClick={() => setDesignarTarget(a)}>
+                    <Handshake className="h-4 w-4" /> Designar correspondente
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem className="rounded-lg gap-2 text-destructive focus:text-destructive" onClick={() => { multiSelect.clearSelection(); multiSelect.toggleItem(a.id); setDeleteDialogOpen(true); }}>
@@ -421,6 +444,12 @@ const Audiencias = () => {
         title="Excluir Audiências"
         description={`Tem certeza que deseja excluir ${multiSelect.selectedCount} audiência(s)? Esta ação pode ser desfeita na lixeira.`}
         isLoading={remove.isPending}
+      />
+
+      <DesignarCorrespondenteDialog
+        open={!!designarTarget}
+        onOpenChange={(o) => { if (!o) setDesignarTarget(null); }}
+        audiencia={designarTarget}
       />
     </div>
   );

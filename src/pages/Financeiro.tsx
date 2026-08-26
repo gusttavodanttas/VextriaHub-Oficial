@@ -63,6 +63,7 @@ import { useFinanceiro, useFinanceiroCategorias } from "@/hooks/useFinanceiro";
 import { GerenciarCategoriasDialog } from "@/components/Financeiro/GerenciarCategoriasDialog";
 import { FormDialog } from "@/components/Financeiro/FinanceiroFormDialog";
 import { FinanceiroRow, EmptyState, LoadingSkeleton } from "@/components/Financeiro/FinanceiroRow";
+import { DiligenciasFinanceiroPanel } from "@/components/Correspondentes/DiligenciasFinanceiroPanel";
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 const Financeiro = () => {
@@ -246,6 +247,9 @@ const Financeiro = () => {
             </div>
           ))}
         </div>
+
+        {/* Resumo de diligências (custo com correspondentes) */}
+        <DiligenciasFinanceiroPanel />
 
         {/* Filtros */}
         <div className="flex flex-col sm:flex-row gap-3">
