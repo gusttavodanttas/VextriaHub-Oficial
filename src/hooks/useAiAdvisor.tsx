@@ -21,6 +21,7 @@ export interface AdvisorSnapshot {
   valor_diligencias_a_pagar: number;
   movimentacoes_no_periodo: number;
 }
+export interface ChatMessage { role: 'user' | 'assistant'; content: string; }
 export interface ResumoProcesso { resumo?: string; situacao_atual?: string; proximos_passos?: string[]; }
 export interface ResumoPublicacao {
   resumo?: string;
@@ -53,6 +54,8 @@ async function invoke<T>(body: Record<string, unknown>): Promise<T> {
 
 export function useAiAdvisor() {
   return {
+    chat: (messages: ChatMessage[]) =>
+      invoke<{ ok: boolean; reply: string }>({ mode: 'chat', messages }),
     insights: (period: AdvisorPeriod) =>
       invoke<{ ok: boolean; period: string; snapshot: AdvisorSnapshot; data: AdvisorInsights }>({ mode: 'insights', period }),
     resumoProcesso: (processoId: string) =>

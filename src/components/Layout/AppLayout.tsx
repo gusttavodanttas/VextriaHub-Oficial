@@ -6,6 +6,7 @@ import { AppHeader } from './AppHeader';
 import { SidebarInset } from '@/components/ui/sidebar';
 import { useCoordinatorAlerts } from '@/hooks/useCoordinatorAlerts';
 import { useProximityNotifications } from '@/hooks/useProximityNotifications';
+import { AiAssistantWidget } from '@/components/IA/AiAssistantWidget';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -24,6 +25,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             {children}
           </main>
         </SidebarInset>
+        <AiAssistantWidget />
       </div>
     </SidebarProvider>
   );

@@ -3,7 +3,7 @@ import {
   Home, FileText, Users, Calendar, BookOpen, Settings, UserCircle, LogOut,
   ChevronLeft, ChevronRight, UserCheck, BarChart3, UserPlus,
   CalendarDays, DollarSign, Target, UsersIcon, MessageSquareText, Shield,
-  Building2, AlertCircle, Clock, CreditCard, Trash2, Handshake, Sparkles,
+  Building2, AlertCircle, Clock, CreditCard, Trash2, Handshake,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -19,7 +19,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 const menuItems = [
   { title: "Início", url: "/dashboard", icon: Home },
-  { title: "Conselheiro IA", url: "/conselheiro", icon: Sparkles },
   { title: "Processos", url: "/processos", icon: FileText },
   { title: "Clientes", url: "/clientes", icon: Users },
   { title: "CRM", url: "/crm", icon: UserPlus },
