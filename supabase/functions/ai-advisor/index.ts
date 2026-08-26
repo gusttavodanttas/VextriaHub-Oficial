@@ -20,7 +20,7 @@ const periodLabel: Record<string, string> = { hoje: "hoje", semana: "esta semana
 interface ToolCall { id: string; function: { name: string; arguments: string }; }
 interface OAIMsg { role: string; content?: string | null; tool_calls?: ToolCall[]; tool_call_id?: string; }
 interface OAIResp { choices?: { message?: OAIMsg }[]; error?: { message?: string }; }
-interface ToolArgs { titulo?: string; data?: string; hora?: string; local?: string; prioridade?: string; processo_numero?: string; numero?: string; parte_autora?: string; requerido?: string; }
+interface ToolArgs { titulo?: string; data?: string; hora?: string; local?: string; prioridade?: string; processo_numero?: string; numero?: string; parte_autora?: string; requerido?: string; termo?: string; }
 
 async function openaiRaw(messages: OAIMsg[], opts: { tools?: unknown[]; json?: boolean } = {}): Promise<OAIResp> {
   const body: Record<string, unknown> = { model: OPENAI_MODEL, temperature: 0.4, messages };
@@ -61,6 +61,8 @@ const TOOLS = [
   { type: "function", function: { name: "criar_processo", description: "Cria um novo caso/processo.", parameters: { type: "object", properties: {
     titulo: { type: "string" }, numero: { type: "string", description: "número CNJ (opcional)" }, parte_autora: { type: "string" }, requerido: { type: "string" },
   }, required: ["titulo"] } } },
+  { type: "function", function: { name: "verificar_clientes_duplicados", description: "Verifica a lista de clientes do escritório e retorna os que aparecem duplicados (mesmo nome, ignorando acento e maiúsculas). Use quando o usuário perguntar sobre clientes duplicados/repetidos.", parameters: { type: "object", properties: {} } } },
+  { type: "function", function: { name: "buscar_clientes", description: "Busca clientes do escritório por parte do nome. Use quando o usuário perguntar se existe um cliente, quantos com tal nome, etc.", parameters: { type: "object", properties: { termo: { type: "string", description: "parte do nome a buscar" } }, required: ["termo"] } } },
 ];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -99,6 +101,20 @@ async function executeTool(service: any, officeId: string, uid: string, name: st
       const { data, error } = await service.from("processos").insert({ office_id: officeId, user_id: uid, responsavel_id: uid, titulo: args.titulo, numero_processo: clean(args.numero) || "", parte_autora: args.parte_autora || null, requerido: args.requerido || null, status: "ativo" }).select("id").single();
       if (error) throw error;
       return { ok: true, tipo: "processo", id: data.id, titulo: args.titulo };
+    }
+    if (name === "verificar_clientes_duplicados") {
+      const { data } = await service.from("clientes").select("id, nome").eq("office_id", officeId).eq("deletado", false);
+      const norm = (s: string) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim();
+      const groups: Record<string, string[]> = {};
+      for (const c of (data || [])) { const k = norm(c.nome); if (!k) continue; (groups[k] = groups[k] || []).push(c.nome); }
+      const dups = Object.values(groups).filter((g) => g.length > 1).map((g) => ({ nome: g[0], quantidade: g.length }));
+      return { ok: true, tipo: "clientes_duplicados", total_clientes: (data || []).length, grupos_duplicados: dups.length, duplicados: dups.slice(0, 30) };
+    }
+    if (name === "buscar_clientes") {
+      const termo = String(args.termo || "").trim();
+      if (!termo) return { ok: false, error: "informe o termo de busca" };
+      const { data } = await service.from("clientes").select("nome").eq("office_id", officeId).eq("deletado", false).ilike("nome", `%${termo}%`).limit(15);
+      return { ok: true, tipo: "busca_clientes", termo, encontrados: (data || []).map((c: { nome?: string }) => c.nome) };
     }
     return { ok: false, error: "ferramenta desconhecida" };
   } catch (e) {
@@ -183,7 +199,7 @@ serve(async (req) => {
       const system =
         `Você é o "Conselheiro IA", assistente de gestão do escritório de advocacia "${office?.name || ""}" na plataforma VextriaHub. Cordial, direto, em português do Brasil.\n` +
         `ESTILO: seja ENXUTO por padrão — responda curto e direto (1-3 frases ou uma lista curta). Se houver muito a dizer, dê só o essencial e ofereça detalhar ("quer que eu detalhe?"). Só se aprofunde quando pedirem. NÃO use títulos de markdown (#, ##, ###) nem tabelas; pode usar **negrito** e listas com "-".\n` +
-        `AÇÕES: você PODE criar prazo, audiência, tarefa e caso/processo com as ferramentas. Regras: (1) só crie quando o usuário claramente pedir; (2) ANTES de criar, confirme os dados essenciais em 1 frase e só chame a ferramenta após um "sim"/"pode criar" do usuário; (3) nunca invente datas ou nomes — se faltar algo essencial (ex: data), pergunte; (4) datas no formato YYYY-MM-DD; (5) ao criar, diga em 1 frase o que foi feito.\n` +
+        `AÇÕES: você PODE criar prazo, audiência, tarefa e caso/processo, e CONSULTAR clientes (verificar duplicados e buscar por nome), usando as ferramentas. Para consultas, chame a ferramenta direto e responda com o resultado. Para CRIAR: (1) só quando o usuário claramente pedir; (2) ANTES de criar, confirme os dados essenciais em 1 frase e só chame a ferramenta após um "sim"/"pode criar"; (3) nunca invente datas ou nomes — se faltar algo essencial (ex: data), pergunte; (4) datas no formato YYYY-MM-DD; (5) ao criar, diga em 1 frase o que foi feito.\n` +
         `Panorama atual do escritório (use quando ajudar, sem inventar além disto): ${JSON.stringify(snap.numeros)}`;
 
       const msgs: OAIMsg[] = [{ role: "system", content: system }, ...history];
@@ -198,7 +214,7 @@ serve(async (req) => {
             let a: ToolArgs = {};
             try { a = JSON.parse(tc.function.arguments || "{}"); } catch { a = {}; }
             const result = await executeTool(service, officeId, uid, tc.function.name, a);
-            if (result.ok) actions.push(result);
+            if (result.ok && tc.function.name.startsWith("criar_")) actions.push(result);
             msgs.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) });
           }
           continue;
