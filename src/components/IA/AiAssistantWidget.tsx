@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { usePlanFeatures } from '@/hooks/usePlanFeatures';
 import { useAiAdvisor, AdvisorError, type ChatMessage } from '@/hooks/useAiAdvisor';
+import { useSpeech } from '@/hooks/useSpeech';
 import { Markdown } from '@/components/IA/Markdown';
 import { cn } from '@/lib/utils';
-import { Sparkles, X, Send, RotateCw, Crown, ArrowRight, Brain } from 'lucide-react';
+import { Sparkles, X, Send, RotateCw, Crown, ArrowRight, Brain, Mic, Volume2, VolumeX } from 'lucide-react';
 
 const GREETING =
   'Olá! 👋 Sou seu Conselheiro IA. Posso te dar um panorama do escritório, dizer o que priorizar, apontar riscos (prazos e audiências) e sugerir melhorias. Como posso ajudar?';
@@ -16,6 +17,16 @@ export const AiAssistantWidget: React.FC = () => {
   const queryClient = useQueryClient();
   const { hasIAModule } = usePlanFeatures();
   const advisor = useAiAdvisor();
+  const speech = useSpeech();
+  const [voiceOut, setVoiceOut] = useState<boolean>(() => {
+    try { return localStorage.getItem('ia-voice-out') === '1'; } catch { return false; }
+  });
+  const toggleVoiceOut = () => setVoiceOut((v) => {
+    const nv = !v;
+    try { localStorage.setItem('ia-voice-out', nv ? '1' : '0'); } catch { /* ignore */ }
+    if (v) speech.cancelSpeak();
+    return nv;
+  });
 
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -42,6 +53,7 @@ export const AiAssistantWidget: React.FC = () => {
     try {
       const res = await advisor.chat(next);
       setMessages([...next, { role: 'assistant', content: res.reply || '…' }]);
+      if (voiceOut) speech.speak(res.reply || '');
       // Se a IA criou algo, atualiza as telas correspondentes.
       if (res.actions && res.actions.length > 0) {
         ['prazos', 'audiencias', 'tarefas', 'processos', 'stats', 'dashboard-stats'].forEach((k) =>
@@ -66,7 +78,7 @@ export const AiAssistantWidget: React.FC = () => {
     <>
       {/* Launcher */}
       <button
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setOpen((o) => { if (o) { speech.cancelSpeak(); speech.stopListening(); } return !o; })}
         aria-label="Conselheiro IA"
         className={cn(
           'fixed bottom-5 right-5 z-[60] h-14 w-14 rounded-2xl flex items-center justify-center shadow-xl shadow-primary/30 transition-all duration-300 hover:scale-105',
@@ -92,7 +104,13 @@ export const AiAssistantWidget: React.FC = () => {
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Assistente do seu escritório
               </p>
             </div>
-            <button onClick={() => setOpen(false)} className="h-8 w-8 rounded-lg hover:bg-muted/60 flex items-center justify-center text-muted-foreground">
+            {hasIAModule && speech.ttsSupported && (
+              <button onClick={toggleVoiceOut} title={voiceOut ? 'Desligar voz' : 'Ler respostas em voz alta'}
+                className={cn('h-8 w-8 rounded-lg flex items-center justify-center', voiceOut ? 'bg-primary/15 text-primary' : 'hover:bg-muted/60 text-muted-foreground')}>
+                {voiceOut ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+              </button>
+            )}
+            <button onClick={() => { setOpen(false); speech.cancelSpeak(); speech.stopListening(); }} className="h-8 w-8 rounded-lg hover:bg-muted/60 flex items-center justify-center text-muted-foreground">
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -163,15 +181,26 @@ export const AiAssistantWidget: React.FC = () => {
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={onKeyDown}
                     rows={1}
-                    placeholder="Pergunte ao seu conselheiro…"
+                    placeholder={speech.listening ? 'Ouvindo… fale agora' : 'Pergunte ou fale com o conselheiro…'}
                     className="flex-1 resize-none bg-transparent text-sm outline-none max-h-28 py-1"
                   />
+                  {speech.sttSupported && (
+                    <button
+                      onClick={() => speech.listening ? speech.stopListening() : speech.startListening((t) => { setInput(t); send(t); })}
+                      title={speech.listening ? 'Parar' : 'Falar'}
+                      className={cn('h-8 w-8 rounded-xl flex items-center justify-center shrink-0 transition-colors',
+                        speech.listening ? 'bg-rose-500 text-white animate-pulse' : 'bg-muted/60 text-muted-foreground hover:text-primary')}>
+                      <Mic className="h-4 w-4" />
+                    </button>
+                  )}
                   <button onClick={() => send(input)} disabled={loading || !input.trim()}
                     className="h-8 w-8 rounded-xl bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-40 shrink-0">
                     {loading ? <RotateCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   </button>
                 </div>
-                <p className="text-[9px] text-muted-foreground/50 text-center mt-1.5">A IA pode errar. Confira informações importantes.</p>
+                <p className="text-[9px] text-muted-foreground/50 text-center mt-1.5">
+                  {speech.sttSupported ? 'Fale pelo microfone ou digite. ' : ''}A IA pode errar. Confira informações importantes.
+                </p>
               </div>
             </>
           )}
