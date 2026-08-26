@@ -54,6 +54,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useOfficeTeams } from '@/hooks/useOfficeTeams';
 import { useOfficeUsers } from '@/hooks/useOfficeUsers';
 import { usePermissions } from '@/hooks/usePermissions';
+import { usePlanFeatures } from '@/hooks/usePlanFeatures';
+import { useAiAdvisor, type ResumoProcesso } from '@/hooks/useAiAdvisor';
 import { CompletarDadosDialog } from '@/components/Processos/CompletarDadosDialog';
 import { ProcessoShareManager } from '@/components/Processos/ProcessoShareManager';
 
@@ -134,6 +136,13 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
   const isMine = !isSharedIn;
   const canWrite = isMine || canEditShared;           // registrar andamento
   const canManageShares = isMine && canManageOffice;  // dono admin gerencia parceiros
+
+  // Conselheiro IA (resumo do processo) — premium, só no processo próprio (a função escopa por office)
+  const { hasIAModule } = usePlanFeatures();
+  const advisor = useAiAdvisor();
+  const [resumoIA, setResumoIA] = useState<ResumoProcesso | null>(null);
+  const [resumoIAOpen, setResumoIAOpen] = useState(false);
+  const [resumoIALoading, setResumoIALoading] = useState(false);
 
   const [completarOpen, setCompletarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("resumo");
@@ -355,6 +364,22 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
     if (error) { toast({ title: 'Erro ao registrar andamento', description: error.message, variant: 'destructive' }); }
     else { toast({ title: 'Andamento registrado' }); setShowAddAndamento(false); fetchMovements(); }
     setAddLoading(false);
+  };
+
+  const handleResumirIA = async () => {
+    if (!processo?.id) return;
+    setResumoIAOpen(true);
+    setResumoIALoading(true);
+    setResumoIA(null);
+    try {
+      const res = await advisor.resumoProcesso(processo.id);
+      setResumoIA(res.data);
+    } catch (e: unknown) {
+      toast({ title: 'IA indisponível', description: getErrorMessage(e), variant: 'destructive' });
+      setResumoIAOpen(false);
+    } finally {
+      setResumoIALoading(false);
+    }
   };
 
   // ── Style helpers ──
@@ -727,6 +752,11 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                     {canWrite && (
                       <Button variant="outline" size="sm" onClick={() => setShowAddAndamento(true)} className="h-7 rounded-xl text-[10px] gap-1 px-3 font-black uppercase tracking-widest">
                         <Plus className="h-3 w-3" /> Andamento Manual
+                      </Button>
+                    )}
+                    {isMine && hasIAModule && (
+                      <Button variant="outline" size="sm" onClick={handleResumirIA} disabled={resumoIALoading} className="h-7 rounded-xl text-[10px] gap-1 px-3 font-black uppercase tracking-widest border-primary/30 text-primary hover:bg-primary/5">
+                        {resumoIALoading ? <RotateCw className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />} Resumir com IA
                       </Button>
                     )}
                     {isMine && (
@@ -1196,6 +1226,46 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
           </Button>
           <Button variant="outline" onClick={() => setAndamentoConfirm(null)} className="rounded-xl">Agora não</Button>
         </div>
+      </DialogContent>
+    </Dialog>
+
+    {/* Resumo do processo por IA */}
+    <Dialog open={resumoIAOpen} onOpenChange={setResumoIAOpen}>
+      <DialogContent aria-describedby={undefined} className="sm:max-w-lg rounded-[2rem]">
+        <DialogTitle className="flex items-center gap-2 text-lg font-black">
+          <span className="h-8 w-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center"><Sparkles className="h-4 w-4" /></span>
+          Resumo do processo (IA)
+        </DialogTitle>
+        {resumoIALoading ? (
+          <div className="py-12 flex flex-col items-center gap-3 opacity-60">
+            <RotateCw className="h-6 w-6 animate-spin text-primary" />
+            <p className="text-xs font-black uppercase tracking-widest">Analisando andamentos…</p>
+          </div>
+        ) : resumoIA ? (
+          <div className="space-y-4 pt-1">
+            {resumoIA.resumo && <p className="text-sm leading-relaxed text-foreground/90">{resumoIA.resumo}</p>}
+            {resumoIA.situacao_atual && (
+              <div className="p-3 rounded-xl bg-primary/5 border border-primary/15">
+                <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Situação atual</p>
+                <p className="text-sm font-semibold">{resumoIA.situacao_atual}</p>
+              </div>
+            )}
+            {resumoIA.proximos_passos && resumoIA.proximos_passos.length > 0 && (
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mb-2">Próximos passos</p>
+                <ul className="space-y-1.5">
+                  {resumoIA.proximos_passos.map((p, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm">
+                      <span className="h-5 w-5 rounded-lg bg-primary/10 text-primary text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
+                      <span>{p}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <p className="text-[10px] text-muted-foreground/50 pt-1">Gerado por IA a partir dos andamentos. Revise antes de agir — a IA pode errar.</p>
+          </div>
+        ) : null}
       </DialogContent>
     </Dialog>
     </>
