@@ -24,7 +24,7 @@ export const AiAssistantWidget: React.FC = () => {
   const toggleVoiceOut = () => setVoiceOut((v) => {
     const nv = !v;
     try { localStorage.setItem('ia-voice-out', nv ? '1' : '0'); } catch { /* ignore */ }
-    if (v) speech.cancelSpeak();
+    if (v) stopVoice();
     return nv;
   });
 
@@ -34,6 +34,28 @@ export const AiAssistantWidget: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const stopVoice = () => {
+    try { audioRef.current?.pause(); } catch { /* ignore */ }
+    audioRef.current = null;
+    speech.cancelSpeak();
+  };
+  // Fala a resposta com a voz da OpenAI (natural); se falhar, cai na voz do navegador.
+  const speakReply = async (text: string) => {
+    if (!text) return;
+    try {
+      const r = await advisor.tts(text);
+      if (r?.audio) {
+        stopVoice();
+        const a = new Audio(`data:${r.mime || 'audio/mpeg'};base64,${r.audio}`);
+        audioRef.current = a;
+        a.play().catch(() => speech.speak(text));
+        return;
+      }
+    } catch { /* usa fallback */ }
+    speech.speak(text);
+  };
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -53,7 +75,7 @@ export const AiAssistantWidget: React.FC = () => {
     try {
       const res = await advisor.chat(next);
       setMessages([...next, { role: 'assistant', content: res.reply || '…' }]);
-      if (voiceOut) speech.speak(res.reply || '');
+      if (voiceOut) speakReply(res.reply || '');
       // Se a IA criou algo, atualiza as telas correspondentes.
       if (res.actions && res.actions.length > 0) {
         ['prazos', 'audiencias', 'tarefas', 'processos', 'stats', 'dashboard-stats'].forEach((k) =>
@@ -78,7 +100,7 @@ export const AiAssistantWidget: React.FC = () => {
     <>
       {/* Launcher */}
       <button
-        onClick={() => setOpen((o) => { if (o) { speech.cancelSpeak(); speech.stopListening(); } return !o; })}
+        onClick={() => setOpen((o) => { if (o) { stopVoice(); speech.stopListening(); } return !o; })}
         aria-label="Conselheiro IA"
         className={cn(
           'fixed bottom-5 right-5 z-[60] h-14 w-14 rounded-2xl flex items-center justify-center shadow-xl shadow-primary/30 transition-all duration-300 hover:scale-105',
@@ -104,13 +126,13 @@ export const AiAssistantWidget: React.FC = () => {
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Assistente do seu escritório
               </p>
             </div>
-            {hasIAModule && speech.ttsSupported && (
+            {hasIAModule && (
               <button onClick={toggleVoiceOut} title={voiceOut ? 'Desligar voz' : 'Ler respostas em voz alta'}
                 className={cn('h-8 w-8 rounded-lg flex items-center justify-center', voiceOut ? 'bg-primary/15 text-primary' : 'hover:bg-muted/60 text-muted-foreground')}>
                 {voiceOut ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
               </button>
             )}
-            <button onClick={() => { setOpen(false); speech.cancelSpeak(); speech.stopListening(); }} className="h-8 w-8 rounded-lg hover:bg-muted/60 flex items-center justify-center text-muted-foreground">
+            <button onClick={() => { setOpen(false); stopVoice(); speech.stopListening(); }} className="h-8 w-8 rounded-lg hover:bg-muted/60 flex items-center justify-center text-muted-foreground">
               <X className="h-4 w-4" />
             </button>
           </div>

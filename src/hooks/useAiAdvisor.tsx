@@ -35,8 +35,8 @@ export class AdvisorError extends Error {
 }
 
 // Extrai a mensagem/código reais do corpo da edge function (FunctionsHttpError esconde no context).
-async function invoke<T>(body: Record<string, unknown>): Promise<T> {
-  const { data, error } = await supabase.functions.invoke('ai-advisor', { body });
+async function invoke<T>(fn: string, body: Record<string, unknown>): Promise<T> {
+  const { data, error } = await supabase.functions.invoke(fn, { body });
   if (error) {
     let msg = error.message || 'Falha ao chamar a IA.';
     let code = 'erro';
@@ -55,12 +55,14 @@ async function invoke<T>(body: Record<string, unknown>): Promise<T> {
 export function useAiAdvisor() {
   return {
     chat: (messages: ChatMessage[]) =>
-      invoke<{ ok: boolean; reply: string; actions?: Array<{ tipo?: string; titulo?: string }> }>({ mode: 'chat', messages }),
+      invoke<{ ok: boolean; reply: string; actions?: Array<{ tipo?: string; titulo?: string }> }>('ai-advisor', { mode: 'chat', messages }),
     insights: (period: AdvisorPeriod) =>
-      invoke<{ ok: boolean; period: string; snapshot: AdvisorSnapshot; data: AdvisorInsights }>({ mode: 'insights', period }),
+      invoke<{ ok: boolean; period: string; snapshot: AdvisorSnapshot; data: AdvisorInsights }>('ai-advisor', { mode: 'insights', period }),
     resumoProcesso: (processoId: string) =>
-      invoke<{ ok: boolean; data: ResumoProcesso }>({ mode: 'resumo_processo', processoId }),
+      invoke<{ ok: boolean; data: ResumoProcesso }>('ai-advisor', { mode: 'resumo_processo', processoId }),
     resumoPublicacao: (publicacaoId: string) =>
-      invoke<{ ok: boolean; data: ResumoPublicacao }>({ mode: 'resumo_publicacao', publicacaoId }),
+      invoke<{ ok: boolean; data: ResumoPublicacao }>('ai-advisor', { mode: 'resumo_publicacao', publicacaoId }),
+    tts: (text: string, voice?: string) =>
+      invoke<{ ok: boolean; audio: string; mime: string }>('ai-voice', { text, voice }),
   };
 }

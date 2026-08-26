@@ -20,7 +20,7 @@ const periodLabel: Record<string, string> = { hoje: "hoje", semana: "esta semana
 interface ToolCall { id: string; function: { name: string; arguments: string }; }
 interface OAIMsg { role: string; content?: string | null; tool_calls?: ToolCall[]; tool_call_id?: string; }
 interface OAIResp { choices?: { message?: OAIMsg }[]; error?: { message?: string }; }
-interface ToolArgs { titulo?: string; data?: string; hora?: string; local?: string; prioridade?: string; processo_numero?: string; numero?: string; parte_autora?: string; requerido?: string; termo?: string; }
+interface ToolArgs { titulo?: string; data?: string; hora?: string; local?: string; prioridade?: string; processo_numero?: string; numero?: string; parte_autora?: string; requerido?: string; termo?: string; nome?: string; telefone?: string; email?: string; descricao?: string; }
 
 async function openaiRaw(messages: OAIMsg[], opts: { tools?: unknown[]; json?: boolean } = {}): Promise<OAIResp> {
   const body: Record<string, unknown> = { model: OPENAI_MODEL, temperature: 0.4, messages };
@@ -63,6 +63,10 @@ const TOOLS = [
   }, required: ["titulo"] } } },
   { type: "function", function: { name: "verificar_clientes_duplicados", description: "Verifica a lista de clientes do escritório e retorna os que aparecem duplicados (mesmo nome, ignorando acento e maiúsculas). Use quando o usuário perguntar sobre clientes duplicados/repetidos.", parameters: { type: "object", properties: {} } } },
   { type: "function", function: { name: "buscar_clientes", description: "Busca clientes do escritório por parte do nome. Use quando o usuário perguntar se existe um cliente, quantos com tal nome, etc.", parameters: { type: "object", properties: { termo: { type: "string", description: "parte do nome a buscar" } }, required: ["termo"] } } },
+  { type: "function", function: { name: "criar_cliente", description: "Cadastra um novo cliente no escritório.", parameters: { type: "object", properties: { nome: { type: "string" }, telefone: { type: "string" }, email: { type: "string" } }, required: ["nome"] } } },
+  { type: "function", function: { name: "buscar_processos", description: "Busca processos por título, número CNJ ou nome da parte.", parameters: { type: "object", properties: { termo: { type: "string" } }, required: ["termo"] } } },
+  { type: "function", function: { name: "registrar_andamento", description: "Registra um andamento (movimentação) em um processo existente.", parameters: { type: "object", properties: { processo_numero: { type: "string", description: "número CNJ do processo" }, descricao: { type: "string" }, data: { type: "string", description: "YYYY-MM-DD (opcional, padrão hoje)" } }, required: ["processo_numero", "descricao"] } } },
+  { type: "function", function: { name: "resumo_financeiro", description: "Resumo financeiro do escritório: total a receber e a pagar (pendentes/vencidos).", parameters: { type: "object", properties: {} } } },
 ];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -115,6 +119,40 @@ async function executeTool(service: any, officeId: string, uid: string, name: st
       if (!termo) return { ok: false, error: "informe o termo de busca" };
       const { data } = await service.from("clientes").select("nome").eq("office_id", officeId).eq("deletado", false).ilike("nome", `%${termo}%`).limit(15);
       return { ok: true, tipo: "busca_clientes", termo, encontrados: (data || []).map((c: { nome?: string }) => c.nome) };
+    }
+    if (name === "criar_cliente") {
+      if (!args.nome) return { ok: false, error: "faltou o nome" };
+      const { data, error } = await service.from("clientes").insert({ office_id: officeId, user_id: uid, nome: args.nome, telefone: args.telefone || null, email: args.email || null }).select("id").single();
+      if (error) throw error;
+      return { ok: true, tipo: "cliente", id: data.id, nome: args.nome };
+    }
+    if (name === "buscar_processos") {
+      const termo = String(args.termo || "").trim();
+      if (!termo) return { ok: false, error: "informe o termo" };
+      const num = clean(termo);
+      const esc = termo.replace(/[%,()]/g, " ");
+      const orExpr = `titulo.ilike.%${esc}%,parte_autora.ilike.%${esc}%` + (num ? `,numero_processo.ilike.%${num}%` : "");
+      const { data } = await service.from("processos").select("titulo, numero_processo, parte_autora").eq("office_id", officeId).eq("deletado", false).or(orExpr).limit(10);
+      return { ok: true, tipo: "busca_processos", termo, encontrados: (data || []).map((p: { titulo?: string; numero_processo?: string; parte_autora?: string }) => ({ titulo: p.titulo, numero: p.numero_processo, parte: p.parte_autora })) };
+    }
+    if (name === "registrar_andamento") {
+      if (!args.processo_numero || !args.descricao) return { ok: false, error: "faltou processo ou descrição" };
+      const pid = await resolveProcesso(args.processo_numero);
+      if (!pid) return { ok: false, error: "processo não encontrado pelo número informado" };
+      const dt = args.data ? new Date(`${args.data}T12:00:00-03:00`).toISOString() : new Date().toISOString();
+      const { data, error } = await service.from("movimentacoes_processo").insert({ office_id: officeId, processo_id: pid, descricao: args.descricao, data_movimentacao: dt, tipo: "manual" }).select("id").single();
+      if (error) throw error;
+      return { ok: true, tipo: "andamento", id: data.id };
+    }
+    if (name === "resumo_financeiro") {
+      const { data } = await service.from("financeiro").select("tipo, valor, status").eq("office_id", officeId).eq("deletado", false);
+      let aReceber = 0, aPagar = 0;
+      for (const f of (data || [])) {
+        if (f.status !== "pendente" && f.status !== "vencido") continue;
+        if (f.tipo === "receita") aReceber += Number(f.valor || 0);
+        else if (f.tipo === "despesa") aPagar += Number(f.valor || 0);
+      }
+      return { ok: true, tipo: "resumo_financeiro", a_receber: aReceber, a_pagar: aPagar };
     }
     return { ok: false, error: "ferramenta desconhecida" };
   } catch (e) {
@@ -199,7 +237,7 @@ serve(async (req) => {
       const system =
         `Você é o "Conselheiro IA", assistente de gestão do escritório de advocacia "${office?.name || ""}" na plataforma VextriaHub. Cordial, direto, em português do Brasil.\n` +
         `ESTILO: seja ENXUTO por padrão — responda curto e direto (1-3 frases ou uma lista curta). Se houver muito a dizer, dê só o essencial e ofereça detalhar ("quer que eu detalhe?"). Só se aprofunde quando pedirem. NÃO use títulos de markdown (#, ##, ###) nem tabelas; pode usar **negrito** e listas com "-".\n` +
-        `AÇÕES: você PODE criar prazo, audiência, tarefa e caso/processo, e CONSULTAR clientes (verificar duplicados e buscar por nome), usando as ferramentas. Para consultas, chame a ferramenta direto e responda com o resultado. Para CRIAR: (1) só quando o usuário claramente pedir; (2) ANTES de criar, confirme os dados essenciais em 1 frase e só chame a ferramenta após um "sim"/"pode criar"; (3) nunca invente datas ou nomes — se faltar algo essencial (ex: data), pergunte; (4) datas no formato YYYY-MM-DD; (5) ao criar, diga em 1 frase o que foi feito.\n` +
+        `AÇÕES: você PODE criar (prazo, audiência, tarefa, caso/processo, cliente), registrar andamento em um processo, e CONSULTAR (clientes duplicados, buscar clientes, buscar processos, resumo financeiro), usando as ferramentas. Para consultas, chame a ferramenta direto e responda com o resultado. Para CRIAR/registrar: (1) só quando o usuário claramente pedir; (2) ANTES de criar, confirme os dados essenciais em 1 frase e só chame a ferramenta após um "sim"/"pode criar"; (3) nunca invente datas ou nomes — se faltar algo essencial (ex: data), pergunte; (4) datas no formato YYYY-MM-DD; (5) ao criar, diga em 1 frase o que foi feito.\n` +
         `Panorama atual do escritório (use quando ajudar, sem inventar além disto): ${JSON.stringify(snap.numeros)}`;
 
       const msgs: OAIMsg[] = [{ role: "system", content: system }, ...history];
@@ -214,7 +252,7 @@ serve(async (req) => {
             let a: ToolArgs = {};
             try { a = JSON.parse(tc.function.arguments || "{}"); } catch { a = {}; }
             const result = await executeTool(service, officeId, uid, tc.function.name, a);
-            if (result.ok && tc.function.name.startsWith("criar_")) actions.push(result);
+            if (result.ok && (tc.function.name.startsWith("criar_") || tc.function.name === "registrar_andamento")) actions.push(result);
             msgs.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) });
           }
           continue;
