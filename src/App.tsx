@@ -45,6 +45,7 @@ const Equipe = lazy(() => import("./pages/Equipe"));
 const EquipeDetalhe = lazy(() => import("./pages/EquipeDetalhe"));
 const Escritorio = lazy(() => import("./pages/Escritorio"));
 const Timesheet = lazy(() => import("./pages/Timesheet"));
+const Correspondentes = lazy(() => import("./pages/Correspondentes"));
 const PoliticaPrivacidade = lazy(() => import("./pages/PoliticaPrivacidade"));
 const GoogleCallback = lazy(() => import("./pages/auth/GoogleCallback"));
 const Pagamento = lazy(() => import("./pages/Pagamento"));
@@ -151,6 +152,16 @@ const AppWithRouter = () => {
             <PrivateRoute>
               <AppLayout>
                 <Atendimentos />
+              </AppLayout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/correspondentes"
+          element={
+            <PrivateRoute>
+              <AppLayout>
+                <Correspondentes />
               </AppLayout>
             </PrivateRoute>
           }
