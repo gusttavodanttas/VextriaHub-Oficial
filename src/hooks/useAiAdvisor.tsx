@@ -55,7 +55,7 @@ async function invoke<T>(body: Record<string, unknown>): Promise<T> {
 export function useAiAdvisor() {
   return {
     chat: (messages: ChatMessage[]) =>
-      invoke<{ ok: boolean; reply: string }>({ mode: 'chat', messages }),
+      invoke<{ ok: boolean; reply: string; actions?: Array<{ tipo?: string; titulo?: string }> }>({ mode: 'chat', messages }),
     insights: (period: AdvisorPeriod) =>
       invoke<{ ok: boolean; period: string; snapshot: AdvisorSnapshot; data: AdvisorInsights }>({ mode: 'insights', period }),
     resumoProcesso: (processoId: string) =>

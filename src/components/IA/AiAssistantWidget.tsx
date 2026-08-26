@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { usePlanFeatures } from '@/hooks/usePlanFeatures';
 import { useAiAdvisor, AdvisorError, type ChatMessage } from '@/hooks/useAiAdvisor';
 import { Markdown } from '@/components/IA/Markdown';
@@ -12,6 +13,7 @@ const SUGGESTIONS = ['Como está meu escritório?', 'O que priorizar hoje?', 'Te
 
 export const AiAssistantWidget: React.FC = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { hasIAModule } = usePlanFeatures();
   const advisor = useAiAdvisor();
 
@@ -40,6 +42,11 @@ export const AiAssistantWidget: React.FC = () => {
     try {
       const res = await advisor.chat(next);
       setMessages([...next, { role: 'assistant', content: res.reply || '…' }]);
+      // Se a IA criou algo, atualiza as telas correspondentes.
+      if (res.actions && res.actions.length > 0) {
+        ['prazos', 'audiencias', 'tarefas', 'processos', 'stats', 'dashboard-stats'].forEach((k) =>
+          queryClient.invalidateQueries({ queryKey: [k] }));
+      }
     } catch (e) {
       const err = e as AdvisorError;
       const msg = err.code === 'openai-nao-configurada'

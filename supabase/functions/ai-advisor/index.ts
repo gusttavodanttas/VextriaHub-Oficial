@@ -2,46 +2,108 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // ── Conselheiro IA (OpenAI) ────────────────────────────────────────────────
-// Recurso PREMIUM. Chave da Vextria (segredo OPENAI_API_KEY — nunca no código
-// nem no chat). Modos:
-//   chat              → conversa com o conselheiro (panorama do escritório como contexto)
-//   insights          → panorama + alertas + recomendações + plano de ação (por período)
-//   resumo_processo   → resumo do processo a partir dos andamentos
-//   resumo_publicacao → resumo da publicação + sugestão de prazo
-// Segurança: só usuário autenticado; só escritório premium/vitalício/cortesia (ou
-// super admin). TODA leitura é escopada no office_id do próprio usuário.
+// Recurso PREMIUM. Chave da Vextria (segredo OPENAI_API_KEY). Modos:
+//   chat  → conversa + AÇÕES (criar prazo/audiência/tarefa/processo via tools)
+//   insights / resumo_processo / resumo_publicacao → saídas estruturadas (JSON)
+// Segurança: só autenticado; só premium/vitalício/cortesia (ou super admin).
+// TODA leitura E escrita é escopada no office_id do próprio usuário.
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
 const OPENAI_KEY = Deno.env.get("OPENAI_API_KEY") || "";
 const OPENAI_MODEL = Deno.env.get("OPENAI_MODEL") || "gpt-4o-mini";
-
 const periodDays: Record<string, number> = { hoje: 1, semana: 7, mes: 30, ano: 365 };
 const periodLabel: Record<string, string> = { hoje: "hoje", semana: "esta semana", mes: "este mês", ano: "este ano" };
 
-interface Msg { role: string; content: string; }
+interface ToolCall { id: string; function: { name: string; arguments: string }; }
+interface OAIMsg { role: string; content?: string | null; tool_calls?: ToolCall[]; tool_call_id?: string; }
+interface OAIResp { choices?: { message?: OAIMsg }[]; error?: { message?: string }; }
+interface ToolArgs { titulo?: string; data?: string; hora?: string; local?: string; prioridade?: string; processo_numero?: string; numero?: string; parte_autora?: string; requerido?: string; }
 
-async function chatCompletion(messages: Msg[], jsonMode: boolean): Promise<string> {
+async function openaiRaw(messages: OAIMsg[], opts: { tools?: unknown[]; json?: boolean } = {}): Promise<OAIResp> {
+  const body: Record<string, unknown> = { model: OPENAI_MODEL, temperature: 0.4, messages };
+  if (opts.tools) { body.tools = opts.tools; body.tool_choice = "auto"; }
+  if (opts.json) body.response_format = { type: "json_object" };
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${OPENAI_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: OPENAI_MODEL,
-      temperature: 0.5,
-      ...(jsonMode ? { response_format: { type: "json_object" } } : {}),
-      messages,
-    }),
+    body: JSON.stringify(body),
   });
-  const data = await res.json().catch(() => ({}));
+  const data = (await res.json().catch(() => ({}))) as OAIResp;
   if (!res.ok) throw new Error(data?.error?.message || `openai-${res.status}`);
-  return data?.choices?.[0]?.message?.content || "";
+  return data;
 }
-
+async function chatCompletion(messages: OAIMsg[], jsonMode: boolean): Promise<string> {
+  const r = await openaiRaw(messages, { json: jsonMode });
+  return r.choices?.[0]?.message?.content || "";
+}
 function parseJson(s: string): Record<string, unknown> {
   try { return JSON.parse(s); } catch { return { resumo: String(s).slice(0, 4000) }; }
+}
+
+// ── Ferramentas de criação (executadas server-side, sempre no office do usuário) ──
+const TOOLS = [
+  { type: "function", function: { name: "criar_prazo", description: "Cria um prazo (deadline). Use quando o usuário pedir para adicionar/criar um prazo.", parameters: { type: "object", properties: {
+    titulo: { type: "string", description: "título do prazo" },
+    data: { type: "string", description: "data fatal no formato YYYY-MM-DD" },
+    prioridade: { type: "string", enum: ["baixa", "media", "alta", "urgente"] },
+    processo_numero: { type: "string", description: "número CNJ do processo a vincular (opcional)" },
+  }, required: ["titulo", "data"] } } },
+  { type: "function", function: { name: "criar_audiencia", description: "Agenda uma audiência.", parameters: { type: "object", properties: {
+    titulo: { type: "string" }, data: { type: "string", description: "YYYY-MM-DD" }, hora: { type: "string", description: "HH:MM em 24h" },
+    local: { type: "string" }, processo_numero: { type: "string", description: "número CNJ (opcional)" },
+  }, required: ["titulo", "data", "hora"] } } },
+  { type: "function", function: { name: "criar_tarefa", description: "Cria uma tarefa.", parameters: { type: "object", properties: {
+    titulo: { type: "string" }, data: { type: "string", description: "vencimento YYYY-MM-DD (opcional)" }, prioridade: { type: "string", enum: ["baixa", "media", "alta"] },
+  }, required: ["titulo"] } } },
+  { type: "function", function: { name: "criar_processo", description: "Cria um novo caso/processo.", parameters: { type: "object", properties: {
+    titulo: { type: "string" }, numero: { type: "string", description: "número CNJ (opcional)" }, parte_autora: { type: "string" }, requerido: { type: "string" },
+  }, required: ["titulo"] } } },
+];
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function executeTool(service: any, officeId: string, uid: string, name: string, args: ToolArgs) {
+  const clean = (s?: string) => String(s || "").replace(/\D/g, "");
+  const resolveProcesso = async (numero?: string) => {
+    const n = clean(numero);
+    if (!n) return null;
+    const { data } = await service.from("processos").select("id").eq("office_id", officeId).eq("numero_processo", n).eq("deletado", false).maybeSingle();
+    return data?.id ?? null;
+  };
+  try {
+    if (name === "criar_prazo") {
+      if (!args.titulo || !args.data) return { ok: false, error: "faltou título ou data" };
+      const pid = await resolveProcesso(args.processo_numero);
+      const { data, error } = await service.from("prazos").insert({ office_id: officeId, user_id: uid, responsavel_id: uid, titulo: args.titulo, data_vencimento: args.data, data_fim_prazo: args.data, prioridade: args.prioridade || "media", status: "pendente", processo_id: pid }).select("id").single();
+      if (error) throw error;
+      return { ok: true, tipo: "prazo", id: data.id, titulo: args.titulo, data: args.data };
+    }
+    if (name === "criar_audiencia") {
+      if (!args.titulo || !args.data) return { ok: false, error: "faltou título ou data" };
+      const pid = await resolveProcesso(args.processo_numero);
+      const dt = new Date(`${args.data}T${args.hora || "00:00"}:00-03:00`).toISOString();
+      const { data, error } = await service.from("audiencias").insert({ office_id: officeId, user_id: uid, responsavel_id: uid, titulo: args.titulo, data_audiencia: dt, local: args.local || null, status: "agendada", processo_id: pid }).select("id").single();
+      if (error) throw error;
+      return { ok: true, tipo: "audiencia", id: data.id, titulo: args.titulo, data: args.data, hora: args.hora };
+    }
+    if (name === "criar_tarefa") {
+      if (!args.titulo) return { ok: false, error: "faltou título" };
+      const { data, error } = await service.from("tarefas").insert({ office_id: officeId, user_id: uid, responsavel_id: uid, titulo: args.titulo, data_vencimento: args.data || null, prioridade: args.prioridade || "media", status: "pendente" }).select("id").single();
+      if (error) throw error;
+      return { ok: true, tipo: "tarefa", id: data.id, titulo: args.titulo };
+    }
+    if (name === "criar_processo") {
+      if (!args.titulo) return { ok: false, error: "faltou título" };
+      const { data, error } = await service.from("processos").insert({ office_id: officeId, user_id: uid, responsavel_id: uid, titulo: args.titulo, numero_processo: clean(args.numero) || "", parte_autora: args.parte_autora || null, requerido: args.requerido || null, status: "ativo" }).select("id").single();
+      if (error) throw error;
+      return { ok: true, tipo: "processo", id: data.id, titulo: args.titulo };
+    }
+    return { ok: false, error: "ferramenta desconhecida" };
+  } catch (e) {
+    return { ok: false, error: String((e as Error).message || e) };
+  }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -53,8 +115,7 @@ async function buildSnapshot(service: any, officeId: string, officeName: string,
   const desde = new Date(Date.now() - dias * 86400000).toISOString();
   const q = service;
   const [
-    procAtivos, prazosVencendo, prazosVencidos, audProximas, pubNovas,
-    tarefasPend, tarefasVencidas, diligPagar, movRecentes, listaPrazos, listaAud, listaPub,
+    procAtivos, prazosVencendo, prazosVencidos, audProximas, pubNovas, tarefasPend, tarefasVencidas, diligPagar, movRecentes, listaPrazos, listaAud, listaPub,
   ] = await Promise.all([
     q.from("processos").select("id", { count: "exact", head: true }).eq("office_id", officeId).eq("status", "ativo").eq("deletado", false),
     q.from("prazos").select("id", { count: "exact", head: true }).eq("office_id", officeId).neq("status", "concluido").gte("data_fim_prazo", hoje).lte("data_fim_prazo", ate),
@@ -71,18 +132,11 @@ async function buildSnapshot(service: any, officeId: string, officeName: string,
   ]);
   const diligValor = (diligPagar.data || []).reduce((s: number, d: { valor?: number | null }) => s + Number(d.valor || 0), 0);
   return {
-    escritorio: officeName || "escritório",
-    periodo: periodLabel[period] || "esta semana",
+    escritorio: officeName || "escritório", periodo: periodLabel[period] || "esta semana",
     numeros: {
-      processos_ativos: procAtivos.count ?? 0,
-      prazos_vencendo: prazosVencendo.count ?? 0,
-      prazos_vencidos: prazosVencidos.count ?? 0,
-      audiencias_proximas: audProximas.count ?? 0,
-      publicacoes_nao_tratadas: pubNovas.count ?? 0,
-      tarefas_pendentes: tarefasPend.count ?? 0,
-      tarefas_atrasadas: tarefasVencidas.count ?? 0,
-      diligencias_a_pagar: (diligPagar.data || []).length,
-      valor_diligencias_a_pagar: diligValor,
+      processos_ativos: procAtivos.count ?? 0, prazos_vencendo: prazosVencendo.count ?? 0, prazos_vencidos: prazosVencidos.count ?? 0,
+      audiencias_proximas: audProximas.count ?? 0, publicacoes_nao_tratadas: pubNovas.count ?? 0, tarefas_pendentes: tarefasPend.count ?? 0,
+      tarefas_atrasadas: tarefasVencidas.count ?? 0, diligencias_a_pagar: (diligPagar.data || []).length, valor_diligencias_a_pagar: diligValor,
       movimentacoes_no_periodo: movRecentes.count ?? 0,
     },
     prazos_proximos: (listaPrazos.data || []).map((p: { titulo?: string; data_fim_prazo?: string }) => ({ titulo: p.titulo, data: p.data_fim_prazo })),
@@ -93,14 +147,10 @@ async function buildSnapshot(service: any, officeId: string, officeName: string,
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
-  const json = (b: unknown, s = 200) =>
-    new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
-
+  const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const anon = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: req.headers.get("Authorization") || "" } },
-    });
+    const anon = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: req.headers.get("Authorization") || "" } } });
     const { data: u } = await anon.auth.getUser();
     const uid = u?.user?.id;
     if (!uid) return json({ error: "nao-autenticado" }, 401);
@@ -116,9 +166,7 @@ serve(async (req) => {
 
     const { data: office } = await service.from("offices").select("name, plan, access_type").eq("id", officeId).maybeSingle();
     const isSuper = prof?.role === "super_admin";
-    const hasIA = isSuper
-      || office?.access_type === "lifetime" || office?.access_type === "courtesy"
-      || office?.plan === "premium" || office?.plan === "cortesia";
+    const hasIA = isSuper || office?.access_type === "lifetime" || office?.access_type === "courtesy" || office?.plan === "premium" || office?.plan === "cortesia";
     if (!hasIA) return json({ error: "premium-required", message: "O Conselheiro IA está disponível no plano Premium." }, 403);
     if (!OPENAI_KEY) return json({ error: "openai-nao-configurada", message: "A IA ainda não foi configurada. Defina o segredo OPENAI_API_KEY." }, 503);
 
@@ -126,46 +174,52 @@ serve(async (req) => {
     const mode = String(body?.mode || "chat");
     const nowIso = new Date().toISOString();
 
-    // ── CHAT ──
+    // ── CHAT (conversa + ações) ──
     if (mode === "chat") {
       const raw = Array.isArray(body?.messages) ? body.messages : [];
-      const history: Msg[] = raw
-        .filter((m: Msg) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
-        .slice(-12)
-        .map((m: Msg) => ({ role: m.role, content: String(m.content).slice(0, 4000) }));
+      const history: OAIMsg[] = raw.filter((m: OAIMsg) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string").slice(-12).map((m: OAIMsg) => ({ role: m.role, content: String(m.content).slice(0, 4000) }));
       if (!history.length) return json({ error: "sem-mensagem" }, 400);
       const snap = await buildSnapshot(service, officeId, office?.name || "", "semana");
       const system =
-        `Você é o "Conselheiro IA", assistente de gestão do escritório de advocacia "${office?.name || ""}" dentro da plataforma VextriaHub. ` +
-        `Fale como um conselheiro experiente: cordial, direto, prático, em português do Brasil. Respostas curtas e acionáveis (use listas quando ajudar). ` +
-        `Você conhece o panorama ATUAL do escritório abaixo — use quando for relevante, sem inventar nada além disto:\n${JSON.stringify(snap)}\n` +
-        `Ajude com priorização, produtividade, organização e leitura da situação do escritório. ` +
-        `NÃO dê aconselhamento jurídico definitivo nem invente prazos processuais com falsa certeza — oriente a conferir na fonte. Se perguntarem algo que não está nos dados, seja honesto.`;
-      const reply = await chatCompletion([{ role: "system", content: system }, ...history], false);
-      return json({ ok: true, mode, reply });
+        `Você é o "Conselheiro IA", assistente de gestão do escritório de advocacia "${office?.name || ""}" na plataforma VextriaHub. Cordial, direto, em português do Brasil.\n` +
+        `ESTILO: seja ENXUTO por padrão — responda curto e direto (1-3 frases ou uma lista curta). Se houver muito a dizer, dê só o essencial e ofereça detalhar ("quer que eu detalhe?"). Só se aprofunde quando pedirem. NÃO use títulos de markdown (#, ##, ###) nem tabelas; pode usar **negrito** e listas com "-".\n` +
+        `AÇÕES: você PODE criar prazo, audiência, tarefa e caso/processo com as ferramentas. Regras: (1) só crie quando o usuário claramente pedir; (2) ANTES de criar, confirme os dados essenciais em 1 frase e só chame a ferramenta após um "sim"/"pode criar" do usuário; (3) nunca invente datas ou nomes — se faltar algo essencial (ex: data), pergunte; (4) datas no formato YYYY-MM-DD; (5) ao criar, diga em 1 frase o que foi feito.\n` +
+        `Panorama atual do escritório (use quando ajudar, sem inventar além disto): ${JSON.stringify(snap.numeros)}`;
+
+      const msgs: OAIMsg[] = [{ role: "system", content: system }, ...history];
+      const actions: Array<Record<string, unknown>> = [];
+      let reply = "Pronto.";
+      for (let turn = 0; turn < 4; turn++) {
+        const r = await openaiRaw(msgs, { tools: TOOLS });
+        const m = r.choices?.[0]?.message;
+        if (m?.tool_calls?.length) {
+          msgs.push(m);
+          for (const tc of m.tool_calls) {
+            let a: ToolArgs = {};
+            try { a = JSON.parse(tc.function.arguments || "{}"); } catch { a = {}; }
+            const result = await executeTool(service, officeId, uid, tc.function.name, a);
+            if (result.ok) actions.push(result);
+            msgs.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) });
+          }
+          continue;
+        }
+        reply = m?.content || "Pronto.";
+        break;
+      }
+      return json({ ok: true, mode, reply, actions });
     }
 
     // ── RESUMO DE PROCESSO ──
     if (mode === "resumo_processo") {
       const processoId = String(body?.processoId || "");
       if (!processoId) return json({ error: "processoId-obrigatorio" }, 400);
-      const { data: p } = await service.from("processos")
-        .select("id, titulo, numero_processo, parte_autora, requerido, status, classe_judicial, assunto_principal, tribunal, vara, comarca, valor_causa")
-        .eq("id", processoId).eq("office_id", officeId).eq("deletado", false).maybeSingle();
+      const { data: p } = await service.from("processos").select("id, titulo, numero_processo, parte_autora, requerido, status, classe_judicial, assunto_principal, tribunal, vara, comarca, valor_causa").eq("id", processoId).eq("office_id", officeId).eq("deletado", false).maybeSingle();
       if (!p) return json({ error: "processo-nao-encontrado" }, 404);
-      const { data: movs } = await service.from("movimentacoes_processo")
-        .select("data_movimentacao, descricao, tipo").eq("processo_id", processoId).order("data_movimentacao", { ascending: false }).limit(40);
+      const { data: movs } = await service.from("movimentacoes_processo").select("data_movimentacao, descricao, tipo").eq("processo_id", processoId).order("data_movimentacao", { ascending: false }).limit(40);
       const { data: prazos } = await service.from("prazos").select("titulo, data_fim_prazo, status").eq("processo_id", processoId).neq("status", "concluido").limit(10);
       const { data: auds } = await service.from("audiencias").select("titulo, data_audiencia, status").eq("processo_id", processoId).gte("data_audiencia", nowIso).limit(10);
-      const payload = {
-        processo: p,
-        andamentos: (movs || []).map((m: { data_movimentacao?: string; descricao?: string; tipo?: string }) => ({ data: m.data_movimentacao, texto: m.descricao, tipo: m.tipo })),
-        prazos_abertos: prazos || [], proximas_audiencias: auds || [],
-      };
-      const out = parseJson(await chatCompletion([
-        { role: "system", content: "Você é um advogado sênior que resume processos para colegas do mesmo escritório. Objetivo, técnico e claro. Nunca invente fatos fora dos andamentos. Responda SEMPRE em JSON com as chaves: resumo (string 2-4 frases), situacao_atual (string uma frase), proximos_passos (array de strings acionáveis). Em português do Brasil." },
-        { role: "user", content: JSON.stringify(payload) },
-      ], true));
+      const payload = { processo: p, andamentos: (movs || []).map((m: { data_movimentacao?: string; descricao?: string; tipo?: string }) => ({ data: m.data_movimentacao, texto: m.descricao, tipo: m.tipo })), prazos_abertos: prazos || [], proximas_audiencias: auds || [] };
+      const out = parseJson(await chatCompletion([{ role: "system", content: "Você é um advogado sênior que resume processos para colegas do mesmo escritório. Objetivo, técnico e claro. Nunca invente fatos fora dos andamentos. Responda SEMPRE em JSON com as chaves: resumo (string 2-4 frases), situacao_atual (string uma frase), proximos_passos (array de strings acionáveis). Em português do Brasil." }, { role: "user", content: JSON.stringify(payload) }], true));
       return json({ ok: true, mode, data: out });
     }
 
@@ -173,23 +227,16 @@ serve(async (req) => {
     if (mode === "resumo_publicacao") {
       const publicacaoId = String(body?.publicacaoId || "");
       if (!publicacaoId) return json({ error: "publicacaoId-obrigatorio" }, 400);
-      const { data: pub } = await service.from("publicacoes")
-        .select("id, titulo, conteudo, data_publicacao, tribunal, tipo_documento").eq("id", publicacaoId).eq("office_id", officeId).maybeSingle();
+      const { data: pub } = await service.from("publicacoes").select("id, titulo, conteudo, data_publicacao, tribunal, tipo_documento").eq("id", publicacaoId).eq("office_id", officeId).maybeSingle();
       if (!pub) return json({ error: "publicacao-nao-encontrada" }, 404);
-      const out = parseJson(await chatCompletion([
-        { role: "system", content: "Você é um advogado que lê publicações de diário oficial e orienta a equipe. Responda SEMPRE em JSON com as chaves: resumo (string clara), urgencia ('alta'|'media'|'baixa'), prazo_sugerido (objeto {titulo, dias number a partir de hoje, tipo, descricao}) ou null. Nunca invente prazos legais com falsa certeza; se não for claro, dias null e explique no resumo. Em português do Brasil." },
-        { role: "user", content: JSON.stringify({ titulo: pub.titulo, tribunal: pub.tribunal, tipo: pub.tipo_documento, data: pub.data_publicacao, conteudo: String(pub.conteudo || "").slice(0, 6000) }) },
-      ], true));
+      const out = parseJson(await chatCompletion([{ role: "system", content: "Você é um advogado que lê publicações de diário oficial e orienta a equipe. Responda SEMPRE em JSON com as chaves: resumo (string clara), urgencia ('alta'|'media'|'baixa'), prazo_sugerido (objeto {titulo, dias number a partir de hoje, tipo, descricao}) ou null. Nunca invente prazos legais com falsa certeza; se não for claro, dias null e explique no resumo. Em português do Brasil." }, { role: "user", content: JSON.stringify({ titulo: pub.titulo, tribunal: pub.tribunal, tipo: pub.tipo_documento, data: pub.data_publicacao, conteudo: String(pub.conteudo || "").slice(0, 6000) }) }], true));
       return json({ ok: true, mode, data: out });
     }
 
     // ── INSIGHTS ──
     const period = String(body?.period || "semana");
     const snap = await buildSnapshot(service, officeId, office?.name || "", period);
-    const out = parseJson(await chatCompletion([
-      { role: "system", content: "Você é um conselheiro de gestão para escritórios de advocacia — analítico, direto e prático. Recebe um panorama numérico e devolve orientação acionável, priorizando riscos (prazos e audiências) e produtividade. Não invente dados além do panorama. Responda SEMPRE em JSON com as chaves: resumo (string 2-3 frases), alertas (array), recomendacoes (array), produtividade (array), plano_acao (array na ordem de execução). Cada item curto. Em português do Brasil. Se estiver tudo tranquilo, diga com honestidade." },
-      { role: "user", content: JSON.stringify(snap) },
-    ], true));
+    const out = parseJson(await chatCompletion([{ role: "system", content: "Você é um conselheiro de gestão para escritórios de advocacia — analítico, direto e prático. Recebe um panorama numérico e devolve orientação acionável, priorizando riscos (prazos e audiências) e produtividade. Não invente dados além do panorama. Responda SEMPRE em JSON com as chaves: resumo (string 2-3 frases), alertas (array), recomendacoes (array), produtividade (array), plano_acao (array na ordem de execução). Cada item curto. Em português do Brasil." }, { role: "user", content: JSON.stringify(snap) }], true));
     return json({ ok: true, mode: "insights", period, snapshot: snap.numeros, data: out });
   } catch (e) {
     return json({ error: String((e as Error).message) }, 500);
