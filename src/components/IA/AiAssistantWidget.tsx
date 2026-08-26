@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePlanFeatures } from '@/hooks/usePlanFeatures';
 import { useAiAdvisor, AdvisorError, type ChatMessage } from '@/hooks/useAiAdvisor';
+import { Markdown } from '@/components/IA/Markdown';
 import { cn } from '@/lib/utils';
 import { Sparkles, X, Send, RotateCw, Crown, ArrowRight, Brain } from 'lucide-react';
 
@@ -129,7 +130,7 @@ export const AiAssistantWidget: React.FC = () => {
                   ) : (
                     <div key={i} className="flex gap-2.5">
                       <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-primary to-violet-500 text-white flex items-center justify-center shrink-0"><Sparkles className="h-3.5 w-3.5" /></div>
-                      <div className="rounded-2xl rounded-tl-sm bg-muted/50 px-3.5 py-2.5 text-sm leading-relaxed max-w-[85%] whitespace-pre-wrap">{m.content}</div>
+                      <div className="rounded-2xl rounded-tl-sm bg-muted/50 px-3.5 py-2.5 text-sm max-w-[85%]"><Markdown text={m.content} /></div>
                     </div>
                   )
                 ))}
