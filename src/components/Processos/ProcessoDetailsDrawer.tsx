@@ -925,7 +925,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
             {/* ── PRAZOS ── */}
             {activeTab === 'prazos' && (
               <div className="space-y-4">
-                <SectionHeader label="prazo(s)" count={prazos.length} onAdd={isMine ? () => setShowAddPrazo(true) : undefined} />
+                <SectionHeader label="prazo(s)" count={prazos.length} onAdd={canWrite ? () => setShowAddPrazo(true) : undefined} />
                 {showAddPrazo && (
                   <AddForm loading={addLoading} onSubmit={handleAddPrazo} onCancel={() => setShowAddPrazo(false)}>
                     <Input name="titulo" placeholder="Título do prazo" required className="h-9 rounded-xl text-sm" />
@@ -964,7 +964,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
             {/* ── AUDIÊNCIAS ── */}
             {activeTab === 'audiencias' && (
               <div className="space-y-4">
-                <SectionHeader label="audiência(s)" count={audiencias.length} onAdd={isMine ? () => setShowAddAudiencia(true) : undefined} />
+                <SectionHeader label="audiência(s)" count={audiencias.length} onAdd={canWrite ? () => setShowAddAudiencia(true) : undefined} />
                 {showAddAudiencia && (
                   <AddForm loading={addLoading} onSubmit={handleAddAudiencia} onCancel={() => setShowAddAudiencia(false)}>
                     <Input name="titulo" placeholder="Título da audiência" required className="h-9 rounded-xl text-sm" />
@@ -1027,7 +1027,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
             {/* ── TAREFAS ── */}
             {activeTab === 'tarefas' && (
               <div className="space-y-4">
-                <SectionHeader label="tarefa(s)" count={tarefas.length} onAdd={isMine ? () => setShowAddTarefa(true) : undefined} />
+                <SectionHeader label="tarefa(s)" count={tarefas.length} onAdd={canWrite ? () => setShowAddTarefa(true) : undefined} />
                 {showAddTarefa && (
                   <AddForm loading={addLoading} onSubmit={handleAddTarefa} onCancel={() => setShowAddTarefa(false)}>
                     <Input name="titulo" placeholder="Título da tarefa" required className="h-9 rounded-xl text-sm" />
@@ -1044,7 +1044,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                 )}
                 {tarefas.length > 0 ? tarefas.map(t => (
                   <div key={t.id} onClick={() => openInTab('/tarefas', t.id)} title="Abrir para editar" className="p-4 rounded-2xl border border-border bg-muted/10 flex items-center gap-4 cursor-pointer hover:border-primary/40 hover:shadow-sm transition-all">
-                    <button onClick={(e) => { e.stopPropagation(); toggleTarefa(t); }} className="shrink-0">
+                    <button onClick={(e) => { e.stopPropagation(); if (canWrite) toggleTarefa(t); }} disabled={!canWrite} className={cn("shrink-0", !canWrite && "cursor-default")}>
                       {t.concluida ? <CheckCircle2 className="h-5 w-5 text-emerald-500" /> : <Circle className="h-5 w-5 text-muted-foreground/40 hover:text-primary transition-colors" />}
                     </button>
                     <div className="flex-1 min-w-0">

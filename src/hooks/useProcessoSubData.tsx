@@ -68,7 +68,10 @@ export function useProcessoSubData(processo: Processo | null) {
   const addPrazo = async (e: React.FormEvent<HTMLFormElement>): Promise<boolean> => {
     e.preventDefault();
     if (!processo?.id || !user?.office_id) return false;
-    const officeId = user.office_id;
+    // Carimba no escritório DONO do processo: em processo próprio é o meu; em processo
+    // compartilhado ('editar') é o do parceiro dono — assim os dois lados enxergam o prazo
+    // e o paywall segue ancorado em quem é dono do dado.
+    const officeId = processo.officeId || user.office_id;
     setAddLoading(true);
     const fd = new FormData(e.currentTarget);
     const titulo = (fd.get('titulo') as string || '').trim();
@@ -100,7 +103,7 @@ export function useProcessoSubData(processo: Processo | null) {
   const addAudiencia = async (e: React.FormEvent<HTMLFormElement>): Promise<boolean> => {
     e.preventDefault();
     if (!processo?.id || !user?.office_id) return false;
-    const officeId = user.office_id;
+    const officeId = processo.officeId || user.office_id; // dono do processo (ver addPrazo)
     setAddLoading(true);
     const fd = new FormData(e.currentTarget);
     const titulo = (fd.get('titulo') as string || '').trim();
@@ -129,7 +132,7 @@ export function useProcessoSubData(processo: Processo | null) {
   const addTarefa = async (e: React.FormEvent<HTMLFormElement>): Promise<boolean> => {
     e.preventDefault();
     if (!processo?.id || !user?.office_id) return false;
-    const officeId = user.office_id;
+    const officeId = processo.officeId || user.office_id; // dono do processo (ver addPrazo)
     setAddLoading(true);
     const fd = new FormData(e.currentTarget);
     const titulo = (fd.get('titulo') as string || '').trim();
