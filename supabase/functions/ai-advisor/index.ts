@@ -20,7 +20,7 @@ const periodLabel: Record<string, string> = { hoje: "hoje", semana: "esta semana
 interface ToolCall { id: string; function: { name: string; arguments: string }; }
 interface OAIMsg { role: string; content?: string | null; tool_calls?: ToolCall[]; tool_call_id?: string; }
 interface OAIResp { choices?: { message?: OAIMsg }[]; error?: { message?: string }; }
-interface ToolArgs { titulo?: string; data?: string; hora?: string; local?: string; prioridade?: string; processo_numero?: string; numero?: string; parte_autora?: string; requerido?: string; termo?: string; nome?: string; telefone?: string; email?: string; descricao?: string; }
+interface ToolArgs { titulo?: string; data?: string; hora?: string; local?: string; prioridade?: string; processo_numero?: string; numero?: string; parte_autora?: string; requerido?: string; termo?: string; nome?: string; telefone?: string; email?: string; descricao?: string; oab?: string; uf?: string; cidades?: string; tipo?: string; valor?: number; fin_tipo?: string; correspondente_nome?: string; dias?: number; }
 
 async function openaiRaw(messages: OAIMsg[], opts: { tools?: unknown[]; json?: boolean } = {}): Promise<OAIResp> {
   const body: Record<string, unknown> = { model: OPENAI_MODEL, temperature: 0.4, messages };
@@ -67,6 +67,13 @@ const TOOLS = [
   { type: "function", function: { name: "buscar_processos", description: "Busca processos por título, número CNJ ou nome da parte.", parameters: { type: "object", properties: { termo: { type: "string" } }, required: ["termo"] } } },
   { type: "function", function: { name: "registrar_andamento", description: "Registra um andamento (movimentação) em um processo existente.", parameters: { type: "object", properties: { processo_numero: { type: "string", description: "número CNJ do processo" }, descricao: { type: "string" }, data: { type: "string", description: "YYYY-MM-DD (opcional, padrão hoje)" } }, required: ["processo_numero", "descricao"] } } },
   { type: "function", function: { name: "resumo_financeiro", description: "Resumo financeiro do escritório: total a receber e a pagar (pendentes/vencidos).", parameters: { type: "object", properties: {} } } },
+  { type: "function", function: { name: "concluir_tarefa", description: "Marca uma tarefa pendente como concluída (encontra pelo título).", parameters: { type: "object", properties: { termo: { type: "string", description: "título ou parte do título da tarefa" } }, required: ["termo"] } } },
+  { type: "function", function: { name: "concluir_prazo", description: "Marca um prazo pendente como cumprido/concluído (encontra pelo título).", parameters: { type: "object", properties: { termo: { type: "string" } }, required: ["termo"] } } },
+  { type: "function", function: { name: "criar_correspondente", description: "Cadastra um correspondente jurídico.", parameters: { type: "object", properties: { nome: { type: "string" }, oab: { type: "string" }, uf: { type: "string" }, telefone: { type: "string" }, cidades: { type: "string", description: "comarcas que atende, separadas por vírgula" } }, required: ["nome"] } } },
+  { type: "function", function: { name: "criar_diligencia", description: "Cria uma diligência para um correspondente.", parameters: { type: "object", properties: { tipo: { type: "string", enum: ["audiencia", "protocolo", "copia", "carga", "despacho", "sustentacao", "outro"] }, comarca: { type: "string" }, uf: { type: "string" }, data: { type: "string", description: "YYYY-MM-DD" }, valor: { type: "number" }, correspondente_nome: { type: "string" } }, required: [] } } },
+  { type: "function", function: { name: "criar_lancamento_financeiro", description: "Lança uma receita ou despesa no financeiro.", parameters: { type: "object", properties: { fin_tipo: { type: "string", enum: ["receita", "despesa"] }, descricao: { type: "string" }, valor: { type: "number" }, data: { type: "string", description: "vencimento YYYY-MM-DD" } }, required: ["fin_tipo", "descricao", "valor", "data"] } } },
+  { type: "function", function: { name: "listar_prazos", description: "Lista os próximos prazos (e vencidos) do escritório.", parameters: { type: "object", properties: { dias: { type: "number", description: "janela em dias (padrão 14)" } } } } },
+  { type: "function", function: { name: "listar_audiencias", description: "Lista as próximas audiências do escritório.", parameters: { type: "object", properties: { dias: { type: "number", description: "janela em dias (padrão 30)" } } } } },
 ];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -154,6 +161,59 @@ async function executeTool(service: any, officeId: string, uid: string, name: st
       }
       return { ok: true, tipo: "resumo_financeiro", a_receber: aReceber, a_pagar: aPagar };
     }
+    if (name === "concluir_tarefa") {
+      const termo = String(args.termo || "").trim();
+      if (!termo) return { ok: false, error: "informe qual tarefa" };
+      const { data } = await service.from("tarefas").select("id, titulo").eq("office_id", officeId).eq("deletado", false).neq("status", "concluida").ilike("titulo", `%${termo}%`).limit(3);
+      if (!data || !data.length) return { ok: false, error: "nenhuma tarefa pendente com esse nome" };
+      if (data.length > 1) return { ok: false, error: "varias casaram: " + data.map((t: { titulo?: string }) => t.titulo).join("; ") + ". Peca ao usuario para especificar." };
+      await service.from("tarefas").update({ concluida: true, status: "concluida" }).eq("id", data[0].id);
+      return { ok: true, tipo: "tarefa_concluida", titulo: data[0].titulo };
+    }
+    if (name === "concluir_prazo") {
+      const termo = String(args.termo || "").trim();
+      if (!termo) return { ok: false, error: "informe qual prazo" };
+      const { data } = await service.from("prazos").select("id, titulo").eq("office_id", officeId).neq("status", "concluido").ilike("titulo", `%${termo}%`).limit(3);
+      if (!data || !data.length) return { ok: false, error: "nenhum prazo pendente com esse nome" };
+      if (data.length > 1) return { ok: false, error: "varios casaram: " + data.map((t: { titulo?: string }) => t.titulo).join("; ") + ". Peca para especificar." };
+      await service.from("prazos").update({ status: "concluido" }).eq("id", data[0].id);
+      return { ok: true, tipo: "prazo_concluido", titulo: data[0].titulo };
+    }
+    if (name === "criar_correspondente") {
+      if (!args.nome) return { ok: false, error: "faltou o nome" };
+      const cidades = String(args.cidades || "").split(",").map((s) => s.trim()).filter(Boolean);
+      const { data, error } = await service.from("correspondentes").insert({ office_id: officeId, user_id: uid, nome: args.nome, oab: args.oab || null, uf: args.uf || null, telefone: args.telefone || null, cidades }).select("id").single();
+      if (error) throw error;
+      return { ok: true, tipo: "correspondente", id: data.id, nome: args.nome };
+    }
+    if (name === "criar_diligencia") {
+      let corrId: string | null = null;
+      if (args.correspondente_nome) { const { data: c } = await service.from("correspondentes").select("id").eq("office_id", officeId).ilike("nome", `%${args.correspondente_nome}%`).limit(1).maybeSingle(); corrId = c?.id ?? null; }
+      const dt = args.data ? new Date(`${args.data}T12:00:00-03:00`).toISOString() : null;
+      const { data, error } = await service.from("diligencias").insert({ office_id: officeId, user_id: uid, correspondente_id: corrId, tipo: args.tipo || "audiencia", comarca: args.comarca || null, uf: args.uf || null, data_diligencia: dt, valor: args.valor != null ? Number(args.valor) : null, status: "solicitada" }).select("id").single();
+      if (error) throw error;
+      return { ok: true, tipo: "diligencia", id: data.id };
+    }
+    if (name === "criar_lancamento_financeiro") {
+      if (!args.fin_tipo || !args.descricao || args.valor == null || !args.data) return { ok: false, error: "faltou tipo, descricao, valor ou data" };
+      const { data, error } = await service.from("financeiro").insert({ office_id: officeId, user_id: uid, tipo: args.fin_tipo, descricao: args.descricao, valor: Number(args.valor), data_vencimento: args.data, status: "pendente" }).select("id").single();
+      if (error) throw error;
+      return { ok: true, tipo: "lancamento_financeiro", id: data.id, fin_tipo: args.fin_tipo, valor: Number(args.valor) };
+    }
+    if (name === "listar_prazos") {
+      const dias = Number(args.dias) || 14;
+      const hoje = new Date().toISOString().slice(0, 10);
+      const ate = new Date(Date.now() + dias * 86400000).toISOString().slice(0, 10);
+      const { data } = await service.from("prazos").select("titulo, data_fim_prazo").eq("office_id", officeId).neq("status", "concluido").lte("data_fim_prazo", ate).order("data_fim_prazo").limit(20);
+      return { ok: true, tipo: "lista_prazos", hoje, prazos: (data || []).map((p: { titulo?: string; data_fim_prazo?: string }) => ({ titulo: p.titulo, data: p.data_fim_prazo, vencido: (p.data_fim_prazo || "") < hoje })) };
+    }
+    if (name === "listar_audiencias") {
+      const dias = Number(args.dias) || 30;
+      const nowI = new Date().toISOString();
+      const ate = new Date(Date.now() + dias * 86400000).toISOString();
+      const { data } = await service.from("audiencias").select("titulo, data_audiencia").eq("office_id", officeId).not("status", "in", "(cancelada,realizada)").gte("data_audiencia", nowI).lte("data_audiencia", ate).order("data_audiencia").limit(20);
+      return { ok: true, tipo: "lista_audiencias", audiencias: (data || []).map((a: { titulo?: string; data_audiencia?: string }) => ({ titulo: a.titulo, data: a.data_audiencia })) };
+    }
     return { ok: false, error: "ferramenta desconhecida" };
   } catch (e) {
     return { ok: false, error: String((e as Error).message || e) };
@@ -237,7 +297,7 @@ serve(async (req) => {
       const system =
         `Você é o "Conselheiro IA", assistente de gestão do escritório de advocacia "${office?.name || ""}" na plataforma VextriaHub. Cordial, direto, em português do Brasil.\n` +
         `ESTILO: seja ENXUTO por padrão — responda curto e direto (1-3 frases ou uma lista curta). Se houver muito a dizer, dê só o essencial e ofereça detalhar ("quer que eu detalhe?"). Só se aprofunde quando pedirem. NÃO use títulos de markdown (#, ##, ###) nem tabelas; pode usar **negrito** e listas com "-".\n` +
-        `AÇÕES: você PODE criar (prazo, audiência, tarefa, caso/processo, cliente), registrar andamento em um processo, e CONSULTAR (clientes duplicados, buscar clientes, buscar processos, resumo financeiro), usando as ferramentas. Para consultas, chame a ferramenta direto e responda com o resultado. Para CRIAR/registrar: (1) só quando o usuário claramente pedir; (2) ANTES de criar, confirme os dados essenciais em 1 frase e só chame a ferramenta após um "sim"/"pode criar"; (3) nunca invente datas ou nomes — se faltar algo essencial (ex: data), pergunte; (4) datas no formato YYYY-MM-DD; (5) ao criar, diga em 1 frase o que foi feito.\n` +
+        `AÇÕES: você PODE criar (prazo, audiência, tarefa, caso/processo, cliente, correspondente, diligência, lançamento financeiro), registrar andamento, concluir tarefa/prazo, e CONSULTAR (clientes duplicados, buscar clientes, buscar processos, resumo financeiro, listar prazos, listar audiências), usando as ferramentas. Para consultas, chame a ferramenta direto e responda com o resultado. Para CRIAR/alterar: (1) só quando o usuário claramente pedir; (2) ANTES de criar/concluir, confirme os dados essenciais em 1 frase e só chame a ferramenta após um "sim"; (3) nunca invente datas ou nomes — se faltar algo essencial, pergunte; (4) datas no formato YYYY-MM-DD; (5) ao agir, diga em 1 frase o que foi feito.\n` +
         `Panorama atual do escritório (use quando ajudar, sem inventar além disto): ${JSON.stringify(snap.numeros)}`;
 
       const msgs: OAIMsg[] = [{ role: "system", content: system }, ...history];
@@ -252,7 +312,7 @@ serve(async (req) => {
             let a: ToolArgs = {};
             try { a = JSON.parse(tc.function.arguments || "{}"); } catch { a = {}; }
             const result = await executeTool(service, officeId, uid, tc.function.name, a);
-            if (result.ok && (tc.function.name.startsWith("criar_") || tc.function.name === "registrar_andamento")) actions.push(result);
+            if (result.ok && (/^(criar_|concluir_)/.test(tc.function.name) || tc.function.name === "registrar_andamento")) actions.push(result);
             msgs.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) });
           }
           continue;

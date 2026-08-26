@@ -78,7 +78,7 @@ export const AiAssistantWidget: React.FC = () => {
       if (voiceOut) speakReply(res.reply || '');
       // Se a IA criou algo, atualiza as telas correspondentes.
       if (res.actions && res.actions.length > 0) {
-        ['prazos', 'audiencias', 'tarefas', 'processos', 'stats', 'dashboard-stats'].forEach((k) =>
+        ['prazos', 'audiencias', 'tarefas', 'processos', 'clientes', 'correspondentes', 'diligencias', 'financeiro', 'stats', 'dashboard-stats'].forEach((k) =>
           queryClient.invalidateQueries({ queryKey: [k] }));
       }
     } catch (e) {
