@@ -147,7 +147,7 @@ escritos à mão em `Landing.tsx`.
 | 1 | Contador e teto de uso da IA | **feito** — ver abaixo |
 | 2 | Triggers de cota por plano (processos, clientes, tarefas, prazos) | **feito** — ver abaixo |
 | 3 | IA respeitando permissões (escritas com o JWT do usuário) | **feito** — ver abaixo |
-| 4 | Crons pelo vault, migrations replayáveis | pendente (precisa dos segredos reais de produção — ver nota) |
+| 4 | Crons pelo vault, migrations replayáveis | **feito** — ver abaixo |
 | 5 | Gate de módulo no banco (`metas`; `financeiro` não é diferenciador de plano hoje) | **feito** — ver abaixo |
 | 6 | `(select auth.uid())` nas 33 policies + índices nas 56 FKs sem cobertura | **feito** — ver abaixo |
 | 7 | Primeiro teste de RLS (dois escritórios, dois times) | **feito** — ver abaixo |
@@ -304,6 +304,42 @@ dos imports remotos, já que o ambiente de sandbox não alcança `deno.land` nem
 declarava `comarca`, usado por `criar_diligencia` — corrigido junto (não
 mudava o comportamento em runtime, só o type-check nunca rodava nesse arquivo).
 
+## Correção nº 4 aplicada: crons pelo vault, migrations replayáveis
+
+As migrations de cron (`robo_oab`, `robo_crm`, `robo_publicacoes`, `robo_prazos`,
+`asaas_reconcile`) eram templates com `<SERVICE_ROLE_KEY>`/`<ROBOT_SECRET>`
+literais — só funcionavam depois de alguém substituir os placeholders à mão e
+rodar no SQL Editor. Duas outras (`google_sync`, `zap_pull_leads`) nem tinham
+segredo: clonavam o `command` de uma cron (`trial-reminder-diario`) que
+precisava já existir — e essa, por sua vez, nunca teve `CREATE` versionado,
+só existia ao vivo em produção. Um rebuild das migrations do zero recriava os
+8 robôs quebrados (URL/token literal, ou o `cron.schedule` explodindo com
+`command` nulo ao clonar um job inexistente, travando o replay das migrations
+seguintes).
+
+**Correção:** os dois segredos reais (`SUPABASE_SERVICE_ROLE_KEY` e
+`ROBOT_SECRET`) foram migrados para o `supabase_vault` (extensão já habilitada
+no projeto) diretamente em produção, num passo único e fora do repositório —
+`select vault.create_secret(<valor>, 'service_role_key', ...)` e o mesmo para
+`robot_secret` — extraídos programaticamente do `cron.job.command` já ativo
+via SQL server-side (o valor em si nunca passou por fora do banco). A nova
+migration `20260904160000_crons_vault_secrets.sql` reagenda os 8 crons (mais
+`trial-reminder-diario`, agora versionada pela primeira vez) lendo o segredo
+em tempo de execução via `(select decrypted_secret from vault.decrypted_secrets
+where name = '...')` — `vault.decrypted_secrets` só é legível por
+`postgres`/`service_role`, os mesmos que já liam `cron.job.command` antes, sem
+abrir superfície nova. As duas migrations que clonavam `trial-reminder-diario`
+foram ajustadas para não depender mais de outro job existir (removendo o
+`command` nulo que travava o replay); a correção definitiva do segredo fica só
+na migration nova, que roda depois e reagenda todos.
+
+Com isso, um `db push` num projeto novo recria os 8 robôs funcionando assim
+que os dois secrets forem populados no vault uma única vez — nenhum cron
+depende mais de outro já existir, e nenhum segredo real fica no texto do
+repositório. Verificado em produção: os 8 jobs continuam ativos, agora todos
+resolvendo os headers via vault (confirmado sem reexpor os valores — só
+comparado que a consulta ao vault retorna não-nulo).
+
 ## Correção nº 5 aplicada: gate do módulo Metas no banco
 
 `supabase/migrations/20260904150000_metas_goals_module_gate.sql`
@@ -350,11 +386,9 @@ como `Error` por padrão; a anotação `: any` só escondia isso, bastava remove
 e alguns spots equivalentes. Teto baixado de 720 para 700 (689 hoje, 11 de
 folga real).
 
-## O que falta: item 4 (crons pelo vault)
+## Todos os 8 itens do plano de ação aplicados
 
-Não aplicado nesta rodada. Diferente dos demais, a correção real (mover
-`service_role`/`ROBOT_SECRET` para `supabase_vault` e reescrever os
-`cron.schedule` lendo de lá) precisa dos **segredos reais de produção**, que
-não estão disponíveis neste ambiente — só quem tem acesso ao projeto Supabase
-consegue rodá-la com segurança. O achado e o caminho da correção continuam
-descritos na seção de achados acima.
+Os 8 achados listados na seção de achados acima têm correção aplicada e
+descrita nesta seção, incluindo o item 4 (crons pelo vault), que dependia de
+acesso aos segredos reais de produção — rodado diretamente contra o projeto
+Supabase (ver Correção nº 4 acima).

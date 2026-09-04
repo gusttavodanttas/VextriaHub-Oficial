@@ -443,9 +443,9 @@ select cron.schedule('google-sync-15min','*/15 * * * *',
             <td><strong>Feito.</strong> <code>executeTool</code>/<code>buildSnapshot</code>/resumos trocaram o cliente service role pelo cliente <em>anon</em> (já autenticado com o JWT do usuário) — a RLS decide o que a IA vê e altera.</td>
           </tr>
           <tr>
-            <td>4</td>
+            <td>4 ✓</td>
             <td><strong>Crons pelo vault</strong><br>segredos em <code>supabase_vault</code>, migrations replayáveis</td>
-            <td>Hoje reconstruir o ambiente do zero deixa os robôs mudos, sem erro visível. Não aplicado — precisa dos segredos reais de produção.</td>
+            <td><strong>Feito.</strong> Os dois segredos (<code>service_role_key</code>, <code>robot_secret</code>) migrados para o <code>supabase_vault</code> direto em produção; os 8 <code>cron.schedule</code> agora leem de lá em vez de placeholder no texto.</td>
           </tr>
           <tr>
             <td>5 ✓</td>
