@@ -433,39 +433,39 @@ select cron.schedule('google-sync-15min','*/15 * * * *',
             <td><strong>Feito.</strong> Migration <code>20260904120000_ai_usage_quota.sql</code> e as duas funções; falta aplicar em produção — os passos estão no <code>.md</code> ao lado.</td>
           </tr>
           <tr>
-            <td>2</td>
-            <td><strong>Triggers de cota por plano</strong><br>processos, clientes, tarefas — no molde do <code>enforce_oab_quota</code></td>
-            <td>Fecha a diferença entre o que a página de preços promete e o que o sistema entrega.</td>
+            <td>2 ✓</td>
+            <td><strong>Triggers de cota por plano</strong><br>processos, clientes, tarefas, prazos — no molde do <code>enforce_oab_quota</code></td>
+            <td><strong>Feito.</strong> Migration <code>20260904130000_plan_quota_....sql</code>, verificada ao vivo antes de aplicar: nenhum escritório ultrapassava os tetos.</td>
           </tr>
           <tr>
-            <td>3</td>
+            <td>3 ✓</td>
             <td><strong>IA passa a respeitar permissões</strong><br>escritas com o JWT do usuário</td>
-            <td>Enquanto não passa, o chat é o caminho para contornar o que o admin configurou.</td>
+            <td><strong>Feito.</strong> <code>executeTool</code>/<code>buildSnapshot</code>/resumos trocaram o cliente service role pelo cliente <em>anon</em> (já autenticado com o JWT do usuário) — a RLS decide o que a IA vê e altera.</td>
           </tr>
           <tr>
             <td>4</td>
             <td><strong>Crons pelo vault</strong><br>segredos em <code>supabase_vault</code>, migrations replayáveis</td>
-            <td>Hoje reconstruir o ambiente do zero deixa os robôs mudos, sem erro visível.</td>
+            <td>Hoje reconstruir o ambiente do zero deixa os robôs mudos, sem erro visível. Não aplicado — precisa dos segredos reais de produção.</td>
           </tr>
           <tr>
-            <td>5</td>
-            <td><strong>Gate de módulo no banco</strong><br>policy <code>RESTRICTIVE</code> em <code>financeiro</code> e <code>metas</code></td>
-            <td>Mesmo padrão do <code>office_paid_gate</code>, que já provou funcionar.</td>
+            <td>5 ✓</td>
+            <td><strong>Gate de módulo no banco</strong><br>policy <code>RESTRICTIVE</code> em <code>metas</code></td>
+            <td><strong>Feito.</strong> <code>financeiro</code> ficou de fora: não é diferenciador de plano no código hoje (só no texto de marketing).</td>
           </tr>
           <tr>
-            <td>6</td>
-            <td><strong><code>(select auth.uid())</code> nas 35 policies</strong> + índices nas FKs mais quentes</td>
-            <td>Achar e substituir, com ganho direto em toda listagem do sistema.</td>
+            <td>6 ✓</td>
+            <td><strong><code>(select auth.uid())</code> nas 33 policies</strong> + índices nas 56 FKs sem cobertura</td>
+            <td><strong>Feito.</strong> Migration gerada programaticamente a partir de <code>pg_policies</code>/<code>pg_constraint</code> da produção, não digitada à mão.</td>
           </tr>
           <tr>
-            <td>7</td>
+            <td>7 ✓</td>
             <td><strong>Primeiro teste de RLS</strong><br>dois escritórios, dois times, quem vê o quê</td>
-            <td>É a regra mais delicada do produto e a única hoje verificada só em produção.</td>
+            <td><strong>Feito.</strong> <code>supabase/tests/rls-standalone/</code>, <code>npm run test:rls</code>. Achado no caminho: <code>office_teams</code>/<code>office_team_members</code> não têm <code>CREATE TABLE</code> em nenhuma migration.</td>
           </tr>
           <tr>
-            <td>8</td>
+            <td>8 ✓</td>
             <td><strong>Folga na catraca de lint</strong><br>limpar ~40 avisos, teto para 680</td>
-            <td>Impede que a próxima linha de alguém quebre o build sem motivo aparente.</td>
+            <td><strong>Feito.</strong> 31 avisos removidos (720→689); teto da CI baixado para 700.</td>
           </tr>
         </tbody>
       </table>

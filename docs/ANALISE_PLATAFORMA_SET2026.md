@@ -145,13 +145,13 @@ escritos à mão em `Landing.tsx`.
 | # | Ação | Estado |
 | --- | --- | --- |
 | 1 | Contador e teto de uso da IA | **feito** — ver abaixo |
-| 2 | Triggers de cota por plano (processos, clientes, tarefas) | pendente |
-| 3 | IA respeitando permissões (escritas com o JWT do usuário) | pendente |
-| 4 | Crons pelo vault, migrations replayáveis | pendente |
-| 5 | Gate de módulo no banco (`financeiro`, `metas`) | pendente |
-| 6 | `(select auth.uid())` nas 35 policies + índices nas FKs quentes | pendente |
-| 7 | Primeiro teste de RLS (dois escritórios, dois times) | pendente |
-| 8 | Folga na catraca de lint (limpar ~40 avisos, teto para 680) | pendente |
+| 2 | Triggers de cota por plano (processos, clientes, tarefas, prazos) | **feito** — ver abaixo |
+| 3 | IA respeitando permissões (escritas com o JWT do usuário) | **feito** — ver abaixo |
+| 4 | Crons pelo vault, migrations replayáveis | pendente (precisa dos segredos reais de produção — ver nota) |
+| 5 | Gate de módulo no banco (`metas`; `financeiro` não é diferenciador de plano hoje) | **feito** — ver abaixo |
+| 6 | `(select auth.uid())` nas 33 policies + índices nas 56 FKs sem cobertura | **feito** — ver abaixo |
+| 7 | Primeiro teste de RLS (dois escritórios, dois times) | **feito** — ver abaixo |
+| 8 | Folga na catraca de lint (720 → 700, 31 avisos removidos) | **feito** — ver abaixo |
 
 ---
 
@@ -246,3 +246,115 @@ Agenda e do dashboard no dia seguinte.
   filtravam por pendente, então o recuo não traz histórico resolvido).
 - `ListBlocks.tsx`: prazo/tarefa vencido sai em vermelho com "venceu ontem" —
   antes a data era cinza, idêntica à de um item que só vence no mês que vem.
+
+---
+
+## Correção nº 2 aplicada: cota de processos/clientes/tarefas/prazos por plano
+
+**Migration** `supabase/migrations/20260904130000_plan_quota_processos_clientes_tarefas_prazos.sql`
+
+- 4 colunas em `plan_configs` (`max_processos`/`max_clientes`/`max_tarefas`/`max_prazos`,
+  NULL = sem teto), semeadas com os mesmos números do `usePlanFeatures.tsx` —
+  mesmo padrão já usado por `max_oabs`, editável na tela de Gestão de Planos.
+- `office_plan_limits()`: resolução idêntica ao já-existente `office_oab_limit`
+  (cortesia/vitalício sem teto, match exato do plano ativo, rede por
+  palavra-chave para plano custom renomeado, trial para quem ainda não assinou).
+- `enforce_plan_quota()`: trigger genérico `BEFORE INSERT` (um por tabela), com
+  advisory lock por (escritório, tabela) fechando a corrida de duas inserções
+  concorrentes — mesmo mecanismo do `enforce_office_seat_limit`.
+- `src/lib/planQuotaError.ts` (novo, com testes): traduz a exceção do trigger
+  pra `{title, description}` acionável, aplicado nos 4 pontos de criação
+  (`NovoProcessoDialog`, `useClientes.create`, `useTarefas.create`,
+  `NovoPrazoStandaloneDialog`).
+
+Verificado ao vivo em produção **antes** de escrever a migration: nenhum
+escritório ultrapassava os tetos propostos — seguro aplicar sem cláusula de
+carência.
+
+## Correção nº 3 aplicada: a IA passa a respeitar as mesmas permissões de qualquer tela
+
+`supabase/functions/ai-advisor/index.ts` tinha DOIS clientes Postgrest desde o
+início — um `anon` (JWT do usuário, só usado pra `auth.getUser()`) e um
+`service` (service role, usado para TUDO mais). Toda leitura e escrita de
+conteúdo do escritório (as 17 ferramentas do chat, o snapshot usado no prompt
+e nos insights, e os resumos de processo/publicação) passava pelo `service`,
+que ignora RLS por completo — era o caminho pelo qual um membro sem
+`canViewFinanceiro` conseguia `resumo_financeiro` do escritório inteiro pelo
+chat, ou concluía tarefa de um time que não era o dele.
+
+**Correção:** `executeTool`, `buildSnapshot` e os modos `resumo_processo`/
+`resumo_publicacao` passam a usar o cliente `anon` (que já carrega o JWT do
+usuário) em vez do `service`. A RLS decide o que a IA enxerga e altera —
+exatamente as mesmas regras de qualquer tela: visibilidade por time,
+paywall, e agora também a cota de plano da correção nº 2 (que passa a valer
+pros registros que a IA cria, fechando o mesmo buraco por outro ângulo).
+`service` continua só para identidade/gate (`profiles`/`office_users`/`offices`)
+e as RPCs de medição da IA (`ai_consumir`/`ai_registrar_tokens`, revogadas de
+`authenticated` de propósito — têm que ficar no service role).
+
+**Mudança de comportamento esperada, não um bug:** um membro sem visibilidade
+ampla de financeiro que peça `resumo_financeiro` pela IA agora recebe o total
+do que ELE enxerga (igual à tela Financeiro), não mais o total do escritório
+inteiro. Um admin continua vendo tudo (a RLS já dá bypass a admin em todas as
+políticas relevantes).
+
+De brinde: ao ligar o `deno check` local pra validar esta mudança (via stub
+dos imports remotos, já que o ambiente de sandbox não alcança `deno.land` nem
+`esm.sh`), apareceu um gap pré-existente e não relacionado: `ToolArgs` não
+declarava `comarca`, usado por `criar_diligencia` — corrigido junto (não
+mudava o comportamento em runtime, só o type-check nunca rodava nesse arquivo).
+
+## Correção nº 5 aplicada: gate do módulo Metas no banco
+
+`supabase/migrations/20260904150000_metas_goals_module_gate.sql`
+
+`hasGoalsModule` só é `true` no plano Premium (e cortesia/vitalício) em
+`usePlanFeatures.tsx` — mas a RLS de `metas` nunca checou plano, só
+admin/visibilidade de time. `office_has_goals_module()` replica a regra do
+client; policy `RESTRICTIVE` empilhada por cima do `office_paid_gate` já
+existente na tabela (que checa pagamento, não módulo).
+
+`hasFinancialModule` **não** entrou: é `true` nos 5 tiers hoje, nunca foi
+diferenciador de plano no código — só no texto de marketing ("Módulo
+financeiro completo" como diferencial do Avançado), que é outro tipo de
+correção (copy, não RLS). Verificado ao vivo: nenhum escritório fora de
+premium/cortesia/vitalício tinha linha em `metas` — sem cláusula de carência.
+
+## Correção nº 6 aplicada: `(select auth.uid())` + índices nas FKs sem cobertura
+
+`supabase/migrations/20260904140000_rls_perf_auth_uid_and_fk_indexes.sql`,
+**gerada programaticamente** a partir de `pg_policies`/`pg_constraint` da
+produção (não digitada à mão) — 33 `ALTER POLICY` envolvendo toda chamada
+crua de `auth.uid()`/`auth.jwt()`/`auth.role()` em `(select auth.<fn>())`
+(mesma lógica, o Postgres passa a cachear o resultado por consulta em vez de
+reavaliar linha a linha) e 56 `CREATE INDEX` nas chaves estrangeiras que o
+advisor apontava sem cobertura.
+
+## Correção nº 7 aplicada: primeiro teste automatizado de RLS
+
+`supabase/tests/rls-standalone/` — dois escritórios, dois times, prova em
+`tarefas` e `financeiro` que membro comum só vê o próprio time, coordenador vê
+o time que coordena, admin vê o escritório, e ninguém vê o de outro escritório
+(nem sendo admin do seu). Rodável com `npm run test:rls`. Descoberta no
+caminho: `office_teams`/`office_team_members` — as tabelas centrais desta
+mesma regra — não têm `CREATE TABLE` em nenhuma migration; existem só no banco
+vivo. Documentado no README do teste como próximo passo, não corrigido ali
+(inserir migration retroativa numa base já aplicada em produção merece cuidado
+à parte).
+
+## Correção nº 8 aplicada: folga na catraca de lint
+
+720/720 na CI, sem margem nenhuma. 31 avisos de `no-explicit-any` removidos —
+a maioria em `onError` de `useMutation` (o TanStack Query já tipa o parâmetro
+como `Error` por padrão; a anotação `: any` só escondia isso, bastava remover)
+e alguns spots equivalentes. Teto baixado de 720 para 700 (689 hoje, 11 de
+folga real).
+
+## O que falta: item 4 (crons pelo vault)
+
+Não aplicado nesta rodada. Diferente dos demais, a correção real (mover
+`service_role`/`ROBOT_SECRET` para `supabase_vault` e reescrever os
+`cron.schedule` lendo de lá) precisa dos **segredos reais de produção**, que
+não estão disponíveis neste ambiente — só quem tem acesso ao projeto Supabase
+consegue rodá-la com segurança. O achado e o caminho da correção continuam
+descritos na seção de achados acima.
