@@ -14,15 +14,22 @@ const cors = {
 };
 const OPENAI_KEY = Deno.env.get("OPENAI_API_KEY") || "";
 const OPENAI_MODEL = Deno.env.get("OPENAI_MODEL") || "gpt-4o-mini";
+// Teto de requisições de IA por ESCRITÓRIO por mês. A chave da OpenAI é da
+// Vextria: sem isto, uma aba em loop gera custo ilimitado e ninguém percebe até
+// a fatura. 0 = ilimitado. Ajustável pelo segredo AI_LIMITE_CHAMADAS_MES.
+const LIMITE_CHAMADAS_MES = Number(Deno.env.get("AI_LIMITE_CHAMADAS_MES") ?? 500);
 const periodDays: Record<string, number> = { hoje: 1, semana: 7, mes: 30, ano: 365 };
 const periodLabel: Record<string, string> = { hoje: "hoje", semana: "esta semana", mes: "este mês", ano: "este ano" };
 
 interface ToolCall { id: string; function: { name: string; arguments: string }; }
 interface OAIMsg { role: string; content?: string | null; tool_calls?: ToolCall[]; tool_call_id?: string; }
-interface OAIResp { choices?: { message?: OAIMsg }[]; error?: { message?: string }; }
+interface OAIUsage { prompt_tokens?: number; completion_tokens?: number; }
+interface OAIResp { choices?: { message?: OAIMsg }[]; error?: { message?: string }; usage?: OAIUsage; }
+// Acumula o custo real de UMA requisição (o chat pode chamar a OpenAI até 4x).
+interface TokenAcc { prompt: number; resposta: number; }
 interface ToolArgs { titulo?: string; data?: string; hora?: string; local?: string; prioridade?: string; processo_numero?: string; numero?: string; parte_autora?: string; requerido?: string; termo?: string; nome?: string; telefone?: string; email?: string; descricao?: string; oab?: string; uf?: string; cidades?: string; tipo?: string; valor?: number; fin_tipo?: string; correspondente_nome?: string; dias?: number; }
 
-async function openaiRaw(messages: OAIMsg[], opts: { tools?: unknown[]; json?: boolean } = {}): Promise<OAIResp> {
+async function openaiRaw(messages: OAIMsg[], opts: { tools?: unknown[]; json?: boolean; acc?: TokenAcc } = {}): Promise<OAIResp> {
   const body: Record<string, unknown> = { model: OPENAI_MODEL, temperature: 0.4, messages };
   if (opts.tools) { body.tools = opts.tools; body.tool_choice = "auto"; }
   if (opts.json) body.response_format = { type: "json_object" };
@@ -33,10 +40,14 @@ async function openaiRaw(messages: OAIMsg[], opts: { tools?: unknown[]; json?: b
   });
   const data = (await res.json().catch(() => ({}))) as OAIResp;
   if (!res.ok) throw new Error(data?.error?.message || `openai-${res.status}`);
+  if (opts.acc) {
+    opts.acc.prompt += data.usage?.prompt_tokens ?? 0;
+    opts.acc.resposta += data.usage?.completion_tokens ?? 0;
+  }
   return data;
 }
-async function chatCompletion(messages: OAIMsg[], jsonMode: boolean): Promise<string> {
-  const r = await openaiRaw(messages, { json: jsonMode });
+async function chatCompletion(messages: OAIMsg[], jsonMode: boolean, acc?: TokenAcc): Promise<string> {
+  const r = await openaiRaw(messages, { json: jsonMode, acc });
   return r.choices?.[0]?.message?.content || "";
 }
 function parseJson(s: string): Record<string, unknown> {
@@ -284,6 +295,40 @@ serve(async (req) => {
     if (!hasIA) return json({ error: "premium-required", message: "O Conselheiro IA está disponível no plano Premium." }, 403);
     if (!OPENAI_KEY) return json({ error: "openai-nao-configurada", message: "A IA ainda não foi configurada. Defina o segredo OPENAI_API_KEY." }, 503);
 
+    // ── Teto de consumo (check + incremento atômicos no banco) ──
+    // Falha ABERTO: se a RPC não existir ainda (migration não aplicada) ou o
+    // banco tropeçar, a chamada passa e o erro fica logado — um recurso pago não
+    // cai por causa do medidor. Por isso a migration vem ANTES do deploy.
+    const consumo = await service.rpc("ai_consumir", {
+      p_office: officeId,
+      p_chamadas: 1,
+      p_voz_caracteres: 0,
+      p_limite_chamadas: LIMITE_CHAMADAS_MES,
+      p_limite_voz: 0,
+    });
+    if (consumo.error) {
+      console.error("ai_consumir falhou (liberando a chamada):", consumo.error.message);
+    } else {
+      const uso = consumo.data as { permitido?: boolean; chamadas?: number; voz_caracteres?: number } | null;
+      if (uso && uso.permitido === false) {
+        return json({
+          error: "limite-ia-atingido",
+          message: `O escritório atingiu o limite de ${LIMITE_CHAMADAS_MES} usos da IA neste mês (${uso.chamadas} até agora). O contador zera no dia 1º.`,
+          chamadas: uso.chamadas,
+          limite: LIMITE_CHAMADAS_MES,
+        }, 429);
+      }
+    }
+    // Custo real desta requisição, gravado no fim (o chat pode chamar a OpenAI até 4x).
+    const tokens: TokenAcc = { prompt: 0, resposta: 0 };
+    const registrarTokens = async () => {
+      if (tokens.prompt === 0 && tokens.resposta === 0) return;
+      const { error } = await service.rpc("ai_registrar_tokens", {
+        p_office: officeId, p_tokens_prompt: tokens.prompt, p_tokens_resposta: tokens.resposta,
+      });
+      if (error) console.error("ai_registrar_tokens falhou:", error.message);
+    };
+
     const body = await req.json().catch(() => ({}));
     const mode = String(body?.mode || "chat");
     const nowIso = new Date().toISOString();
@@ -304,7 +349,7 @@ serve(async (req) => {
       const actions: Array<Record<string, unknown>> = [];
       let reply = "Pronto.";
       for (let turn = 0; turn < 4; turn++) {
-        const r = await openaiRaw(msgs, { tools: TOOLS });
+        const r = await openaiRaw(msgs, { tools: TOOLS, acc: tokens });
         const m = r.choices?.[0]?.message;
         if (m?.tool_calls?.length) {
           msgs.push(m);
@@ -320,6 +365,7 @@ serve(async (req) => {
         reply = m?.content || "Pronto.";
         break;
       }
+      await registrarTokens();
       return json({ ok: true, mode, reply, actions });
     }
 
@@ -333,7 +379,8 @@ serve(async (req) => {
       const { data: prazos } = await service.from("prazos").select("titulo, data_fim_prazo, status").eq("processo_id", processoId).neq("status", "concluido").limit(10);
       const { data: auds } = await service.from("audiencias").select("titulo, data_audiencia, status").eq("processo_id", processoId).gte("data_audiencia", nowIso).limit(10);
       const payload = { processo: p, andamentos: (movs || []).map((m: { data_movimentacao?: string; descricao?: string; tipo?: string }) => ({ data: m.data_movimentacao, texto: m.descricao, tipo: m.tipo })), prazos_abertos: prazos || [], proximas_audiencias: auds || [] };
-      const out = parseJson(await chatCompletion([{ role: "system", content: "Você é um advogado sênior que resume processos para colegas do mesmo escritório. Objetivo, técnico e claro. Nunca invente fatos fora dos andamentos. Responda SEMPRE em JSON com as chaves: resumo (string 2-4 frases), situacao_atual (string uma frase), proximos_passos (array de strings acionáveis). Em português do Brasil." }, { role: "user", content: JSON.stringify(payload) }], true));
+      const out = parseJson(await chatCompletion([{ role: "system", content: "Você é um advogado sênior que resume processos para colegas do mesmo escritório. Objetivo, técnico e claro. Nunca invente fatos fora dos andamentos. Responda SEMPRE em JSON com as chaves: resumo (string 2-4 frases), situacao_atual (string uma frase), proximos_passos (array de strings acionáveis). Em português do Brasil." }, { role: "user", content: JSON.stringify(payload) }], true, tokens));
+      await registrarTokens();
       return json({ ok: true, mode, data: out });
     }
 
@@ -343,14 +390,16 @@ serve(async (req) => {
       if (!publicacaoId) return json({ error: "publicacaoId-obrigatorio" }, 400);
       const { data: pub } = await service.from("publicacoes").select("id, titulo, conteudo, data_publicacao, tribunal, tipo_documento").eq("id", publicacaoId).eq("office_id", officeId).maybeSingle();
       if (!pub) return json({ error: "publicacao-nao-encontrada" }, 404);
-      const out = parseJson(await chatCompletion([{ role: "system", content: "Você é um advogado que lê publicações de diário oficial e orienta a equipe. Responda SEMPRE em JSON com as chaves: resumo (string clara), urgencia ('alta'|'media'|'baixa'), prazo_sugerido (objeto {titulo, dias number a partir de hoje, tipo, descricao}) ou null. Nunca invente prazos legais com falsa certeza; se não for claro, dias null e explique no resumo. Em português do Brasil." }, { role: "user", content: JSON.stringify({ titulo: pub.titulo, tribunal: pub.tribunal, tipo: pub.tipo_documento, data: pub.data_publicacao, conteudo: String(pub.conteudo || "").slice(0, 6000) }) }], true));
+      const out = parseJson(await chatCompletion([{ role: "system", content: "Você é um advogado que lê publicações de diário oficial e orienta a equipe. Responda SEMPRE em JSON com as chaves: resumo (string clara), urgencia ('alta'|'media'|'baixa'), prazo_sugerido (objeto {titulo, dias number a partir de hoje, tipo, descricao}) ou null. Nunca invente prazos legais com falsa certeza; se não for claro, dias null e explique no resumo. Em português do Brasil." }, { role: "user", content: JSON.stringify({ titulo: pub.titulo, tribunal: pub.tribunal, tipo: pub.tipo_documento, data: pub.data_publicacao, conteudo: String(pub.conteudo || "").slice(0, 6000) }) }], true, tokens));
+      await registrarTokens();
       return json({ ok: true, mode, data: out });
     }
 
     // ── INSIGHTS ──
     const period = String(body?.period || "semana");
     const snap = await buildSnapshot(service, officeId, office?.name || "", period);
-    const out = parseJson(await chatCompletion([{ role: "system", content: "Você é um conselheiro de gestão para escritórios de advocacia — analítico, direto e prático. Recebe um panorama numérico e devolve orientação acionável, priorizando riscos (prazos e audiências) e produtividade. Não invente dados além do panorama. Responda SEMPRE em JSON com as chaves: resumo (string 2-3 frases), alertas (array), recomendacoes (array), produtividade (array), plano_acao (array na ordem de execução). Cada item curto. Em português do Brasil." }, { role: "user", content: JSON.stringify(snap) }], true));
+    const out = parseJson(await chatCompletion([{ role: "system", content: "Você é um conselheiro de gestão para escritórios de advocacia — analítico, direto e prático. Recebe um panorama numérico e devolve orientação acionável, priorizando riscos (prazos e audiências) e produtividade. Não invente dados além do panorama. Responda SEMPRE em JSON com as chaves: resumo (string 2-3 frases), alertas (array), recomendacoes (array), produtividade (array), plano_acao (array na ordem de execução). Cada item curto. Em português do Brasil." }, { role: "user", content: JSON.stringify(snap) }], true, tokens));
+    await registrarTokens();
     return json({ ok: true, mode: "insights", period, snapshot: snap.numeros, data: out });
   } catch (e) {
     return json({ error: String((e as Error).message) }, 500);
