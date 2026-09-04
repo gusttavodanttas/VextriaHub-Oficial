@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { continueOccurrences, RecRule } from "@/lib/recorrencia";
+import { planQuotaMessage } from "@/lib/planQuotaError";
 import type { TablesUpdate } from "@/integrations/supabase/rows";
 
 export interface Tarefa {
@@ -126,7 +127,10 @@ export function useTarefas() {
       if (error) throw error;
     },
     onSuccess: () => { invalidate(); toast({ title: "Tarefa criada", description: "A tarefa foi adicionada com sucesso." }); },
-    onError: (e: any) => toast({ title: "Erro ao criar", description: e.message, variant: "destructive" }),
+    onError: (e) => {
+      const quota = planQuotaMessage(e);
+      toast({ title: quota?.title ?? "Erro ao criar", description: quota?.description ?? e.message, variant: "destructive" });
+    },
   });
 
   const createMany = useMutation({
@@ -144,7 +148,7 @@ export function useTarefas() {
       if (error) throw error;
     },
     onSuccess: (_d, inputs) => { invalidate(); toast({ title: "Tarefas criadas", description: `${inputs.length} ocorrências adicionadas.` }); },
-    onError: (e: any) => toast({ title: "Erro ao criar", description: e.message, variant: "destructive" }),
+    onError: (e) => toast({ title: "Erro ao criar", description: e.message, variant: "destructive" }),
   });
 
   const update = useMutation({
@@ -153,7 +157,7 @@ export function useTarefas() {
       if (error) throw error;
     },
     onSuccess: () => { invalidate(); toast({ title: "Tarefa atualizada", description: "As alterações foram salvas." }); },
-    onError: (e: any) => toast({ title: "Erro ao atualizar", description: e.message, variant: "destructive" }),
+    onError: (e) => toast({ title: "Erro ao atualizar", description: e.message, variant: "destructive" }),
   });
 
   // Adia o vencimento para o dia seguinte (1 clique, sem abrir o formulário).
@@ -169,7 +173,7 @@ export function useTarefas() {
       if (error) throw error;
     },
     onSuccess: () => { invalidate(); toast({ title: "Tarefa adiada", description: "Vencimento movido para o dia seguinte." }); },
-    onError: (e: any) => toast({ title: "Erro ao adiar", description: e.message, variant: "destructive" }),
+    onError: (e) => toast({ title: "Erro ao adiar", description: e.message, variant: "destructive" }),
   });
 
   // Gera a PRÓXIMA ocorrência de uma tarefa recorrente concluída (best-effort). Usado
@@ -213,7 +217,7 @@ export function useTarefas() {
       if (concluida && tarefa) await gerarProximaOcorrencia(tarefa);
     },
     onSuccess: () => invalidate(),
-    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+    onError: (e) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
   const remove = useMutation({
@@ -222,7 +226,7 @@ export function useTarefas() {
       if (error) throw error;
     },
     onSuccess: (_d, ids) => { invalidate(); toast({ title: "Tarefa(s) excluída(s)", description: `${ids.length} tarefa(s) movida(s) para a lixeira.` }); },
-    onError: (e: any) => toast({ title: "Erro ao excluir", description: e.message, variant: "destructive" }),
+    onError: (e) => toast({ title: "Erro ao excluir", description: e.message, variant: "destructive" }),
   });
 
   // Ações em lote (concluir/reabrir, prioridade, responsável, prazo)
@@ -245,7 +249,7 @@ export function useTarefas() {
       for (const t of recorrentes) await gerarProximaOcorrencia(t);
     },
     onSuccess: () => { invalidate(); toast({ title: "Tarefas atualizadas" }); },
-    onError: (e: any) => toast({ title: "Erro ao atualizar", description: e.message, variant: "destructive" }),
+    onError: (e) => toast({ title: "Erro ao atualizar", description: e.message, variant: "destructive" }),
   });
 
   return { tarefas, isLoading, create, createMany, update, adiar, toggle, remove, bulkPatch };

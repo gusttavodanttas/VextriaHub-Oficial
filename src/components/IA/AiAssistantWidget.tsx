@@ -85,6 +85,9 @@ export const AiAssistantWidget: React.FC = () => {
       const err = e as AdvisorError;
       const msg = err.code === 'openai-nao-configurada'
         ? 'A IA ainda não foi ativada pelo administrador do escritório. Assim que a chave for configurada, eu respondo. 🙂'
+        // Limite do mês: a mensagem do servidor já diz o quanto foi usado e quando zera.
+        : err.code === 'limite-ia-atingido'
+        ? err.message
         : `Não consegui responder agora. ${err.message}`;
       setMessages([...next, { role: 'assistant', content: msg }]);
     } finally {

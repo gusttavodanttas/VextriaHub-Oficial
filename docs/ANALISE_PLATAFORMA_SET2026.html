@@ -1,0 +1,479 @@
+<title>Raio-X do VextriaHub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,500;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+  :root{
+    --ground:#eef2f5;
+    --surface:#ffffff;
+    --surface-2:#f6f9fb;
+    --ink:#0c1b24;
+    --ink-2:#33505f;
+    --muted:#647d8c;
+    --line:#d3dee5;
+    --line-soft:#e4ecf1;
+    --brand:#005f8f;
+    --brand-soft:#e2eff6;
+    --crit:#a82d1c;
+    --crit-soft:#fae9e6;
+    --warn:#8a5c00;
+    --warn-soft:#faf0dc;
+    --ok:#1a6f4c;
+    --ok-soft:#e3f2ea;
+    --shadow:0 1px 2px rgba(12,27,36,.06),0 8px 24px -18px rgba(12,27,36,.5);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#08121a;
+      --surface:#0f1c25;
+      --surface-2:#132430;
+      --ink:#e6eef3;
+      --ink-2:#b3c6d1;
+      --muted:#7d97a5;
+      --line:#22384a;
+      --line-soft:#1a2c3a;
+      --brand:#4cb6e8;
+      --brand-soft:#0f2c3d;
+      --crit:#f08e7c;
+      --crit-soft:#33170f;
+      --warn:#e0b055;
+      --warn-soft:#2d2210;
+      --ok:#68c79b;
+      --ok-soft:#0f2b20;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px -20px rgba(0,0,0,.9);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#08121a;
+    --surface:#0f1c25;
+    --surface-2:#132430;
+    --ink:#e6eef3;
+    --ink-2:#b3c6d1;
+    --muted:#7d97a5;
+    --line:#22384a;
+    --line-soft:#1a2c3a;
+    --brand:#4cb6e8;
+    --brand-soft:#0f2c3d;
+    --crit:#f08e7c;
+    --crit-soft:#33170f;
+    --warn:#e0b055;
+    --warn-soft:#2d2210;
+    --ok:#68c79b;
+    --ok-soft:#0f2b20;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px -20px rgba(0,0,0,.9);
+  }
+
+  *{box-sizing:border-box}
+  body{
+    background:var(--ground);
+    color:var(--ink);
+    font-family:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-size:16px;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:920px;margin:0 auto;padding:0 24px 96px}
+  @media(max-width:640px){.wrap{padding:0 16px 64px}}
+
+  a{color:var(--brand)}
+  code,.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+  code{font-size:.86em;background:var(--surface-2);border:1px solid var(--line-soft);border-radius:3px;padding:.08em .34em;color:var(--ink-2);word-break:break-word}
+
+  /* ── masthead ── */
+  .masthead{padding:56px 0 32px;border-bottom:2px solid var(--ink)}
+  .eyebrow{
+    font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--muted);margin:0 0 18px
+  }
+  h1{
+    font-family:Spectral,Georgia,serif;font-weight:600;font-size:clamp(34px,6.2vw,54px);
+    line-height:1.05;letter-spacing:-.015em;margin:0 0 18px;text-wrap:balance
+  }
+  .lede{font-size:19px;line-height:1.55;color:var(--ink-2);max-width:62ch;margin:0 0 28px;text-wrap:pretty}
+  .lede strong{color:var(--ink);font-weight:600}
+  .meta{
+    display:flex;flex-wrap:wrap;gap:8px 22px;font-family:"IBM Plex Mono",monospace;
+    font-size:12px;color:var(--muted);padding-bottom:4px
+  }
+  .meta b{color:var(--ink-2);font-weight:500}
+
+  /* ── signal strip ── */
+  .signals{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:1px;background:var(--line);border:1px solid var(--line);
+    margin:0 0 8px;border-radius:4px;overflow:hidden
+  }
+  .sig{background:var(--surface);padding:14px 16px}
+  .sig .k{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
+  .sig .v{font-size:15px;font-weight:600;margin-top:5px;display:flex;align-items:baseline;gap:7px}
+  .dot{width:7px;height:7px;border-radius:50%;flex:none;transform:translateY(-1px)}
+  .dot.ok{background:var(--ok)}
+  .dot.warn{background:var(--warn)}
+  .sig .n{font-size:12px;color:var(--muted);font-weight:400;margin-top:2px}
+
+  /* ── sections ── */
+  section{padding-top:52px}
+  h2{
+    font-family:Spectral,Georgia,serif;font-weight:600;font-size:27px;letter-spacing:-.01em;
+    margin:0 0 6px;text-wrap:balance
+  }
+  .sub{color:var(--muted);font-size:14.5px;margin:0 0 24px;max-width:64ch}
+  h3{font-size:16px;font-weight:600;margin:28px 0 8px;letter-spacing:-.005em}
+  p{margin:0 0 14px;max-width:66ch;text-wrap:pretty}
+
+  /* ── findings ── */
+  .find{
+    background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--sev);
+    border-radius:0 5px 5px 0;padding:20px 22px;box-shadow:var(--shadow);margin-bottom:14px
+  }
+  .find.p1{--sev:var(--crit);--sev-soft:var(--crit-soft)}
+  .find.p2{--sev:var(--warn);--sev-soft:var(--warn-soft)}
+  .find.p3{--sev:var(--brand);--sev-soft:var(--brand-soft)}
+  .find-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:9px}
+  .tag{
+    font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:500;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--sev);background:var(--sev-soft);
+    border-radius:3px;padding:3px 7px;flex:none
+  }
+  .find h4{font-size:17.5px;font-weight:600;margin:0;letter-spacing:-.01em;line-height:1.3;flex:1;min-width:220px}
+  .find p{font-size:14.5px;margin:0 0 10px;color:var(--ink-2);max-width:none}
+  .find p:last-child{margin-bottom:0}
+  .find p strong{color:var(--ink)}
+  .ev{
+    font-family:"IBM Plex Mono",monospace;font-size:12.5px;line-height:1.75;
+    background:var(--surface-2);border:1px solid var(--line-soft);border-radius:4px;
+    padding:10px 13px;margin:0 0 11px;overflow-x:auto;white-space:pre;color:var(--ink-2)
+  }
+  .fix{
+    font-size:14px;color:var(--ink-2);border-top:1px dashed var(--line);
+    padding-top:10px;margin-top:12px
+  }
+  .fix b{
+    font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--muted);display:block;margin-bottom:3px;font-weight:500
+  }
+
+  /* ── plain lists ── */
+  ul.plain{margin:0 0 16px;padding-left:0;list-style:none}
+  ul.plain li{
+    padding-left:20px;position:relative;margin-bottom:9px;font-size:15px;
+    color:var(--ink-2);max-width:66ch
+  }
+  ul.plain li::before{
+    content:"";position:absolute;left:2px;top:.62em;width:6px;height:1.5px;background:var(--brand)
+  }
+  ul.plain li strong{color:var(--ink);font-weight:600}
+
+  /* ── module grid ── */
+  .mods{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:4px;overflow:hidden}
+  .mod{background:var(--surface);padding:11px 13px;font-size:13.5px}
+  .mod b{display:block;font-weight:600;font-size:14px;margin-bottom:1px}
+  .mod span{color:var(--muted);font-size:12.5px;line-height:1.4;display:block}
+
+  /* ── chart ── */
+  .chart{background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:20px 22px;box-shadow:var(--shadow)}
+  .chart .cap{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:16px}
+  .bar-row{display:grid;grid-template-columns:minmax(120px,190px) 1fr 46px;align-items:center;gap:12px;margin-bottom:9px}
+  .bar-row .lbl{font-size:13px;color:var(--ink-2);line-height:1.25}
+  .track{height:14px;background:var(--surface-2);border:1px solid var(--line-soft);border-radius:2px;overflow:hidden}
+  .fill{height:100%;background:var(--brand);opacity:.85}
+  .fill.w{background:var(--warn)}
+  .bar-row .num{font-family:"IBM Plex Mono",monospace;font-size:13px;text-align:right;font-variant-numeric:tabular-nums;color:var(--ink)}
+  .axis{display:flex;justify-content:space-between;font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);border-top:1px solid var(--line-soft);margin-top:14px;padding-top:6px}
+
+  /* ── action table ── */
+  .actions{width:100%;border-collapse:collapse;font-size:14.5px}
+  .actions th{
+    text-align:left;font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--muted);font-weight:500;padding:0 12px 8px 0;
+    border-bottom:1px solid var(--line)
+  }
+  .actions td{padding:13px 12px 13px 0;border-bottom:1px solid var(--line-soft);vertical-align:top;color:var(--ink-2)}
+  .actions td:first-child{
+    font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--ink);white-space:nowrap;padding-right:16px
+  }
+  .actions td strong{color:var(--ink);font-weight:600}
+  .scroll{overflow-x:auto}
+
+  .note{
+    font-size:13.5px;color:var(--muted);border-left:2px solid var(--line);
+    padding-left:14px;margin-top:30px;max-width:66ch
+  }
+  hr.rule{border:0;border-top:1px solid var(--line);margin:0}
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="eyebrow">Análise técnica · 4 de setembro de 2026</p>
+    <h1>Raio-X do VextriaHub</h1>
+    <p class="lede">Plataforma madura e bem construída: <strong>RLS em todas as tabelas</strong>, portão de pagamento no banco, CI verde, zero segredo no repositório. Os riscos reais não estão no código — estão em <strong>o que é vendido e não é cobrado</strong>, no <strong>custo aberto da IA</strong> e na <strong>impossibilidade de reconstruir o ambiente</strong> a partir das migrations.</p>
+    <div class="meta">
+      <span>branch <b>claude/platform-analysis-u7drw8</b></span>
+      <span>commit <b>14bc173</b></span>
+      <span><b>59.241</b> linhas · <b>321</b> arquivos TS/TSX</span>
+      <span><b>33</b> páginas · <b>61</b> hooks · <b>24</b> edge functions</span>
+      <span><b>135</b> migrations · <b>~46</b> tabelas · <b>270</b> políticas RLS</span>
+    </div>
+  </header>
+
+  <section id="sinais">
+    <h2>O que passa hoje</h2>
+    <p class="sub">Rodei a bateria completa do projeto nesta árvore, com as dependências instaladas do <code>package-lock.json</code>.</p>
+    <div class="signals">
+      <div class="sig">
+        <div class="k">Type-check</div>
+        <div class="v"><span class="dot ok"></span>Limpo</div>
+        <div class="n">tsc -p tsconfig.app.json</div>
+      </div>
+      <div class="sig">
+        <div class="k">ESLint</div>
+        <div class="v"><span class="dot warn"></span>0 erros · 720 avisos</div>
+        <div class="n">teto da CI: 720 — sem folga</div>
+      </div>
+      <div class="sig">
+        <div class="k">Testes</div>
+        <div class="v"><span class="dot ok"></span>186 / 186</div>
+        <div class="n">20 arquivos · 7,9 s</div>
+      </div>
+      <div class="sig">
+        <div class="k">Build</div>
+        <div class="v"><span class="dot ok"></span>10,25 s</div>
+        <div class="n">maior chunk: 114 kB gzip</div>
+      </div>
+      <div class="sig">
+        <div class="k">Lints do Supabase</div>
+        <div class="v"><span class="dot ok"></span>0 em nível ERROR</div>
+        <div class="n">projeto mzhnlhfxfoigkqgxseeu</div>
+      </div>
+      <div class="sig">
+        <div class="k">Segredos no repo</div>
+        <div class="v"><span class="dot ok"></span>Nenhum</div>
+        <div class="n">.env, .mcp.json ignorados</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="panorama">
+    <h2>O que a plataforma é</h2>
+    <p class="sub">SaaS de gestão para escritórios de advocacia, multi-escritório (multi-tenant), React + Vite no front e Supabase inteiro atrás — Postgres com RLS, Auth, Storage, 24 edge functions em Deno e 7 rotinas em <code>pg_cron</code>.</p>
+    <div class="mods">
+      <div class="mod"><b>Processos</b><span>CNJ, andamentos, compartilhamento entre escritórios</span></div>
+      <div class="mod"><b>Prazos</b><span>cálculo, confirmação, alerta de proximidade</span></div>
+      <div class="mod"><b>Audiências</b><span>tipos, designação de correspondente</span></div>
+      <div class="mod"><b>Publicações</b><span>robô diário de diários oficiais por OAB</span></div>
+      <div class="mod"><b>Clientes &amp; CRM</b><span>funil, oportunidades, leads do Vextria Zap</span></div>
+      <div class="mod"><b>Financeiro</b><span>receitas, despesas, conciliação Asaas</span></div>
+      <div class="mod"><b>Timesheet</b><span>timer, lançamento manual, faturamento</span></div>
+      <div class="mod"><b>Equipe</b><span>times, coordenação, visibilidade por time</span></div>
+      <div class="mod"><b>Correspondentes</b><span>cadastro, diligências, repasse</span></div>
+      <div class="mod"><b>Metas &amp; Gráficos</b><span>indicadores do escritório</span></div>
+      <div class="mod"><b>Conselheiro IA</b><span>chat com 17 ferramentas + voz (OpenAI)</span></div>
+      <div class="mod"><b>Google Agenda</b><span>OAuth + sync por diff a cada 15 min</span></div>
+      <div class="mod"><b>Cobrança</b><span>Asaas: assinatura, webhook, bloqueio</span></div>
+      <div class="mod"><b>Admin / Super-admin</b><span>planos, escritórios, cortesias, lixeira</span></div>
+    </div>
+
+    <h3>O que está genuinamente bem-feito</h3>
+    <ul class="plain">
+      <li><strong>Isolamento entre escritórios levado a sério.</strong> Todas as ~46 tabelas com RLS ligada, 270 políticas, funções <code>SECURITY DEFINER</code> (<code>get_user_office_ids</code>, <code>team_visible_user_ids</code>, <code>is_office_admin</code>) evitando recursão de política. A visibilidade por time é enforçada no banco, não na tela.</li>
+      <li><strong>O paywall vive no Postgres.</strong> Uma policy <code>RESTRICTIVE</code> <code>office_paid_gate</code> em 20 tabelas de dados barra o escritório inadimplente na origem — tabelas de infra ficam de fora de propósito, senão nem a tela de pagamento carregaria.</li>
+      <li><strong>As edge functions foram escritas por quem já se queimou.</strong> Cursor que só avança em lead efetivamente tratado, reserva atômica contra corrida entre cron e chamada manual, ID determinístico de evento no Google para o retry não duplicar, comparação em tempo constante no token do webhook do Asaas, 5xx no webhook para o Asaas reenviar em vez de perder pagamento.</li>
+      <li><strong>Nenhum código morto e nenhum <code>console.log</code>.</strong> Varredura de arquivos nunca importados voltou vazia. Os comentários explicam o <em>porquê</em>, com referência ao incidente que motivou cada trava.</li>
+      <li><strong>Observabilidade central.</strong> Todo erro de query e mutation do React Query cai no Sentry por um caminho só, em vez de ~30 <code>catch</code> silenciosos.</li>
+      <li><strong>Superfície de XSS baixa.</strong> Nenhum <code>dangerouslySetInnerHTML</code> em conteúdo de usuário; o renderizador de markdown do chat foi escrito sem <code>innerHTML</code>.</li>
+    </ul>
+  </section>
+
+  <section id="achados">
+    <h2>Achados, em ordem de quanto custam</h2>
+    <p class="sub">Sete pontos. Os dois primeiros custam dinheiro todo mês; o terceiro e o quarto são furos de modelo de acesso; o quinto é risco de continuidade. Nenhum é bug de tela.</p>
+
+    <article class="find p1">
+      <div class="find-head"><span class="tag">P1 · receita</span><h4>Os limites de plano são vendidos e não são cobrados</h4></div>
+      <p>O catálogo em <code>plan_configs</code> anuncia, com todas as letras, <strong>“até 30 processos”</strong> no Básico (R$ 47/mês), <strong>“até 100”</strong> no Intermediário (R$ 97) e <strong>“até 300”</strong> no Avançado (R$ 197). Nada no sistema impede passar disso.</p>
+      <div class="ev">enforcement real:
+  processos  → só no cliente, em NovoProcessoDialog.tsx:83 (limits.processes.isReached)
+  clientes   → calculado em usePlanLimits e nunca consumido
+  tarefas    → calculado em usePlanLimits e nunca consumido
+  prazos     → calculado em usePlanLimits e nunca consumido
+  banco      → nenhum trigger, nenhuma policy checa quantidade</div>
+      <p>A única trava é um botão desabilitado. Ela cai com uma chamada direta ao PostgREST, pelo fluxo de importação — ou pela própria IA: a ferramenta <code>criar_processo</code> insere com <em>service role</em> sem consultar limite nenhum. Na prática os tiers pagos hoje se diferenciam por <strong>assentos</strong> (esse sim tem trigger <code>enforce_office_seat_limit</code>) e <strong>cota de OAB</strong> (<code>enforce_oab_quota</code>). O resto do que está na página de preços é honra.</p>
+      <p class="fix"><b>Correção</b>Um trigger <code>before insert</code> por tabela cotada, lendo o teto de <code>plan_configs</code> como o <code>enforce_oab_quota</code> já faz — é o padrão certo, só não foi replicado. Enquanto isso não existe, decidir conscientemente: ou cobra, ou tira os números da página de preços.</p>
+    </article>
+
+    <article class="find p1">
+      <div class="find-head"><span class="tag">P1 · custo</span><h4>A IA não tem teto de gasto nem limite de uso</h4></div>
+      <p><code>ai-advisor</code> e <code>ai-voice</code> usam a <strong>chave da OpenAI da Vextria</strong>. A checagem é binária: autenticado e premium entra. Depois disso não há quota por escritório, contador de tokens, registro de consumo nem limite de chamadas por minuto.</p>
+      <div class="ev">ai-advisor  → até 4 turnos de tool por mensagem, cada um com round-trip completo
+ai-voice    → TTS de até 4.000 caracteres por chamada, sem contador
+ambos       → sem rate limit, sem quota, sem log de consumo</div>
+      <p>Uma aba deixada em loop, ou um cliente premium entusiasmado, gera custo ilimitado sem aparecer em lugar nenhum até a fatura da OpenAI chegar. E não há como saber, depois, <em>qual</em> escritório gastou.</p>
+      <p class="fix"><b>Correção</b>Tabela <code>ai_usage</code> (escritório, data, chamadas, tokens estimados), checada no início das duas funções contra um teto mensal por plano. Custa uma tabela e ~15 linhas em cada função, e de quebra vira o dado que diz se a IA se paga.</p>
+    </article>
+
+    <article class="find p2">
+      <div class="find-head"><span class="tag">P2 · acesso</span><h4>A IA passa por cima do sistema de permissões e da visibilidade por time</h4></div>
+      <p>Todas as 17 ferramentas rodam em <code>executeTool</code> com <em>service role</em>, escopadas apenas por <code>office_id</code>. O restante da plataforma é bem mais fino que isso: a RLS restringe por <code>team_visible_user_ids</code> e a UI respeita <code>usePermissions</code>.</p>
+      <div class="ev">um membro comum, sem canViewFinanceiro e sem canManageProcessos, consegue pelo chat:
+  resumo_financeiro          → totais a receber/pagar do escritório INTEIRO
+  criar_processo/_cliente    → criar registros que a tela dele não deixaria
+  criar_lancamento_financeiro→ lançar no módulo que ele não pode nem abrir
+  concluir_prazo/_tarefa     → fechar item de outro time</div>
+      <p>Não é vazamento entre escritórios — o escopo por <code>office_id</code> segura isso. É <strong>escalada de privilégio dentro do escritório</strong>: o chat vira a porta dos fundos das permissões que o admin configurou.</p>
+      <p class="fix"><b>Correção</b>Fazer as escritas com o cliente <em>anon</em> carregando o JWT do usuário (a RLS então aplica sozinha as mesmas regras da tela), e checar <code>user_permissions</code> antes das leituras agregadas. O <em>service role</em> fica só para o que precisa mesmo dele.</p>
+    </article>
+
+    <article class="find p2">
+      <div class="find-head"><span class="tag">P2 · acesso</span><h4>Os módulos por plano só existem no navegador</h4></div>
+      <p><code>canViewFinanceiro</code>, <code>canViewMetas</code> e <code>canViewAdvancedAnalytics</code> saem de <code>permissão × plano</code> calculado inteiramente no cliente. A RLS de <code>financeiro</code> e <code>metas</code> verifica <em>admin do escritório ou visibilidade de time</em> — nunca o plano.</p>
+      <div class="ev">financeiro_select → is_office_admin(office_id) OR user_id IN team_visible_user_ids(office_id)
+                     ↑ nenhuma menção a offices.plan</div>
+      <p>Um escritório no Básico lê e grava <code>/rest/v1/financeiro</code> direto, sem passar pela tela. Some a isso uma incoerência de catálogo: o plano Avançado é vendido com <em>“Módulo financeiro completo”</em> como diferencial, mas <code>hasFinancialModule</code> já é <code>true</code> no trial e no Básico. A IA, aliás, é o único módulo checado no servidor — é o modelo certo, só não foi estendido aos outros.</p>
+      <p class="fix"><b>Correção</b>Uma policy <code>RESTRICTIVE</code> por módulo, no mesmo formato do <code>office_paid_gate</code> que já funciona. E alinhar o catálogo com o que o código realmente libera.</p>
+    </article>
+
+    <article class="find p2">
+      <div class="find-head"><span class="tag">P2 · continuidade</span><h4>As migrations não reconstroem o ambiente</h4></div>
+      <p>Vários agendamentos são <strong>templates com marcadores</strong> (<code>&lt;SERVICE_ROLE_KEY&gt;</code>, <code>&lt;ROBOT_SECRET&gt;</code>) e outros clonam o comando de um job que precisa já existir no banco vivo:</p>
+      <div class="ev">-- 20260822064500_google_sync_cron.sql e 20260822073000_zap_pull_leads_cron.sql
+select cron.schedule('google-sync-15min','*/15 * * * *',
+  replace((select command from cron.job where jobname='trial-reminder-diario' limit 1),
+          'trial-reminder','google-sync'));</div>
+      <p>Num banco novo esse <code>select</code> volta nulo. O cron nasce quebrado <strong>em silêncio</strong>, e com ele os robôs de OAB, publicações, aviso de prazo, sync do Google e puxada de leads. A intenção — não versionar segredo — está certíssima; a execução deixa a recuperação de desastre dependendo do banco de produção estar de pé. A própria equipe registrou um incidente dessa classe em julho/2026, no comentário do <code>robo-prazos-diario</code>.</p>
+      <p class="fix"><b>Correção</b><code>supabase_vault</code>: guardar <code>service_role</code> e <code>ROBOT_SECRET</code> como segredos do banco e escrever os <code>cron.schedule</code> lendo do vault. As migrations voltam a ser replayáveis do zero, sem nenhum segredo no Git.</p>
+    </article>
+
+    <article class="find p3">
+      <div class="find-head"><span class="tag">P3 · CI</span><h4>A catraca de lint está exatamente no limite</h4></div>
+      <p>A CI falha acima de 720 avisos. Hoje são <strong>exatamente 720</strong>. O próximo <code>any</code> que alguém escrever quebra o build de todo mundo, com uma mensagem que parece não ter relação com a mudança.</p>
+      <div class="ev">643  @typescript-eslint/no-explicit-any
+ 57  react-hooks/exhaustive-deps      ← estes escondem bug de verdade
+ 20  react-refresh/only-export-components
+720  total (teto: 720)</div>
+      <p class="fix"><b>Correção</b>Limpar uns 40 avisos e baixar o teto para 680, criando folga. Os 57 <code>exhaustive-deps</code> merecem atenção separada: são a classe que produz dado velho em tela, não dívida cosmética.</p>
+    </article>
+
+    <article class="find p3">
+      <div class="find-head"><span class="tag">P3 · testes</span><h4>Os testes cobrem o cálculo, não o que dá processo</h4></div>
+      <p>186 testes passando em 20 arquivos, quase todos sobre funções puras de <code>src/lib</code> — cálculo de prazo, CNJ, moeda, recorrência, contrato do webhook. É a base certa. Mas são 243 arquivos de código fora de <code>ui/</code>, e o que quebra caro não tem rede:</p>
+      <ul class="plain">
+        <li>nenhum teste dos hooks de dados (<code>useProcessosV2</code>, <code>useFinanceiro</code>, <code>usePrazosData</code>);</li>
+        <li>nenhum teste das políticas RLS — a visibilidade entre times é a regra mais delicada do produto e é verificada só em produção;</li>
+        <li>nenhum teste das 24 edge functions, onde estão cobrança, robôs e IA.</li>
+      </ul>
+      <p class="fix"><b>Correção</b>Comece por um arquivo só: um teste de RLS que sobe dois escritórios e dois times e afirma quem enxerga o quê. É o teste que impede o pior incidente possível deste produto.</p>
+    </article>
+  </section>
+
+  <section id="banco">
+    <h2>Banco: nada grave, muito acumulado</h2>
+    <p class="sub">O <em>advisor</em> do Supabase não aponta um único item em nível ERROR. Os 181 avisos são de desempenho e de higiene, e se concentram em quatro categorias.</p>
+
+    <div class="chart">
+      <div class="cap">Avisos do advisor por tipo · projeto em produção</div>
+      <div class="bar-row">
+        <span class="lbl">Múltiplas policies permissivas</span>
+        <span class="track"><span class="fill w" style="width:100%"></span></span>
+        <span class="num">82</span>
+      </div>
+      <div class="bar-row">
+        <span class="lbl">Chave estrangeira sem índice</span>
+        <span class="track"><span class="fill" style="width:68.3%"></span></span>
+        <span class="num">56</span>
+      </div>
+      <div class="bar-row">
+        <span class="lbl"><code>auth.uid()</code> por linha</span>
+        <span class="track"><span class="fill w" style="width:42.7%"></span></span>
+        <span class="num">35</span>
+      </div>
+      <div class="bar-row">
+        <span class="lbl">Índice nunca usado</span>
+        <span class="track"><span class="fill" style="width:8.5%"></span></span>
+        <span class="num">7</span>
+      </div>
+      <div class="bar-row">
+        <span class="lbl">Conexões do banco</span>
+        <span class="track"><span class="fill" style="width:1.2%"></span></span>
+        <span class="num">1</span>
+      </div>
+      <div class="axis"><span>0</span><span>82 avisos</span></div>
+    </div>
+
+    <h3>O que vale mexer</h3>
+    <ul class="plain">
+      <li><strong>35 policies reavaliam <code>auth.uid()</code> linha a linha.</strong> Trocar por <code>(select auth.uid())</code> faz o Postgres avaliar uma vez só. É achar e substituir, e é a otimização de RLS com melhor retorno que existe.</li>
+      <li><strong>56 chaves estrangeiras sem índice de cobertura</strong> — <code>atendimentos</code> (4), <code>audiencias</code> (2) e outras. Hoje o volume esconde; numa tabela grande, cada <em>join</em> ou <em>delete</em> vira varredura completa.</li>
+      <li><strong>82 avisos de policies permissivas duplicadas</strong>, com <code>plan_configs</code> (20), <code>tarefa_comentarios</code> (15) e <code>tarefa_subtarefas</code> (15) na frente: toda consulta nessas tabelas avalia várias policies onde uma consolidada bastaria.</li>
+      <li><strong>Seis tabelas com RLS ligada e nenhuma policy</strong> (<code>google_integrations</code>, <code>google_oauth_states</code>, <code>zap_synced_leads</code>, <code>process_search_log</code>, <code>trial_reminder_log</code>, <code>google_calendar_map</code>). Isso é <em>seguro</em> — nega tudo para o cliente e só o service role entra. Vale um comentário no SQL dizendo que é de propósito, para ninguém “consertar” depois.</li>
+      <li><strong>13 funções <code>SECURITY DEFINER</code> executáveis pelo papel <code>anon</code></strong>. Todas checam <code>auth.uid()</code> por dentro, então não vazam — mas <code>confirm_invited_user(email, token)</code> aceita chamada não autenticada e merece limite de tentativas, para o token de convite não ser adivinhável por força bruta.</li>
+    </ul>
+  </section>
+
+  <section id="manutencao">
+    <h2>Manutenibilidade</h2>
+    <p>O código é legível e comentado acima da média — os comentários explicam decisão e incidente, não repetem a linha abaixo. O ponto de atrito é o <strong>tamanho de alguns componentes</strong>: 34 arquivos passam de 400 linhas, com <code>ProcessoDetailsDrawer.tsx</code> em 1.273, <code>JudicialSyncDialog.tsx</code> em 949 e <code>NovoPrazoStandaloneDialog.tsx</code> em 910. Não é urgente, mas é onde uma mudança pequena leva meia hora de leitura antes da primeira linha escrita — e onde a IA (a sua ou a de um colaborador) mais erra.</p>
+    <p>Dois detalhes de arrumação: <code>src/migrations/20260418_cleanup_asaas.sql</code> está sozinho no diretório errado (o lugar é <code>supabase/migrations/</code>), e o <code>README.md</code> ainda é o texto padrão do Lovable — nenhuma palavra sobre o produto, as variáveis de ambiente ou como subir o ambiente. Para quem chegar depois, é o primeiro arquivo aberto.</p>
+    <p>Três fontes de verdade convivem para preço e plano: <code>plan_configs</code> no banco, as constantes de <code>usePlanFeatures.tsx</code> e os valores escritos à mão em <code>Landing.tsx</code>, cujo próprio comentário diz “espelham o catálogo”. Espelhos desalinham.</p>
+  </section>
+
+  <section id="plano">
+    <h2>Por onde eu começaria</h2>
+    <p class="sub">Ordem por retorno, não por esforço. Os três primeiros cabem numa semana e são os que mudam número no fim do mês.</p>
+    <div class="scroll">
+      <table class="actions">
+        <thead>
+          <tr><th>Ordem</th><th>Ação</th><th>Porquê agora</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1 ✓</td>
+            <td><strong>Contador e teto de uso da IA</strong><br>tabela <code>ai_usage</code> + checagem nas duas edge functions</td>
+            <td><strong>Feito.</strong> Migration <code>20260904120000_ai_usage_quota.sql</code> e as duas funções; falta aplicar em produção — os passos estão no <code>.md</code> ao lado.</td>
+          </tr>
+          <tr>
+            <td>2 ✓</td>
+            <td><strong>Triggers de cota por plano</strong><br>processos, clientes, tarefas, prazos — no molde do <code>enforce_oab_quota</code></td>
+            <td><strong>Feito.</strong> Migration <code>20260904130000_plan_quota_....sql</code>, verificada ao vivo antes de aplicar: nenhum escritório ultrapassava os tetos.</td>
+          </tr>
+          <tr>
+            <td>3 ✓</td>
+            <td><strong>IA passa a respeitar permissões</strong><br>escritas com o JWT do usuário</td>
+            <td><strong>Feito.</strong> <code>executeTool</code>/<code>buildSnapshot</code>/resumos trocaram o cliente service role pelo cliente <em>anon</em> (já autenticado com o JWT do usuário) — a RLS decide o que a IA vê e altera.</td>
+          </tr>
+          <tr>
+            <td>4</td>
+            <td><strong>Crons pelo vault</strong><br>segredos em <code>supabase_vault</code>, migrations replayáveis</td>
+            <td>Hoje reconstruir o ambiente do zero deixa os robôs mudos, sem erro visível. Não aplicado — precisa dos segredos reais de produção.</td>
+          </tr>
+          <tr>
+            <td>5 ✓</td>
+            <td><strong>Gate de módulo no banco</strong><br>policy <code>RESTRICTIVE</code> em <code>metas</code></td>
+            <td><strong>Feito.</strong> <code>financeiro</code> ficou de fora: não é diferenciador de plano no código hoje (só no texto de marketing).</td>
+          </tr>
+          <tr>
+            <td>6 ✓</td>
+            <td><strong><code>(select auth.uid())</code> nas 33 policies</strong> + índices nas 56 FKs sem cobertura</td>
+            <td><strong>Feito.</strong> Migration gerada programaticamente a partir de <code>pg_policies</code>/<code>pg_constraint</code> da produção, não digitada à mão.</td>
+          </tr>
+          <tr>
+            <td>7 ✓</td>
+            <td><strong>Primeiro teste de RLS</strong><br>dois escritórios, dois times, quem vê o quê</td>
+            <td><strong>Feito.</strong> <code>supabase/tests/rls-standalone/</code>, <code>npm run test:rls</code>. Achado no caminho: <code>office_teams</code>/<code>office_team_members</code> não têm <code>CREATE TABLE</code> em nenhuma migration.</td>
+          </tr>
+          <tr>
+            <td>8 ✓</td>
+            <td><strong>Folga na catraca de lint</strong><br>limpar ~40 avisos, teto para 680</td>
+            <td><strong>Feito.</strong> 31 avisos removidos (720→689); teto da CI baixado para 700.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="note">Depois desta análise foram aplicados no repositório: o item 1 acima (teto e medição do consumo de IA) e a correção do bug em que prazo/tarefa não concluído sumia da Agenda e do dashboard no dia seguinte. O detalhe de cada mudança está em <code>docs/ANALISE_PLATAFORMA_SET2026.md</code>.</p>
+
+    <p class="note">Escopo desta análise: leitura completa da árvore no commit <code>14bc173</code>, execução de type-check, lint, testes e build, e consulta aos advisors de segurança e desempenho do projeto Supabase em produção — somente leitura. Nada foi alterado no banco, nas edge functions ou no repositório.</p>
+  </section>
+
+</div>

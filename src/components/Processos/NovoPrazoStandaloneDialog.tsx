@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { prazoFormSchema, firstZodError } from "@/lib/validation";
+import { planQuotaMessage } from "@/lib/planQuotaError";
 import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 
 // ─────────────────────────────────────────────
@@ -657,7 +658,12 @@ export const NovoPrazoStandaloneDialog = ({
       onOpenChange(false);
       onSuccess?.();
     } catch (error: unknown) {
-      toast({ title: "Erro ao salvar", description: error instanceof Error ? error.message : "Tente novamente.", variant: "destructive" });
+      const quota = planQuotaMessage(error);
+      toast({
+        title: quota?.title ?? "Erro ao salvar",
+        description: quota?.description ?? (error instanceof Error ? error.message : "Tente novamente."),
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }

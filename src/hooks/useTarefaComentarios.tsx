@@ -47,7 +47,7 @@ export function useTarefaComentarios(tarefaId: string | null | undefined) {
       if (error) throw error;
     },
     onSuccess: invalidate,
-    onError: (e: any) => toast({ title: "Erro ao comentar", description: e.message, variant: "destructive" }),
+    onError: (e) => toast({ title: "Erro ao comentar", description: e.message, variant: "destructive" }),
   });
 
   const remove = useMutation({
@@ -56,7 +56,7 @@ export function useTarefaComentarios(tarefaId: string | null | undefined) {
       if (error) throw error;
     },
     onSuccess: invalidate,
-    onError: (e: any) => toast({ title: "Erro ao excluir", description: e.message, variant: "destructive" }),
+    onError: (e) => toast({ title: "Erro ao excluir", description: e.message, variant: "destructive" }),
   });
 
   return { comentarios: query.data || [], isLoading: query.isLoading, add, remove };

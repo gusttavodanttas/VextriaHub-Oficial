@@ -4,14 +4,32 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { AlertCircle, CheckSquare, ArrowRight, Loader2, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { estaAtrasado, atrasoLabel, dataFatalDoItem } from "@/lib/atraso";
 
 const pick = (o: any, keys: string[], fb: string) => { for (const k of keys) if (o?.[k]) return String(o[k]); return fb; };
 // data DATE ("YYYY-MM-DD") ancorada ao meio-dia local p/ não mostrar 1 dia a menos (fuso BRT).
-const fmt = (d?: string) => {
+const fmt = (d?: string | null) => {
   if (!d) return "";
   const dt = new Date(String(d).length <= 10 ? `${d}T12:00:00` : d);
   return isNaN(dt.getTime()) ? "" : dt.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
 };
+
+// Data de vencimento do item. Atrasado sai em vermelho, com há quanto tempo venceu.
+function Vencimento({ data }: { data?: string | null }) {
+  const atrasado = estaAtrasado(data);
+  return (
+    <span
+      title={atrasado ? atrasoLabel(data) : undefined}
+      className={cn(
+        "text-[10px] font-black shrink-0",
+        atrasado ? "text-rose-600 dark:text-rose-400" : "text-muted-foreground/50",
+      )}
+    >
+      {fmt(data)}
+      {atrasado && <span className="ml-1 font-bold normal-case tracking-normal opacity-80">· {atrasoLabel(data)}</span>}
+    </span>
+  );
+}
 
 function Shell({ icon: Icon, title, to, children }: { icon: any; title: string; to: string; children: React.ReactNode }) {
   const navigate = useNavigate();
@@ -68,7 +86,9 @@ export function PrazosBlock() {
                 </button>
                 <button onClick={() => navigate(`/prazos?openId=${p.id}`)} className="flex items-center gap-2.5 flex-1 min-w-0 text-left group/row" title="Abrir prazo">
                   <span className="text-xs font-bold truncate flex-1 group-hover/row:text-primary transition-colors">{pick(p, ["titulo", "tipo_prazo", "numero_processo"], "Prazo")}</span>
-                  <span className="text-[10px] font-black text-muted-foreground/50 shrink-0">{fmt(p.data_fim_prazo)}</span>
+                  {/* Prazo vencido e ainda pendente lê como vencido — antes era cinza,
+                      idêntico a um que só vence no mês que vem. */}
+                  <Vencimento data={dataFatalDoItem(p)} />
                 </button>
               </div>
             ))}
@@ -105,7 +125,7 @@ export function TarefasBlock() {
               <button key={t.id} onClick={() => navigate(`/tarefas?openId=${t.id}`)} className="group flex items-center gap-2.5 p-2 rounded-xl hover:bg-card/80 transition-all w-full text-left">
                 <span className={cn("h-2 w-2 rounded-full shrink-0", cor(t.prioridade))} />
                 <span className="text-xs font-bold truncate flex-1 group-hover:text-primary transition-colors">{t.titulo || "Tarefa"}</span>
-                <span className="text-[10px] font-black text-muted-foreground/50 shrink-0">{fmt(t.data_vencimento)}</span>
+                <Vencimento data={t.data_vencimento} />
               </button>
             ))}
           </div>}

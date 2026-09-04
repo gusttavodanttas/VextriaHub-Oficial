@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/select';
 import { Plus, FileText, Scale, User, Gavel, ShieldCheck, Info, RotateCw, Search, Loader2, AlertTriangle } from 'lucide-react';
 import { usePlanLimits } from '@/hooks/usePlanFeatures';
+import { planQuotaMessage } from '@/lib/planQuotaError';
 import { useToast } from '@/hooks/use-toast';
 import { PermissionGuard } from '@/components/Auth/PermissionGuard';
 import { useOfficeUsers } from '@/hooks/useOfficeUsers';
@@ -257,9 +258,10 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
       });
     } catch (error) {
       console.error('Erro ao criar processo:', error);
+      const quota = planQuotaMessage(error);
       toast({
-        title: "Erro ao criar",
-        description: "Ocorreu um erro ao criar o processo.",
+        title: quota?.title ?? "Erro ao criar",
+        description: quota?.description ?? "Ocorreu um erro ao criar o processo.",
         variant: "destructive",
       });
     } finally {

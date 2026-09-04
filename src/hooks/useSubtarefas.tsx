@@ -50,7 +50,7 @@ export function useSubtarefas(tarefaId: string | null | undefined) {
       if (error) throw error;
     },
     onSuccess: invalidate,
-    onError: (e: any) => toast({ title: "Erro ao adicionar item", description: e.message, variant: "destructive" }),
+    onError: (e) => toast({ title: "Erro ao adicionar item", description: e.message, variant: "destructive" }),
   });
 
   const toggle = useMutation({
@@ -59,7 +59,7 @@ export function useSubtarefas(tarefaId: string | null | undefined) {
       if (error) throw error;
     },
     onSuccess: invalidate,
-    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+    onError: (e) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
   const remove = useMutation({
@@ -68,7 +68,7 @@ export function useSubtarefas(tarefaId: string | null | undefined) {
       if (error) throw error;
     },
     onSuccess: invalidate,
-    onError: (e: any) => toast({ title: "Erro ao excluir", description: e.message, variant: "destructive" }),
+    onError: (e) => toast({ title: "Erro ao excluir", description: e.message, variant: "destructive" }),
   });
 
   return { subtarefas: query.data || [], isLoading: query.isLoading, add, toggle, remove };

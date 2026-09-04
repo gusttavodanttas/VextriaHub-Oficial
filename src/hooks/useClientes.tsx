@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { usePermissions } from '@/hooks/usePermissions';
+import { planQuotaMessage } from '@/lib/planQuotaError';
 import { Cliente, NovoCliente, DatabaseHookResult, ClienteComProcessos } from '@/types/database';
 import type { TablesInsert, TablesUpdate } from '@/integrations/supabase/rows';
 import type { Json } from '@/integrations/supabase/types';
@@ -85,9 +86,10 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
       return result;
     } catch (err) {
       console.error('Erro ao criar cliente:', err);
+      const quota = planQuotaMessage(err);
       toast({
-        title: 'Erro ao criar cliente',
-        description: 'Não foi possível criar o cliente.',
+        title: quota?.title ?? 'Erro ao criar cliente',
+        description: quota?.description ?? 'Não foi possível criar o cliente.',
         variant: 'destructive',
       });
       return null;

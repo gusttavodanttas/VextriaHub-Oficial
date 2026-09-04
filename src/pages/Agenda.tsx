@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { format, isToday, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useAgendaEvents, AgendaEvent } from "@/hooks/useAgendaEvents";
+import { atrasoLabel } from "@/lib/atraso";
 import { AgendaItemDialog, AgendaType } from "@/components/Dashboard/AgendaItemDialog";
 
 const typeMeta: Record<string, { label: string; icon: React.ElementType; color: string; bg: string }> = {
@@ -53,7 +54,7 @@ export default function Agenda() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const { events, loading, getEventsForDay, refresh } = useAgendaEvents(currentViewMonth);
+  const { events, atrasados, loading, getEventsForDay, refresh } = useAgendaEvents(currentViewMonth);
 
   // Busca global: vai ao mês do evento (?date) e destaca (?openId)
   useEffect(() => {
@@ -104,6 +105,18 @@ export default function Agenda() {
     return filteredEvents.filter(e => new Date(e.datetime) >= now);
   }, [filteredEvents]);
 
+  // Atrasados: pendentes que já venceram, de qualquer mês. Passam pelos MESMOS
+  // filtros de tipo e busca da lista — senão o chip "Prazos" mostraria tarefa
+  // atrasada. Ficam fixos no topo: é o que precisa de resposta hoje.
+  const atrasadosFiltrados = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return atrasados.filter(e => {
+      const matchesType = typeFilter === "todos" || e.type === typeFilter;
+      const matchesSearch = !q || e.name.toLowerCase().includes(q) || (e.client || "").toLowerCase().includes(q);
+      return matchesType && matchesSearch;
+    });
+  }, [atrasados, typeFilter, search]);
+
   // Agrupar próximos por dia
   const proximosPorDia = useMemo(() => {
     const map: Record<string, AgendaEvent[]> = {};
@@ -118,12 +131,13 @@ export default function Agenda() {
     const today = new Date();
     const in7 = new Date(Date.now() + 7 * 86400000);
     return {
+      atrasados: atrasados.length,
       hoje: events.filter(e => isSameDay(new Date(e.datetime), today)).length,
       semana: events.filter(e => { const d = new Date(e.datetime); return d >= today && d <= in7; }).length,
       audiencias: events.filter(e => e.type === "audiencia").length,
       prazos: events.filter(e => e.type === "prazo").length,
     };
-  }, [events]);
+  }, [events, atrasados]);
 
   // Clicar num evento abre o modal in-place (não navega) — igual ao dashboard
   const goToSource = (e: AgendaEvent) => {
@@ -133,17 +147,19 @@ export default function Agenda() {
 
   const handleNewEvent = (date: Date) => { setSelectedDateForNew(date); setNovoOpen(true); };
 
-  const EventRow = ({ e }: { e: AgendaEvent }) => {
+  const EventRow = ({ e, atrasado }: { e: AgendaEvent; atrasado?: boolean }) => {
     const m = typeMeta[e.type] || typeMeta.reuniao;
     // Resolvido (audiência realizada, prazo/tarefa concluídos) tem cara de resolvido —
     // antes aparecia idêntico a um pendente
     const done = e.status === "concluido";
     const doneLabel = e.type === "audiencia" ? "Realizada" : e.type === "tarefa" ? "Concluída" : "Concluído";
+    const venceuEm = atrasado ? atrasoLabel(e.datetime) : "";
     return (
       <button id={`item-${e.id}`} onClick={() => goToSource(e)}
         className={cn(
           "w-full flex items-center gap-3 p-3 rounded-xl border border-black/5 dark:border-border bg-card/40 hover:shadow-md hover:border-black/10 dark:hover:border-white/15 transition-all text-left group",
-          done && "opacity-60"
+          done && "opacity-60",
+          atrasado && "border-rose-500/25 bg-rose-500/[0.04] hover:border-rose-500/40"
         )}>
         <div className={cn("p-2 rounded-lg shrink-0", done ? "bg-emerald-500/10" : m.bg)}>
           {done ? <CalendarCheck className="h-4 w-4 text-emerald-600" /> : <m.icon className={cn("h-4 w-4", m.color)} />}
@@ -151,6 +167,11 @@ export default function Agenda() {
         <div className="flex-1 min-w-0">
           <p className={cn("text-sm font-bold truncate group-hover:text-primary transition-colors", done && "line-through decoration-emerald-600/40")}>{e.name}</p>
           <div className="flex flex-wrap items-center gap-x-3 text-[11px] text-muted-foreground font-medium mt-0.5">
+            {venceuEm && (
+              <span className="font-bold text-rose-600 dark:text-rose-400">
+                {format(new Date(e.datetime), "dd/MM")} · {venceuEm}
+              </span>
+            )}
             <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{e.time}</span>
             {e.client && <span className="truncate">{e.client}</span>}
             {e.location && <span className="flex items-center gap-1 truncate"><MapPin className="h-3 w-3 shrink-0" />{e.location}</span>}
@@ -193,7 +214,10 @@ export default function Agenda() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5">
+        <StatCard icon={AlertCircle} label="Atrasados" value={stats.atrasados}
+          color={stats.atrasados > 0 ? "text-rose-600" : "text-muted-foreground"}
+          bg={stats.atrasados > 0 ? "bg-rose-500/10" : "bg-muted"} />
         <StatCard icon={Calendar} label="Hoje" value={stats.hoje} color="text-primary" bg="bg-primary/10" />
         <StatCard icon={CalendarClock} label="Próximos 7 dias" value={stats.semana} color="text-blue-500" bg="bg-blue-500/10" />
         <StatCard icon={Users} label="Audiências no mês" value={stats.audiencias} color="text-orange-500" bg="bg-orange-500/10" />
@@ -243,9 +267,27 @@ export default function Agenda() {
 
         {/* LISTA */}
         <TabsContent value="lista" className="space-y-5">
+          {/* Atrasados primeiro, fixos no topo e independentes do mês navegado:
+              o que venceu e continua pendente é o que precisa de resposta hoje. */}
+          {!loading && atrasadosFiltrados.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[10px] font-black uppercase tracking-widest px-1 flex items-center gap-2 text-rose-600 dark:text-rose-400">
+                <AlertCircle className="h-3.5 w-3.5" />
+                Atrasados
+                <span className="text-rose-600/30">·</span>
+                <span className="opacity-70">{atrasadosFiltrados.length}</span>
+              </p>
+              <div className="space-y-2">
+                {atrasadosFiltrados.map(e => <EventRow key={`atr-${e.type}-${e.id}`} e={e} atrasado />)}
+              </div>
+            </div>
+          )}
+
           {loading ? (
             <div className="space-y-2.5">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-16 rounded-xl bg-black/[0.03] dark:bg-muted/20 animate-pulse" />)}</div>
           ) : proximosPorDia.length === 0 ? (
+            // Com atrasados no topo a agenda NÃO está livre — o vazio seria mentira.
+            atrasadosFiltrados.length > 0 ? null : (
             <div className="flex flex-col items-center justify-center text-center py-20 gap-4">
               <div className="p-5 rounded-full bg-primary/10 text-primary"><Calendar className="h-10 w-10 opacity-70" /></div>
               <div>
@@ -254,6 +296,7 @@ export default function Agenda() {
               </div>
               <Button onClick={() => handleNewEvent(new Date())} className="rounded-xl gap-2 font-bold"><Plus className="h-4 w-4" /> Novo Compromisso</Button>
             </div>
+            )
           ) : (
             proximosPorDia.map(([dayKey, items]) => {
               const d = parseISO(dayKey);

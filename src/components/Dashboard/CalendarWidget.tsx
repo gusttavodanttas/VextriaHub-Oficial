@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarDays, Clock, AlertCircle, CheckSquare, Headphones, BookOpen } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -7,6 +8,12 @@ import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { AgendaItemDialog, AgendaType } from "@/components/Dashboard/AgendaItemDialog";
+import { atrasoLabel } from "@/lib/atraso";
+
+// Quantos meses para trás o painel carrega itens vencidos e ainda pendentes.
+// É um painel de resumo: o recuo cobre o caso real ("não concluí ontem / semana
+// passada") sem virar histórico. A lista completa está na Agenda.
+const ATRASO_MESES_ATRAS = 2;
 
 interface DayEvent {
   type: AgendaType;
@@ -27,6 +34,7 @@ const EVENT_STYLE: Record<DayEvent["type"], { cls: string; Icon: any }> = {
 
 export function CalendarWidget({ refreshKey }: { refreshKey?: number }) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [selected, setSelected] = useState<Date | undefined>(new Date());
   const [eventMap, setEventMap] = useState<Record<string, DayEvent[]>>({});
   const [loading, setLoading] = useState(true);
@@ -35,7 +43,12 @@ export function CalendarWidget({ refreshKey }: { refreshKey?: number }) {
   const load = useCallback(async () => {
       if (!user?.office_id) return;
       const now = new Date();
-      const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+      // Janela: 2 meses ATRÁS até o fim do mês que vem. O recuo existe para o bloco
+      // "Atrasados" — antes a busca começava no dia 1 do mês corrente e o prazo que
+      // venceu no fim do mês passado não era nem carregado. As consultas abaixo já
+      // filtram por pendente (não concluído / não realizado), então o recuo não traz
+      // histórico resolvido. A visão completa dos atrasados fica na Agenda.
+      const start = new Date(now.getFullYear(), now.getMonth() - ATRASO_MESES_ATRAS, 1).toISOString().split("T")[0];
       const end = new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString().split("T")[0];
 
       const [{ data: prazos }, { data: audiencias }, { data: tarefas }, { data: atendimentos }, { data: consultivos }] = await Promise.all([
@@ -134,13 +147,22 @@ export function CalendarWidget({ refreshKey }: { refreshKey?: number }) {
   const selectedKey = selected ? format(selected, "yyyy-MM-dd") : null;
   const dayEvents = selectedKey ? eventMap[selectedKey] || [] : [];
 
-  // Próximos eventos (a partir de hoje) — para preencher o painel quando o dia está vazio
   const todayKey = format(new Date(), "yyyy-MM-dd");
-  const upcoming = Object.entries(eventMap)
-    .filter(([k]) => k >= todayKey)
-    .flatMap(([k, evs]) => (evs as DayEvent[]).map((e) => ({ ...e, dateKey: k })))
+  const comDia = (entries: [string, DayEvent[]][]) =>
+    entries.flatMap(([k, evs]) => evs.map((e) => ({ ...e, dateKey: k })));
+
+  // Próximos eventos (a partir de hoje) — para preencher o painel quando o dia está vazio
+  const upcoming = comDia(Object.entries(eventMap).filter(([k]) => k >= todayKey))
     .sort((a, b) => a.dateKey.localeCompare(b.dateKey))
     .slice(0, 6);
+
+  // ATRASADOS: pendentes com data já vencida. Aparecem SEMPRE, acima de tudo —
+  // antes o painel só olhava para frente (k >= hoje) e o prazo/tarefa que você
+  // não concluiu ontem sumia do dashboard no dia seguinte, justamente quando
+  // virava urgente. Mais recente primeiro ("venceu ontem" no topo).
+  const atrasados = comDia(Object.entries(eventMap).filter(([k]) => k < todayKey))
+    .sort((a, b) => b.dateKey.localeCompare(a.dateKey));
+  const atrasadosVisiveis = atrasados.slice(0, 4);
 
   return (
     <div className="p-4 space-y-3">
@@ -180,9 +202,41 @@ export function CalendarWidget({ refreshKey }: { refreshKey?: number }) {
           }}
         />
 
-        {/* Eventos do dia selecionado */}
+        {/* Coluna da direita: atrasados (sempre no topo) + o dia selecionado */}
+        <div className="space-y-3 md:border-l md:border-black/5 md:dark:border-border md:pl-4">
+
+        {atrasadosVisiveis.length > 0 && (
+          <div className="space-y-1.5">
+            <p className="text-[9px] font-black uppercase tracking-widest text-rose-600 dark:text-rose-400 px-1 flex items-center gap-1.5">
+              <AlertCircle className="h-3 w-3" /> Atrasados
+              <span className="opacity-50">· {atrasados.length}</span>
+            </p>
+            {atrasadosVisiveis.map((e, i) => {
+              const st = EVENT_STYLE[e.type];
+              return (
+                <button key={`atr-${i}`} onClick={() => setOpenItem({ type: e.type, id: e.id })}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl border border-rose-500/25 bg-rose-500/[0.06] text-rose-700 dark:text-rose-300 text-xs text-left hover:brightness-95 dark:hover:brightness-125 transition-all">
+                  <st.Icon className="h-3 w-3 shrink-0" />
+                  <span className="flex-1 min-w-0 flex flex-col">
+                    <span className="font-semibold truncate">{e.titulo}</span>
+                    <span className="text-[10px] opacity-70 truncate">
+                      {format(parseISO(e.dateKey), "dd/MM")} · {atrasoLabel(e.dateKey)}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+            {atrasados.length > atrasadosVisiveis.length && (
+              <button onClick={() => navigate("/agenda")}
+                className="w-full text-[10px] font-black uppercase tracking-widest text-rose-600/70 dark:text-rose-400/70 hover:text-rose-600 dark:hover:text-rose-400 transition-colors py-1">
+                + {atrasados.length - atrasadosVisiveis.length} na Agenda
+              </button>
+            )}
+          </div>
+        )}
+
         {selected && (
-          <div className="space-y-1.5 md:border-l md:border-black/5 md:dark:border-border md:pl-4">
+          <div className="space-y-1.5">
             <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 px-1">
               {format(selected, "dd 'de' MMMM", { locale: ptBR })}
             </p>
@@ -229,6 +283,8 @@ export function CalendarWidget({ refreshKey }: { refreshKey?: number }) {
             )}
           </div>
         )}
+
+        </div>
       </div>
 
       <AgendaItemDialog item={openItem} onOpenChange={(o) => !o && setOpenItem(null)} onChanged={load} />

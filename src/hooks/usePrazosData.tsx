@@ -145,7 +145,7 @@ export function usePrazosData(ui: UiCallbacks = {}) {
       queryClient.invalidateQueries({ queryKey: ['prazos'] });
       toast({ title: 'Sugestão aceita', description: 'O prazo foi confirmado e passa a ser acompanhado normalmente.' });
     },
-    onError: (e: any) => {
+    onError: (e) => {
       console.error('aceitar sugestão de prazo:', e);
       toast({
         title: 'Não foi possível aceitar',
@@ -195,7 +195,7 @@ export function usePrazosData(ui: UiCallbacks = {}) {
       toast({ title: 'Prazo excluído', description: 'Movido para a lixeira.' });
       ui.onDeleted?.();
     },
-    onError: (e: any) => toast({ title: 'Erro ao excluir', description: e.message, variant: 'destructive' }),
+    onError: (e) => toast({ title: 'Erro ao excluir', description: e.message, variant: 'destructive' }),
   });
 
   const bulkConcludeMutation = useMutation({
@@ -207,7 +207,7 @@ export function usePrazosData(ui: UiCallbacks = {}) {
       if (error) throw error;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['prazos'] }); ui.onBulkDone?.(); toast({ title: 'Prazos concluídos' }); },
-    onError: (e: any) => toast({ title: 'Erro', description: e.message, variant: 'destructive' }),
+    onError: (e) => toast({ title: 'Erro', description: e.message, variant: 'destructive' }),
   });
 
   const bulkDeleteMutation = useMutation({
@@ -216,7 +216,7 @@ export function usePrazosData(ui: UiCallbacks = {}) {
       if (error) throw error;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['prazos'] }); ui.onBulkDeleted?.(); toast({ title: 'Prazos excluídos', description: 'Movidos para a lixeira.' }); },
-    onError: (e: any) => toast({ title: 'Erro ao excluir', description: e.message, variant: 'destructive' }),
+    onError: (e) => toast({ title: 'Erro ao excluir', description: e.message, variant: 'destructive' }),
   });
 
   const bulkAssignMutation = useMutation({
@@ -225,7 +225,7 @@ export function usePrazosData(ui: UiCallbacks = {}) {
       if (error) throw error;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['prazos'] }); ui.onBulkDone?.(); toast({ title: 'Responsável atribuído' }); },
-    onError: (e: any) => toast({ title: 'Erro ao atribuir', description: e.message, variant: 'destructive' }),
+    onError: (e) => toast({ title: 'Erro ao atribuir', description: e.message, variant: 'destructive' }),
   });
 
   return {
