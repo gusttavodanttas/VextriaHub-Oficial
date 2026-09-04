@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { continueOccurrences, RecRule } from "@/lib/recorrencia";
+import { planQuotaMessage } from "@/lib/planQuotaError";
 import type { TablesUpdate } from "@/integrations/supabase/rows";
 
 export interface Tarefa {
@@ -126,7 +127,10 @@ export function useTarefas() {
       if (error) throw error;
     },
     onSuccess: () => { invalidate(); toast({ title: "Tarefa criada", description: "A tarefa foi adicionada com sucesso." }); },
-    onError: (e: any) => toast({ title: "Erro ao criar", description: e.message, variant: "destructive" }),
+    onError: (e: any) => {
+      const quota = planQuotaMessage(e);
+      toast({ title: quota?.title ?? "Erro ao criar", description: quota?.description ?? e.message, variant: "destructive" });
+    },
   });
 
   const createMany = useMutation({
