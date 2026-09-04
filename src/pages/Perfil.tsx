@@ -639,8 +639,8 @@ function SecurityCard() {
       }
       toast({ title: "Senha alterada", description: "Sua nova senha já está ativa." });
       setSenhaAtual(""); setNovaSenha(""); setConfirmar("");
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Erro ao alterar senha", description: e?.message || "Tente novamente." });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Erro ao alterar senha", description: e instanceof Error ? e.message : "Tente novamente." });
     } finally {
       setSalvando(false);
     }

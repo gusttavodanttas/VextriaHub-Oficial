@@ -187,7 +187,7 @@ export function ChartsTab() {
             <ChartCard title="Status dos processos" empty={d.statusProcessos.length === 0}>
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
-                  <Pie data={d.statusProcessos} cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2} dataKey="value" nameKey="name" label={(e: any) => `${e.name}: ${e.value}`} labelLine={false} fontSize={11}>
+                  <Pie data={d.statusProcessos} cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2} dataKey="value" nameKey="name" label={(e) => `${e.name}: ${e.value}`} labelLine={false} fontSize={11}>
                     {d.statusProcessos.map((e, i) => <Cell key={i} fill={e.fill} />)}
                   </Pie>
                   <Tooltip {...tooltipStyle} />
@@ -199,7 +199,7 @@ export function ChartsTab() {
             <ChartCard title="Resultado dos processos" empty={d.resultadoProcessos.length === 0}>
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
-                  <Pie data={d.resultadoProcessos} cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2} dataKey="value" nameKey="name" label={(e: any) => `${e.name}: ${e.value}`} labelLine={false} fontSize={11}>
+                  <Pie data={d.resultadoProcessos} cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2} dataKey="value" nameKey="name" label={(e) => `${e.name}: ${e.value}`} labelLine={false} fontSize={11}>
                     {d.resultadoProcessos.map((e, i) => <Cell key={i} fill={e.fill} />)}
                   </Pie>
                   <Tooltip {...tooltipStyle} />
@@ -258,7 +258,7 @@ export function ChartsTab() {
             <ChartCard title="Prazos por status" empty={d.prazosPorStatus.length === 0}>
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
-                  <Pie data={d.prazosPorStatus} cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2} dataKey="value" nameKey="name" label={(e: any) => `${e.name}: ${e.value}`} labelLine={false} fontSize={11}>
+                  <Pie data={d.prazosPorStatus} cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2} dataKey="value" nameKey="name" label={(e) => `${e.name}: ${e.value}`} labelLine={false} fontSize={11}>
                     {d.prazosPorStatus.map((e, i) => <Cell key={i} fill={e.fill} />)}
                   </Pie>
                   <Tooltip {...tooltipStyle} />
@@ -299,7 +299,7 @@ export function ChartsTab() {
             <ChartCard title="Audiências por status" empty={d.audienciasPorStatus.length === 0}>
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
-                  <Pie data={d.audienciasPorStatus} cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2} dataKey="value" nameKey="name" label={(e: any) => `${e.name}: ${e.value}`} labelLine={false} fontSize={11}>
+                  <Pie data={d.audienciasPorStatus} cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2} dataKey="value" nameKey="name" label={(e) => `${e.name}: ${e.value}`} labelLine={false} fontSize={11}>
                     {d.audienciasPorStatus.map((e, i) => <Cell key={i} fill={e.fill} />)}
                   </Pie>
                   <Tooltip {...tooltipStyle} />
@@ -331,7 +331,7 @@ export function ChartsTab() {
             <ChartCard title="Consultivos por status" empty={d.consultivoPorStatus.length === 0}>
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
-                  <Pie data={d.consultivoPorStatus} cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2} dataKey="value" nameKey="name" label={(e: any) => `${e.name}: ${e.value}`} labelLine={false} fontSize={11}>
+                  <Pie data={d.consultivoPorStatus} cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2} dataKey="value" nameKey="name" label={(e) => `${e.name}: ${e.value}`} labelLine={false} fontSize={11}>
                     {d.consultivoPorStatus.map((e, i) => <Cell key={i} fill={e.fill} />)}
                   </Pie>
                   <Tooltip {...tooltipStyle} />
@@ -367,7 +367,7 @@ export function ChartsTab() {
             <ChartCard title="Tipos de cliente" empty={d.clientesPorTipo.length === 0}>
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
-                  <Pie data={d.clientesPorTipo} cx="50%" cy="50%" outerRadius={90} dataKey="value" nameKey="name" label={(e: any) => `${e.name}: ${e.value}`} labelLine={false} fontSize={11}>
+                  <Pie data={d.clientesPorTipo} cx="50%" cy="50%" outerRadius={90} dataKey="value" nameKey="name" label={(e) => `${e.name}: ${e.value}`} labelLine={false} fontSize={11}>
                     {d.clientesPorTipo.map((e, i) => <Cell key={i} fill={e.fill} />)}
                   </Pie>
                   <Tooltip {...tooltipStyle} />
@@ -425,7 +425,7 @@ export function ChartsTab() {
             <ChartCard title="Receita por categoria" empty={d.honorariosPorCategoria.length === 0}>
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
-                  <Pie data={d.honorariosPorCategoria} cx="50%" cy="50%" outerRadius={90} dataKey="value" nameKey="name" label={(e: any) => e.name} labelLine={false} fontSize={11}>
+                  <Pie data={d.honorariosPorCategoria} cx="50%" cy="50%" outerRadius={90} dataKey="value" nameKey="name" label={(e) => e.name} labelLine={false} fontSize={11}>
                     {d.honorariosPorCategoria.map((e, i) => <Cell key={i} fill={e.fill} />)}
                   </Pie>
                   <Tooltip {...tooltipStyle} formatter={(v: any) => brl(Number(v))} />
@@ -524,7 +524,7 @@ export function ChartsTab() {
               <ChartCard title="Distribuição de processos" empty={d.porMembro.every(m => m.processos === 0)}>
                 <ResponsiveContainer width="100%" height={280}>
                   <PieChart>
-                    <Pie data={d.porMembro.filter(m => m.processos > 0)} cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2} dataKey="processos" nameKey="name" label={(e: any) => `${e.name}: ${e.processos}`} labelLine={false} fontSize={11}>
+                    <Pie data={d.porMembro.filter(m => m.processos > 0)} cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2} dataKey="processos" nameKey="name" label={(e) => `${e.name}: ${e.processos}`} labelLine={false} fontSize={11}>
                       {d.porMembro.map((_, i) => <Cell key={i} fill={["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#06b6d4", "#ec4899", "#8b5cf6", "#f97316"][i % 8]} />)}
                     </Pie>
                     <Tooltip {...tooltipStyle} />
