@@ -392,3 +392,131 @@ Os 8 achados listados na seção de achados acima têm correção aplicada e
 descrita nesta seção, incluindo o item 4 (crons pelo vault), que dependia de
 acesso aos segredos reais de produção — rodado diretamente contra o projeto
 Supabase (ver Correção nº 4 acima).
+
+---
+
+# Parte 2 — nova varredura completa (mesmo dia, depois do deploy)
+
+Com os 8 itens da parte 1 em produção, rodei a plataforma de novo do zero —
+mesmo checklist (árvore inteira, type-check, lint, testes, build, advisors do
+Supabase em produção) — pra ver se as correções seguravam e se sobrava algo
+novo. Achou dois problemas reais, os dois já corrigidos e no ar.
+
+## Sinais desta rodada
+
+| Verificação | Resultado |
+| --- | --- |
+| `tsc -p tsconfig.app.json` | limpo |
+| ESLint | 0 erros · 689 avisos (teto da CI: 700) |
+| Vitest | 205/205 |
+| Build (vite) | 12,3 s |
+| `npm run test:rls` | não rodou nesta rodada — container novo sem Postgres local instalado (infra do ambiente, não do código; ver nota no fim) |
+| Advisors segurança | idêntico à linha de base — nenhum item novo |
+| Advisors performance | `auth_rls_initplan`: **2 → 0**. `multiple_permissive_policies`: **82 → 33** (novo achado, corrigido em parte). `unused_index`: 54 (ruído — são os 56 índices criados há poucas horas na correção nº 6, ainda sem tráfego real; ver nota) |
+
+## Achado A — a correção nº 6 (RLS perf) tinha dois pontos cegos
+
+O script que gerou a migration de `(select auth.uid())` varreu `pg_policies`
+procurando literalmente `auth.uid()`, `auth.jwt()` e `auth.role()` no schema
+`public`. Duas policies escaparam por não caberem nesse filtro:
+
+- `public.invitations` (`inv_select`, `inv_update`) usa **`auth.email()`** —
+  função que a busca original não incluía.
+- `storage.objects` (`uploads_auth_insert`, `uploads_auth_update`) usa
+  `auth.uid()` duas vezes cada — mas está em **outro schema**, fora do
+  escopo da consulta original a `pg_policies` (que não filtrava por schema
+  explicitamente, mas o gerador só olhou `public`).
+
+Confirmado pelo advisor de performance (`auth_rls_initplan` ainda apontava as
+duas de `invitations`) e por uma varredura manual sem filtro de schema (achou
+as duas de `storage.objects`, que o advisor nem lista). As quatro corrigidas
+com o mesmo padrão (`(select auth.<fn>())`) — mesma semântica, sem mudança de
+comportamento. Migration: `20260904200000_rls_perf_auth_email_and_storage_uploads.sql`.
+Uma nova varredura completa em `pg_policy` (sem filtro de schema, cobrindo
+`auth.uid|jwt|role|email`) confirmou zero ocorrências restantes em todo o
+banco.
+
+## Achado B — 82 policies permissivas redundantes (novo)
+
+O advisor de performance aponta 82 warnings de `multiple_permissive_policies`
+em 10 tabelas: cada policy `PERMISSIVE` extra na mesma tabela/ação é avaliada
+em **toda linha de toda consulta** e o resultado é OR'ado com as demais — não
+muda quem acessa o quê, só custa CPU à toa. Investigado tabela por tabela,
+comparando as condições booleanas (não só o nome da policy):
+
+**Redundância provada e corrigida** (8 policies removidas, comportamento
+idêntico — cada uma verificada por lógica, não por inspeção visual):
+
+- `tarefa_comentarios` / `tarefa_subtarefas`: a policy "service role acesso
+  total ..." checa `auth.role() = 'service_role'`, mas esse role tem
+  `BYPASSRLS = true` no Postgres — a RLS **nem roda** pra ele, e pra qualquer
+  outro role a condição nunca é verdadeira. Morta desde que foi criada.
+- `plan_configs`: `plans_manage_admin` (`ALL`, `is_super_admin()`) é
+  duplicata **exata** de `plan_configs_write` (mesma condição nos dois
+  lados). E `plan_configs_read` (`SELECT using(true)`) anulava na prática o
+  filtro de `plans_select_public` (`is_active = true`) — **qualquer um lia
+  planos descontinuados/internos pela chave anon**, já que uma policy
+  permissiva com `true` basta pra liberar a linha, não importa o que as
+  outras digam. Baixa severidade (é catálogo de preço, não dado de cliente),
+  mas era uma restrição pensada que não restringia nada; super_admin
+  continua vendo tudo pela policy `ALL`.
+- `monitoramento_termos`: `mon_insert`/`mon_select`/`mon_update` checam só
+  `office_id = ANY(get_user_office_ids())`, que já é o primeiro termo do OR
+  de `monitoramento_office_scope` (mesma condição `OR is_super_admin()`) —
+  subconjunto estrito, nunca adicionavam acesso que a outra não desse.
+- `notifications`: `notifications_insert_self` (`uid = user_id`) é
+  subconjunto estrito de `notif_insert` (`service_role OR uid = user_id`).
+- `profiles`: `profiles_select_admin` (`is_super_admin()`) duplicava
+  exatamente a cobertura de SELECT que `"SuperAdmin total access profiles"`
+  (`ALL`, mesma condição) já dava.
+
+Migration: `20260904210000_rls_dedupe_redundant_permissive_policies.sql`.
+Verificado com `get_advisors` antes/depois (82 → 33) e advisor de segurança
+sem diferença (nenhuma policy nova exposta a `anon`/`authenticated`).
+
+**Deixado de fora de propósito** (33 warnings restantes, em
+`exclusoes_pendentes`, `profiles`, `monitored_oabs`, `offices`,
+`plan_configs`, `user_permissions`): as condições ali são **genuinamente
+diferentes** (ex.: `offices_select_member` vs `offices_select_super` — membro
+comum vs super_admin, sem sobreposição de regra). Consolidar exigiria
+reescrever cada uma como um único OR explícito, não só apagar uma policy
+solta — mais uma refatoração de RLS do que uma limpeza, então fica registrado
+aqui como próximo passo de performance, não como bug.
+
+## Achado C (não é bug) — `unused_index` no advisor
+
+Os 56 índices da correção nº 6 aparecem como "nunca usados" no advisor.
+Esperado: o contador de uso do Postgres (`pg_stat_user_indexes`) zera quando o
+índice é criado, e eles têm poucas horas de vida em produção. Não é um achado
+novo — vale reconferir em 1–2 semanas de tráfego real antes de considerar
+remover algum.
+
+## Edge functions — nenhuma escalada de privilégio nova encontrada
+
+Reli 10 das 24 edge functions (as que recebem `office_id`/`user_id` do corpo
+da requisição e usam o cliente `service_role`) em busca do mesmo padrão do
+achado nº 3 da parte 1 (service role sem checagem de permissão equivalente à
+RLS). Todas as revisadas (`create-team-member`, `admin-office-access`,
+`criar-usuario-cortesia`, `calculate-prazo`, `google-sync`, `zap-bridge`,
+`zap-link`, `send-invite-email`, `asaas-webhook`) autorizam o chamador antes
+de qualquer escrita privilegiada — `super_admin`, admin/owner **ativo** do
+escritório-alvo, membro ativo do escritório da publicação, ou o robô via
+`x-robot-secret`. Nenhuma issue nova aqui.
+
+## Nota sobre o `npm run test:rls`
+
+Este ambiente (container novo) não tinha o Postgres local que a sessão
+anterior instalou via `apt` pra rodar o pgTAP; reinstalá-lo só pra esta
+rodada não estava no escopo do achado (a suíte cobre `tarefas`/`financeiro`,
+tabelas não tocadas nesta parte 2). A troca de policies desta parte foi
+validada por prova lógica (equivalência booleana, mostrada acima) e por
+`get_advisors` antes/depois, não pelo pgTAP.
+
+## Resumo da parte 2
+
+| # | Achado | Estado |
+| --- | --- | --- |
+| A | Lacuna da correção nº 6: `auth.email()` e `storage.objects` fora do escopo do script original | **corrigido** |
+| B | 82 policies permissivas redundantes (perf) | **corrigido em parte** (8 removidas, provadamente redundantes; 33 restantes documentadas, exigem reescrita de condição) |
+| C | `unused_index` nos 56 índices novos | não é achado — ruído esperado, reconferir depois |
+| — | Varredura de 10/24 edge functions por escalada de privilégio | nenhuma issue nova |
