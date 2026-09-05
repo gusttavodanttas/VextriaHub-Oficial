@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { assertRowsAffected } from '@/lib/errors';
 import {
   type Prazo, type ProcInfo, type PubInfo,
   onlyDigits, teorPrazo,
@@ -134,12 +135,12 @@ export function usePrazosData(ui: UiCallbacks = {}) {
   const aceitarMutation = useMutation({
     mutationFn: async (id: string) => {
       const agora = new Date().toISOString();
-      let { error } = await supabase.from('prazos')
+      let { data, error } = await supabase.from('prazos')
         .update({ confirmado_em: agora, confirmado_por: user?.id })
-        .eq('id', id);
+        .eq('id', id).select('id');
       // se a coluna de autor não existir, grava só a data
-      if (error) ({ error } = await supabase.from('prazos').update({ confirmado_em: agora }).eq('id', id));
-      if (error) throw error;
+      if (error) ({ data, error } = await supabase.from('prazos').update({ confirmado_em: agora }).eq('id', id).select('id'));
+      assertRowsAffected(data, error, 1);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['prazos'] });
@@ -149,7 +150,7 @@ export function usePrazosData(ui: UiCallbacks = {}) {
       console.error('aceitar sugestão de prazo:', e);
       toast({
         title: 'Não foi possível aceitar',
-        description: 'Tente novamente em instantes.',
+        description: e instanceof Error ? e.message : 'Tente novamente em instantes.',
         variant: 'destructive',
       });
     },
@@ -158,37 +159,39 @@ export function usePrazosData(ui: UiCallbacks = {}) {
   const concludeMutation = useMutation({
     mutationFn: async (id: string) => {
       // tenta gravar auditoria (data/autor); se as colunas não existirem, grava só o status
-      let { error } = await supabase.from('prazos')
+      let { data, error } = await supabase.from('prazos')
         .update({ status: 'concluido', concluido_em: new Date().toISOString(), concluido_por: user?.id })
-        .eq('id', id);
-      if (error) ({ error } = await supabase.from('prazos').update({ status: 'concluido' }).eq('id', id));
-      if (error) throw error;
+        .eq('id', id).select('id');
+      if (error) ({ data, error } = await supabase.from('prazos').update({ status: 'concluido' }).eq('id', id).select('id'));
+      assertRowsAffected(data, error, 1);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['prazos'] });
       toast({ title: 'Prazo concluído', description: 'Marcado como concluído.' });
     },
+    onError: (e) => toast({ title: 'Erro', description: e.message, variant: 'destructive' }),
   });
 
   const reopenMutation = useMutation({
     mutationFn: async (id: string) => {
-      let { error } = await supabase.from('prazos')
+      let { data, error } = await supabase.from('prazos')
         .update({ status: 'pendente', concluido_em: null, concluido_por: null })
-        .eq('id', id);
-      if (error) ({ error } = await supabase.from('prazos').update({ status: 'pendente' }).eq('id', id));
-      if (error) throw error;
+        .eq('id', id).select('id');
+      if (error) ({ data, error } = await supabase.from('prazos').update({ status: 'pendente' }).eq('id', id).select('id'));
+      assertRowsAffected(data, error, 1);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['prazos'] });
       toast({ title: 'Prazo reaberto', description: 'Voltou para pendente.' });
     },
+    onError: (e) => toast({ title: 'Erro', description: e.message, variant: 'destructive' }),
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       // Soft delete → vai para a Lixeira (recuperável)
-      const { error } = await supabase.from('prazos').update({ deletado: true }).eq('id', id);
-      if (error) throw error;
+      const { data, error } = await supabase.from('prazos').update({ deletado: true }).eq('id', id).select('id');
+      assertRowsAffected(data, error, 1);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['prazos'] });
@@ -200,11 +203,11 @@ export function usePrazosData(ui: UiCallbacks = {}) {
 
   const bulkConcludeMutation = useMutation({
     mutationFn: async (ids: string[]) => {
-      let { error } = await supabase.from('prazos')
+      let { data, error } = await supabase.from('prazos')
         .update({ status: 'concluido', concluido_em: new Date().toISOString(), concluido_por: user?.id })
-        .in('id', ids);
-      if (error) ({ error } = await supabase.from('prazos').update({ status: 'concluido' }).in('id', ids));
-      if (error) throw error;
+        .in('id', ids).select('id');
+      if (error) ({ data, error } = await supabase.from('prazos').update({ status: 'concluido' }).in('id', ids).select('id'));
+      assertRowsAffected(data, error, ids.length);
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['prazos'] }); ui.onBulkDone?.(); toast({ title: 'Prazos concluídos' }); },
     onError: (e) => toast({ title: 'Erro', description: e.message, variant: 'destructive' }),
@@ -212,8 +215,8 @@ export function usePrazosData(ui: UiCallbacks = {}) {
 
   const bulkDeleteMutation = useMutation({
     mutationFn: async (ids: string[]) => {
-      const { error } = await supabase.from('prazos').update({ deletado: true }).in('id', ids);
-      if (error) throw error;
+      const { data, error } = await supabase.from('prazos').update({ deletado: true }).in('id', ids).select('id');
+      assertRowsAffected(data, error, ids.length);
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['prazos'] }); ui.onBulkDeleted?.(); toast({ title: 'Prazos excluídos', description: 'Movidos para a lixeira.' }); },
     onError: (e) => toast({ title: 'Erro ao excluir', description: e.message, variant: 'destructive' }),
@@ -221,8 +224,8 @@ export function usePrazosData(ui: UiCallbacks = {}) {
 
   const bulkAssignMutation = useMutation({
     mutationFn: async ({ ids, responsavel_id }: { ids: string[]; responsavel_id: string }) => {
-      const { error } = await supabase.from('prazos').update({ responsavel_id }).in('id', ids);
-      if (error) throw error;
+      const { data, error } = await supabase.from('prazos').update({ responsavel_id }).in('id', ids).select('id');
+      assertRowsAffected(data, error, ids.length);
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['prazos'] }); ui.onBulkDone?.(); toast({ title: 'Responsável atribuído' }); },
     onError: (e) => toast({ title: 'Erro ao atribuir', description: e.message, variant: 'destructive' }),

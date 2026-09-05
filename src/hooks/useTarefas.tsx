@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { continueOccurrences, RecRule } from "@/lib/recorrencia";
 import { planQuotaMessage } from "@/lib/planQuotaError";
+import { assertRowsAffected } from "@/lib/errors";
 import type { TablesUpdate } from "@/integrations/supabase/rows";
 
 export interface Tarefa {
@@ -153,8 +154,8 @@ export function useTarefas() {
 
   const update = useMutation({
     mutationFn: async ({ id, input }: { id: string; input: Partial<TarefaInput> }) => {
-      const { error } = await supabase.from("tarefas").update(buildPayload(input)).eq("id", id);
-      if (error) throw error;
+      const { data, error } = await supabase.from("tarefas").update(buildPayload(input)).eq("id", id).select("id");
+      assertRowsAffected(data, error, 1);
     },
     onSuccess: () => { invalidate(); toast({ title: "Tarefa atualizada", description: "As alterações foram salvas." }); },
     onError: (e) => toast({ title: "Erro ao atualizar", description: e.message, variant: "destructive" }),
@@ -169,8 +170,8 @@ export function useTarefas() {
       const due = tarefa.data_vencimento ? new Date(`${tarefa.data_vencimento}T12:00:00`) : hoje;
       const base = due > hoje ? due : hoje;
       base.setDate(base.getDate() + 1);
-      const { error } = await supabase.from("tarefas").update({ data_vencimento: format(base, "yyyy-MM-dd") }).eq("id", tarefa.id);
-      if (error) throw error;
+      const { data, error } = await supabase.from("tarefas").update({ data_vencimento: format(base, "yyyy-MM-dd") }).eq("id", tarefa.id).select("id");
+      assertRowsAffected(data, error, 1);
     },
     onSuccess: () => { invalidate(); toast({ title: "Tarefa adiada", description: "Vencimento movido para o dia seguinte." }); },
     onError: (e) => toast({ title: "Erro ao adiar", description: e.message, variant: "destructive" }),
@@ -209,9 +210,9 @@ export function useTarefas() {
       const full: any = concluida
         ? { concluida: true, status: 'concluida', concluida_em: now, concluida_por: user?.id, recorrencia_restantes: 0 }
         : { concluida: false, status: 'pendente', concluida_em: null, concluida_por: null };
-      let { error } = await supabase.from("tarefas").update(full).eq("id", id);
-      if (error) ({ error } = await supabase.from("tarefas").update({ concluida }).eq("id", id));
-      if (error) throw error;
+      let { data, error } = await supabase.from("tarefas").update(full).eq("id", id).select("id");
+      if (error) ({ data, error } = await supabase.from("tarefas").update({ concluida }).eq("id", id).select("id"));
+      assertRowsAffected(data, error, 1);
 
       // 2) recorrência encadeada: ao concluir, gera a PRÓXIMA ocorrência
       if (concluida && tarefa) await gerarProximaOcorrencia(tarefa);
@@ -222,8 +223,8 @@ export function useTarefas() {
 
   const remove = useMutation({
     mutationFn: async (ids: string[]) => {
-      const { error } = await supabase.from("tarefas").update({ deletado: true }).in("id", ids);
-      if (error) throw error;
+      const { data, error } = await supabase.from("tarefas").update({ deletado: true }).in("id", ids).select("id");
+      assertRowsAffected(data, error, ids.length);
     },
     onSuccess: (_d, ids) => { invalidate(); toast({ title: "Tarefa(s) excluída(s)", description: `${ids.length} tarefa(s) movida(s) para a lixeira.` }); },
     onError: (e) => toast({ title: "Erro ao excluir", description: e.message, variant: "destructive" }),
@@ -243,8 +244,8 @@ export function useTarefas() {
       const payload: Record<string, any> = { ...(patch || {}) };
       if (concluir === true) Object.assign(payload, { concluida: true, status: 'concluida', concluida_em: now, concluida_por: user?.id ?? null, recorrencia_restantes: 0 });
       if (concluir === false) Object.assign(payload, { concluida: false, status: 'pendente', concluida_em: null, concluida_por: null });
-      const { error } = await supabase.from("tarefas").update(payload).in("id", ids);
-      if (error) throw error;
+      const { data, error } = await supabase.from("tarefas").update(payload).in("id", ids).select("id");
+      assertRowsAffected(data, error, ids.length);
       // Gera a próxima ocorrência de cada recorrente concluída (não deixa a série morrer no bulk).
       for (const t of recorrentes) await gerarProximaOcorrencia(t);
     },

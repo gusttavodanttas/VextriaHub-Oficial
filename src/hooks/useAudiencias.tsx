@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getErrorMessage } from "@/lib/errors";
+import { getErrorMessage, assertRowsAffected } from "@/lib/errors";
 
 export interface Audiencia {
   id: string;
@@ -94,8 +94,8 @@ export function useAudiencias() {
 
   const update = useMutation({
     mutationFn: async ({ id, input }: { id: string; input: Partial<AudienciaInput> }) => {
-      const { error } = await supabase.from("audiencias").update(input).eq("id", id);
-      if (error) throw error;
+      const { data, error } = await supabase.from("audiencias").update(input).eq("id", id).select("id");
+      assertRowsAffected(data, error, 1);
     },
     onSuccess: () => {
       invalidate();
@@ -106,8 +106,8 @@ export function useAudiencias() {
 
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const { error } = await supabase.from("audiencias").update({ status }).eq("id", id);
-      if (error) throw error;
+      const { data, error } = await supabase.from("audiencias").update({ status }).eq("id", id).select("id");
+      assertRowsAffected(data, error, 1);
     },
     onSuccess: () => invalidate(),
     onError: (e: unknown) => toast({ title: "Erro", description: getErrorMessage(e), variant: "destructive" }),
@@ -115,8 +115,8 @@ export function useAudiencias() {
 
   const remove = useMutation({
     mutationFn: async (ids: string[]) => {
-      const { error } = await supabase.from("audiencias").update({ deletado: true }).in("id", ids);
-      if (error) throw error;
+      const { data, error } = await supabase.from("audiencias").update({ deletado: true }).in("id", ids).select("id");
+      assertRowsAffected(data, error, ids.length);
     },
     onSuccess: (_d, ids) => {
       invalidate();

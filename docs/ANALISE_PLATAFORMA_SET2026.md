@@ -960,13 +960,8 @@ minha pra tomar sozinho, exatamente como já estava marcado.
   agregação por membro já usava — processos/prazos/atendimentos/consultivos
   sem responsável direto não somem mais da contagem do time ao qual o
   criador pertence.
-- **D.1 ⏳ pendente, decisão de produto** — a maioria dos ~20 toggles de
-  "Permissões" por membro não tem efeito real (nem tela, nem RLS, os
-  consultam). Não é um bug pontual pra corrigir sozinho: a decisão é entre
-  (a) implementar de verdade os ~20 flags (RLS + telas, trabalho grande e
-  espalhado) ou (b) remover da UI os toggles que não fazem nada hoje
-  (rápido, mas reduz a promessa da tela). Levada ao usuário como pergunta
-  antes de mexer.
+- **D.1 ✅** Implementado de verdade — ver "Parte 6" abaixo para o detalhe
+  completo (RLS + hardening de UI + wiring dos flags de convite/equipe).
 
 ## Resumo da parte 5
 
@@ -980,7 +975,7 @@ minha pra tomar sozinho, exatamente como já estava marcado.
 | C.3 | "Excluir" em processo compartilhado (nunca funciona) | **corrigido** |
 | C.4 | `useCorrespondentes` sem filtro de `office_id` | **corrigido** |
 | C.5 | `useConsultivos` engolindo causa real do erro | **corrigido** |
-| D.1 | Toggles de permissão sem efeito real | **pendente — decisão de produto** |
+| D.1 | Toggles de permissão sem efeito real | **corrigido (parte 6)** |
 | D.2 | Ações de equipe sempre "sucesso", mesmo bloqueadas pela RLS | **corrigido** |
 | D.3 | Perfil.tsx nunca mostra "Coordenador" | **corrigido** |
 | D.4 | Exclusão de equipe não avisa sobre processos/clientes/metas | **corrigido** |
@@ -993,3 +988,119 @@ minha pra tomar sozinho, exatamente como já estava marcado.
 Verificação: `tsc` limpo, ESLint 0 erros/689 avisos (idêntico à linha de
 base — os `any`/deps novos que as correções introduziram foram limpos com
 tipos reais em vez de suprimidos), Vitest 205/205, `vite build` ok.
+
+## Parte 6 — D.1: implementação real das ~20 permissões por membro
+
+O usuário pediu explicitamente para implementar de verdade (em vez de
+simplesmente remover os toggles inertes da UI). Escopo: os 26 flags
+definidos em `PERMISSION_GROUPS` (`src/components/Equipe/shared.ts`),
+que é exatamente o que a tela "Equipe → Permissões" já promete a um admin.
+
+### Descoberta com dados reais (antes de mexer)
+
+Consulta direta em produção (`user_permissions`) mostrou que a promessa já
+estava sendo usada e ignorada: um admin do escritório "Gustavo Dantas
+Advogados Associados" já tinha configurado **8 overrides reais** pra um
+membro (`office_role: "user"`, não-admin) — `canEditAtendimentos`,
+`canEditClients`, `canEditProcesses`, `canManageAgenda`,
+`canManageAudiencias`, `canManagePrazos`, `canManageTarefas`,
+`canViewFinanceiro`, todos `granted: false` — e nenhum deles nunca teve
+efeito, nem na tela nem na RLS.
+
+### Design: zero mudança de comportamento por padrão
+
+Princípio seguido em toda a migration: **sem um override explícito, nada
+muda pra ninguém** — só passa a restringir/liberar de verdade a partir do
+momento em que um admin efetivamente mexe no toggle de um membro
+específico (que é o que a tela sempre disse que fazia).
+
+- Função `permission_override(office_id, key)` (`SECURITY DEFINER`,
+  `stable`) — só retorna algo quando existe uma linha em
+  `user_permissions` pro usuário/chave; senão retorna `NULL`.
+- Flags "Ver/Criar/Editar/Excluir/Gerenciar" (restringem um acesso hoje
+  aberto por padrão) → `coalesce(permission_override(...), true)` como
+  policy **RESTRICTIVE** — nunca abre nada sozinha, só fecha quando há
+  override `false`.
+- Flags "Convidar"/"Gerenciar Equipe" (abrem um acesso hoje fechado,
+  admin-only) → `coalesce(permission_override(...), false)` como policy
+  **PERMISSIVE** adicional — nunca fecha nada sozinha, só abre quando há
+  override `true`.
+- **Exceção replicando o front-end**: `usePermissions.tsx` nunca aplica
+  overrides a quem tem role global `admin`/`super_admin` — só a membros
+  comuns. `permission_override()` replica exatamente essa regra
+  (`not exists (... profiles.role in ('admin','super_admin'))`), senão um
+  super_admin poderia em teoria ficar bloqueado por um override herdado.
+  Preventivo — hoje nenhum admin/super_admin tem override gravado.
+
+Resultado: **38 policies RESTRICTIVE** (`select`/`insert`/`update`/`delete`
+cobrindo `clientes`, `processos`, `atendimentos`, `financeiro`,
+`audiencias`, `tarefas`, `prazos`, `consultivos`, `metas`) + **4 policies
+PERMISSIVE de widen** (`office_teams` insert/update/delete via
+`canManageEquipe`, `invitations` insert via `canInviteUsers`) + a função
+helper. Migrations: `20260905010000_permission_overrides_rls_enforcement.sql`
+e `20260905020000_permission_override_exempt_global_admins.sql`.
+
+### Verificação
+
+- `get_advisors` (security) sem regressões novas além do já esperado.
+- Suite pgTAP local: 13/13, inalterada.
+- Simulação empírica de sessão real (`SET LOCAL ROLE authenticated` +
+  `request.jwt.claim.sub` do usuário afetado, dentro de uma transação com
+  `ROLLBACK`): confirmado que o usuário com os 8 overrides passa a ser
+  bloqueado exatamente onde o admin configurou (`canManageTarefas: false`
+  → não edita/exclui tarefa) e continua liberado em tudo mais.
+
+### Risco que a própria mudança introduzia — e como foi fechado
+
+Postgres **não lança erro** quando um `UPDATE`/`DELETE` é bloqueado por uma
+policy RESTRICTIVE — só casa 0 linhas e devolve sucesso (mesma classe do
+bug já corrigido no D.2/`Lixeira.tsx`). Como as novas policies passam a
+bloquear de verdade `UPDATE`/`DELETE` em `tarefas`, `prazos`, `audiencias`
+e `atendimentos` (os 4 hooks com override real hoje), qualquer mutation
+que não conferisse quantas linhas voltaram passaria a mostrar "sucesso"
+com a linha intocada no banco pro usuário com `canManageTarefas`/
+`canManagePrazos`/`canManageAudiencias`/`canManageAgenda: false`.
+
+Corrigido com um helper novo, `assertRowsAffected` (`src/lib/errors.ts`):
+encadeia `.select('id')` em todo `update`/`delete` afetado e lança
+`PERMISSAO_NEGADA` se vier menos linhas que o esperado. Aplicado em:
+
+- `useTarefas.tsx` — `update`, `adiar`, `toggle`, `remove`, `bulkPatch`.
+- `usePrazosData.tsx` — `aceitarMutation`, `concludeMutation`,
+  `reopenMutation`, `deleteMutation`, `bulkConcludeMutation`,
+  `bulkDeleteMutation`, `bulkAssignMutation`.
+- `useAudiencias.tsx` — `update`, `updateStatus`, `remove`.
+- `useAtendimentos.tsx` — `update`, `remove`, `markRealizado`.
+- `useOfficeTeams.tsx` — `remove` (delete de equipe), que tinha o mesmo
+  problema mesmo antes desta migration (usava `!error` sozinho pra decidir
+  sucesso).
+
+**Escopo intencionalmente não coberto**: `financeiro`, `consultivos`,
+`metas`, `clientes` e `processos` ganharam as mesmas policies RESTRICTIVE,
+mas seus hooks de mutation não foram auditados/hardenizados nesta rodada
+porque nenhum override real existe hoje pra essas chaves — não há usuário
+que possa observar um "sucesso" falso agora. Fica registrado como exposição
+latente: no dia em que um admin usar esses toggles pela primeira vez, os
+hooks correspondentes precisam do mesmo tratamento `assertRowsAffected`
+antes de esse override ser confiável na UI.
+
+### Wiring dos flags "widen" na UI (Equipe.tsx)
+
+As policies de widen só têm efeito prático se a tela permitir que alguém
+sem `isOfficeAdmin` chegue até a ação:
+
+- Botão "Convidar por e-mail" — passou a abrir também para
+  `canInviteUsers: true` (antes só `isOfficeAdmin`).
+- Aba "Equipes" (criar/editar/excluir equipe) — passou a abrir também para
+  `canManageEquipe: true`.
+- "Criar com senha" e as ações sobre membros (função, remover, abrir
+  Permissões) continuam exclusivas de `isOfficeAdmin` — a primeira usa uma
+  Edge Function que já reforça isso no servidor, e a RLS de
+  `office_users` não foi alterada por esta migration.
+- Corrigido no caminho: `removeTeam`/`updateTeam`/`createTeam` em
+  `useOfficeTeams.tsx` e as duas chamadas em `Equipe.tsx` agora conferem o
+  retorno antes de dizer "sucesso" (mesmo padrão do D.2), já que esses
+  botões passam a ser alcançáveis por quem pode ser barrado pela RLS.
+
+Verificação: `tsc` limpo, ESLint 0 erros/689 avisos (idêntico à linha de
+base), Vitest 205/205, `vite build` ok.

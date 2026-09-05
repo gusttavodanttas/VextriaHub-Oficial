@@ -4,6 +4,7 @@ import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 import { useInvitations } from "@/hooks/useInvitations";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { useOfficeTeams, useTeamMembers, type OfficeTeam } from "@/hooks/useOfficeTeams";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -63,8 +64,17 @@ function StatCard({ label, value, Icon, color, bg }: {
 export default function Equipe() {
   const navigate = useNavigate();
   const { user: me, office, isOfficeAdmin } = useAuth();
-  // Só admin/dono DO ESCRITÓRIO gerencia equipes (papel global de app não conta)
+  const { canInviteUsers, canManageEquipe } = usePermissions();
+  // Só admin/dono DO ESCRITÓRIO gerencia equipes (papel global de app não conta).
+  // canManageTeams cobre a gestão de MEMBROS (função, remoção, permissões) e o
+  // "Criar com senha" — isso continua exclusivo de admin (a Edge Function que
+  // cria membro já reforça isso do lado do servidor). "Convidar por e-mail" e o
+  // CRUD de equipes agora também abrem para quem o admin liberou via Permissões
+  // (canInviteUsers/canManageEquipe), espelhando as policies RLS de
+  // invitations/office_teams.
   const canManageTeams = isOfficeAdmin;
+  const canInvite = isOfficeAdmin || canInviteUsers;
+  const canManageTeamsRls = isOfficeAdmin || canManageEquipe;
   const { toast } = useToast();
   const { users, loading: usersLoading, removeUser, updateUser, refresh: refreshUsers } = useOfficeUsers();
   const { invitations, loading: invLoading, createInvitation, resendInvitation, cancelInvitation, pendingInvitations } = useInvitations();
@@ -143,14 +153,18 @@ export default function Equipe() {
           </div>
 
           {/* add menu */}
-          {canManageTeams && (
+          {(canInvite || canManageTeams) && (
             <div className="flex gap-2">
-              <Button onClick={() => setInviteOpen(true)} className="rounded-xl font-black gap-2">
-                <Send className="h-4 w-4" />Convidar por e-mail
-              </Button>
-              <Button onClick={() => setCreateOpen(true)} variant="outline" className="rounded-xl font-bold gap-2">
-                <KeyRound className="h-4 w-4" />Criar com senha
-              </Button>
+              {canInvite && (
+                <Button onClick={() => setInviteOpen(true)} className="rounded-xl font-black gap-2">
+                  <Send className="h-4 w-4" />Convidar por e-mail
+                </Button>
+              )}
+              {canManageTeams && (
+                <Button onClick={() => setCreateOpen(true)} variant="outline" className="rounded-xl font-bold gap-2">
+                  <KeyRound className="h-4 w-4" />Criar com senha
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -334,7 +348,7 @@ export default function Equipe() {
 
           {/* ── equipes ── */}
           <TabsContent value="equipes" className="mt-4">
-            {canManageTeams && (
+            {canManageTeamsRls && (
               <div className="flex justify-end mb-3">
                 <Button onClick={() => { setEditingTeam(null); setTeamDialogOpen(true); }} className="rounded-xl font-black gap-2">
                   <Plus className="h-4 w-4" />Nova Equipe
@@ -348,9 +362,9 @@ export default function Equipe() {
                 <div className="p-4 rounded-2xl bg-muted/40"><FolderOpen className="h-8 w-8 text-muted-foreground/40" /></div>
                 <p className="font-bold">Nenhuma equipe criada</p>
                 <p className="text-sm text-muted-foreground">
-                  {canManageTeams ? "Crie equipes para organizar os membros por área de atuação." : "Nenhuma equipe foi criada pelo administrador ainda."}
+                  {canManageTeamsRls ? "Crie equipes para organizar os membros por área de atuação." : "Nenhuma equipe foi criada pelo administrador ainda."}
                 </p>
-                {canManageTeams && (
+                {canManageTeamsRls && (
                   <Button onClick={() => { setEditingTeam(null); setTeamDialogOpen(true); }} className="rounded-xl font-black gap-2 mt-1">
                     <Plus className="h-4 w-4" />Criar primeira equipe
                   </Button>
@@ -379,13 +393,13 @@ export default function Equipe() {
                           onClick={() => navigate(`/equipe/${team.id}`)}>
                           <BarChart2 className="h-3.5 w-3.5" />
                         </Button>
-                        {canManageTeams && (
+                        {canManageTeamsRls && (
                         <Button size="sm" variant="ghost" className="h-7 w-7 rounded-lg hover:bg-muted/60"
                           onClick={() => { setEditingTeam(team); setTeamDialogOpen(true); }}>
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
                         )}
-                        {canManageTeams && (
+                        {canManageTeamsRls && (
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button size="sm" variant="ghost" className="h-7 w-7 rounded-lg text-muted-foreground/50 hover:text-rose-500 hover:bg-rose-500/10">
@@ -399,7 +413,12 @@ export default function Equipe() {
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel className="rounded-xl">Cancelar</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => { removeTeam(team.id); toast({ title: "Equipe excluída" }); }}
+                              <AlertDialogAction onClick={async () => {
+                                const ok = await removeTeam(team.id);
+                                toast(ok
+                                  ? { title: "Equipe excluída" }
+                                  : { title: "Não foi possível excluir", description: "Você não tem permissão para esta ação.", variant: "destructive" });
+                              }}
                                 className="rounded-xl bg-destructive hover:bg-destructive/90">Excluir</AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
@@ -502,13 +521,12 @@ export default function Equipe() {
         open={teamDialogOpen} onOpenChange={setTeamDialogOpen}
         initial={editingTeam ? { name: editingTeam.name, color: editingTeam.color, description: editingTeam.description || "" } : undefined}
         onSave={async (name, color, description) => {
-          if (editingTeam) {
-            await updateTeam(editingTeam.id, { name, color, description });
-            toast({ title: "Equipe atualizada" });
-          } else {
-            await createTeam(name, color, description);
-            toast({ title: "Equipe criada" });
-          }
+          const result = editingTeam
+            ? await updateTeam(editingTeam.id, { name, color, description })
+            : await createTeam(name, color, description);
+          toast(result
+            ? { title: editingTeam ? "Equipe atualizada" : "Equipe criada" }
+            : { title: "Não foi possível salvar", description: "Você não tem permissão para esta ação.", variant: "destructive" });
           setEditingTeam(null);
         }}
       />
