@@ -48,15 +48,20 @@ const Register = () => {
   useEffect(() => {
     const fetchPlanData = async () => {
       if (!selectedPlan) { setPlanData(null); return; } // orgânico: sem badge de plano/preço
+      // is_active=true — mesmo filtro de Pagamento.tsx. Sem isto, um link antigo
+      // apontando pra um plano já desativado (ex.: promoção encerrada) mostrava
+      // preço/nome normalmente, mas apply_signup_plan (que exige is_active) não
+      // aplicava nada — o usuário via um preço que nunca seria o que ele recebeu.
       const { data } = await supabase
         .from('plan_configs')
         .select('*')
         .eq('plan_type', selectedPlan)
+        .eq('is_active', true)
         .maybeSingle();
 
-      if (data) {
-        setPlanData(data);
-      }
+      // Sem plano ativo com esse plan_type: trata como cadastro orgânico (sem
+      // badge de preço) em vez de mostrar um preço que não vai ser aplicado.
+      setPlanData(data ?? null);
     };
     
     fetchPlanData();

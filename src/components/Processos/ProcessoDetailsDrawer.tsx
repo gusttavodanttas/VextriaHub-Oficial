@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useProcessoSubData } from '@/hooks/useProcessoSubData';
 import { useProcessoMovimentacoes } from '@/hooks/useProcessoMovimentacoes';
 import { getErrorMessage } from '@/lib/errors';
+import { planQuotaMessage } from '@/lib/planQuotaError';
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Processo } from '@/types/processo';
@@ -294,7 +295,10 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
       if (existing) {
         clienteId = existing.id;
       } else {
-        const { data: novo } = await supabase.from('clientes').insert({ nome: nomeCliente, office_id: user.office_id, user_id: user.id }).select('id').single();
+        const { data: novo, error: createError } = await supabase.from('clientes').insert({ nome: nomeCliente, office_id: user.office_id, user_id: user.id }).select('id').single();
+        // Antes: só checava `!novo` e lançava uma mensagem genérica, perdendo o erro
+        // real do Postgres (ex.: cota de plano) — o usuário nunca via "Faça upgrade".
+        if (createError) throw createError;
         if (!novo) throw new Error('Erro ao criar cliente');
         clienteId = novo.id;
       }
@@ -303,7 +307,8 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
       queryClient.invalidateQueries({ queryKey: ['processos'] });
       toast({ title: 'Cliente vinculado', description: `${nomeCliente} vinculado como cliente deste processo.` });
     } catch (e: unknown) {
-      toast({ title: 'Erro', description: getErrorMessage(e), variant: 'destructive' });
+      const quota = planQuotaMessage(e);
+      toast(quota ? { ...quota, variant: 'destructive' } : { title: 'Erro', description: getErrorMessage(e), variant: 'destructive' });
     } finally {
       setSavingCliente(false);
     }

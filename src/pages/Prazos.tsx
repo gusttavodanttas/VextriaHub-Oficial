@@ -89,7 +89,14 @@ export default function Prazos() {
   useOpenItemFromSearch('/prazos', !isLoading && prazos.length > 0, (openId) => {
     const prazo = prazos.find(p => String(p.id) === openId);
     if (prazo) { setEditTarget(prazo); return true; }
-    return false;
+    // Fallback: prazo de processo compartilhado de outro escritório não entra na
+    // lista (filtrada por office_id do usuário atual) — busca direto por id, mesmo
+    // padrão já usado em Audiencias.tsx.
+    (async () => {
+      const { data } = await supabase.from('prazos').select('*').eq('id', openId).maybeSingle();
+      if (data) setEditTarget(data as Prazo);
+    })();
+    return true;
   });
 
   const filtered = useMemo(() => prazos.filter(p => {

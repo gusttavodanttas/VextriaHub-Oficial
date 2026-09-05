@@ -74,6 +74,17 @@ const Perfil = () => {
     cpf_cnpj: "",
   });
 
+  // "coordinator" só existe em office_team_members.role — uma tabela e coluna
+  // totalmente diferente de office_users.role (de onde user.office_role vem, com
+  // valores user/admin/owner). `office_role === "coordinator"` nunca é verdadeiro;
+  // um coordenador de time real sempre caía em "Membro" aqui. Busca à parte.
+  const [isTeamCoordinator, setIsTeamCoordinator] = useState(false);
+  useEffect(() => {
+    if (!user?.id) return;
+    supabase.from('office_team_members').select('id').eq('user_id', user.id).eq('role', 'coordinator').limit(1).maybeSingle()
+      .then(({ data }) => setIsTeamCoordinator(!!data));
+  }, [user?.id]);
+
   // Preenche dados reais da Sessão Pessoal logada assim que carregar
   useEffect(() => {
     if (user || profile) {
@@ -86,13 +97,13 @@ const Perfil = () => {
         cargo: (user as any)?.office_role === 'owner' ? 'Proprietário'
                : ((user as any)?.office_role === 'admin' || profile?.role === 'admin') ? 'Administrador'
                : ((user as any)?.office_role === 'super_admin' || profile?.role === 'super_admin') ? 'Super Admin'
-               : (user as any)?.office_role === 'coordinator' ? 'Coordenador' : 'Membro',
+               : isTeamCoordinator ? 'Coordenador' : 'Membro',
         oab: profile?.oab || prev.oab,
         oab_uf: profile?.oab_uf || prev.oab_uf,
         cpf_cnpj: (profile as any)?.cpf_cnpj || prev.cpf_cnpj,
       }));
     }
-  }, [user, profile]);
+  }, [user, profile, isTeamCoordinator]);
 
   const myStats = useMyStats();
 
@@ -115,7 +126,7 @@ const Perfil = () => {
     officeRole === "owner" ? "Proprietário" :
     (officeRole === "super_admin" || profile?.role === "super_admin") ? "Super Admin" :
     (officeRole === "admin" || profile?.role === "admin") ? "Administrador" :
-    officeRole === "coordinator" ? "Coordenador" : "Membro";
+    isTeamCoordinator ? "Coordenador" : "Membro";
 
   useEffect(() => {
     if ((profile as any)?.avatar_url) setAvatarUrl((profile as any).avatar_url);

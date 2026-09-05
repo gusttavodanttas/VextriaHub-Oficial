@@ -38,7 +38,7 @@ export function TeamManagement() {
   };
 
   const excluir = async (id: string, nome: string) => {
-    if (!confirm(`Excluir a equipe "${nome}"? Os membros serão desvinculados.`)) return;
+    if (!confirm(`Excluir a equipe "${nome}"? Os membros serão desvinculados. Processos, clientes e metas vinculados a esta equipe ficarão sem equipe (não são excluídos, só somem da visão por time).`)) return;
     const ok = await remove(id);
     toast(ok ? { title: "Equipe excluída" } : { variant: "destructive", title: "Erro ao excluir" });
   };

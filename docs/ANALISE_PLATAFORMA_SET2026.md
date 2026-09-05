@@ -900,3 +900,96 @@ resolver as duas juntas.
 Verificação desta rodada: `tsc` limpo, ESLint 0 erros/689 avisos (sem
 mudança), Vitest 205/205, `vite build` ok — nenhuma das 13 correções mexeu em
 schema/API pública, só lógica interna de componentes/hooks já existentes.
+
+---
+
+# Parte 5 — os 17 pendentes da parte 4, um por um
+
+Fechados 16 dos 17; o que sobra (D.1) exige uma decisão de produto que não é
+minha pra tomar sozinho, exatamente como já estava marcado.
+
+- **A.5 ✅** Deep-links de prazo/tarefa a partir de processo compartilhado
+  ganharam o mesmo fallback (busca direta por id) que Audiências já tinha.
+- **B.4 ✅** `Register.tsx` agora só mostra preço/badge de plano com
+  `is_active=true` (igual a `Pagamento.tsx`); plano desativado cai no fluxo
+  orgânico em vez de anunciar um preço que nunca seria cobrado.
+- **B.5 ✅** Lançamento de Timesheet virando meia-noite (ex.: 23h–01h) agora
+  é entendido como virando o dia, em vez de falhar em silêncio. Bônus achado
+  no caminho: a correção também elimina um desvio de fuso de 3h que já
+  existia no salvamento — a hora digitada ia crua pro Postgres (que roda em
+  UTC), mesma classe do achado A.1 da parte 4, só que na escrita, não na
+  leitura.
+- **C.1 ✅** Cota de plano agora aparece nos 3 pontos que faltavam:
+  `ClientSelect` (cadastro rápido embutido), `ProcessoDetailsDrawer`
+  ("Este é meu cliente") e o import em lote de OAB — que também passa a
+  informar quantos itens já tinham sido salvos antes de parar no meio do
+  lote.
+- **C.2 ✅** O `onError` genérico de `useProcessosV2` agora pula o toast
+  quando reconhece um erro de cota de plano (quem chamou já mostra a
+  mensagem amigável) — fecha o toast duplicado.
+- **C.3 ✅** "Excluir" não aparece mais em processos compartilhados (nunca
+  podiam ser excluídos mesmo) em `ProcessoCard` e `ProcessoTable`, mesmo
+  critério que `ProcessoDetailsDrawer` já usava.
+- **C.4 ✅** `useCorrespondentes` agora filtra por `office_id`, como todo
+  outro hook do app.
+- **C.5 ✅** `useConsultivos` loga e mostra a causa real de cada erro
+  (`catch (err)` em vez de `catch {}`), nos 4 pontos.
+- **D.2 ✅** As 4 ações de gestão de equipe (promover/remover coordenador,
+  adicionar/remover membro) checam o retorno antes de dizer "sucesso" —
+  cobre um coordenador tentando mexer num time que não é o dele, ou
+  qualquer outro caso de RLS bloqueando.
+- **D.3 ✅** Perfil.tsx passa a consultar `office_team_members` de verdade
+  (antes lia a coluna errada, de outra tabela) e mostra "Coordenador"
+  corretamente.
+- **D.4 ✅** As duas confirmações de exclusão de equipe agora mencionam que
+  processos/clientes/metas vinculados ficam sem equipe.
+- **E.4 ✅** Mínimo de senha unificado em 8 caracteres (cadastro e redefinir
+  senha).
+- **E.5 ✅** Erro de reconhecimento de voz agora mostra um toast explicando
+  o motivo (microfone negado, sem microfone, rede) — exceto os casos
+  benignos (silêncio, cancelamento), que continuam silenciosos de propósito.
+- **F.4 ✅** `useNotifications` passa a escutar também `UPDATE`/`DELETE` em
+  tempo real (só escutava `INSERT`) — sino do cabeçalho e página
+  `/notificacoes` ficam sincronizados entre si e entre abas.
+- **F.5 ✅** `monthKey` em `useChartsData` passa a usar componentes de data
+  locais pra colunas timestamptz (mesma base do `lastMonths()`), mantendo
+  colunas `DATE` como estavam — evita que um registro perto da virada do mês
+  em UTC caia no mês errado nas séries "por mês" dos Gráficos.
+- **F.6 ✅** Os filtros por time em Gráficos agora aceitam o mesmo fallback
+  `responsavel_id OU (sem responsavel_id E user_id da equipe)` que a
+  agregação por membro já usava — processos/prazos/atendimentos/consultivos
+  sem responsável direto não somem mais da contagem do time ao qual o
+  criador pertence.
+- **D.1 ⏳ pendente, decisão de produto** — a maioria dos ~20 toggles de
+  "Permissões" por membro não tem efeito real (nem tela, nem RLS, os
+  consultam). Não é um bug pontual pra corrigir sozinho: a decisão é entre
+  (a) implementar de verdade os ~20 flags (RLS + telas, trabalho grande e
+  espalhado) ou (b) remover da UI os toggles que não fazem nada hoje
+  (rápido, mas reduz a promessa da tela). Levada ao usuário como pergunta
+  antes de mexer.
+
+## Resumo da parte 5
+
+| # | Achado | Estado |
+| --- | --- | --- |
+| A.5 | Deep-links de prazo/tarefa em processo compartilhado | **corrigido** |
+| B.4 | Preço de plano sem checar `is_active` no cadastro | **corrigido** |
+| B.5 | Timesheet virando meia-noite falhava em silêncio | **corrigido** |
+| C.1 | Cota de plano não avisada em 3 pontos de inserção | **corrigido** |
+| C.2 | Toast duplicado ao bater cota criando processo | **corrigido** |
+| C.3 | "Excluir" em processo compartilhado (nunca funciona) | **corrigido** |
+| C.4 | `useCorrespondentes` sem filtro de `office_id` | **corrigido** |
+| C.5 | `useConsultivos` engolindo causa real do erro | **corrigido** |
+| D.1 | Toggles de permissão sem efeito real | **pendente — decisão de produto** |
+| D.2 | Ações de equipe sempre "sucesso", mesmo bloqueadas pela RLS | **corrigido** |
+| D.3 | Perfil.tsx nunca mostra "Coordenador" | **corrigido** |
+| D.4 | Exclusão de equipe não avisa sobre processos/clientes/metas | **corrigido** |
+| E.4 | Política de senha inconsistente (8 vs 6) | **corrigido** |
+| E.5 | Erro de voz silencioso | **corrigido** |
+| F.4 | Badge de notificação dessincronizado | **corrigido** |
+| F.5 | Bucket de mês UTC/local em Gráficos | **corrigido** |
+| F.6 | Filtro por time sem fallback pra `user_id` | **corrigido** |
+
+Verificação: `tsc` limpo, ESLint 0 erros/689 avisos (idêntico à linha de
+base — os `any`/deps novos que as correções introduziram foram limpos com
+tipos reais em vez de suprimidos), Vitest 205/205, `vite build` ok.

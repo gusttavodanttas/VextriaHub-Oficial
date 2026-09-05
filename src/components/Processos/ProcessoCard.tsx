@@ -165,19 +165,24 @@ export const ProcessoCard: React.FC<ProcessoCardProps> = ({
                     <span className="font-medium text-sm">Editar</span>
                   </DropdownMenuItem>
                 </PermissionGuard>
-                <PermissionGuard permission="canDeleteProcesses">
-                  <DropdownMenuSeparator className="bg-muted/30" />
-                  <DropdownMenuItem
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(processo);
-                    }}
-                    className="rounded-lg py-2 text-destructive focus:text-destructive"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    <span className="font-medium text-sm">Excluir</span>
-                  </DropdownMenuItem>
-                </PermissionGuard>
+                {/* Processo compartilhado (sharedFrom) nunca pode ser excluído — a RLS
+                    barra isso pra qualquer permissão de compartilhamento, mesmo 'editar'.
+                    Sem este gate o item aparecia e só terminava num toast de erro. */}
+                {!processo.sharedFrom && (
+                  <PermissionGuard permission="canDeleteProcesses">
+                    <DropdownMenuSeparator className="bg-muted/30" />
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(processo);
+                      }}
+                      className="rounded-lg py-2 text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      <span className="font-medium text-sm">Excluir</span>
+                    </DropdownMenuItem>
+                  </PermissionGuard>
+                )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

@@ -395,7 +395,7 @@ export default function Equipe() {
                           <AlertDialogContent className="rounded-2xl">
                             <AlertDialogHeader>
                               <AlertDialogTitle>Excluir equipe "{team.name}"?</AlertDialogTitle>
-                              <AlertDialogDescription>Os membros não serão removidos do escritório, apenas desta equipe.</AlertDialogDescription>
+                              <AlertDialogDescription>Os membros não serão removidos do escritório, apenas desta equipe. Processos, clientes e metas vinculados a esta equipe ficarão sem equipe (não são excluídos, só somem da visão por time).</AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel className="rounded-xl">Cancelar</AlertDialogCancel>

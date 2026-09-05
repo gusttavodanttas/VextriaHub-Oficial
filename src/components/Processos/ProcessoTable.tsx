@@ -169,16 +169,20 @@ export const ProcessoTable: React.FC<ProcessoTableProps> = ({
                           <span className="font-bold text-sm">Editar Capa</span>
                         </DropdownMenuItem>
                       </PermissionGuard>
-                      <PermissionGuard permission="canDeleteProcesses">
-                        <DropdownMenuSeparator className="bg-muted/30 my-1" />
-                        <DropdownMenuItem 
-                          onClick={() => onDelete(processo)}
-                          className="rounded-xl cursor-pointer py-3 text-destructive focus:text-destructive focus:bg-destructive/10 transition-all font-bold"
-                        >
-                          <Trash2 className="mr-3 h-4 w-4" />
-                          <span className="text-sm">Arquivar Registro</span>
-                        </DropdownMenuItem>
-                      </PermissionGuard>
+                      {/* Processo compartilhado nunca pode ser excluído — a RLS barra isso
+                          pra qualquer permissão de compartilhamento, mesmo 'editar'. */}
+                      {!processo.sharedFrom && (
+                        <PermissionGuard permission="canDeleteProcesses">
+                          <DropdownMenuSeparator className="bg-muted/30 my-1" />
+                          <DropdownMenuItem
+                            onClick={() => onDelete(processo)}
+                            className="rounded-xl cursor-pointer py-3 text-destructive focus:text-destructive focus:bg-destructive/10 transition-all font-bold"
+                          >
+                            <Trash2 className="mr-3 h-4 w-4" />
+                            <span className="text-sm">Arquivar Registro</span>
+                          </DropdownMenuItem>
+                        </PermissionGuard>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>

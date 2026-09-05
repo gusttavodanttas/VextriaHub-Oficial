@@ -59,9 +59,16 @@ export function useTimesheetManualEntry({ config, update, addManual }: ManualEnt
 
   const saveManual = async () => {
     if (!mDesc.trim() || !mCat || !mData || !mInicio || !mFim) return;
-    const inicioISO = `${mData}T${mInicio}:00`;
-    const fimISO = `${mData}T${mFim}:00`;
-    const dur = Math.round((new Date(fimISO).getTime() - new Date(inicioISO).getTime()) / 60000);
+    const inicioDate = new Date(`${mData}T${mInicio}:00`);
+    let fimDate = new Date(`${mData}T${mFim}:00`);
+    // Turno que passa da meia-noite (ex.: 23:00-01:00): início e fim usam a mesma
+    // data no formulário, então fim "antes" do início na verdade é no dia seguinte.
+    // Antes disto a função só fazia `return` — o diálogo ficava aberto sem
+    // explicar por quê, e a hora trabalhada nunca era salva.
+    if (fimDate.getTime() <= inicioDate.getTime()) fimDate = new Date(fimDate.getTime() + 24 * 60 * 60000);
+    const inicioISO = inicioDate.toISOString();
+    const fimISO = fimDate.toISOString();
+    const dur = Math.round((fimDate.getTime() - inicioDate.getTime()) / 60000);
     if (dur <= 0) return;
     setMSaving(true);
     const billingFields: any = { faturavel: mFat };

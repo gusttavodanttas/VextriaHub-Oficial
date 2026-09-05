@@ -126,10 +126,15 @@ function TeamDetailDialog({ open, onOpenChange, team, allUsers }: {
   const coordinators = members.filter(m => m.role === "coordinator");
   const regularMembers = members.filter(m => m.role === "member");
 
+  // As funções do hook retornam `false` (não lançam) quando a RLS barra a escrita
+  // — sem checar o retorno, o toast de sucesso aparecia mesmo com a ação bloqueada
+  // (ex.: um coordenador de outro time tentando mexer numa equipe que não é a dele).
   const toggleCoordinator = async (m: typeof members[0]) => {
     const newRole = m.role === "coordinator" ? "member" : "coordinator";
-    await setMemberRole(m.user_id, newRole);
-    toast({ title: newRole === "coordinator" ? "Coordenador definido" : "Coordenador removido" });
+    const ok = await setMemberRole(m.user_id, newRole);
+    toast(ok
+      ? { title: newRole === "coordinator" ? "Coordenador definido" : "Coordenador removido" }
+      : { title: "Sem permissão", description: "Você não pode alterar esta equipe.", variant: "destructive" });
   };
 
   const renderMemberRow = (m: typeof members[0], showCoordBadge = false) => {
@@ -153,7 +158,10 @@ function TeamDetailDialog({ open, onOpenChange, team, allUsers }: {
               isCoord ? "text-amber-500 bg-amber-500/10 hover:bg-amber-500/20" : "text-muted-foreground/40 hover:text-amber-500 hover:bg-amber-500/10")}>
             <Crown className="h-3.5 w-3.5" />
           </Button>
-          <Button size="sm" variant="ghost" onClick={async () => { await removeMember(m.user_id); toast({ title: "Removido da equipe" }); }}
+          <Button size="sm" variant="ghost" onClick={async () => {
+            const ok = await removeMember(m.user_id);
+            toast(ok ? { title: "Removido da equipe" } : { title: "Sem permissão", description: "Você não pode alterar esta equipe.", variant: "destructive" });
+          }}
             className="h-7 w-7 rounded-lg text-muted-foreground/40 hover:text-rose-500 hover:bg-rose-500/10">
             <UserMinus className="h-3.5 w-3.5" />
           </Button>
@@ -217,12 +225,18 @@ function TeamDetailDialog({ open, onOpenChange, team, allUsers }: {
                       </div>
                       <p className="text-sm font-bold flex-1 truncate">{name}</p>
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button size="sm" variant="ghost" onClick={async () => { await addMember(u.user_id, "coordinator"); toast({ title: "Adicionado como coordenador" }); }}
+                        <Button size="sm" variant="ghost" onClick={async () => {
+                          const ok = await addMember(u.user_id, "coordinator");
+                          toast(ok ? { title: "Adicionado como coordenador" } : { title: "Sem permissão", description: "Você não pode alterar esta equipe.", variant: "destructive" });
+                        }}
                           title="Adicionar como coordenador"
                           className="h-7 w-7 rounded-lg text-muted-foreground/40 hover:text-amber-500 hover:bg-amber-500/10">
                           <Crown className="h-3.5 w-3.5" />
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={async () => { await addMember(u.user_id); toast({ title: "Adicionado à equipe" }); }}
+                        <Button size="sm" variant="ghost" onClick={async () => {
+                          const ok = await addMember(u.user_id);
+                          toast(ok ? { title: "Adicionado à equipe" } : { title: "Sem permissão", description: "Você não pode alterar esta equipe.", variant: "destructive" });
+                        }}
                           title="Adicionar como membro"
                           className="h-7 w-7 rounded-lg text-muted-foreground/40 hover:text-primary hover:bg-primary/10">
                           <UserPlus className="h-3.5 w-3.5" />

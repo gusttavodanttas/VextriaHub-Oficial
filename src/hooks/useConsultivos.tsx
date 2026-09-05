@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import { getErrorMessage } from "@/lib/errors";
 
 export type Consultivo = Tables<"consultivos"> & {
   clientes?: { nome: string } | null;
@@ -27,7 +28,11 @@ export function useConsultivos() {
       if (error) throw error;
       setData((rows as Consultivo[]) || []);
     } catch (err) {
-      toast({ title: "Erro ao carregar consultivos", variant: "destructive" });
+      // `catch {}` sem variável escondia a causa real (RLS, rede, payload
+      // inválido) atrás da mesma mensagem genérica sempre — impossível diagnosticar
+      // quando alguém reportasse "não consegui salvar/carregar".
+      console.error("Erro ao carregar consultivos:", err);
+      toast({ title: "Erro ao carregar consultivos", description: getErrorMessage(err), variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -47,8 +52,9 @@ export function useConsultivos() {
       await fetchData();
       toast({ title: "Consultivo criado", description: `"${payload.titulo}" adicionado.` });
       return true;
-    } catch {
-      toast({ title: "Erro ao criar consultivo", variant: "destructive" });
+    } catch (err) {
+      console.error("Erro ao criar consultivo:", err);
+      toast({ title: "Erro ao criar consultivo", description: getErrorMessage(err), variant: "destructive" });
       return false;
     }
   };
@@ -60,8 +66,9 @@ export function useConsultivos() {
       if (error) throw error;
       await fetchData();
       return true;
-    } catch {
-      toast({ title: "Erro ao atualizar", variant: "destructive" });
+    } catch (err) {
+      console.error("Erro ao atualizar consultivo:", err);
+      toast({ title: "Erro ao atualizar", description: getErrorMessage(err), variant: "destructive" });
       return false;
     }
   };
@@ -74,8 +81,9 @@ export function useConsultivos() {
       setData(prev => prev.filter(c => c.id !== id));
       toast({ title: "Consultivo removido" });
       return true;
-    } catch {
-      toast({ title: "Erro ao remover", variant: "destructive" });
+    } catch (err) {
+      console.error("Erro ao remover consultivo:", err);
+      toast({ title: "Erro ao remover", description: getErrorMessage(err), variant: "destructive" });
       return false;
     }
   };
