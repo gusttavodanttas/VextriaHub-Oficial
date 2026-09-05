@@ -1,73 +1,70 @@
-# Welcome to your Lovable project
+# VextriaHub
 
-## Project info
+SaaS de gestão para escritórios de advocacia: processos, prazos, audiências,
+clientes, financeiro, timesheet, CRM e um assistente de IA — multi-tenant
+(cada escritório só enxerga o próprio dado, com visibilidade por time),
+plano/assinatura controlados no banco (RLS), não só na tela.
 
-**URL**: https://lovable.dev/projects/8867b6ef-b4c6-4fef-a149-b8048659f1d7
+Análise técnica completa da plataforma (achados de segurança/desempenho e o
+que foi corrigido) em [`docs/ANALISE_PLATAFORMA_SET2026.md`](./docs/ANALISE_PLATAFORMA_SET2026.md).
 
-## How can I edit this code?
+## Stack
 
-There are several ways of editing your application.
+- **Front-end**: Vite + React + TypeScript, shadcn/ui + Tailwind, TanStack
+  Query, React Router, React Hook Form + Zod.
+- **Back-end**: Supabase (Postgres com Row Level Security, Auth, Edge
+  Functions em Deno, pg_cron para os robôs agendados).
+- **Testes**: Vitest (unitário/componente) e um teste pgTAP standalone de
+  isolamento por escritório/time (RLS).
+- **Observabilidade**: Sentry (opcional, via `VITE_SENTRY_DSN`).
 
-**Use Lovable**
+## Rodando localmente
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/8867b6ef-b4c6-4fef-a149-b8048659f1d7) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+Requer Node.js 22+.
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+npm install
+cp .env.example .env.local   # preencha VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+As credenciais do Supabase ficam em **Project Settings → API** no painel do
+projeto. `VITE_SENTRY_DSN` é opcional — deixe em branco para desativar.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Scripts
 
-**Use GitHub Codespaces**
+| Comando | O que faz |
+| --- | --- |
+| `npm run dev` | Servidor de desenvolvimento (Vite) |
+| `npm run build` | Build de produção |
+| `npm run lint` | ESLint |
+| `npm test` / `npm run test:watch` | Testes (Vitest) |
+| `npm run test:rls` | Suíte pgTAP de isolamento por escritório/time — sobe um Postgres descartável local (ver `supabase/tests/rls-standalone/README.md`) |
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Banco de dados (Supabase)
 
-## What technologies are used for this project?
+O schema vive versionado em `supabase/migrations/` — é a fonte da verdade;
+evite alterar tabelas/policies direto no painel sem depois versionar a
+mudança aqui. As edge functions ficam em `supabase/functions/`.
 
-This project is built with:
+Para aplicar migrations/funções contra um projeto Supabase, use a
+[CLI oficial](https://supabase.com/docs/guides/local-development):
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+```sh
+npx supabase db push --project-ref <PROJECT_REF>
+npx supabase functions deploy <nome-da-funcao> --project-ref <PROJECT_REF>
+```
 
-## How can I deploy this project?
+Alguns robôs agendados (`pg_cron` + `pg_net`) chamam edge functions com
+segredos guardados no `supabase_vault` (não em texto nas migrations) — ver o
+cabeçalho de `supabase/migrations/20260904160000_crons_vault_secrets.sql`.
 
-Simply open [Lovable](https://lovable.dev/projects/8867b6ef-b4c6-4fef-a149-b8048659f1d7) and click on Share -> Publish.
+## CI/CD
 
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+- **`.github/workflows/ci.yml`** roda em todo push/PR para `main`: lint,
+  type-check, testes e build.
+- **`.github/workflows/deploy-oracle.yml`** builda e publica o front no
+  servidor Oracle a cada push em `main`. Precisa de dois secrets do repositório
+  (`Settings → Secrets and variables → Actions`): `VITE_SUPABASE_ANON_KEY` e
+  `ORACLE_SSH_KEY` — sem eles o workflow falha (esperado até serem
+  configurados).

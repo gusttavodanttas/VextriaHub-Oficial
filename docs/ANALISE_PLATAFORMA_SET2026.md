@@ -134,11 +134,17 @@ das 24 edge functions.
 ### P3 — Manutenibilidade
 
 34 arquivos passam de 400 linhas (`ProcessoDetailsDrawer.tsx` 1.273,
-`JudicialSyncDialog.tsx` 949, `NovoPrazoStandaloneDialog.tsx` 910).
-`src/migrations/20260418_cleanup_asaas.sql` está no diretório errado. O
-`README.md` ainda é o texto padrão do Lovable. Três fontes de verdade para preço
-e plano: `plan_configs`, as constantes de `usePlanFeatures.tsx` e os valores
-escritos à mão em `Landing.tsx`.
+`JudicialSyncDialog.tsx` 949, `NovoPrazoStandaloneDialog.tsx` 910). Três
+fontes de verdade para preço e plano: `plan_configs`, as constantes de
+`usePlanFeatures.tsx` e os valores escritos à mão em `Landing.tsx`.
+
+**Corrigidos (parte 2):** `src/migrations/20260418_cleanup_asaas.sql` estava
+no diretório errado — movido para `supabase/migrations/20260418000000_cleanup_asaas.sql`
+e versionado retroativamente em produção (idempotente: as tabelas que ele
+derruba já tinham sido removidas manualmente em abril, então não teve efeito
+prático, só fechou a lacuna no histórico). O `README.md` era o texto padrão
+do Lovable — reescrito com stack real, setup local, scripts e o que cada
+workflow de CI/CD precisa.
 
 ## Plano de ação
 
