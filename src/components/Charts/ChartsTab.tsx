@@ -525,7 +525,10 @@ export function ChartsTab() {
                 <ResponsiveContainer width="100%" height={280}>
                   <PieChart>
                     <Pie data={d.porMembro.filter(m => m.processos > 0)} cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2} dataKey="processos" nameKey="name" label={(e) => `${e.name}: ${e.processos}`} labelLine={false} fontSize={11}>
-                      {d.porMembro.map((_, i) => <Cell key={i} fill={["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#06b6d4", "#ec4899", "#8b5cf6", "#f97316"][i % 8]} />)}
+                      {/* Cell é posicional (Recharts casa por índice) — tem que vir da MESMA lista
+                          filtrada que "data", senão quem tem 0 processos e não é o último do array
+                          desalinha a cor de todo mundo depois dele. */}
+                      {d.porMembro.filter(m => m.processos > 0).map((_, i) => <Cell key={i} fill={["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#06b6d4", "#ec4899", "#8b5cf6", "#f97316"][i % 8]} />)}
                     </Pie>
                     <Tooltip {...tooltipStyle} />
                   </PieChart>

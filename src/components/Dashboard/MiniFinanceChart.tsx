@@ -24,9 +24,11 @@ export function MiniFinanceChart({ refreshKey }: { refreshKey?: number }) {
     let cancel = false;
     (async () => {
       setLoading(true);
-      const start = new Date();
-      start.setMonth(start.getMonth() - (meses - 1));
-      start.setDate(1);
+      const now = new Date();
+      // Zera o dia ANTES de subtrair mês: setMonth(mês-N) com o dia de hoje (29/30/31)
+      // estoura pro mês seguinte quando o mês alvo tem menos dias (ex.: hoje=31/jul,
+      // -5 meses vira 3/mar em vez de 1/fev) — duplicava/sumia mês inteiro no gráfico.
+      const start = new Date(now.getFullYear(), now.getMonth() - (meses - 1), 1);
       const { data: rows } = await supabase
         .from("financeiro")
         .select("tipo, valor, data_vencimento")
@@ -38,8 +40,7 @@ export function MiniFinanceChart({ refreshKey }: { refreshKey?: number }) {
       const buckets: Record<string, Bucket> = {};
       const order: string[] = [];
       for (let i = meses - 1; i >= 0; i--) {
-        const d = new Date();
-        d.setMonth(d.getMonth() - i);
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const key = `${d.getFullYear()}-${d.getMonth()}`;
         buckets[key] = { mes: MESES[d.getMonth()], receita: 0, despesa: 0 };
         order.push(key);

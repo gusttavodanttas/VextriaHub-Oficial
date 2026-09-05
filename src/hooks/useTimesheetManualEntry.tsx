@@ -64,9 +64,8 @@ export function useTimesheetManualEntry({ config, update, addManual }: ManualEnt
     const dur = Math.round((new Date(fimISO).getTime() - new Date(inicioISO).getTime()) / 60000);
     if (dur <= 0) return;
     setMSaving(true);
-    const billingFields: any = {};
+    const billingFields: any = { faturavel: mFat };
     if (mValor) billingFields.valor_hora = Number(mValor);
-    if (!mFat) billingFields.faturavel = false;
     if (editTarget) {
       await update(editTarget.id, {
         tarefa_descricao: mDesc.trim(), categoria: mCat, cliente_id: mCli || null,

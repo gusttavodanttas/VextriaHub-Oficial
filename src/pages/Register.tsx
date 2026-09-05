@@ -199,6 +199,12 @@ const Register = () => {
         // aplicar no 1º login pós-confirmação (AuthContext) — senão a escolha se perde e cai no
         // trial genérico de 7 dias (o apply_signup_plan abaixo nunca roda neste caminho).
         if (planParam) localStorage.setItem('pending_signup_plan', planParam);
+        // O login automático não vai acontecer agora — o usuário só volta a logar de verdade
+        // depois de confirmar o e-mail, direto pelo Login.tsx. Sem limpar aqui, essa flag
+        // ficava 'true' pra sempre neste navegador e travava o auto-redirect do Login.tsx
+        // pra sessões futuras já autenticadas (o efeito de lá só roda se checkout_in_progress
+        // não estiver setada).
+        localStorage.removeItem('checkout_in_progress');
         toast({
           title: "Cadastro realizado!",
           description: "Enviamos um e-mail de confirmação — confirme para entrar.",
@@ -227,20 +233,36 @@ const Register = () => {
       // Planos sem trial (ex.: Básico mensal) já entram como "pendente" → o portão de
       // acesso exige o pagamento. Cadastro orgânico (sem ?plano=) mantém os 7 dias de teste.
       let planOutcome: string | null = null;
+      let planApplyFailed = false;
       try {
         await supabase.rpc('ensure_office_for_user');
         if (planParam) {
-          const { data } = await supabase.rpc('apply_signup_plan', { p_plan_type: planParam });
-          planOutcome = (data as string | null) ?? null;
+          // .rpc() NÃO lança em erro de aplicação (função no banco falhando, plan_type
+          // inválido) — só devolve { data: null, error }. Sem checar `error` aqui, uma
+          // falha silenciosa caía no ramo de sucesso/trial abaixo como se o plano
+          // escolhido tivesse sido aplicado, sem o usuário nunca saber que não foi.
+          const { data, error: planError } = await supabase.rpc('apply_signup_plan', { p_plan_type: planParam });
+          if (planError) {
+            console.error('apply_signup_plan failed:', planError);
+            planApplyFailed = true;
+          } else {
+            planOutcome = (data as string | null) ?? null;
+          }
         }
       } catch (setupErr) {
         console.error('signup plan setup:', setupErr);
+        if (planParam) planApplyFailed = true;
       }
       localStorage.removeItem('checkout_in_progress');
       if (planParam && planOutcome === 'pendente') {
         // Plano sem trial (ex.: Básico mensal) → precisa pagar para acessar.
         toast({ title: "Cadastro concluído!", description: "Escolha a forma de pagamento para ativar seu acesso." });
         navigate(`/pagamento?plano=${encodeURIComponent(planParam)}`);
+      } else if (planApplyFailed) {
+        // Conta criada normalmente, mas o plano escolhido não foi aplicado — diz isso
+        // em vez de fingir que deu tudo certo. Usuário começa no trial padrão.
+        toast({ title: "Cadastro concluído", description: "Não conseguimos aplicar o plano escolhido agora — você começou no teste padrão. Ajuste o plano em Configurações quando quiser.", variant: "destructive" });
+        navigate("/dashboard");
       } else {
         // Trial ativo (7 ou 30 dias) ou cadastro orgânico → começa a usar; paga quando quiser.
         toast({ title: "Cadastro concluído!", description: "Seu período de teste começou. Bem-vindo(a)!" });

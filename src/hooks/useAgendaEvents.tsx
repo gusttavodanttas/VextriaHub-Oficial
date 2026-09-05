@@ -76,7 +76,11 @@ const toAtendimento = (ate: AtendimentoRow): AgendaEvent => ({
   type: "atendimento",
   client: ate.clientes?.nome || "Cliente não informado",
   location: "Escritório",
-  status: (ate.status as EventStatus) || "confirmado",
+  // normaliza pro vocabulário da agenda (mesmo padrão de toAudiencia): realizado =
+  // concluído, cancelado = cancelado, agendado/pendente = pendente. Antes era um cast
+  // cru do status do banco — "realizado" nunca batia com "concluido" e o item nunca
+  // ganhava o visual de resolvido.
+  status: (ate.status === "realizado" ? "concluido" : ate.status === "cancelado" ? "cancelado" : "pendente") as EventStatus,
 });
 
 const toTarefa = (t: TarefaRow): AgendaEvent => ({
@@ -142,14 +146,15 @@ export const useAgendaEvents = (targetDate: Date) => {
         .eq("deletado", false)
         .or(`and(data_fim_prazo.gte.${praIni},data_fim_prazo.lte.${praFim}),and(data_fim_prazo.is.null,data_vencimento.gte.${praIni},data_vencimento.lte.${praFim})`);
 
-      // 3. Buscar Atendimentos (Reuniões)
+      // 3. Buscar Atendimentos (Reuniões) — cancelados ficam de fora, mesmo padrão das audiências
       const { data: atendimentos, error: ateError } = await supabase
         .from("atendimentos")
         .select("*, clientes!cliente_id(nome)")
         .eq("office_id", user.office_id)
         .gte("data_atendimento", start.toISOString())
         .lte("data_atendimento", end.toISOString())
-        .eq("deletado", false);
+        .eq("deletado", false)
+        .neq("status", "cancelado");
 
       // 4. Buscar Tarefas (data_vencimento é DATE → compara com strings de data)
       const { data: tarefas, error: tarError } = await supabase
@@ -197,7 +202,11 @@ export const useAgendaEvents = (targetDate: Date) => {
   const fetchAtrasados = useCallback(async () => {
     if (!user?.office_id) return;
     const hoje = localYmd(new Date());
-    const inicioDeHoje = `${hoje}T00:00:00`;
+    // `data_audiencia`/`data_atendimento` são timestamptz e o banco roda em UTC — mandar
+    // a string local "T00:00:00" crua faz o Postgres interpretá-la como UTC, adiantando o
+    // corte em 3h (BRT) e escondendo por um dia quem venceu à noite. `new Date(...)` sem
+    // timezone é interpretado como HORÁRIO LOCAL pelo JS; `.toISOString()` converte certo.
+    const inicioDeHoje = new Date(`${hoje}T00:00:00`).toISOString();
 
     try {
       const [aud, pra, ate, tar, con] = await Promise.all([
@@ -213,7 +222,7 @@ export const useAgendaEvents = (targetDate: Date) => {
           .order("data_fim_prazo", { ascending: false, nullsFirst: false }).limit(LIMITE_ATRASADOS),
         supabase.from("atendimentos").select("*, clientes!cliente_id(nome)")
           .eq("office_id", user.office_id).eq("deletado", false)
-          .eq("status", "agendado")
+          .not("status", "in", "(cancelado,realizado)")
           .lt("data_atendimento", inicioDeHoje)
           .order("data_atendimento", { ascending: false }).limit(LIMITE_ATRASADOS),
         supabase.from("tarefas").select("*, clientes!cliente_id(nome)")
