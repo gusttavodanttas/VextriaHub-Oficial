@@ -379,10 +379,9 @@ advisor apontava sem cobertura.
 o time que coordena, admin vê o escritório, e ninguém vê o de outro escritório
 (nem sendo admin do seu). Rodável com `npm run test:rls`. Descoberta no
 caminho: `office_teams`/`office_team_members` — as tabelas centrais desta
-mesma regra — não têm `CREATE TABLE` em nenhuma migration; existem só no banco
-vivo. Documentado no README do teste como próximo passo, não corrigido ali
-(inserir migration retroativa numa base já aplicada em produção merece cuidado
-à parte).
+mesma regra — não tinham `CREATE TABLE` em nenhuma migration; existiam só no
+banco vivo. Documentado no README do teste como próximo passo naquele momento
+— **corrigido depois, na parte 3** (ver abaixo).
 
 ## Correção nº 8 aplicada: folga na catraca de lint
 
@@ -526,3 +525,78 @@ validada por prova lógica (equivalência booleana, mostrada acima) e por
 | B | 82 policies permissivas redundantes (perf) | **corrigido em parte** (8 removidas, provadamente redundantes; 33 restantes documentadas, exigem reescrita de condição) |
 | C | `unused_index` nos 56 índices novos | não é achado — ruído esperado, reconferir depois |
 | — | Varredura de 10/24 edge functions por escalada de privilégio | nenhuma issue nova |
+
+---
+
+# Parte 3 — `office_teams`/`office_team_members` migradas retroativamente
+
+Item que ficou como "próximo passo" na correção nº 7 (o teste de RLS descobriu
+que essas duas tabelas nunca tiveram `CREATE TABLE` versionado). Também dois
+acertos rápidos de manutenibilidade (P3): a migration `cleanup_asaas.sql` que
+morava em `src/migrations/` (diretório errado) e o `README.md`, que ainda era
+o texto padrão do Lovable.
+
+## `office_teams`/`office_team_members` — o buraco era maior do que parecia
+
+Investigando a fundo, achei que o gap não era só as duas tabelas: **nenhuma
+migration jamais adicionou `processos.team_id` nem `clientes.team_id`** —
+essas colunas (com FK para `office_teams`) também foram criadas direto em
+produção. Pior: a própria correção nº 6 desta sessão
+(`20260904140000_rls_perf_auth_uid_and_fk_indexes.sql`) criou
+`idx_processos_team_id`/`idx_clientes_team_id` — **um índice numa coluna que,
+sem esta correção, nunca teria sido criada num rebuild do zero** (o
+`CREATE INDEX` teria quebrado com "column does not exist").
+
+Confirmado com uma investigação em cadeia:
+1. `pg_constraint` mostrou 3 FKs apontando para `office_teams(id)` vindas de
+   fora do par óbvio: `processos.team_id`, `clientes.team_id` e
+   `metas.team_id` (esta já tinha migration própria, `20260628000012_metas_team.sql`).
+2. Nenhuma migration rastreada contém a string `team_id` referente a
+   `processos`/`clientes` além de já **usar** a coluna nas policies — nunca
+   de **criá-la**.
+3. `20260628000001_team_visibility_rls.sql` (a mais antiga a mexer nisso) já
+   assume que tudo existe: só dá `ALTER TABLE ENABLE RLS` + `CREATE POLICY`,
+   nunca `CREATE TABLE`.
+
+**Correção**: `supabase/migrations/20250709123700_office_teams_and_team_columns.sql`
+— `CREATE TABLE IF NOT EXISTS` para as duas tabelas (colunas, tipos, defaults,
+constraints e índices copiados fielmente de `information_schema`/
+`pg_constraint`/`pg_indexes` da produção) mais `ALTER TABLE ... ADD COLUMN IF
+NOT EXISTS team_id` em `processos`/`clientes`. Timestamp posicionado logo
+**depois** da migration que cria `processos`/`clientes`
+(`20250709123659-...sql`) e bem **antes** de `20260628000001` — mesma
+estratégia da correção retroativa dos crons (item 4): fecha o buraco no lugar
+certo da linha do tempo, não no fim dela, senão as migrations que já
+pressupõem essas colunas continuariam quebrando num replay do zero.
+
+Aplicada em produção como no-op puro (tabelas/colunas já existiam — `IF NOT
+EXISTS` em tudo): confirmado que os dados reais não mudaram (5 times, 2
+membros, 31 processos e 0 clientes com `team_id` continuam exatamente iguais
+antes/depois). RLS das duas tabelas continua por conta das migrations já
+rastreadas (`20260628000006`/`000007`), que rodam depois desta na ordem
+cronológica — não duplicada aqui.
+
+**Validação**: desta vez consegui subir o Postgres local (`postgresql-16` +
+`pgtap` já estavam instalados no container, só precisavam do serviço rodado)
+e rodar `npm run test:rls` de verdade — 13/13 passaram. `get_advisors` de
+segurança idêntico à linha de base, sem regressão.
+
+## Acertos rápidos de manutenibilidade
+
+- `src/migrations/20260418_cleanup_asaas.sql` → movida para
+  `supabase/migrations/20260418000000_cleanup_asaas.sql` e versionada
+  retroativamente (no-op: as tabelas que ela derruba já tinham sido removidas
+  manualmente em abril, e nenhuma migration rastreada as recria — só fechou a
+  lacuna no histórico).
+- `README.md` reescrito: o que é o VextriaHub, stack real, setup local,
+  tabela de scripts, como o schema do Supabase é versionado e os secrets que
+  cada workflow de CI/CD precisa (era o texto padrão do Lovable).
+
+## Resumo da parte 3
+
+| # | Achado | Estado |
+| --- | --- | --- |
+| — | `office_teams`/`office_team_members` sem `CREATE TABLE` versionado | **corrigido** |
+| — | `processos.team_id`/`clientes.team_id` sem `ALTER TABLE` versionado (achado novo, mesma causa) | **corrigido** |
+| — | `cleanup_asaas.sql` fora de `supabase/migrations/` | **corrigido** |
+| — | `README.md` era o texto padrão do Lovable | **corrigido** |

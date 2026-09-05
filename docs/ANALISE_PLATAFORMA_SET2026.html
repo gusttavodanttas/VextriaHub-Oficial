@@ -460,7 +460,7 @@ select cron.schedule('google-sync-15min','*/15 * * * *',
           <tr>
             <td>7 ✓</td>
             <td><strong>Primeiro teste de RLS</strong><br>dois escritórios, dois times, quem vê o quê</td>
-            <td><strong>Feito.</strong> <code>supabase/tests/rls-standalone/</code>, <code>npm run test:rls</code>. Achado no caminho: <code>office_teams</code>/<code>office_team_members</code> não têm <code>CREATE TABLE</code> em nenhuma migration.</td>
+            <td><strong>Feito.</strong> <code>supabase/tests/rls-standalone/</code>, <code>npm run test:rls</code>. Achado no caminho: <code>office_teams</code>/<code>office_team_members</code> não tinham <code>CREATE TABLE</code> em nenhuma migration. <strong>Atualização (parte 3):</strong> corrigido — e o buraco era maior: <code>processos.team_id</code>/<code>clientes.team_id</code> também nunca tiveram <code>ALTER TABLE</code> versionado. Migration retroativa datada logo após a criação de <code>processos</code>/<code>clientes</code>, validada com <code>npm run test:rls</code> (13/13) — ver <code>ANALISE_PLATAFORMA_SET2026.md</code>, seção "Parte 3".</td>
           </tr>
           <tr>
             <td>8 ✓</td>
