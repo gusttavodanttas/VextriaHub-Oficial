@@ -480,9 +480,9 @@ Migration: `20260904210000_rls_dedupe_redundant_permissive_policies.sql`.
 Verificado com `get_advisors` antes/depois (82 → 33) e advisor de segurança
 sem diferença (nenhuma policy nova exposta a `anon`/`authenticated`).
 
-**Deixado de fora de propósito** (33 warnings restantes, em
+**Deixado de fora de propósito na época** (33 warnings restantes, em
 `exclusoes_pendentes`, `profiles`, `monitored_oabs`, `offices`,
-`plan_configs`, `user_permissions`): as condições ali são **genuinamente
+`plan_configs`, `user_permissions`) — **fechado na Parte 9**: as condições ali são **genuinamente
 diferentes** (ex.: `offices_select_member` vs `offices_select_super` — membro
 comum vs super_admin, sem sobreposição de regra). Consolidar exigiria
 reescrever cada uma como um único OR explícito, não só apagar uma policy
@@ -523,7 +523,7 @@ validada por prova lógica (equivalência booleana, mostrada acima) e por
 | # | Achado | Estado |
 | --- | --- | --- |
 | A | Lacuna da correção nº 6: `auth.email()` e `storage.objects` fora do escopo do script original | **corrigido** |
-| B | 82 policies permissivas redundantes (perf) | **corrigido em parte** (8 removidas, provadamente redundantes; 33 restantes documentadas, exigem reescrita de condição) |
+| B | 82 policies permissivas redundantes (perf) | **corrigido** (8 removidas na parte 2; 33 restantes reescritas na parte 9) |
 | C | `unused_index` nos 56 índices novos | não é achado — ruído esperado, reconferir depois |
 | — | Varredura de 10/24 edge functions por escalada de privilégio | nenhuma issue nova |
 
@@ -1200,9 +1200,7 @@ hardening de hook.
 
 ### Resto do panorama (sem mudança nesta rodada)
 
-- **33 policies RLS permissivas redundantes** (achado da Parte 2) — seguem
-  precisando de reescrita de condição, não housekeeping simples.
-- **16 novos avisos de "multiple permissive policies"**, introduzidos pela
+- **16 avisos de "multiple permissive policies"**, introduzidos pela
   própria Parte 6 em `office_teams`/`invitations` (o preço inevitável do
   desenho de policy "widen" ao lado da policy admin-only já existente) —
   consolidável depois numa condição OR única, não é bug.
@@ -1220,3 +1218,65 @@ hardening de hook.
 
 Verificação: `tsc` limpo, ESLint 0 erros/689 avisos (idêntico à linha de
 base), Vitest 205/205, `vite build` ok, `get_advisors` sem regressões.
+
+## Parte 9 — as 33 policies RLS permissivas redundantes, fechadas
+
+Item do panorama da Parte 8, achado originalmente na Parte 2: 6 tabelas
+(`exclusoes_pendentes`, `profiles`, `monitored_oabs`, `offices`,
+`plan_configs`, `user_permissions`) com múltiplas policies `PERMISSIVE`
+para a mesma ação, cujas condições são genuinamente diferentes — exigia
+reescrever cada uma como um OR único, não só apagar uma policy solta.
+
+### Método
+
+Pra cada tabela, a condição nova é a **disjunção exata** das condições
+antigas — nunca um subconjunto — o que garante, por construção, zero
+mudança de comportamento: quem podia acessar antes continua podendo, quem
+não podia continua sem poder. Duas famílias de consolidação:
+
+- **SELECT com 2-3 policies redundantes** (`exclusoes_pendentes`,
+  `offices`, `profiles`) → viram uma policy só, com todos os termos
+  originais unidos por `OR`.
+- **Policy `FOR ALL` cuja fatia de SELECT duplicava uma policy de SELECT
+  já existente** (`monitored_oabs_write`, `plan_configs_write`,
+  `user_permissions_write`) → viram `INSERT`/`UPDATE`/`DELETE` explícitos,
+  sem o SELECT (que a outra policy já cobre). `plan_configs` precisou de
+  um cuidado a mais: a policy de SELECT pública ganhou `OR is_super_admin()`
+  explícito, senão super_admin perderia visibilidade de planos inativos
+  que o `FOR ALL` antigo dava.
+
+O caso mais delicado foi `profiles`: a policy `"SuperAdmin total access
+profiles"` era `FOR ALL` **sem `WITH CHECK` próprio** — em Postgres isso
+faz o `USING` valer também como `WITH CHECK` — então um super_admin podia
+inserir/atualizar **qualquer linha**, não só a própria. As 3 policies
+novas (`profiles_select`/`profiles_insert`/`profiles_update`) reproduzem
+essa união exatamente, e uma `profiles_delete_superadmin` nova cobre o que
+antes só existia dentro do `FOR ALL` (ninguém mais tinha DELETE em
+`profiles`).
+
+### Verificação
+
+Antes de aplicar em produção, tudo verificado **dentro de transações com
+`ROLLBACK`** (nada persistiu até a aplicação final):
+
+- **Leitura**: contagem de linhas visíveis em `profiles`, `offices`,
+  `plan_configs`, `exclusoes_pendentes`, `monitored_oabs`,
+  `user_permissions`, simulando um super_admin, um office admin e um
+  usuário comum — **11 contagens, todas idênticas antes/depois** da
+  migration.
+- **Escrita** (os casos de maior risco): super_admin atualizando o perfil
+  de **outro** usuário → permitido antes e depois; usuário comum tentando
+  editar o perfil de outra pessoa → bloqueado antes e depois; office admin
+  inserindo em `monitored_oabs` do próprio escritório → permitido antes e
+  depois.
+
+Depois de aplicado: `get_advisors` performance — `multiple_permissive_policies`
+**49 → 16** (os 16 restantes são os introduzidos de propósito pela Parte 6,
+já documentados); `get_advisors` segurança sem nenhuma diferença. Migration:
+`20260908020000_dedupe_redundant_permissive_policies_part2.sql`.
+
+Verificação de app: `tsc` limpo, Vitest 205/205 (nenhuma mudança de código
+TS/React nesta parte — só migration e relatório). `npm run test:rls` não
+rodou neste ambiente (container sem Postgres local instalado, mesma
+limitação já registrada na Parte 2) — a validação desta rodada foi feita
+inteiramente contra produção, com `ROLLBACK`.
