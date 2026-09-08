@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { usePermissions } from '@/hooks/usePermissions';
 import { planQuotaMessage } from '@/lib/planQuotaError';
+import { assertRowsAffected } from '@/lib/errors';
 import { Cliente, NovoCliente, DatabaseHookResult, ClienteComProcessos } from '@/types/database';
 import type { TablesInsert, TablesUpdate } from '@/integrations/supabase/rows';
 import type { Json } from '@/integrations/supabase/types';
@@ -147,13 +148,14 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
 
       if (hasAdminRights) {
         // Direct Deletion
-        const { error: updateError } = await supabase
+        const { data: updated, error: updateError } = await supabase
           .from('clientes')
           .update({ deletado: true })
           .eq('id', id)
-          .eq('office_id', officeId);
+          .eq('office_id', officeId)
+          .select('id');
 
-        if (updateError) throw updateError;
+        assertRowsAffected(updated, updateError, 1);
 
         setData(prev => prev.filter(item => item.id !== id));
 
@@ -163,13 +165,14 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
         });
       } else {
         // Pending Deletion
-        const { error: updateError } = await supabase
+        const { data: updated, error: updateError } = await supabase
           .from('clientes')
           .update({ deletado_pendente: true })
           .eq('id', id)
-          .eq('office_id', officeId);
+          .eq('office_id', officeId)
+          .select('id');
 
-        if (updateError) throw updateError;
+        assertRowsAffected(updated, updateError, 1);
 
         const { error: exclusionError } = await supabase
           .from('exclusoes_pendentes')
@@ -199,7 +202,7 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
       console.error('Erro ao solicitar exclusão:', err);
       toast({
         title: 'Erro ao solicitar exclusão',
-        description: 'Não foi possível processar a solicitação de exclusão.',
+        description: err instanceof Error ? err.message : 'Não foi possível processar a solicitação de exclusão.',
         variant: 'destructive',
       });
       return false;
@@ -216,13 +219,14 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
 
       if (hasAdminRights) {
         // Direct Deletion (Software Delete)
-        const { error: updateError } = await supabase
+        const { data: updated, error: updateError } = await supabase
           .from('clientes')
           .update({ deletado: true })
           .in('id', ids)
-          .eq('office_id', officeId);
+          .eq('office_id', officeId)
+          .select('id');
 
-        if (updateError) throw updateError;
+        assertRowsAffected(updated, updateError, ids.length);
 
         setData(prev => prev.filter(item => !ids.includes(item.id)));
 
@@ -232,13 +236,14 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
         });
       } else {
         // Pending Deletion for non-admins
-        const { error: updateError } = await supabase
+        const { data: updated, error: updateError } = await supabase
           .from('clientes')
           .update({ deletado_pendente: true })
           .in('id', ids)
-          .eq('office_id', officeId);
+          .eq('office_id', officeId)
+          .select('id');
 
-        if (updateError) throw updateError;
+        assertRowsAffected(updated, updateError, ids.length);
 
         const exclusionRecords = recordsToDelete.map(record => ({
           user_id: user.id,
@@ -267,7 +272,7 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
       console.error('Erro ao solicitar exclusões múltiplas:', err);
       toast({
         title: 'Erro ao solicitar exclusões',
-        description: 'Não foi possível processar as solicitações de exclusão.',
+        description: err instanceof Error ? err.message : 'Não foi possível processar as solicitações de exclusão.',
         variant: 'destructive',
       });
       return false;

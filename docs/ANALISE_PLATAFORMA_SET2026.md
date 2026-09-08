@@ -1076,14 +1076,12 @@ encadeia `.select('id')` em todo `update`/`delete` afetado e lança
   problema mesmo antes desta migration (usava `!error` sozinho pra decidir
   sucesso).
 
-**Escopo intencionalmente não coberto**: `financeiro`, `consultivos`,
-`metas`, `clientes` e `processos` ganharam as mesmas policies RESTRICTIVE,
-mas seus hooks de mutation não foram auditados/hardenizados nesta rodada
-porque nenhum override real existe hoje pra essas chaves — não há usuário
-que possa observar um "sucesso" falso agora. Fica registrado como exposição
-latente: no dia em que um admin usar esses toggles pela primeira vez, os
-hooks correspondentes precisam do mesmo tratamento `assertRowsAffected`
-antes de esse override ser confiável na UI.
+**Escopo intencionalmente não coberto (fechado na Parte 8)**: `financeiro`,
+`consultivos`, `metas`, `clientes` e `processos` ganharam as mesmas
+policies RESTRICTIVE, mas seus hooks de mutation não foram
+auditados/hardenizados nesta rodada porque nenhum override real existia
+ainda pra essas chaves — não havia usuário que pudesse observar um
+"sucesso" falso. Ver Parte 8 para o fechamento.
 
 ### Wiring dos flags "widen" na UI (Equipe.tsx)
 
@@ -1148,3 +1146,77 @@ persistiu):
 `get_advisors` (segurança e performance) sem regressões novas — só o
 `INFO` esperado de "RLS enabled, no policy" na tabela nova, mesmo padrão
 já presente nas outras 6 tabelas de log do projeto.
+
+## Parte 8 — panorama do que ficou pendente, e fechamento da exposição latente do D.1
+
+Nova varredura (checklist completo + `get_advisors`) depois da parte 7,
+pra levantar o que ainda está em aberto na plataforma.
+
+### Fechado nesta rodada: `assertRowsAffected` em financeiro/consultivos/metas/clientes/processos
+
+A exposição latente registrada na Parte 6 (as policies RESTRICTIVE já
+valiam pra estes 5 módulos, mas os hooks não conferiam quantas linhas um
+UPDATE/DELETE realmente afetou) foi fechada:
+
+- `useFinanceiro.tsx` — `update`, `remove`, `markPago`. `cancelarGrupo`
+  (bulk por `grupo_id`) precisou de tratamento à parte: conta as linhas que
+  o filtro casa **antes** do UPDATE, porque 0 linhas afetadas é legítimo
+  quando o grupo já não tem lançamento futuro pendente — só vira bloqueio
+  de permissão quando o filtro casava algo e a RLS impediu o UPDATE de
+  tocar.
+- `useConsultivos.tsx` — `update`, `remove`.
+- `useMetas.tsx` — `update`, `remove`.
+- `useClientes.tsx` — `requestDelete` e `requestMultipleDelete`, nos dois
+  ramos cada (exclusão direta de admin **e** o fluxo de "pendente de
+  aprovação" de não-admin — os dois são `UPDATE`, os dois podiam ser
+  bloqueados em silêncio).
+- `useProcessosV2.tsx` — já estava seguro: `update`/`create` usam
+  `.select().single()` (que já lança erro em 0 linhas) e `deleteMutation`
+  já conferia `data.length === 0` desde antes desta rodada.
+
+### Achado novo: o toggle "Excluir" não tem efeito em clientes/processos/atendimentos
+
+Ao revisar `useClientes.tsx` percebi que a ação de "excluir" nessas três
+tabelas é sempre um **soft delete via `UPDATE`** (`deletado = true`), nunca
+um `DELETE` de verdade. As policies RESTRICTIVE da Parte 6 mapeiam
+`canDeleteClients`/`canDeleteProcesses`/`canDeleteAtendimentos` para a ação
+`delete` do Postgres — que a aplicação nunca exercita nessas tabelas. Quem
+efetivamente governa o soft-delete é o toggle de **"Editar"**
+(`canEditClients`/`canEditProcesses`/`canEditAtendimentos`, mapeado pra
+`update`), não o de "Excluir".
+
+Ou seja: se um admin desmarcar só "Excluir Clientes" (deixando "Editar"
+marcado) achando que está bloqueando a exclusão, o membro continua
+excluindo normalmente — o toggle certo pra isso é "Editar". Não é uma
+brecha de segurança nova (o *default* de ambos os toggles é liberado, e
+sem override nenhum comportamento muda), mas é uma promessa da UI que essa
+migration não cumpriu para essas 3 tabelas especificamente — mesma classe
+de problema que o D.1 inteiro existe pra resolver, só que introduzida pela
+própria correção. Registrado aqui em vez de corrigido de imediato: a
+correção correta exige uma policy de `UPDATE` que diferencie "estou
+setando `deletado=true`" de "estou editando outro campo" (via `WITH CHECK`
+comparando o valor novo), o que é desenho de RLS novo, não mais um simples
+hardening de hook.
+
+### Resto do panorama (sem mudança nesta rodada)
+
+- **33 policies RLS permissivas redundantes** (achado da Parte 2) — seguem
+  precisando de reescrita de condição, não housekeeping simples.
+- **16 novos avisos de "multiple permissive policies"**, introduzidos pela
+  própria Parte 6 em `office_teams`/`invitations` (o preço inevitável do
+  desenho de policy "widen" ao lado da policy admin-only já existente) —
+  consolidável depois numa condição OR única, não é bug.
+- **Conexões do Auth do Supabase em número absoluto** em vez de percentual
+  — ajuste de configuração no dashboard, fora do escopo de código/migration.
+- **Manutenibilidade**: 39 arquivos reais acima de 400 linhas (era 34;
+  `types.ts` gerado automaticamente não conta) e ainda 3 fontes de verdade
+  pra preço/plano (`plan_configs`, `usePlanFeatures.tsx`, `Landing.tsx`).
+- **Testes**: hooks de dados (`useProcessosV2`, `useFinanceiro` etc.) e as
+  24 edge functions continuam sem cobertura automatizada — só RLS (pgTAP)
+  e funções puras de `src/lib`.
+- **Ruído, não é achado**: 53 avisos de `unused_index` — ainda recentes
+  (contador zera na criação do índice), reconferir depois de 1-2 semanas
+  de tráfego real.
+
+Verificação: `tsc` limpo, ESLint 0 erros/689 avisos (idêntico à linha de
+base), Vitest 205/205, `vite build` ok, `get_advisors` sem regressões.
