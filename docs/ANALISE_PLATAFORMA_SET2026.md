@@ -129,7 +129,8 @@ das 24 edge functions.
   service role entra); vale um comentário no SQL para ninguém "consertar"
 - 13 funções `SECURITY DEFINER` executáveis por `anon`; todas checam
   `auth.uid()` internamente, mas `confirm_invited_user(email, token)` aceita
-  chamada não autenticada e merece limite de tentativas
+  chamada não autenticada e merece limite de tentativas *(corrigido — ver
+  Parte 7 abaixo)*
 
 ### P3 — Manutenibilidade
 
@@ -1104,3 +1105,46 @@ sem `isOfficeAdmin` chegue até a ação:
 
 Verificação: `tsc` limpo, ESLint 0 erros/689 avisos (idêntico à linha de
 base), Vitest 205/205, `vite build` ok.
+
+## Parte 7 — rate limit em `confirm_invited_user`
+
+Última pendência de segurança da parte 1 (seção "Banco"): `confirm_invited_user(email, token)`
+é `SECURITY DEFINER`, chamável por `anon` de propósito (roda antes do login, no
+fluxo de cadastro por convite), e nunca teve limite de tentativas.
+
+O token é um `uuid` v4 (~122 bits de entropia) — força bruta pura já é
+inviável na prática — mas nada impedia um script martelando a função:
+custo de CPU/IO em `auth.users` a cada chamada, e ausência de defesa em
+profundidade caso o token algum dia fique mais fraco/curto.
+
+### Correção
+
+Rate-limit pela chave que um atacante controla — o e-mail, não o chamador
+(que é sempre `anon` nesse fluxo). Mesmo padrão já usado em
+`authorize_process_search` (parte 1): tabela de log
+(`confirm_invited_user_attempts`) só gravada/lida pela própria função
+`SECURITY DEFINER`, RLS ligada sem nenhuma policy (nega todo acesso direto
+via PostgREST). Acima de 20 tentativas por e-mail em 15 minutos, a função
+retorna `false` — a mesma resposta de token inválido, sem vazar o motivo.
+Limpeza probabilística (1% das chamadas apaga tentativas com mais de 1 dia)
+evita crescimento ilimitado sem precisar de um cron novo.
+
+Zero mudança de comportamento pra um convite legítimo: o fluxo normal
+chama a função 1 vez. Migration:
+`20260908010000_confirm_invited_user_rate_limit.sql`.
+
+### Verificação
+
+Testado ao vivo em produção, dentro de uma transação com `ROLLBACK` (nada
+persistiu):
+
+- 21 chamadas com token errado para o mesmo e-mail → todas `false`, todas
+  logadas.
+- 22ª chamada, agora com o **token correto** → ainda `false` (bloqueada
+  pelo rate limit, prova que ele tem precedência sobre a validação normal).
+- E-mail diferente, 1ª chamada com token correto → `true` (fluxo legítimo
+  intacto).
+
+`get_advisors` (segurança e performance) sem regressões novas — só o
+`INFO` esperado de "RLS enabled, no policy" na tabela nova, mesmo padrão
+já presente nas outras 6 tabelas de log do projeto.
