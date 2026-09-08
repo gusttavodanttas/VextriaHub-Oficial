@@ -185,6 +185,15 @@ export function useTimesheet() {
   const estornarCobranca = async (financeiroId: string): Promise<boolean> => {
     if (!user) return false;
     try {
+      // Recebível já pago: estornar aqui apagaria o registro de que o dinheiro entrou
+      // E reabriria as horas para gerar uma SEGUNDA cobrança (double billing). Bloqueia
+      // e manda o usuário reverter o pagamento no Financeiro primeiro, de propósito.
+      const { data: fin, error: finErr } = await supabase.from('financeiro').select('status').eq('id', financeiroId).maybeSingle();
+      if (finErr) throw finErr;
+      if (fin?.status === 'pago') {
+        toast({ title: 'Cobrança já paga', description: 'Reverta o pagamento na tela Financeiro antes de estornar — senão a receita recebida seria apagada e as horas ficariam abertas para uma nova cobrança.', variant: 'destructive' });
+        return false;
+      }
       // Checa o soft-delete da receita ANTES de reabrir as horas — senão a receita
       // fantasma ficava (recebível órfão) e as horas voltavam re-faturáveis. (v12)
       const { error: delErr } = await supabase.from('financeiro').update({ deletado: true }).eq('id', financeiroId);

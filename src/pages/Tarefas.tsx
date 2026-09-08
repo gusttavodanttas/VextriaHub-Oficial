@@ -246,7 +246,26 @@ const Tarefas = () => {
   useOpenItemFromSearch("/tarefas", !isLoading && tarefas.length > 0, (openId) => {
     const t = tarefas.find(x => String(x.id) === openId);
     if (t) { openEdit(t); return true; }
-    return false;
+    // Fallback: tarefa de processo compartilhado de outro escritório não entra na
+    // lista (filtrada por office_id do usuário atual) — busca direto por id, mesmo
+    // padrão já usado em Audiencias.tsx.
+    (async () => {
+      const { data } = await supabase.from("tarefas").select("*, clientes!cliente_id(nome)").eq("id", openId).maybeSingle();
+      if (data) {
+        const d = data as Tarefa & { clientes?: { nome?: string | null } | null };
+        openEdit({
+          id: d.id, titulo: d.titulo, descricao: d.descricao, data_vencimento: d.data_vencimento,
+          prioridade: d.prioridade, concluida: !!d.concluida, status: d.status,
+          cliente_id: d.cliente_id, processo_id: d.processo_id, atendimento_id: d.atendimento_id ?? null,
+          recorrencia_grupo: d.recorrencia_grupo ?? null, recorrencia_regra: d.recorrencia_regra ?? null,
+          recorrencia_restantes: d.recorrencia_restantes ?? null, cliente_nome: d.clientes?.nome || null,
+          updated_at: d.updated_at, responsavel_id: d.responsavel_id ?? null,
+          concluida_em: d.concluida_em ?? null, concluida_por: d.concluida_por ?? null,
+          avisos_dias: d.avisos_dias ?? null,
+        } as Tarefa);
+      }
+    })();
+    return true;
   });
 
   const handleSubmit = async (input: TarefaInput, id?: string) => {

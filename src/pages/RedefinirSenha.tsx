@@ -32,8 +32,10 @@ const RedefinirSenha = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password.length < 6) {
-      toast({ title: "Senha muito curta", description: "Use pelo menos 6 caracteres.", variant: "destructive" });
+    // Mesmo mínimo do cadastro (Register.tsx) — senão dava pra sair do cadastro com
+    // senha forte e voltar pra uma mais fraca (6-7 caracteres) só pelo reset.
+    if (password.length < 8) {
+      toast({ title: "Senha muito curta", description: "Use pelo menos 8 caracteres.", variant: "destructive" });
       return;
     }
     if (password !== confirm) {
@@ -77,7 +79,7 @@ const RedefinirSenha = () => {
                     type={show ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Mínimo 6 caracteres"
+                    placeholder="Mínimo 8 caracteres"
                     required
                   />
                   <button type="button" onClick={() => setShow(!show)}

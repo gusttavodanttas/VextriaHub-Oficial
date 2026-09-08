@@ -1,5 +1,6 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { getErrorMessage } from '@/lib/errors';
+import { planQuotaMessage } from '@/lib/planQuotaError';
 import { formatCNJ } from '@/utils/formatCNJ';
 import {
   Dialog,
@@ -407,7 +408,15 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
       await onImport(finalProcesses);
       toast({ title: "Importação concluída", description: `${selectedIds.size} processos foram salvos.` });
     } catch (e: unknown) {
-      toast({ title: 'Erro ao importar', description: getErrorMessage(e), variant: 'destructive' });
+      const quota = planQuotaMessage(e);
+      // O erro pode vir prefixado com "N de M processos importados antes de
+      // parar." (ver handleImport do componente pai) — mantém essa parte visível
+      // mesmo quando reconhecido como erro de cota, senão o usuário não sabe
+      // quantos já foram salvos antes da falha no meio do lote.
+      const progresso = getErrorMessage(e).match(/^\d+ de \d+ processos importados antes de parar\./)?.[0];
+      toast(quota
+        ? { ...quota, description: progresso ? `${progresso} ${quota.description}` : quota.description, variant: 'destructive' }
+        : { title: 'Erro ao importar', description: getErrorMessage(e), variant: 'destructive' });
     } finally {
       setImporting(false);
     }
@@ -900,8 +909,18 @@ export const JudicialSyncDialog: React.FC<JudicialSyncDialogProps> = ({
     if (onImport) {
       await onImport(procs);
     } else {
+      // Se um item no meio do lote bater a cota do plano (ou qualquer outro erro),
+      // o loop para ali — mas sem isto o usuário não tinha como saber quantos dos
+      // selecionados já tinham sido importados antes da falha.
+      let importados = 0;
       for (const proc of procs) {
-        await create(proc as any);
+        try {
+          await create(proc as any);
+          importados++;
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          throw new Error(importados > 0 ? `${importados} de ${procs.length} processos importados antes de parar. ${msg}` : msg);
+        }
       }
     }
     onSyncComplete?.();

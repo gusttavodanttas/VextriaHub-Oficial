@@ -31,13 +31,17 @@ onde isto foi escrito), então não é garantido que rode em todo lugar,
 CI incluído, sem uma imagem de Postgres própria ou acesso de rede irrestrito.
 
 No processo também descobri que **`office_teams` e `office_team_members` —
-as duas tabelas centrais da visibilidade por time — não têm `CREATE TABLE`
-em nenhuma migration**; existem só no banco vivo. Um replay das migrations do
-zero quebraria bem antes de chegar aqui. É o mesmo achado "migrations não
-reconstroem o ambiente" da análise de set/2026, agora com um exemplo
-concreto — vale uma migration própria depois (não faço aqui: inserir um
-`CREATE TABLE` com timestamp retroativo numa migration já aplicada em
-produção merece cuidado à parte).
+as duas tabelas centrais da visibilidade por time — não tinham `CREATE TABLE`
+em nenhuma migration**; existiam só no banco vivo (junto com as colunas
+`processos.team_id`/`clientes.team_id`, no mesmo caso). Um replay das
+migrations do zero quebraria bem antes de chegar aqui. Mesmo achado "migrations
+não reconstroem o ambiente" da análise de set/2026 — **corrigido** em
+`supabase/migrations/20250709123700_office_teams_and_team_columns.sql`,
+timestamp posicionado logo após a migration que cria `processos`/`clientes`
+(a mesma estratégia da migration retroativa dos crons). Schema copiado fiel da
+produção via `information_schema`/`pg_constraint`, aplicado como no-op (as
+tabelas já existiam) e validado com este mesmo teste + `get_advisors` sem
+regressão.
 
 Por isso este teste usa um **schema mínimo e autocontido** — só as tabelas e
 funções que `tarefas_select`/`financeiro_select` realmente tocam, com colunas
@@ -69,8 +73,7 @@ rastro nem toca no projeto Supabase real.
 
 ## Próximo passo natural
 
-Migrar `office_teams`/`office_team_members` para uma migration de verdade
-(fecha o gap descrito acima) e então trocar este fixture por um replay real
-de `supabase/migrations/*.sql` — quando o ambiente de CI tiver acesso de rede
-para `supabase start`, ou uma imagem Postgres com as extensões certas
-pré-instaladas.
+Com `office_teams`/`office_team_members` já migradas de verdade, o que falta
+é trocar este fixture por um replay real de `supabase/migrations/*.sql` —
+quando o ambiente de CI tiver acesso de rede para `supabase start`, ou uma
+imagem Postgres com as extensões certas pré-instaladas.

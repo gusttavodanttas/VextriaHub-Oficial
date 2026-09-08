@@ -184,19 +184,25 @@ export default function Lixeira() {
   const handleRestore = async (item: LixeiraItem) => {
     setRestoring(item.id);
     try {
+      // Postgres/PostgREST NÃO lança erro quando a RLS bloqueia um UPDATE/DELETE — só
+      // casa 0 linhas e devolve sucesso. Sem checar `error` (e, no restore, a contagem
+      // de linhas), um restore/exclusão barrado pela RLS mostrava "sucesso" com a linha
+      // intocada no banco, reaparecendo só depois de um F5.
+      let error;
       if (item.tabela === 'processos') {
-        await tenantGuard(supabase.from('processos').update({ deletado: false, deletado_pendente: false }).eq('id', item.id), item);
+        ({ error } = await tenantGuard(supabase.from('processos').update({ deletado: false, deletado_pendente: false }).eq('id', item.id), item));
       } else if (item.tabela === 'publicacoes') {
-        await tenantGuard(supabase.from('publicacoes').update({ status: 'lida' }).eq('id', item.id), item);
+        ({ error } = await tenantGuard(supabase.from('publicacoes').update({ status: 'lida' }).eq('id', item.id), item));
       } else if (item.tabela === 'processos_descartados') {
-        await tenantGuard(supabase.from('processos_descartados').delete().eq('id', item.id), item);
+        ({ error } = await tenantGuard(supabase.from('processos_descartados').delete().eq('id', item.id), item));
       } else {
         if (!TABELAS_PERMITIDAS.has(item.tabela)) throw new Error('Tabela não permitida');
         // prazos não tem a coluna deletado_pendente — enviar o campo faz o restore inteiro falhar (item fica preso na lixeira).
         const restorePatch: Record<string, unknown> = { deletado: false };
         if (item.tabela !== 'prazos') restorePatch.deletado_pendente = false;
-        await tenantGuard(fromTabela(item.tabela).update(restorePatch).eq('id', item.id), item);
+        ({ error } = await tenantGuard(fromTabela(item.tabela).update(restorePatch).eq('id', item.id), item));
       }
+      if (error) throw error;
       toast({ title: 'Restaurado', description: `${TABELA_CONFIG[item.tabela]?.label || item.tabela} restaurado com sucesso.` });
       setItems(prev => prev.filter(i => i.id !== item.id));
     } catch (err: unknown) {
@@ -211,7 +217,8 @@ export default function Lixeira() {
     setDeleting(true);
     try {
       if (!TABELAS_PERMITIDAS.has(confirmDelete.tabela)) throw new Error('Tabela não permitida');
-      await tenantGuard(fromTabela(confirmDelete.tabela).delete().eq('id', confirmDelete.id), confirmDelete);
+      const { error } = await tenantGuard(fromTabela(confirmDelete.tabela).delete().eq('id', confirmDelete.id), confirmDelete);
+      if (error) throw error;
       toast({ title: 'Excluído permanentemente' });
       setItems(prev => prev.filter(i => i.id !== confirmDelete.id));
     } catch (err: unknown) {

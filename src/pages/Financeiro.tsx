@@ -97,7 +97,7 @@ const Financeiro = () => {
 
   const stats = useMemo(() => {
     const receitaMes = items
-      .filter((i) => i.tipo === "receita"
+      .filter((i) => i.tipo === "receita" && i.status !== "cancelado"
         && !isBefore(parseISO(i.data_vencimento), mesStart)
         && !isAfter(parseISO(i.data_vencimento), mesEnd))
       .reduce((acc, i) => acc + i.valor, 0);

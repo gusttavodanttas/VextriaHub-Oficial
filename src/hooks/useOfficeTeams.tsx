@@ -74,9 +74,13 @@ export function useOfficeTeams() {
   };
 
   const remove = async (id: string) => {
-    const { error } = await supabase.from("office_teams").delete().eq("id", id);
-    if (!error) setTeams(prev => prev.filter(t => t.id !== id));
-    return !error;
+    // RLS bloqueada em delete não gera erro, só casa 0 linhas — sem o .select("id")
+    // aqui a UI tirava a equipe da lista e mostrava "Equipe excluída" mesmo sem
+    // apagar nada no banco (voltava no próximo refetch).
+    const { data, error } = await supabase.from("office_teams").delete().eq("id", id).select("id");
+    const ok = !error && (data?.length ?? 0) > 0;
+    if (ok) setTeams(prev => prev.filter(t => t.id !== id));
+    return ok;
   };
 
   return { teams, loading, create, update, remove, refetch: fetch };

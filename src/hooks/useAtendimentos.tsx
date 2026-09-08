@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { assertRowsAffected } from "@/lib/errors";
 import { continueOccurrences, type RecRule } from "@/lib/recorrencia";
 import type { Atendimento } from "@/components/Atendimentos/shared";
 import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/rows";
@@ -45,8 +46,8 @@ export const useAtendimentos = (officeId: string | null | undefined) => {
 
   const update = useMutation({
     mutationFn: async ({ id, ...payload }: TablesUpdate<"atendimentos"> & { id: string }) => {
-      const { error } = await supabase.from("atendimentos").update(payload).eq("id", id);
-      if (error) throw error;
+      const { data, error } = await supabase.from("atendimentos").update(payload).eq("id", id).select("id");
+      assertRowsAffected(data, error, 1);
     },
     onSuccess: () => { invalidate(); toast({ title: "Atendimento atualizado!" }); },
     onError: (e: Error) => toast({ title: "Erro ao atualizar", description: e.message, variant: "destructive" }),
@@ -54,8 +55,8 @@ export const useAtendimentos = (officeId: string | null | undefined) => {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("atendimentos").update({ deletado: true }).eq("id", id);
-      if (error) throw error;
+      const { data, error } = await supabase.from("atendimentos").update({ deletado: true }).eq("id", id).select("id");
+      assertRowsAffected(data, error, 1);
     },
     onSuccess: () => { invalidate(); toast({ title: "Atendimento excluído!" }); },
     onError: (e: Error) => toast({ title: "Erro ao excluir", description: e.message, variant: "destructive" }),
@@ -63,8 +64,8 @@ export const useAtendimentos = (officeId: string | null | undefined) => {
 
   const markRealizado = useMutation({
     mutationFn: async (item: Atendimento) => {
-      const { error } = await supabase.from("atendimentos").update({ status: "realizado" }).eq("id", item.id);
-      if (error) throw error;
+      const { data, error } = await supabase.from("atendimentos").update({ status: "realizado" }).eq("id", item.id).select("id");
+      assertRowsAffected(data, error, 1);
 
       // Recorrência encadeada: ao concluir, gera a PRÓXIMA ocorrência (best-effort)
       const rule = item.recorrencia_regra as RecRule | null;

@@ -201,20 +201,43 @@
     padding-left:14px;margin-top:30px;max-width:66ch
   }
   hr.rule{border:0;border-top:1px solid var(--line);margin:0}
+
+  /* ── resolved finding (parte 6) ── */
+  .find.done{--sev:var(--ok);--sev-soft:var(--ok-soft)}
+  .tag.ok{color:var(--ok);background:var(--ok-soft)}
+
+  /* ── audit table (parte 4/5) ── */
+  .audit{width:100%;border-collapse:collapse;font-size:13.5px}
+  .audit th{
+    text-align:left;font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--muted);font-weight:500;padding:0 12px 8px 0;
+    border-bottom:1px solid var(--line)
+  }
+  .audit td{padding:9px 12px 9px 0;border-bottom:1px solid var(--line-soft);vertical-align:top;color:var(--ink-2)}
+  .audit td:first-child{
+    font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--muted);white-space:nowrap;padding-right:14px
+  }
+  .audit td:last-child{font-size:11.5px;color:var(--muted);white-space:nowrap}
+  .audit tbody tr:hover td{color:var(--ink)}
+  .audit-area{
+    font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--brand);background:var(--brand-soft);padding:9px 12px;margin:22px 0 2px;border-radius:3px 3px 0 0
+  }
+  .audit-area:first-child{margin-top:0}
 </style>
 
 <div class="wrap">
 
   <header class="masthead">
-    <p class="eyebrow">Análise técnica · 4 de setembro de 2026</p>
+    <p class="eyebrow">Análise técnica · 4–8 de setembro de 2026 · partes 1–6</p>
     <h1>Raio-X do VextriaHub</h1>
-    <p class="lede">Plataforma madura e bem construída: <strong>RLS em todas as tabelas</strong>, portão de pagamento no banco, CI verde, zero segredo no repositório. Os riscos reais não estão no código — estão em <strong>o que é vendido e não é cobrado</strong>, no <strong>custo aberto da IA</strong> e na <strong>impossibilidade de reconstruir o ambiente</strong> a partir das migrations.</p>
+    <p class="lede">Plataforma madura e bem construída: <strong>RLS em todas as tabelas</strong>, portão de pagamento no banco, CI verde, zero segredo no repositório. A análise inicial (parte 1) achou o risco real fora do código — <strong>o que é vendido e não é cobrado</strong>, o <strong>custo aberto da IA</strong> — e todos os 8 itens do plano de ação já foram aplicados. Quatro rodadas depois (partes 2–6), a mesma vara passou pelas 32 telas do produto e pelo sistema de permissões por membro, que prometia mais do que cumpria.</p>
     <div class="meta">
       <span>branch <b>claude/platform-analysis-u7drw8</b></span>
-      <span>commit <b>14bc173</b></span>
+      <span>commit <b>2fe2104</b></span>
       <span><b>59.241</b> linhas · <b>321</b> arquivos TS/TSX</span>
       <span><b>33</b> páginas · <b>61</b> hooks · <b>24</b> edge functions</span>
-      <span><b>135</b> migrations · <b>~46</b> tabelas · <b>270</b> políticas RLS</span>
+      <span><b>146</b> migrations · <b>~46</b> tabelas · <b>270+</b> políticas RLS</span>
     </div>
   </header>
 
@@ -229,13 +252,13 @@
       </div>
       <div class="sig">
         <div class="k">ESLint</div>
-        <div class="v"><span class="dot warn"></span>0 erros · 720 avisos</div>
-        <div class="n">teto da CI: 720 — sem folga</div>
+        <div class="v"><span class="dot ok"></span>0 erros · 689 avisos</div>
+        <div class="n">teto da CI: 700 (era 720, sem folga)</div>
       </div>
       <div class="sig">
         <div class="k">Testes</div>
-        <div class="v"><span class="dot ok"></span>186 / 186</div>
-        <div class="n">20 arquivos · 7,9 s</div>
+        <div class="v"><span class="dot ok"></span>205 / 205</div>
+        <div class="n">22 arquivos · inclui pgTAP (13/13)</div>
       </div>
       <div class="sig">
         <div class="k">Build</div>
@@ -403,9 +426,9 @@ select cron.schedule('google-sync-15min','*/15 * * * *',
 
     <h3>O que vale mexer</h3>
     <ul class="plain">
-      <li><strong>35 policies reavaliam <code>auth.uid()</code> linha a linha.</strong> Trocar por <code>(select auth.uid())</code> faz o Postgres avaliar uma vez só. É achar e substituir, e é a otimização de RLS com melhor retorno que existe.</li>
+      <li><strong>35 policies reavaliam <code>auth.uid()</code> linha a linha.</strong> Trocar por <code>(select auth.uid())</code> faz o Postgres avaliar uma vez só. É achar e substituir, e é a otimização de RLS com melhor retorno que existe. <strong>Atualização (parte 2):</strong> feito — inclusive duas policies de <code>invitations</code> (usavam <code>auth.email()</code>, fora do padrão de busca original) e duas de <code>storage.objects</code> (schema fora do escopo original), achadas só numa segunda varredura sem filtro de função/schema. Hoje: zero ocorrências em todo o banco.</li>
       <li><strong>56 chaves estrangeiras sem índice de cobertura</strong> — <code>atendimentos</code> (4), <code>audiencias</code> (2) e outras. Hoje o volume esconde; numa tabela grande, cada <em>join</em> ou <em>delete</em> vira varredura completa.</li>
-      <li><strong>82 avisos de policies permissivas duplicadas</strong>, com <code>plan_configs</code> (20), <code>tarefa_comentarios</code> (15) e <code>tarefa_subtarefas</code> (15) na frente: toda consulta nessas tabelas avalia várias policies onde uma consolidada bastaria.</li>
+      <li><strong>82 avisos de policies permissivas duplicadas</strong>, com <code>plan_configs</code> (20), <code>tarefa_comentarios</code> (15) e <code>tarefa_subtarefas</code> (15) na frente: toda consulta nessas tabelas avalia várias policies onde uma consolidada bastaria. <strong>Atualização (parte 2):</strong> 8 dessas policies eram provadamente redundantes (duplicata exata, subconjunto estrito, ou morta por checar <code>service_role</code> — role que já ignora RLS) e foram removidas; 82 → 33. As 33 restantes têm condições genuinamente diferentes e exigem reescrever a regra, não só apagar — ver <code>ANALISE_PLATAFORMA_SET2026.md</code>, seção "Parte 2".</li>
       <li><strong>Seis tabelas com RLS ligada e nenhuma policy</strong> (<code>google_integrations</code>, <code>google_oauth_states</code>, <code>zap_synced_leads</code>, <code>process_search_log</code>, <code>trial_reminder_log</code>, <code>google_calendar_map</code>). Isso é <em>seguro</em> — nega tudo para o cliente e só o service role entra. Vale um comentário no SQL dizendo que é de propósito, para ninguém “consertar” depois.</li>
       <li><strong>13 funções <code>SECURITY DEFINER</code> executáveis pelo papel <code>anon</code></strong>. Todas checam <code>auth.uid()</code> por dentro, então não vazam — mas <code>confirm_invited_user(email, token)</code> aceita chamada não autenticada e merece limite de tentativas, para o token de convite não ser adivinhável por força bruta.</li>
     </ul>
@@ -414,7 +437,7 @@ select cron.schedule('google-sync-15min','*/15 * * * *',
   <section id="manutencao">
     <h2>Manutenibilidade</h2>
     <p>O código é legível e comentado acima da média — os comentários explicam decisão e incidente, não repetem a linha abaixo. O ponto de atrito é o <strong>tamanho de alguns componentes</strong>: 34 arquivos passam de 400 linhas, com <code>ProcessoDetailsDrawer.tsx</code> em 1.273, <code>JudicialSyncDialog.tsx</code> em 949 e <code>NovoPrazoStandaloneDialog.tsx</code> em 910. Não é urgente, mas é onde uma mudança pequena leva meia hora de leitura antes da primeira linha escrita — e onde a IA (a sua ou a de um colaborador) mais erra.</p>
-    <p>Dois detalhes de arrumação: <code>src/migrations/20260418_cleanup_asaas.sql</code> está sozinho no diretório errado (o lugar é <code>supabase/migrations/</code>), e o <code>README.md</code> ainda é o texto padrão do Lovable — nenhuma palavra sobre o produto, as variáveis de ambiente ou como subir o ambiente. Para quem chegar depois, é o primeiro arquivo aberto.</p>
+    <p>Dois detalhes de arrumação: <code>src/migrations/20260418_cleanup_asaas.sql</code> estava sozinho no diretório errado, e o <code>README.md</code> era o texto padrão do Lovable — nenhuma palavra sobre o produto, as variáveis de ambiente ou como subir o ambiente. <strong>Corrigidos (parte 2):</strong> o arquivo virou <code>supabase/migrations/20260418000000_cleanup_asaas.sql</code> (versionado retroativamente, sem efeito prático — as tabelas já tinham sido removidas manualmente em abril); o <code>README.md</code> foi reescrito com stack, setup local, scripts e os secrets que cada workflow de CI/CD precisa.</p>
     <p>Três fontes de verdade convivem para preço e plano: <code>plan_configs</code> no banco, as constantes de <code>usePlanFeatures.tsx</code> e os valores escritos à mão em <code>Landing.tsx</code>, cujo próprio comentário diz “espelham o catálogo”. Espelhos desalinham.</p>
   </section>
 
@@ -443,9 +466,9 @@ select cron.schedule('google-sync-15min','*/15 * * * *',
             <td><strong>Feito.</strong> <code>executeTool</code>/<code>buildSnapshot</code>/resumos trocaram o cliente service role pelo cliente <em>anon</em> (já autenticado com o JWT do usuário) — a RLS decide o que a IA vê e altera.</td>
           </tr>
           <tr>
-            <td>4</td>
+            <td>4 ✓</td>
             <td><strong>Crons pelo vault</strong><br>segredos em <code>supabase_vault</code>, migrations replayáveis</td>
-            <td>Hoje reconstruir o ambiente do zero deixa os robôs mudos, sem erro visível. Não aplicado — precisa dos segredos reais de produção.</td>
+            <td><strong>Feito.</strong> Os dois segredos (<code>service_role_key</code>, <code>robot_secret</code>) migrados para o <code>supabase_vault</code> direto em produção; os 8 <code>cron.schedule</code> agora leem de lá em vez de placeholder no texto.</td>
           </tr>
           <tr>
             <td>5 ✓</td>
@@ -460,7 +483,7 @@ select cron.schedule('google-sync-15min','*/15 * * * *',
           <tr>
             <td>7 ✓</td>
             <td><strong>Primeiro teste de RLS</strong><br>dois escritórios, dois times, quem vê o quê</td>
-            <td><strong>Feito.</strong> <code>supabase/tests/rls-standalone/</code>, <code>npm run test:rls</code>. Achado no caminho: <code>office_teams</code>/<code>office_team_members</code> não têm <code>CREATE TABLE</code> em nenhuma migration.</td>
+            <td><strong>Feito.</strong> <code>supabase/tests/rls-standalone/</code>, <code>npm run test:rls</code>. Achado no caminho: <code>office_teams</code>/<code>office_team_members</code> não tinham <code>CREATE TABLE</code> em nenhuma migration. <strong>Atualização (parte 3):</strong> corrigido — e o buraco era maior: <code>processos.team_id</code>/<code>clientes.team_id</code> também nunca tiveram <code>ALTER TABLE</code> versionado. Migration retroativa datada logo após a criação de <code>processos</code>/<code>clientes</code>, validada com <code>npm run test:rls</code> (13/13) — ver <code>ANALISE_PLATAFORMA_SET2026.md</code>, seção "Parte 3".</td>
           </tr>
           <tr>
             <td>8 ✓</td>
@@ -471,9 +494,114 @@ select cron.schedule('google-sync-15min','*/15 * * * *',
       </table>
     </div>
 
-    <p class="note">Depois desta análise foram aplicados no repositório: o item 1 acima (teto e medição do consumo de IA) e a correção do bug em que prazo/tarefa não concluído sumia da Agenda e do dashboard no dia seguinte. O detalhe de cada mudança está em <code>docs/ANALISE_PLATAFORMA_SET2026.md</code>.</p>
+    <p class="note">Escopo da parte 1: leitura completa da árvore no commit <code>14bc173</code>, execução de type-check, lint, testes e build, e consulta aos advisors de segurança e desempenho do projeto Supabase em produção — somente leitura.</p>
+  </section>
 
-    <p class="note">Escopo desta análise: leitura completa da árvore no commit <code>14bc173</code>, execução de type-check, lint, testes e build, e consulta aos advisors de segurança e desempenho do projeto Supabase em produção — somente leitura. Nada foi alterado no banco, nas edge functions ou no repositório.</p>
+  <section id="frontend">
+    <h2>Partes 4–6 — as 32 telas e as permissões que prometiam mais do que cumpriam</h2>
+    <p class="sub">As três primeiras partes foram quase todo backend (RLS, migrations, edge functions). Esta rodada cobriu o que fica na frente do usuário: 6 revisões independentes em paralelo, cada uma lendo por completo um grupo de páginas + hooks + componentes, instruídas a só reportar um cenário de falha concreto — input X → resultado errado Y — nunca "poderia ser melhor". <strong>30 achados, os 30 corrigidos.</strong></p>
+
+    <div class="signals" style="margin-bottom:36px">
+      <div class="sig">
+        <div class="k">Páginas revisadas</div>
+        <div class="v">32</div>
+      </div>
+      <div class="sig">
+        <div class="k">Achados</div>
+        <div class="v">30</div>
+      </div>
+      <div class="sig">
+        <div class="k">Corrigidos</div>
+        <div class="v"><span class="dot ok"></span>30 / 30</div>
+      </div>
+      <div class="sig">
+        <div class="k">Pendentes</div>
+        <div class="v"><span class="dot ok"></span>0</div>
+      </div>
+    </div>
+
+    <article class="find done">
+      <div class="find-head"><span class="tag ok">D.1 · resolvido</span><h4>As ~20 permissões por membro agora têm efeito real</h4></div>
+      <p>O achado mais importante do bloco. A tela Equipe → Permissões sempre prometeu ~20 toggles de "Ver/Criar/Editar/Excluir/Gerenciar" por membro — mas nem a tela nem a RLS jamais consultavam <code>user_permissions.granted</code> pra maioria deles. Não era hipotético: um admin já tinha configurado <strong>8 overrides reais</strong> pra um membro específico, e nenhum jamais fez diferença.</p>
+      <div class="ev">antes:  toggle "Gerenciar Tarefas: não" → membro editava/excluía tarefa normalmente
+depois: mesmo toggle → UPDATE/DELETE bloqueado pela RLS, UI avisa "sem permissão"
+        (sem nenhum override configurado, ZERO mudança pra qualquer outro membro)</div>
+      <p>Desenho: uma função <code>permission_override()</code> só retorna algo quando existe uma linha explícita em <code>user_permissions</code> — sem override, cai no comportamento de sempre. 38 policies <code>RESTRICTIVE</code> (Ver/Criar/Editar/Excluir/Gerenciar em clientes, processos, atendimentos, financeiro, audiências, tarefas, prazos, consultivos, metas) + 4 policies de "abertura" (convidar membro, gerenciar equipe — hoje admin-only), com o mesmo cuidado que a tela já tinha de nunca aplicar override a um admin/super-admin global.</p>
+      <p class="fix"><b>Risco fechado no caminho</b>Postgres não erra quando um <code>UPDATE</code>/<code>DELETE</code> é bloqueado pela RLS — só casa 0 linhas e devolve "sucesso" (mesma classe do achado F.1, abaixo). As novas policies restritivas reabriram esse risco em 4 hooks com override real hoje; todos passaram a conferir quantas linhas voltaram antes de dizer "sucesso" pro usuário.</p>
+    </article>
+
+    <h3 style="margin-top:32px">Os outros 29, por área</h3>
+    <p class="sub">Método: parte 4 achou 13 corrigidos na hora e 17 documentados pra correção pontual (parte 5) — 16 fechados naquela rodada, o 17º era o D.1 acima.</p>
+
+    <div class="scroll">
+      <div class="audit-area">A · Agenda / Prazos / Audiências / Tarefas / Atendimentos</div>
+      <table class="audit">
+        <tbody>
+          <tr><td>A.1</td><td>Corte "hoje" da lista de Atrasados escondia por 1 dia quem venceu à noite (fuso).</td><td>✓ corrigido</td></tr>
+          <tr><td>A.2</td><td>"Atrasados" de atendimentos só pegava <code>status="agendado"</code>, nunca <code>"pendente"</code>.</td><td>✓ corrigido</td></tr>
+          <tr><td>A.3</td><td>Atendimento cancelado aparecia normal na Agenda; concluído nunca ganhava visual de resolvido.</td><td>✓ corrigido</td></tr>
+          <tr><td>A.4</td><td><code>CalendarWidget</code> do dashboard misturava tarefas/atendimentos de escritórios diferentes.</td><td>✓ corrigido</td></tr>
+          <tr><td>A.5</td><td>Deep-link de prazo/tarefa a partir de processo compartilhado abria em silêncio e falhava.</td><td>✓ corrigido</td></tr>
+        </tbody>
+      </table>
+
+      <div class="audit-area">B · Financeiro / Timesheet / CRM / Metas</div>
+      <table class="audit">
+        <tbody>
+          <tr><td>B.1</td><td>"Receita do Mês" contava receita cancelada.</td><td>✓ corrigido</td></tr>
+          <tr><td>B.2</td><td>Reativar "Faturável" ao editar lançamento do Timesheet não salvava.</td><td>✓ corrigido</td></tr>
+          <tr><td>B.3</td><td>"Estornar cobrança" apagava um recebível já pago sem avisar, reabrindo horas pra cobrar de novo.</td><td>✓ corrigido</td></tr>
+          <tr><td>B.4</td><td><code>Register.tsx</code> mostrava preço/badge de plano sem checar <code>is_active</code>.</td><td>✓ corrigido</td></tr>
+          <tr><td>B.5</td><td>Lançamento de Timesheet virando meia-noite falhava em silêncio (+ desvio de fuso de 3h no salvamento).</td><td>✓ corrigido</td></tr>
+        </tbody>
+      </table>
+
+      <div class="audit-area">C · Processos / Clientes / Consultivo / Correspondentes</div>
+      <table class="audit">
+        <tbody>
+          <tr><td>C.1</td><td>Import em lote de OAB e dois fluxos de cliente-inline não mostravam a mensagem de cota do plano.</td><td>✓ corrigido</td></tr>
+          <tr><td>C.2</td><td>Toast duplicado e conflitante ao bater a cota criando processo.</td><td>✓ corrigido</td></tr>
+          <tr><td>C.3</td><td>"Excluir" aparecia em processos compartilhados que a RLS nunca deixa excluir.</td><td>✓ corrigido</td></tr>
+          <tr><td>C.4</td><td><code>useCorrespondentes</code> misturava dados de todos os escritórios do usuário (sem filtro de <code>office_id</code>).</td><td>✓ corrigido</td></tr>
+          <tr><td>C.5</td><td><code>useConsultivos</code> engolia a causa real de qualquer erro (<code>catch{}</code> genérico).</td><td>✓ corrigido</td></tr>
+        </tbody>
+      </table>
+
+      <div class="audit-area">D · Equipe / Admin / Configurações / Perfil</div>
+      <table class="audit">
+        <tbody>
+          <tr><td>D.1</td><td>Toggles de "Permissões" por membro sem efeito real — ver card acima.</td><td>✓ corrigido</td></tr>
+          <tr><td>D.2</td><td>Ações de gerenciar equipe sempre mostravam "sucesso", mesmo quando a RLS bloqueava.</td><td>✓ corrigido</td></tr>
+          <tr><td>D.3</td><td><code>Perfil.tsx</code> nunca mostrava "Coordenador" (lia a coluna errada, de outra tabela).</td><td>✓ corrigido</td></tr>
+          <tr><td>D.4</td><td>Confirmação de exclusão de equipe não mencionava processos/clientes/metas vinculados.</td><td>✓ corrigido</td></tr>
+        </tbody>
+      </table>
+
+      <div class="audit-area">E · Login / Cadastro / IA</div>
+      <table class="audit">
+        <tbody>
+          <tr><td>E.1</td><td>Admin de escritório logava e caía em <code>/dashboard</code> em vez de <code>/admin</code>.</td><td>✓ corrigido</td></tr>
+          <tr><td>E.2</td><td><code>checkout_in_progress</code> travava o auto-redirect do Login pra sempre, num navegador específico.</td><td>✓ corrigido</td></tr>
+          <tr><td>E.3</td><td>Erro de <code>apply_signup_plan</code> era engolido; cadastro reportava sucesso sem aplicar o plano escolhido.</td><td>✓ corrigido</td></tr>
+          <tr><td>E.4</td><td>Política de senha inconsistente: cadastro exigia 8+, redefinir aceitava 6+.</td><td>✓ corrigido</td></tr>
+          <tr><td>E.5</td><td>Erro de reconhecimento de voz na IA (mic negado, sem microfone, rede) era totalmente silencioso.</td><td>✓ corrigido</td></tr>
+        </tbody>
+      </table>
+
+      <div class="audit-area">F · Dashboard / Gráficos / Publicações / Notificações / Lixeira</div>
+      <table class="audit">
+        <tbody>
+          <tr><td>F.1</td><td>Restaurar/excluir na Lixeira reportava sucesso mesmo quando a RLS bloqueava.</td><td>✓ corrigido</td></tr>
+          <tr><td>F.2</td><td>Gráfico "Receita x Despesa" perdia/duplicava meses inteiros perto da virada do mês.</td><td>✓ corrigido</td></tr>
+          <tr><td>F.3</td><td>Cores do gráfico de pizza trocadas quando alguém tem 0 processos.</td><td>✓ corrigido</td></tr>
+          <tr><td>F.4</td><td>Badge de notificação não lida ficava dessincronizado entre sino e a página <code>/notificacoes</code>.</td><td>✓ corrigido</td></tr>
+          <tr><td>F.5</td><td>Bucket de mês em <code>useChartsData</code> misturava fuso local e UTC.</td><td>✓ corrigido</td></tr>
+          <tr><td>F.6</td><td>Filtro por time nos Gráficos usava só <code>responsavel_id</code>, sem fallback pra <code>user_id</code>.</td><td>✓ corrigido</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="note">Verificação de cada rodada desta parte: <code>tsc</code> limpo, ESLint 0 erros/689 avisos (idêntico à linha de base), Vitest 205/205, <code>vite build</code> ok. Detalhe completo de cada achado, com trecho de código e a correção aplicada, em <code>docs/ANALISE_PLATAFORMA_SET2026.md</code> — partes 2 a 6.</p>
   </section>
 
 </div>

@@ -1,4 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 // Voz nativa do navegador: reconhecimento (fala → texto) + síntese (texto → fala),
 // em pt-BR. Sem backend e sem custo. STT depende de suporte do navegador
@@ -15,10 +16,17 @@ export function stripMarkdown(text: string): string {
     .trim();
 }
 
+const ERRO_STT: Record<string, string> = {
+  'not-allowed': 'Permita o acesso ao microfone nas configurações do navegador.',
+  'audio-capture': 'Nenhum microfone encontrado.',
+  network: 'Falha de rede no reconhecimento de voz.',
+};
+
 export function useSpeech() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
   const [listening, setListening] = useState(false);
+  const { toast } = useToast();
 
   const sttSupported = typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
   const ttsSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
@@ -44,14 +52,25 @@ export function useSpeech() {
         if (t) onFinal(t);
       };
       rec.onend = () => setListening(false);
-      rec.onerror = () => setListening(false);
+      // Antes disto qualquer erro (mic negado, sem microfone, rede) só parava de
+      // pulsar o botão sem explicar nada — parecia que o clique não tinha feito
+      // nada. "no-speech"/"aborted" ficam de fora: são o caso comum de usuário não
+      // falar nada ou cancelar, não um erro de verdade.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      rec.onerror = (e: any) => {
+        setListening(false);
+        const code = e?.error as string | undefined;
+        if (code && code !== 'no-speech' && code !== 'aborted') {
+          toast({ title: 'Não deu pra ouvir', description: ERRO_STT[code] || 'Erro no reconhecimento de voz.', variant: 'destructive' });
+        }
+      };
       recognitionRef.current = rec;
       setListening(true);
       rec.start();
     } catch {
       setListening(false);
     }
-  }, [sttSupported]);
+  }, [sttSupported, toast]);
 
   const speak = useCallback((text: string) => {
     if (!ttsSupported) return;

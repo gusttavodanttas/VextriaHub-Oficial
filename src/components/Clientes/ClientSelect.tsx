@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { onlyDigits } from "@/lib/document";
 import { NovoClienteDialog } from "@/components/Clientes/NovoClienteDialog";
+import { planQuotaMessage } from "@/lib/planQuotaError";
 
 interface ClientSelectProps {
   value: string; // client_id
@@ -101,7 +102,8 @@ export const ClientSelect: React.FC<ClientSelectProps> = ({ value, onValueChange
     };
     const { data: created, error } = await supabase.from('clientes').insert(payload).select('id, nome').single();
     if (error || !created) {
-      toast({ title: "Erro ao cadastrar cliente", description: error?.message, variant: "destructive" });
+      const quota = planQuotaMessage(error);
+      toast(quota ? { ...quota, variant: "destructive" } : { title: "Erro ao cadastrar cliente", description: error?.message, variant: "destructive" });
       return false;
     }
     await fetchClients();

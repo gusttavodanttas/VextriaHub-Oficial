@@ -77,22 +77,26 @@ export function useCorrespondentes() {
   const { data: correspondentes = [], isLoading: loadingCorr } = useQuery({
     queryKey: ['correspondentes', officeId],
     queryFn: async (): Promise<Correspondente[]> => {
-      const { data, error } = await sb.from('correspondentes').select('*').order('nome', { ascending: true });
+      // Sem este filtro, a única coisa restringindo a lista era a RLS — que libera
+      // QUALQUER escritório em que o usuário seja membro ativo, não só "o atual".
+      // Usuário em 2+ escritórios via correspondentes/diligências dos dois
+      // misturados, sem indicação visual (diferente de todo outro hook do app).
+      const { data, error } = await sb.from('correspondentes').select('*').eq('office_id', officeId).order('nome', { ascending: true });
       if (error) throw error;
       return (data || []) as Correspondente[];
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && !!officeId,
     staleTime: 20_000,
   });
 
   const { data: diligencias = [], isLoading: loadingDil } = useQuery({
     queryKey: ['diligencias', officeId],
     queryFn: async (): Promise<Diligencia[]> => {
-      const { data, error } = await sb.from('diligencias').select('*').order('created_at', { ascending: false });
+      const { data, error } = await sb.from('diligencias').select('*').eq('office_id', officeId).order('created_at', { ascending: false });
       if (error) throw error;
       return (data || []) as Diligencia[];
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && !!officeId,
     staleTime: 20_000,
   });
 

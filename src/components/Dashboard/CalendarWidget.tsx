@@ -63,13 +63,17 @@ export function CalendarWidget({ refreshKey }: { refreshKey?: number }) {
           .eq("office_id", user.office_id).eq("deletado", false)
           .not("status", "in", "(cancelada,realizada)")
           .gte("data_audiencia", start).lte("data_audiencia", end),
-        // tarefas não têm office_id — a RLS já limita ao escritório/usuário
+        // tarefas TÊM office_id — a RLS por si só não restringe a UM escritório
+        // (cobre todo escritório em que o usuário está ativo, mais compartilhados),
+        // então sem este filtro um usuário de dois escritórios via tarefas do outro aqui.
         supabase.from("tarefas").select("id, titulo, data_vencimento, concluida")
-          .eq("deletado", false).eq("concluida", false)
+          .eq("office_id", user.office_id).eq("deletado", false).eq("concluida", false)
           .gte("data_vencimento", start).lte("data_vencimento", end),
-        // atendimentos agendados (sem office_id — RLS limita)
+        // idem atendimentos — e "agendado" sozinho excluía "pendente" (status real e
+        // distinto, ver Atendimentos.tsx); troca pela mesma lista de exclusão das audiências.
         supabase.from("atendimentos").select("id, tipo_atendimento, data_atendimento, status")
-          .eq("deletado", false).eq("status", "agendado")
+          .eq("office_id", user.office_id).eq("deletado", false)
+          .not("status", "in", "(cancelado,realizado)")
           .gte("data_atendimento", start).lte("data_atendimento", end),
         // consultivos com prazo definido (que não estejam concluídos)
         supabase.from("consultivos").select("id, titulo, prazo, status")

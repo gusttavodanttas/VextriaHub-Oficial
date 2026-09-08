@@ -17,7 +17,18 @@ function lastMonths(n: number): MonthBucket[] {
   return out;
 }
 
-const monthKey = (iso: string | null | undefined) => (iso ? iso.slice(0, 7) : "");
+// Colunas DATE (ex.: data_fim_prazo) já são "YYYY-MM-DD" sem fuso — slice direto
+// está certo. Colunas timestamptz (created_at, data_audiencia) vêm em UTC; um
+// registro perto da virada do mês (ex.: 31/ago 23h30 BRT = 01/set 02h30 UTC)
+// caía no mês seguinte em TODAS as séries "por mês" se só cortasse a string.
+// Distingue pela presença de "T" e usa componentes LOCAIS pro caso datetime —
+// mesma base de lastMonths(), que também é local.
+const monthKey = (iso: string | null | undefined) => {
+  if (!iso) return "";
+  if (!iso.includes("T")) return iso.slice(0, 7);
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
 
 export interface MemberBreakdown {
   name: string;
@@ -110,23 +121,35 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
         if (!teamMemberIds.length) teamMemberIds = ["00000000-0000-0000-0000-000000000000"];
       }
       const inMembers = (q: any, col: string) => (teamMemberIds ? q.in(col, teamMemberIds) : q);
+      // Algumas linhas nascem sem responsavel_id (ex.: atendimento criado pelo drawer
+      // do processo grava só user_id) — a agregação por membro mais abaixo já cai pra
+      // user_id nesse caso (ensure(memberMap, p.responsavel_id || p.user_id)). Filtrar
+      // só por responsavel_id ao trocar de "todo o escritório" pra um time específico
+      // fazia essas linhas sumirem da contagem do time mesmo pertencendo a um membro
+      // dele. `.or()` cobre os dois: responsavel_id direto, OU (sem responsavel_id E
+      // dono é da equipe).
+      const inMembersOrUser = (q: any, ids: string[] | null, respCol: string, userCol: string) => {
+        if (!ids) return q;
+        const csv = ids.join(",");
+        return q.or(`${respCol}.in.(${csv}),and(${respCol}.is.null,${userCol}.in.(${csv}))`);
+      };
 
       const [proc, prz, cli, at, fin, cons, ts, off] = await Promise.all([
-        teamMemberIds
-          ? supabase.from("processos").select("status, tipo_processo, created_at, updated_at, responsavel_id, user_id, data_distribuicao, data_inicio, data_ultima_atualizacao, data_encerramento, resultado")
-              .eq("office_id", officeId).eq("deletado", false).in("responsavel_id", teamMemberIds)
-          : supabase.from("processos").select("status, tipo_processo, created_at, updated_at, responsavel_id, user_id, data_distribuicao, data_inicio, data_ultima_atualizacao, data_encerramento, resultado")
-              .eq("office_id", officeId).eq("deletado", false),
-        inMembers(supabase.from("prazos").select("responsavel_id, data_fim_prazo, created_at, status, tipo_prazo")
-          .eq("office_id", officeId), "responsavel_id"),
+        inMembersOrUser(
+          supabase.from("processos").select("status, tipo_processo, created_at, updated_at, responsavel_id, user_id, data_distribuicao, data_inicio, data_ultima_atualizacao, data_encerramento, resultado")
+            .eq("office_id", officeId).eq("deletado", false),
+          teamMemberIds, "responsavel_id", "user_id",
+        ),
+        inMembersOrUser(supabase.from("prazos").select("responsavel_id, user_id, data_fim_prazo, created_at, status, tipo_prazo")
+          .eq("office_id", officeId), teamMemberIds, "responsavel_id", "user_id"),
         supabase.from("clientes").select("tipo_pessoa, status, created_at")
           .eq("office_id", officeId).eq("deletado", false).eq("deletado_pendente", false),
-        inMembers(supabase.from("atendimentos").select("created_at, responsavel_id, user_id")
-          .eq("office_id", officeId).eq("deletado", false).gte("created_at", since), "responsavel_id"),
+        inMembersOrUser(supabase.from("atendimentos").select("created_at, responsavel_id, user_id")
+          .eq("office_id", officeId).eq("deletado", false).gte("created_at", since), teamMemberIds, "responsavel_id", "user_id"),
         inMembers(supabase.from("financeiro").select("tipo, valor, categoria, created_at, user_id")
           .eq("office_id", officeId).eq("deletado", false).neq("status", "cancelado").gte("created_at", since), "user_id"),
-        inMembers(supabase.from("consultivos").select("created_at, status, user_id, responsavel_id")
-          .eq("office_id", officeId).eq("deletado", false).gte("created_at", since), "responsavel_id"),
+        inMembersOrUser(supabase.from("consultivos").select("created_at, status, user_id, responsavel_id")
+          .eq("office_id", officeId).eq("deletado", false).gte("created_at", since), teamMemberIds, "responsavel_id", "user_id"),
         inMembers(supabase.from("timesheets").select("created_at, duracao_minutos, user_id")
           .gte("created_at", since), "user_id"),
         supabase.from("offices").select("settings").eq("id", officeId).maybeSingle(),

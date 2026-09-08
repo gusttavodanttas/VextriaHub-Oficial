@@ -7,6 +7,7 @@ import { Processo } from '@/types/processo';
 import type { TablesInsert } from '@/integrations/supabase/rows';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getErrorMessage } from '@/lib/errors';
+import { planQuotaMessage } from '@/lib/planQuotaError';
 
 export function useProcessosV2() {
   const { user } = useAuth();
@@ -206,6 +207,10 @@ export function useProcessosV2() {
     },
     onError: (err: unknown) => {
       console.error('Erro ao criar/sincronizar processo:', err);
+      // Erro de cota de plano já tem mensagem amigável própria mostrada por quem
+      // chamou (NovoProcessoDialog, o import em lote) — sem este pulo, o usuário
+      // via os dois toasts empilhados: este genérico E o de "Faça upgrade".
+      if (planQuotaMessage(err)) return;
       toast({
         title: 'Erro na sincronização',
         description: getErrorMessage(err, 'Não foi possível salvar os dados.'),

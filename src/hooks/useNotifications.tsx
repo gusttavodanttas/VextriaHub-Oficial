@@ -140,6 +140,24 @@ export const useNotifications = () => {
             setNotifications(prev => [newNotif, ...prev]);
           }
         )
+        // Sem isto, o sino do cabeçalho e a página /notificacoes rodam instâncias
+        // independentes deste hook: marcar como lida numa não atualizava o contador
+        // da outra até desmontar/remontar. UPDATE/DELETE aqui cobrem qualquer
+        // instância aberta, incluindo a que fez a mudança (idempotente).
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+          (payload) => {
+            setNotifications(prev => prev.map(n => n.id === payload.new.id ? { ...n, read: payload.new.read } : n));
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: 'DELETE', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+          (payload) => {
+            setNotifications(prev => prev.filter(n => n.id !== payload.old.id));
+          }
+        )
         .subscribe();
 
       return () => {
