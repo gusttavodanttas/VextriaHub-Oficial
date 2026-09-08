@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { assertRowsAffected } from "@/lib/errors";
 
 export interface Meta {
   id: string;
@@ -173,20 +174,30 @@ export function useMetas() {
 
   const update = async (id: string, input: NovaMetaInput): Promise<boolean> => {
     const { inicio, fim } = periodToRange(input.periodo, input.dataInicio, input.dataFim);
-    const { error } = await supabase.from("metas").update({
+    const { data, error } = await supabase.from("metas").update({
       titulo: input.titulo, tipo: input.tipo, periodo: input.periodo,
       valor_meta: input.valorMeta, data_inicio: inicio, data_fim: fim,
       team_id: input.teamId || null, updated_at: new Date().toISOString(),
-    }).eq("id", id);
-    if (error) { toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" }); return false; }
+    }).eq("id", id).select("id");
+    try {
+      assertRowsAffected(data, error, 1);
+    } catch (e) {
+      toast({ title: "Erro ao salvar", description: e instanceof Error ? e.message : String(e), variant: "destructive" });
+      return false;
+    }
     toast({ title: "Meta atualizada" });
     await fetch();
     return true;
   };
 
   const remove = async (id: string): Promise<boolean> => {
-    const { error } = await supabase.from("metas").update({ deletado: true }).eq("id", id);
-    if (error) { toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" }); return false; }
+    const { data, error } = await supabase.from("metas").update({ deletado: true }).eq("id", id).select("id");
+    try {
+      assertRowsAffected(data, error, 1);
+    } catch (e) {
+      toast({ title: "Erro ao excluir", description: e instanceof Error ? e.message : String(e), variant: "destructive" });
+      return false;
+    }
     setMetas(prev => prev.filter(m => m.id !== id));
     toast({ title: "Meta excluída" });
     return true;

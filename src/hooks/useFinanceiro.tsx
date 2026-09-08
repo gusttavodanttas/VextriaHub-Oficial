@@ -9,6 +9,7 @@ import {
   DEFAULT_CATEGORIAS_RECEITA, DEFAULT_CATEGORIAS_DESPESA,
   type FinanceiroItem,
 } from "@/components/Financeiro/shared";
+import { assertRowsAffected } from "@/lib/errors";
 import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/rows";
 
 // ─── Hook financeiro ─────────────────────────────────────────────────────────
@@ -53,8 +54,8 @@ const useFinanceiro = (officeId: string | null | undefined) => {
 
   const update = useMutation({
     mutationFn: async ({ id, ...payload }: TablesUpdate<"financeiro"> & { id: string }) => {
-      const { error } = await supabase.from("financeiro").update(payload).eq("id", id);
-      if (error) throw error;
+      const { data, error } = await supabase.from("financeiro").update(payload).eq("id", id).select("id");
+      assertRowsAffected(data, error, 1);
     },
     onSuccess: () => { invalidate(); toast({ title: "Registro atualizado!" }); },
     onError: (e: Error) => toast({ title: "Erro ao atualizar", description: e.message, variant: "destructive" }),
@@ -62,8 +63,8 @@ const useFinanceiro = (officeId: string | null | undefined) => {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("financeiro").update({ deletado: true }).eq("id", id);
-      if (error) throw error;
+      const { data, error } = await supabase.from("financeiro").update({ deletado: true }).eq("id", id).select("id");
+      assertRowsAffected(data, error, 1);
     },
     onSuccess: () => { invalidate(); toast({ title: "Registro excluído!" }); },
     onError: (e: Error) => toast({ title: "Erro ao excluir", description: e.message, variant: "destructive" }),
@@ -71,11 +72,12 @@ const useFinanceiro = (officeId: string | null | undefined) => {
 
   const markPago = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("financeiro")
         .update({ status: "pago", data_pagamento: format(new Date(), "yyyy-MM-dd") })
-        .eq("id", id);
-      if (error) throw error;
+        .eq("id", id)
+        .select("id");
+      assertRowsAffected(data, error, 1);
     },
     onSuccess: () => { invalidate(); toast({ title: "Marcado como pago!" }); },
     onError: (e: Error) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
@@ -84,12 +86,21 @@ const useFinanceiro = (officeId: string | null | undefined) => {
   const cancelarGrupo = useMutation({
     mutationFn: async (grupoId: string) => {
       const hoje = format(new Date(), "yyyy-MM-dd");
-      const { error } = await supabase.from("financeiro")
-        .update({ deletado: true })
+      // Conta ANTES de atualizar: 0 linhas afetadas é legítimo quando o grupo já não
+      // tem lançamento futuro pendente — só é bloqueio de permissão quando o filtro
+      // casava alguma coisa e a RLS impediu o UPDATE de tocar nela.
+      const { count } = await supabase.from("financeiro")
+        .select("id", { count: "exact", head: true })
         .eq("grupo_id", grupoId)
         .eq("status", "pendente")
         .gte("data_vencimento", hoje);
-      if (error) throw error;
+      const { data, error } = await supabase.from("financeiro")
+        .update({ deletado: true })
+        .eq("grupo_id", grupoId)
+        .eq("status", "pendente")
+        .gte("data_vencimento", hoje)
+        .select("id");
+      assertRowsAffected(data, error, count ?? 0);
     },
     onSuccess: () => { invalidate(); toast({ title: "Lançamentos futuros cancelados." }); },
     onError: (e: Error) => toast({ title: "Erro", description: e.message, variant: "destructive" }),

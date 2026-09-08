@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
-import { getErrorMessage } from "@/lib/errors";
+import { getErrorMessage, assertRowsAffected } from "@/lib/errors";
 
 export type Consultivo = Tables<"consultivos"> & {
   clientes?: { nome: string } | null;
@@ -61,9 +61,9 @@ export function useConsultivos() {
 
   const update = async (id: string, payload: TablesUpdate<"consultivos">): Promise<boolean> => {
     try {
-      const { error } = await supabase
-        .from("consultivos").update({ ...payload, updated_at: new Date().toISOString() }).eq("id", id);
-      if (error) throw error;
+      const { data, error } = await supabase
+        .from("consultivos").update({ ...payload, updated_at: new Date().toISOString() }).eq("id", id).select("id");
+      assertRowsAffected(data, error, 1);
       await fetchData();
       return true;
     } catch (err) {
@@ -75,9 +75,9 @@ export function useConsultivos() {
 
   const remove = async (id: string): Promise<boolean> => {
     try {
-      const { error } = await supabase
-        .from("consultivos").update({ deletado: true, updated_at: new Date().toISOString() }).eq("id", id);
-      if (error) throw error;
+      const { data, error } = await supabase
+        .from("consultivos").update({ deletado: true, updated_at: new Date().toISOString() }).eq("id", id).select("id");
+      assertRowsAffected(data, error, 1);
       setData(prev => prev.filter(c => c.id !== id));
       toast({ title: "Consultivo removido" });
       return true;
