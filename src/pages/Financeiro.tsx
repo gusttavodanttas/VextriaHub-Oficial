@@ -46,6 +46,7 @@ import {
   User,
   ListOrdered,
   ArrowRight,
+  FileSpreadsheet,
 } from "lucide-react";
 import {
   format,
@@ -68,6 +69,7 @@ import { useFinanceiro, useFinanceiroCategorias } from "@/hooks/useFinanceiro";
 import { GerenciarCategoriasDialog } from "@/components/Financeiro/GerenciarCategoriasDialog";
 import { FormDialog } from "@/components/Financeiro/FinanceiroFormDialog";
 import { FinanceiroRow, EmptyState, LoadingSkeleton } from "@/components/Financeiro/FinanceiroRow";
+import { ImportarPlanilhaDialog } from "@/components/Financeiro/ImportarPlanilhaDialog";
 import { DiligenciasFinanceiroPanel } from "@/components/Correspondentes/DiligenciasFinanceiroPanel";
 // ─── Page ────────────────────────────────────────────────────────────────────
 
@@ -92,6 +94,7 @@ const Financeiro = () => {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [catDialogOpen, setCatDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [editItem, setEditItem] = useState<FinanceiroItem | null>(null);
   const [defaultTipo, setDefaultTipo] = useState<TipoType>("receita");
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -256,6 +259,9 @@ const Financeiro = () => {
           <div className="flex items-center gap-2 glass-morphism p-2 rounded-2xl border border-black/5 dark:border-border bg-black/[0.02] dark:bg-muted/30 shadow-premium">
             <Button size="icon" variant="ghost" className="h-11 w-11 rounded-xl" onClick={() => setCatDialogOpen(true)} title="Gerenciar categorias" aria-label="Gerenciar categorias">
               <Settings2 className="h-5 w-5 text-muted-foreground" />
+            </Button>
+            <Button size="icon" variant="ghost" className="h-11 w-11 rounded-xl" onClick={() => setImportDialogOpen(true)} title="Importar planilha (Excel/CSV)" aria-label="Importar planilha">
+              <FileSpreadsheet className="h-5 w-5 text-muted-foreground" />
             </Button>
             <Button size="lg"
               className="rounded-xl h-11 px-5 font-black uppercase text-xs tracking-widest bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20"
@@ -486,6 +492,18 @@ const Financeiro = () => {
           categoriasReceita={categoriasReceita}
           categoriasDespesa={categoriasDespesa}
           onSave={handleSaveCategorias}
+        />
+
+        {/* Dialog importar planilha */}
+        <ImportarPlanilhaDialog
+          open={importDialogOpen}
+          onClose={() => setImportDialogOpen(false)}
+          officeId={officeId}
+          userId={user?.id ?? ""}
+          categoriasReceita={categoriasReceita}
+          categoriasDespesa={categoriasDespesa}
+          importing={create.isPending}
+          onImport={(rows) => create.mutate(rows, { onSuccess: () => setImportDialogOpen(false) })}
         />
       </div>
     </PermissionGuard>
