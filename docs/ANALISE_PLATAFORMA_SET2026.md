@@ -1939,6 +1939,53 @@ processos já importados, o que é uma decisão de produto à parte.
 
 Nenhuma mudança de banco/RLS — só as 3 funções edge
 (`fetch-processo`/`fetch-by-oab`).
+
+### Backfill dos dados já capturados
+
+Os ~82 registros já existentes com o título antigo (`processos_encontrados`:
+30, `publicações`: 35, `prazos`: 17) foram corrigidos via UPDATE direto no
+banco: onde só uma parte tinha nome real, usou-se esse nome sozinho; onde
+nenhuma parte foi identificada, usou-se o tipo do documento/prazo
+("Intimação", "Edital", "Pauta de julgamento" etc.) como título. Verificado
+que 0 registros restaram com o padrão ruim nas 3 tabelas depois do backfill.
+
+Também foi encontrado e corrigido um segundo bug relacionado: o texto da
+comunicação do PJE vem em HTML, e o código removia as tags mas nunca
+decodificava as entidades (`&iacute;`, `&nbsp;` etc.), deixando resíduos
+tipo "Ju&iacute;za de Direito" quando o tribunal manda a entidade sem tag ao
+redor. Adicionado `decodeHtmlEntities()` nos dois edge functions.
+
+## Parte 19b — unificação da lógica duplicada entre fetch-processo e fetch-by-oab
+
+Os dois edge functions duplicavam ~250 linhas quase idênticas
+(`extractPartes`/`cleanName`, `decodeHtmlEntities`, `classifyFase`,
+`classifyInstancia`, `summarize`, `tribunalFromCNJ`, `parseDataAjuizamento`,
+`extractMovs`) — foi exatamente essa duplicação que exigiu corrigir o bug de
+nomenclatura (parte 19) em dois lugares.
+
+Extraído para `supabase/functions/_shared/processoParsing.ts`, importado
+pelos dois arquivos. Verificado via diff que os 11 blocos extraídos eram
+byte-idênticos entre os dois arquivos antes da extração (nenhuma mudança de
+comportamento).
+
+**Deliberadamente NÃO unificado**, porque os dois arquivos já divergem de
+propósito:
+- `fixAccents`/`resolveMunicipio` (correção de acentos perdidos do CNJ e
+  resolução de comarca via IBGE) — só em `fetch-processo`.
+- `enrichMovText`/`buildAndamentos` — `fetch-by-oab` tem uma versão mais
+  rica (trata complementos de texto livre além dos tabelados).
+- Mapa de tribunal por UF — `fetch-processo` já sabe o tribunal exato pelo
+  CNJ; `fetch-by-oab` varre vários tribunais (TJ+TRF+TRT) por UF, já que só
+  tem a OAB.
+
+### Verificação
+
+18 testes unitários da lógica extraída (`deno run`, sem dependências
+externas) cobrindo todas as funções compartilhadas — todos passaram.
+`deno lint` limpo (mesmos avisos pré-existentes de `no-explicit-any`,
+nenhum novo). Deploy feito com o arquivo compartilhado incluído no bundle
+de cada função (deploy independente por função no Supabase; fonte única no
+git).
 ## Parte 20 — módulo Financeiro: separação PJ/PF (índice de mistura) e priorização de despesas
 
 Usuário enviou um protótipo próprio ("JurisFinance AI", feito no Google AI
