@@ -135,7 +135,7 @@ const ProcessoIntegracaoBody: React.FC<ProcessoIntegracaoBodyProps> = ({
           <Button variant="ghost" size="icon" onClick={() => {
             setMode('choice');
             setCapturedData(null);
-          }} className="rounded-full hover:bg-black/5 dark:hover:bg-muted/40 transition-colors">
+          }} className="rounded-full hover:bg-black/5 dark:hover:bg-muted/40 transition-colors" aria-label="Voltar">
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
@@ -165,7 +165,7 @@ const ProcessoIntegracaoBody: React.FC<ProcessoIntegracaoBodyProps> = ({
     return (
       <div className="flex flex-col h-full animate-in fade-in slide-in-from-right-4 duration-500">
         <div className="flex items-center gap-4 mb-8">
-          <Button variant="ghost" size="icon" onClick={() => setMode('choice')} className="rounded-full hover:bg-black/5 dark:hover:bg-muted/40 transition-colors">
+          <Button variant="ghost" size="icon" onClick={() => setMode('choice')} className="rounded-full hover:bg-black/5 dark:hover:bg-muted/40 transition-colors" aria-label="Voltar">
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
@@ -190,7 +190,7 @@ const ProcessoIntegracaoBody: React.FC<ProcessoIntegracaoBodyProps> = ({
     return (
       <div className="flex flex-col h-full animate-in fade-in slide-in-from-right-4 duration-500">
         <div className="flex items-center gap-4 mb-8">
-          <Button variant="ghost" size="icon" onClick={() => setMode('choice')} className="rounded-full hover:bg-black/5 dark:hover:bg-muted/40 transition-colors">
+          <Button variant="ghost" size="icon" onClick={() => setMode('choice')} className="rounded-full hover:bg-black/5 dark:hover:bg-muted/40 transition-colors" aria-label="Voltar">
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>

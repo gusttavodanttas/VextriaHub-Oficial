@@ -209,7 +209,7 @@ const Financeiro = () => {
           </div>
 
           <div className="flex items-center gap-2 glass-morphism p-2 rounded-2xl border border-black/5 dark:border-border bg-black/[0.02] dark:bg-muted/30 shadow-premium">
-            <Button size="icon" variant="ghost" className="h-11 w-11 rounded-xl" onClick={() => setCatDialogOpen(true)} title="Gerenciar categorias">
+            <Button size="icon" variant="ghost" className="h-11 w-11 rounded-xl" onClick={() => setCatDialogOpen(true)} title="Gerenciar categorias" aria-label="Gerenciar categorias">
               <Settings2 className="h-5 w-5 text-muted-foreground" />
             </Button>
             <Button size="lg"

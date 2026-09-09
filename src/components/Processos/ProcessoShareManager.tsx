@@ -120,7 +120,7 @@ export const ProcessoShareManager: React.FC<Props> = ({ processoId, active }) =>
                 <Button size="sm" variant="ghost" className="h-8 rounded-xl text-[10px] font-black uppercase" onClick={() => setConfirmId(null)}>Cancelar</Button>
               </div>
             ) : (
-              <Button size="icon" variant="ghost" className="h-9 w-9 rounded-xl text-muted-foreground/50 hover:text-rose-500 shrink-0" title="Revogar acesso" onClick={() => setConfirmId(s.id)}>
+              <Button size="icon" variant="ghost" className="h-9 w-9 rounded-xl text-muted-foreground/50 hover:text-rose-500 shrink-0" title="Revogar acesso" aria-label="Revogar acesso" onClick={() => setConfirmId(s.id)}>
                 <Trash2 className="h-4 w-4" />
               </Button>
             )}

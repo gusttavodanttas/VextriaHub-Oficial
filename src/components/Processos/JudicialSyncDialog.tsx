@@ -481,24 +481,26 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
             
             {/* Controles de Paginação */}
             <div className="flex items-center gap-2 border-l border-black/5 dark:border-border ml-2 pl-4">
-              <Button 
-                variant="ghost" 
-                size="icon" 
+              <Button
+                variant="ghost"
+                size="icon"
                 className="h-8 w-8 text-muted-foreground hover:bg-muted"
                 disabled={currentPage === 1}
                 onClick={() => setCurrentPage(p => p - 1)}
+                aria-label="Página anterior"
               >
                 <ChevronRight className="h-4 w-4 rotate-180" />
               </Button>
               <span className="text-[10px] text-muted-foreground/60 font-mono font-bold">
                 {currentPage} / {totalPages}
               </span>
-              <Button 
-                variant="ghost" 
-                size="icon" 
+              <Button
+                variant="ghost"
+                size="icon"
                 className="h-8 w-8 text-muted-foreground hover:bg-muted"
                 disabled={currentPage === totalPages}
                 onClick={() => setCurrentPage(p => p + 1)}
+                aria-label="Próxima página"
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>

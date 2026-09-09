@@ -1570,9 +1570,9 @@ marcado como aprovado) — o admin pode tentar de novo.
   restante de `useExclusoesPendentes` (`AuthContext` ganhou cobertura na
   Parte 15, logo abaixo; o padrão de `offices.settings` foi fechado na
   Parte 16).
-- 41 arquivos >400 linhas (era 39), ~55 botões de ícone sem `aria-label`,
-  `@supabase/supabase-js` desatualizado — qualidade/manutenibilidade, sem
-  urgência.
+- 41 arquivos >400 linhas (era 39), `@supabase/supabase-js` desatualizado
+  — qualidade/manutenibilidade, sem urgência (os botões sem `aria-label`
+  foram fechados na Parte 17).
 
 (Os outros 3 itens que estavam pendentes aqui — funções `SECURITY DEFINER`
 executáveis por `anon`, `enforce_office_seat_limit` exposta via RPC, e
@@ -1747,3 +1747,46 @@ achado (nem todos eram bug de verdade):
 
 Sem mudança de banco/RLS — só os 8 arquivos de código TS/React que de fato
 tinham o bug.
+
+## Parte 17 — `aria-label` nos botões de ícone (acessibilidade)
+
+Último item de baixa severidade ainda pendente das rodadas 2/3: ~55
+botões `size="icon"` (só ícone, sem texto visível) sem nenhum atributo
+acessível — leitor de tela não tinha como anunciar o que o botão faz.
+
+### Levantamento
+
+A primeira varredura (regex simples) deu números inconsistentes — `onClick={() => ...}`
+tem um `>` dentro do `=>` que engana um parser ingênuo de tag JSX (conta
+como fim da tag antes da hora, ou impede o match inteiro). Corrigido com
+um parser mínimo que rastreia profundidade de `{}` pra nunca tratar um
+`>` dentro de uma expressão como fim da tag. Contagem final, confirmada
+duas vezes (antes e depois da correção): **62 botões `size="icon"` no
+projeto, 57 sem `aria-label`**.
+
+### Correção
+
+Adicionado `aria-label` nos 57 pontos, em português, curto e específico
+ao contexto — reaproveitando o texto do `title` quando já existia (ex.:
+`title="Excluir"` → `aria-label="Excluir"`), ou inferindo do ícone
+(`lucide-react`) + da ação (`onClick`/nome da função) quando não tinha
+`title` nenhum (ex.: `Login.tsx`/`Register.tsx`, o botão de mostrar/ocultar
+senha, ganhou `aria-label` dinâmico: "Mostrar senha" / "Ocultar senha",
+alternando com o estado). Nenhuma outra mudança — só o atributo novo,
+mesmo texto/visual pra quem enxerga a tela.
+
+### Verificação
+
+Re-varredura com o mesmo parser confirma **0 de 62 sem `aria-label`**.
+
+| Verificação | Resultado |
+| --- | --- |
+| `tsc -p tsconfig.app.json` | limpo |
+| ESLint | 0 erros · 697 avisos (idêntico à Parte 16) |
+| Vitest | 214/214 |
+| `vite build` | ok |
+
+Com esta parte, todo o panorama de achados de segurança/qualidade
+levantado na "nova análise completa" desta sessão está fechado — resta só
+manutenibilidade de fundo (arquivos grandes, `@supabase/supabase-js`
+desatualizado), sem urgência.

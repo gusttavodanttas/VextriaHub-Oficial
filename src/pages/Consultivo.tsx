@@ -496,7 +496,7 @@ export default function ConsultivoPage() {
           <div className="flex items-center gap-3">
             {filtroClienteNome && (
               <Button variant="ghost" size="icon" onClick={() => navigate("/clientes")}
-                className="rounded-xl hover:bg-primary/10 hover:text-primary">
+                className="rounded-xl hover:bg-primary/10 hover:text-primary" aria-label="Voltar para clientes">
                 <ArrowLeft className="h-5 w-5" />
               </Button>
             )}

@@ -153,7 +153,7 @@ export const UserManagement: React.FC = () => {
                         {user.role !== 'super_admin' && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl"><MoreHorizontal className="h-4 w-4" /></Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl" aria-label="Mais opções do usuário"><MoreHorizontal className="h-4 w-4" /></Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="rounded-xl">
                               <DropdownMenuItem onClick={() => handleUpdateUserRole(user.id, user.role === 'admin' ? 'user' : 'admin')}>

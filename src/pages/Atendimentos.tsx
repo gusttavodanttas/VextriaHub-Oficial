@@ -277,16 +277,16 @@ const Atendimentos = () => {
           {/* Alternar visão */}
           <div className="flex items-center rounded-xl border border-black/8 dark:border-border bg-card/60 p-0.5 shrink-0">
             <Button size="icon" variant={view === "lista" ? "secondary" : "ghost"}
-              onClick={() => setView("lista")} className="h-10 w-10 rounded-lg" title="Visão em lista">
+              onClick={() => setView("lista")} className="h-10 w-10 rounded-lg" title="Visão em lista" aria-label="Visão em lista">
               <LayoutGrid className="h-4 w-4" />
             </Button>
             <Button size="icon" variant={view === "semana" ? "secondary" : "ghost"}
-              onClick={() => setView("semana")} className="h-10 w-10 rounded-lg" title="Visão semanal">
+              onClick={() => setView("semana")} className="h-10 w-10 rounded-lg" title="Visão semanal" aria-label="Visão semanal">
               <CalendarDays className="h-4 w-4" />
             </Button>
           </div>
           <Button size="icon" variant="outline" onClick={() => setTiposDialogOpen(true)}
-            className="h-11 w-11 rounded-xl shrink-0" title="Gerenciar tipos de atendimento">
+            className="h-11 w-11 rounded-xl shrink-0" title="Gerenciar tipos de atendimento" aria-label="Gerenciar tipos de atendimento">
             <Settings2 className="h-4 w-4" />
           </Button>
           <Button size="lg" onClick={openNew}

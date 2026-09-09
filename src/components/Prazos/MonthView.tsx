@@ -22,8 +22,8 @@ export function MonthView({ items, refDate, onPrev, onNext, onHoje, onSelect }: 
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
-          <Button size="icon" variant="outline" className="h-9 w-9 rounded-xl" onClick={onPrev} title="Mês anterior"><ChevronLeft className="h-4 w-4" /></Button>
-          <Button size="icon" variant="outline" className="h-9 w-9 rounded-xl" onClick={onNext} title="Próximo mês"><ChevronRight className="h-4 w-4" /></Button>
+          <Button size="icon" variant="outline" className="h-9 w-9 rounded-xl" onClick={onPrev} title="Mês anterior" aria-label="Mês anterior"><ChevronLeft className="h-4 w-4" /></Button>
+          <Button size="icon" variant="outline" className="h-9 w-9 rounded-xl" onClick={onNext} title="Próximo mês" aria-label="Próximo mês"><ChevronRight className="h-4 w-4" /></Button>
           <Button variant="outline" className="h-9 rounded-xl px-3 text-[10px] font-black uppercase tracking-widest" onClick={onHoje}>Hoje</Button>
         </div>
         <p className="text-sm font-black tracking-tight capitalize">{format(refDate, 'MMMM yyyy', { locale: ptBR })}</p>

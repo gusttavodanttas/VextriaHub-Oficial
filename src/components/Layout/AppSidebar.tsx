@@ -124,6 +124,7 @@ export function AppSidebar() {
                 size="icon"
                 className="h-7 w-7 rounded-lg hover:bg-muted/60 shrink-0"
                 onClick={toggleSidebar}
+                aria-label={collapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
               >
                 {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
               </Button>

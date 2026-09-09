@@ -27,6 +27,7 @@ export const ProcessoViewSwitcher: React.FC<ProcessoViewSwitcherProps> = ({
           size="icon" 
           className="h-10 w-10 rounded-xl glass-morphism border-border hover:bg-muted/30"
           title="Configurações de Visualização"
+          aria-label="Configurações de visualização"
         >
           <Settings2 className="h-5 w-5 text-primary" />
         </Button>

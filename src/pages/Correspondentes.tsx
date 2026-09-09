@@ -243,8 +243,8 @@ const DiligenciaCard: React.FC<{
           {d.descricao && <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{d.descricao}</p>}
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-muted-foreground/50 hover:text-primary" onClick={onEdit} title="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
-          <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-muted-foreground/50 hover:text-rose-500" onClick={onDelete} title="Excluir"><Trash2 className="h-3.5 w-3.5" /></Button>
+          <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-muted-foreground/50 hover:text-primary" onClick={onEdit} title="Editar" aria-label="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
+          <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-muted-foreground/50 hover:text-rose-500" onClick={onDelete} title="Excluir" aria-label="Excluir"><Trash2 className="h-3.5 w-3.5" /></Button>
         </div>
       </div>
 
@@ -297,8 +297,8 @@ const CorrespondenteCard: React.FC<{
         {(c.oab || c.uf) && <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5"><Scale className="h-3 w-3" />{[c.oab, c.uf].filter(Boolean).join(' · ')}</p>}
       </div>
       <div className="flex items-center gap-1 shrink-0">
-        <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-muted-foreground/50 hover:text-primary" onClick={onEdit} title="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
-        {canDelete && <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-muted-foreground/50 hover:text-rose-500" onClick={onDelete} title="Excluir"><Trash2 className="h-3.5 w-3.5" /></Button>}
+        <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-muted-foreground/50 hover:text-primary" onClick={onEdit} title="Editar" aria-label="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
+        {canDelete && <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-muted-foreground/50 hover:text-rose-500" onClick={onDelete} title="Excluir" aria-label="Excluir"><Trash2 className="h-3.5 w-3.5" /></Button>}
       </div>
     </div>
 
