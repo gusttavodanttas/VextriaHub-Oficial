@@ -1365,28 +1365,54 @@ era jogado de volta pra `/admin` — a barra lateral já tinha um link
 dedicado e correto pra isso ("Solicitações", `/admin?tab=requests`), mas
 o dashboard normal nunca ficava acessível.
 
-### Correção
+### Correção — v1 (sessionStorage) e por que falhou em produção
 
-`Login.tsx` marca um sinalizador (`sessionStorage`) só nos dois pontos
-onde o redirect pós-login roda. `Index.tsx` lê esse sinalizador **uma vez**
-no mount (`useState` com inicializador lazy) e só se auto-corrige pra
-`/admin` enquanto ele existir — consumindo-o (removendo) assim que
-corrige. Fora dessa janela pós-login (ou seja: qualquer clique manual em
-"Início" depois), o admin vê o dashboard normalmente, exatamente como um
-usuário comum.
+A primeira correção (mergeada via PR #9) marcava um sinalizador em
+`sessionStorage` nos dois pontos onde o redirect pós-login roda em
+`Login.tsx`, e `Index.tsx` lia esse sinalizador **uma vez** no mount
+(`useState` com inicializador lazy), consumindo-o (removendo) assim que
+usava.
+
+O usuário testou ao vivo em produção depois do deploy (confirmado pelo
+histórico do workflow `deploy-oracle.yml`, que rodou com sucesso) e
+reportou que o bug **continuava** — "acessei aqui e continua da mesma
+forma". Investigando de novo: o sinalizador é gravado em **todo** login,
+mas só é lido/limpo por `Index.tsx`. Para o caso comum de um admin cujo
+`role` já chega correto na hora do login (sem corrida nenhuma),
+`getRedirectPath` já devolve `/admin` diretamente — `Login.tsx` navega
+direto pra `/admin` e `Index.tsx` **nunca chega a montar**, então nunca
+consome o sinalizador. Ele fica parado em `sessionStorage` (que persiste
+entre navegações na mesma aba até ela fechar). Na primeira vez que esse
+mesmo admin, na mesma aba, clicar em "Início" — montando `Index.tsx` pela
+primeira vez —, o sinalizador ainda está lá, e o auto-redirect pra
+`/admin` dispara de novo: exatamente o bug original.
+
+### Correção — v2 (location.state)
+
+Trocado o sinalizador persistido por `state` do próprio evento de
+navegação do React Router: `Login.tsx` passa
+`navigate(redirectPath, { replace: true, state: { fromLoginRedirect: true } })`
+nos dois pontos de redirect pós-login, e `Index.tsx` lê
+`location.state?.fromLoginRedirect === true` diretamente (sem
+`useState`/snapshot — `location.state` é estável entre re-renders da
+mesma entrada de rota e só muda numa navegação nova).
+
+Isso resolve os três cenários possíveis:
+- **Login direto pra `/admin`** (sem corrida): `Index.tsx` nunca monta;
+  o sinalizador é irrelevante e não fica "pendurado" em lugar nenhum.
+- **Corrida real** (`Login.tsx` erra e manda pra `/dashboard` com o role
+  provisório): a navegação carrega `fromLoginRedirect: true`, `Index.tsx`
+  espera o role real resolver e se autocorrige pra `/admin`.
+- **Clique manual em "Início"** a qualquer momento depois: é uma
+  navegação nova, sem esse `state` — o dashboard renderiza normalmente,
+  mesmo que tenha sido o resultado de um redirect de login pouco antes na
+  mesma aba.
+
+Ao contrário do `sessionStorage`, `location.state` não sobrevive além da
+navegação que o criou — não há como ficar "pendurado" esperando um mount
+que nunca acontece.
 
 ### Verificação
-
-Rastreamento completo do fluxo de estado (`AuthContext.processUserData` →
-`Login.tsx` → `Index.tsx`) confirmando que o sinalizador cobre exatamente
-a janela de corrida original sem reintroduzi-la: se o `role` real só
-chega depois do primeiro mount do `Index.tsx`, o efeito roda de novo
-(dependência em `isSuperAdmin`/`isOfficeAdmin`) e ainda corrige, porque
-`pendingLoginRedirect` foi capturado uma vez só no mount e permanece
-`true` durante toda a vida do componente. Não foi possível testar o
-fluxo de login ao vivo no navegador nesta sessão (exigiria credenciais
-reais de um admin de produção); a verificação foi por leitura completa
-do código e pelos 4 checks automatizados abaixo.
 
 | Verificação | Resultado |
 | --- | --- |
@@ -1396,4 +1422,6 @@ do código e pelos 4 checks automatizados abaixo.
 | `vite build` | ok |
 
 Nenhuma mudança de banco/RLS — só `src/pages/Login.tsx` e
-`src/pages/Index.tsx`.
+`src/pages/Index.tsx`. Correção enviada como PR separado (correção da
+v1/PR #9), seguindo o padrão da sessão de nunca reescrever histórico já
+mergeado.
