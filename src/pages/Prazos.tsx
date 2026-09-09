@@ -176,9 +176,9 @@ export default function Prazos() {
         <div className="flex gap-2 w-full sm:w-auto">
           <div className="flex items-center rounded-xl border border-black/8 dark:border-border bg-card/60 p-0.5 shrink-0">
             <Button size="icon" variant={view === 'lista' ? 'secondary' : 'ghost'}
-              onClick={() => setView('lista')} className="h-9 w-9 rounded-lg" title="Lista"><List className="h-4 w-4" /></Button>
+              onClick={() => setView('lista')} className="h-9 w-9 rounded-lg" title="Lista" aria-label="Lista"><List className="h-4 w-4" /></Button>
             <Button size="icon" variant={view === 'calendario' ? 'secondary' : 'ghost'}
-              onClick={() => setView('calendario')} className="h-9 w-9 rounded-lg" title="Calendário"><CalendarDays className="h-4 w-4" /></Button>
+              onClick={() => setView('calendario')} className="h-9 w-9 rounded-lg" title="Calendário" aria-label="Calendário"><CalendarDays className="h-4 w-4" /></Button>
           </div>
           <Button
             onClick={() => setDialogOpen(true)}

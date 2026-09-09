@@ -128,25 +128,25 @@ const FinanceiroRow: React.FC<{
           {item.status !== "pago" && item.status !== "cancelado" && (
             <Button size="icon" variant="ghost"
               className="h-8 w-8 rounded-xl hover:bg-emerald-500/10 hover:text-emerald-500"
-              onClick={() => onMarkPago(item.id)} disabled={loadingId === item.id} title="Marcar como pago">
+              onClick={() => onMarkPago(item.id)} disabled={loadingId === item.id} title="Marcar como pago" aria-label="Marcar como pago">
               {loadingId === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
             </Button>
           )}
           <Button size="icon" variant="ghost"
             className="h-8 w-8 rounded-xl hover:bg-primary/10 hover:text-primary"
-            onClick={() => onEdit(item)} title="Editar">
+            onClick={() => onEdit(item)} title="Editar" aria-label="Editar lançamento">
             <Pencil className="h-4 w-4" />
           </Button>
           {item.grupo_id && item.status === "pendente" && (
             <Button size="icon" variant="ghost"
               className="h-8 w-8 rounded-xl hover:bg-red-500/10 hover:text-red-500"
-              onClick={() => onCancelarGrupo(item.grupo_id!)} title="Cancelar lançamentos futuros do grupo">
+              onClick={() => onCancelarGrupo(item.grupo_id!)} title="Cancelar lançamentos futuros do grupo" aria-label="Cancelar lançamentos futuros do grupo">
               <X className="h-4 w-4" />
             </Button>
           )}
           <Button size="icon" variant="ghost"
             className="h-8 w-8 rounded-xl hover:bg-red-500/10 hover:text-red-500"
-            onClick={() => onDelete(item.id)} title="Excluir">
+            onClick={() => onDelete(item.id)} title="Excluir" aria-label="Excluir lançamento">
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>

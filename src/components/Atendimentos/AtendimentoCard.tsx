@@ -110,25 +110,25 @@ export const AtendimentoCard: React.FC<{
             <Button size="icon" variant="ghost"
               className="h-7 w-7 rounded-lg hover:bg-emerald-500/10 hover:text-emerald-500"
               onClick={() => onMarkRealizado(item.id)} disabled={loadingId === item.id}
-              title="Marcar como realizado">
+              title="Marcar como realizado" aria-label="Marcar como realizado">
               {loadingId === item.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
             </Button>
           )}
           {item.status === "cancelado" && (
             <Button size="icon" variant="ghost"
               className="h-7 w-7 rounded-lg hover:bg-blue-500/10 hover:text-blue-500"
-              onClick={() => onRemarcar(item)} title="Remarcar">
+              onClick={() => onRemarcar(item)} title="Remarcar" aria-label="Remarcar">
               <RotateCcw className="h-3.5 w-3.5" />
             </Button>
           )}
           <Button size="icon" variant="ghost"
             className="h-7 w-7 rounded-lg hover:bg-primary/10 hover:text-primary"
-            onClick={() => onEdit(item)} title="Editar">
+            onClick={() => onEdit(item)} title="Editar" aria-label="Editar atendimento">
             <Pencil className="h-3.5 w-3.5" />
           </Button>
           <Button size="icon" variant="ghost"
             className="h-7 w-7 rounded-lg hover:bg-red-500/10 hover:text-red-500"
-            onClick={() => onDelete(item.id)} title="Excluir">
+            onClick={() => onDelete(item.id)} title="Excluir" aria-label="Excluir atendimento">
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -175,8 +175,8 @@ export const WeekView: React.FC<{
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
-          <Button size="icon" variant="outline" className="h-9 w-9 rounded-xl" onClick={onPrev} title="Semana anterior"><ChevronLeft className="h-4 w-4" /></Button>
-          <Button size="icon" variant="outline" className="h-9 w-9 rounded-xl" onClick={onNext} title="Próxima semana"><ChevronRight className="h-4 w-4" /></Button>
+          <Button size="icon" variant="outline" className="h-9 w-9 rounded-xl" onClick={onPrev} title="Semana anterior" aria-label="Semana anterior"><ChevronLeft className="h-4 w-4" /></Button>
+          <Button size="icon" variant="outline" className="h-9 w-9 rounded-xl" onClick={onNext} title="Próxima semana" aria-label="Próxima semana"><ChevronRight className="h-4 w-4" /></Button>
           <Button variant="outline" className="h-9 rounded-xl px-3 text-[10px] font-black uppercase tracking-widest" onClick={onHoje}>Hoje</Button>
         </div>
         <p className="text-sm font-black tracking-tight capitalize">

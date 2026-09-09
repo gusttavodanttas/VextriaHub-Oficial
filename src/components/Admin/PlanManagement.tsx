@@ -113,8 +113,8 @@ export function PlanManagement() {
                 <Button variant="ghost" size="sm" onClick={() => copyLink(p)} className="h-8 gap-1.5 text-xs" title="Copiar link de cadastro">
                   {copied === p.plan_type ? <><Check className="h-3.5 w-3.5 text-emerald-500" /> Copiado</> : <><Link2 className="h-3.5 w-3.5" /> Link</>}
                 </Button>
-                <Button variant="ghost" size="icon" onClick={() => openEdit(p)} className="h-8 w-8" title="Editar"><Pencil className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="icon" onClick={() => toggle(p)} className={`h-8 w-8 ${p.is_active ? 'text-rose-500/70 hover:text-rose-500' : 'text-emerald-500/70 hover:text-emerald-500'}`} title={p.is_active ? 'Desativar' : 'Ativar'}><Power className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="icon" onClick={() => openEdit(p)} className="h-8 w-8" title="Editar" aria-label="Editar plano"><Pencil className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="icon" onClick={() => toggle(p)} className={`h-8 w-8 ${p.is_active ? 'text-rose-500/70 hover:text-rose-500' : 'text-emerald-500/70 hover:text-emerald-500'}`} title={p.is_active ? 'Desativar' : 'Ativar'} aria-label={p.is_active ? 'Desativar plano' : 'Ativar plano'}><Power className="h-4 w-4" /></Button>
               </div>
             </div>
           ))}

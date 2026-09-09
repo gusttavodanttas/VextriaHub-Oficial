@@ -93,8 +93,8 @@ function MetaCard({ meta, onEdit, onDelete }: { meta: Meta; onEdit: (m: Meta) =>
           </div>
         </div>
         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-          <Button size="icon" variant="ghost" onClick={() => onEdit(meta)} className="h-8 w-8 rounded-lg hover:bg-primary/10"><Edit className="h-4 w-4" /></Button>
-          <Button size="icon" variant="ghost" onClick={() => onDelete(meta.id)} className="h-8 w-8 rounded-lg hover:bg-red-500/10 hover:text-red-500"><Trash2 className="h-4 w-4" /></Button>
+          <Button size="icon" variant="ghost" onClick={() => onEdit(meta)} className="h-8 w-8 rounded-lg hover:bg-primary/10" aria-label="Editar meta"><Edit className="h-4 w-4" /></Button>
+          <Button size="icon" variant="ghost" onClick={() => onDelete(meta.id)} className="h-8 w-8 rounded-lg hover:bg-red-500/10 hover:text-red-500" aria-label="Excluir meta"><Trash2 className="h-4 w-4" /></Button>
         </div>
       </div>
 

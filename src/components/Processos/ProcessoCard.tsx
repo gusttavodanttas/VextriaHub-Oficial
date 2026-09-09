@@ -148,6 +148,7 @@ export const ProcessoCard: React.FC<ProcessoCardProps> = ({
                   e.stopPropagation();
                 }}
                 onPointerDown={(e) => e.stopPropagation()}
+                aria-label="Mais ações do processo"
               >
                 <MoreHorizontal className="h-4 w-4" />
               </Button>

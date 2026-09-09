@@ -14,7 +14,7 @@ export function ThemeSelector() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon">
+        <Button variant="outline" size="icon" aria-label="Alternar tema">
           {theme === 'light' && <Sun className="h-[1.2rem] w-[1.2rem]" />}
           {theme === 'dark' && <Moon className="h-[1.2rem] w-[1.2rem]" />}
           {theme === 'blue' && <Palette className="h-[1.2rem] w-[1.2rem]" />}

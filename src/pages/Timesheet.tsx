@@ -202,7 +202,7 @@ export default function Timesheet() {
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
           <Button variant="outline" size="icon" onClick={() => setSettingsOpen(true)}
-            className="rounded-xl h-11 w-11 shrink-0" title="Configurações de faturamento">
+            className="rounded-xl h-11 w-11 shrink-0" title="Configurações de faturamento" aria-label="Configurações de faturamento">
             <Settings2 className="h-4 w-4" />
           </Button>
           <Button variant="outline" size="lg" onClick={openManual}
@@ -479,7 +479,7 @@ export default function Timesheet() {
                     {mine && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg shrink-0"><MoreVertical className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg shrink-0" aria-label="Mais opções do registro"><MoreVertical className="h-4 w-4" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="rounded-xl w-40">
                           {t.status === "pausado" && (

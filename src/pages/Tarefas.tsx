@@ -540,11 +540,11 @@ const Tarefas = () => {
           )}
           <div className="flex items-center rounded-xl border border-black/8 dark:border-border bg-card/60 p-0.5 shrink-0">
             <Button size="icon" variant={view === "lista" ? "secondary" : "ghost"}
-              onClick={() => setView("lista")} className="h-9 w-9 rounded-lg" title="Lista">
+              onClick={() => setView("lista")} className="h-9 w-9 rounded-lg" title="Lista" aria-label="Lista">
               <List className="h-4 w-4" />
             </Button>
             <Button size="icon" variant={view === "kanban" ? "secondary" : "ghost"}
-              onClick={() => setView("kanban")} className="h-9 w-9 rounded-lg" title="Kanban">
+              onClick={() => setView("kanban")} className="h-9 w-9 rounded-lg" title="Kanban" aria-label="Kanban">
               <Columns3 className="h-4 w-4" />
             </Button>
           </div>

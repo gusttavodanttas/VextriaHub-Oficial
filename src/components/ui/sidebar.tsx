@@ -274,6 +274,7 @@ const SidebarTrigger = React.forwardRef<
         onClick?.(event)
         toggleSidebar()
       }}
+      aria-label="Alternar barra lateral"
       {...props}
     >
       <PanelLeft />

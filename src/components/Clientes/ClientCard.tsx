@@ -93,6 +93,7 @@ export const ClientCard: React.FC<ClientCardProps> = ({
               size="icon"
               className="h-7 w-7 rounded-lg text-muted-foreground/40 hover:text-rose-500 hover:bg-rose-500/10"
               onClick={(e) => { e.stopPropagation(); onDeleteClient(client.id); }}
+              aria-label="Excluir cliente"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>

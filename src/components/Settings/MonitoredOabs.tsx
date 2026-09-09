@@ -130,7 +130,7 @@ export function MonitoredOabs() {
                         <p className="font-bold text-sm truncate">{r.label || `OAB ${r.oab}/${r.uf}`}</p>
                         <p className="text-xs text-muted-foreground">OAB {r.oab}/{r.uf}</p>
                       </div>
-                      <Button variant="ghost" size="icon" onClick={() => remove(r.id)} className="h-9 w-9 text-rose-500/70 hover:text-rose-500 shrink-0" title="Remover"><Trash2 className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => remove(r.id)} className="h-9 w-9 text-rose-500/70 hover:text-rose-500 shrink-0" title="Remover" aria-label="Remover OAB"><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   ))}
                 </div>
