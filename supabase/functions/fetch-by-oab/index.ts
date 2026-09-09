@@ -267,7 +267,13 @@ function mapDatajudHit(hit: any, tribunalSigla?: string) {
   return {
     id: hit._id,
     numeroProcesso: source.numeroProcesso || "",
-    titulo: (autor !== "Não identificado" || reu !== "Não identificado") ? `${autor} x ${reu}` : (classe || "Processo"),
+    // "OR" aqui misturava um "Não identificado" literal no título quando só uma
+    // parte era achada (ex.: "Fulano x Não identificado"). Só junta os dois nomes
+    // quando os DOIS foram identificados; senão usa o que tem, ou a classe.
+    titulo: (autor !== "Não identificado" && reu !== "Não identificado") ? `${autor} x ${reu}`
+      : autor !== "Não identificado" ? autor
+      : reu !== "Não identificado" ? reu
+      : (classe || "Processo"),
     partes: `${autor} x ${reu}`,
     autor,
     reu,
@@ -320,7 +326,12 @@ function mapPjeItem(item: any, ufFallback: string) {
   return {
     id: String(item.id || numProc),
     numeroProcesso: numProc,
-    titulo: (extAutor?.trim() && extReu?.trim()) ? `${extAutor.trim()} x ${extReu.trim()}` : (tipoComunicacao || "Intimação"),
+    // Mesmo cuidado do mapDatajudHit: usa o nome que tem antes de cair pro
+    // código bruto da comunicação (ex.: "INTIMACAO_ELETRONICA") como título.
+    titulo: (extAutor?.trim() && extReu?.trim()) ? `${extAutor.trim()} x ${extReu.trim()}`
+      : extAutor?.trim() ? extAutor.trim()
+      : extReu?.trim() ? extReu.trim()
+      : (classe || tipoComunicacao || "Intimação"),
     partes: (extAutor?.trim() && extReu?.trim()) ? `${extAutor.trim()} x ${extReu.trim()}` : "",
     autor: extAutor || "",
     reu: extReu || "",
@@ -547,9 +558,15 @@ serve(async (req) => {
             if (existing.reu === "Não identificado" && p.reu) {
               existing.reu = p.reu;
             }
-            if (existing.autor !== "Não identificado" || existing.reu !== "Não identificado") {
+            // Mesmo cuidado: só junta os dois nomes quando os DOIS foram
+            // identificados (senão o título ficava "Fulano x Não identificado").
+            if (existing.autor !== "Não identificado" && existing.reu !== "Não identificado") {
               existing.titulo = `${existing.autor} x ${existing.reu}`;
               existing.partes = existing.titulo;
+            } else if (existing.autor !== "Não identificado") {
+              existing.titulo = existing.autor;
+            } else if (existing.reu !== "Não identificado") {
+              existing.titulo = existing.reu;
             }
             if (p.andamentos && p.andamentos.length > 0) {
               const dataJudAndamentos = existing.andamentos || [];

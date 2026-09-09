@@ -278,7 +278,13 @@ function mapDatajudHit(hit: any, tribunalSigla?: string) {
   return {
     id: hit._id,
     numeroProcesso: source.numeroProcesso || "",
-    titulo: (autor !== "Não identificado" || reu !== "Não identificado") ? `${autor} x ${reu}` : (classe || "Processo"),
+    // "OR" aqui misturava um "Não identificado" literal no título quando só uma
+    // parte era achada (ex.: "Fulano x Não identificado"). Só junta os dois nomes
+    // quando os DOIS foram identificados; senão usa o que tem, ou a classe.
+    titulo: (autor !== "Não identificado" && reu !== "Não identificado") ? `${autor} x ${reu}`
+      : autor !== "Não identificado" ? autor
+      : reu !== "Não identificado" ? reu
+      : (classe || "Processo"),
     partes: `${autor} x ${reu}`,
     autor,
     reu,
@@ -328,7 +334,12 @@ function mapPjeItem(item: any, ufFallback: string) {
   return {
     id: String(item.id || numProc),
     numeroProcesso: numProc,
-    titulo: extAutor && extReu ? `${extAutor} x ${extReu}` : (tipoComunicacao || "Comunicação"),
+    // Mesmo cuidado do mapDatajudHit: usa o nome que tem antes de cair pro
+    // código bruto da comunicação (ex.: "INTIMACAO_ELETRONICA") como título.
+    titulo: extAutor && extReu ? `${extAutor} x ${extReu}`
+      : extAutor ? extAutor
+      : extReu ? extReu
+      : (classe || tipoComunicacao || "Comunicação"),
     partes: extAutor && extReu ? `${extAutor} x ${extReu}` : "",
     autor: extAutor || "",
     reu: extReu || "",
@@ -598,10 +609,15 @@ serve(async (req) => {
         if (baseProcesso.reu === "Não identificado" && pjeFallback.reu) {
           merged.reu = pjeFallback.reu;
         }
-        // Re-monta título se passou a ter partes
-        if (merged.autor !== "Não identificado" || merged.reu !== "Não identificado") {
+        // Re-monta título se passou a ter partes. Mesmo cuidado: só junta os dois
+        // nomes quando os DOIS foram identificados (senão ficava "Fulano x Não identificado").
+        if (merged.autor !== "Não identificado" && merged.reu !== "Não identificado") {
           merged.titulo = `${merged.autor} x ${merged.reu}`;
           merged.partes = merged.titulo;
+        } else if (merged.autor !== "Não identificado") {
+          merged.titulo = merged.autor;
+        } else if (merged.reu !== "Não identificado") {
+          merged.titulo = merged.reu;
         }
         // Vara/comarca: prioriza DataJud, fallback PJE
         merged.vara = baseProcesso.vara || pjeFallback.vara;
