@@ -161,37 +161,56 @@ export const useExclusoesPendentes = () => {
 
     try {
       const exclusoes = data.filter(e => exclusaoIds.includes(e.id));
-      
-      // Aprovar todas as exclusões
+
+      // Aprovar cada exclusão, mas só marca como 'aprovado' quem o delete
+      // realmente confirmou -- senão o log de auditoria mente sobre um
+      // registro que continua existindo no banco.
+      const succeededIds: string[] = [];
+      const failedIds: string[] = [];
       for (const exclusao of exclusoes) {
-        // Atualizar o registro original
-        await supabase
+        const { error: deleteError } = await supabase
           .from(exclusao.tabela as any)
-          .update({ 
-            deletado: true, 
-            deletado_pendente: false 
+          .update({
+            deletado: true,
+            deletado_pendente: false
           })
           .eq('id', exclusao.registro_id);
+
+        if (deleteError) {
+          failedIds.push(exclusao.id);
+        } else {
+          succeededIds.push(exclusao.id);
+        }
       }
 
-      // Atualizar status de todas as exclusões pendentes
-      const { error: updateError } = await supabase
-        .from('exclusoes_pendentes')
-        .update({
-          status: 'aprovado',
-          aprovado_por: user.id,
-          aprovado_em: new Date().toISOString(),
-        })
-        .in('id', exclusaoIds);
+      if (succeededIds.length > 0) {
+        const { error: updateError } = await supabase
+          .from('exclusoes_pendentes')
+          .update({
+            status: 'aprovado',
+            aprovado_por: user.id,
+            aprovado_em: new Date().toISOString(),
+          })
+          .in('id', succeededIds);
 
-      if (updateError) throw updateError;
+        if (updateError) throw updateError;
 
-      // Remover da lista local
-      setData(prev => prev.filter(item => !exclusaoIds.includes(item.id)));
+        // Remover da lista local só quem foi de fato aprovado
+        setData(prev => prev.filter(item => !succeededIds.includes(item.id)));
+      }
+
+      if (failedIds.length > 0) {
+        toast({
+          title: succeededIds.length > 0 ? 'Algumas exclusões falharam' : 'Erro ao aprovar exclusões',
+          description: `${failedIds.length} de ${exclusaoIds.length} não puderam ser excluídas. Tente novamente.`,
+          variant: 'destructive',
+        });
+        return false;
+      }
 
       toast({
         title: 'Exclusões aprovadas',
-        description: `${exclusaoIds.length} exclusão(ões) foram aprovadas.`,
+        description: `${succeededIds.length} exclusão(ões) foram aprovadas.`,
       });
 
       return true;

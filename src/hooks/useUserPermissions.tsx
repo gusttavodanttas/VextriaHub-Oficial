@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 export type PermissionOverride = { permission_key: string; granted: boolean };
 
@@ -8,6 +9,7 @@ export function useUserPermissions(targetUserId: string | null) {
   const [overrides, setOverrides] = useState<PermissionOverride[]>([]);
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
+  const { toast } = useToast();
 
   const fetch = useCallback(async () => {
     if (!targetUserId || !user?.office_id) { setOverrides([]); return; }
@@ -24,24 +26,42 @@ export function useUserPermissions(targetUserId: string | null) {
   useEffect(() => { fetch(); }, [fetch]);
 
   const setPermission = async (permissionKey: string, granted: boolean) => {
-    if (!targetUserId || !user?.office_id) return;
-    await supabase.from("user_permissions").upsert(
+    if (!targetUserId || !user?.office_id) return false;
+    const { error } = await supabase.from("user_permissions").upsert(
       { office_id: user.office_id, user_id: targetUserId, permission_key: permissionKey, granted, updated_at: new Date().toISOString() },
       { onConflict: "office_id,user_id,permission_key" }
     );
+    if (error) {
+      toast({
+        title: "Não foi possível salvar a permissão",
+        description: "Tente novamente em instantes.",
+        variant: "destructive",
+      });
+      return false;
+    }
     setOverrides(prev => {
       const without = prev.filter(o => o.permission_key !== permissionKey);
       return [...without, { permission_key: permissionKey, granted }];
     });
+    return true;
   };
 
   const resetAll = async () => {
-    if (!targetUserId || !user?.office_id) return;
-    await supabase.from("user_permissions")
+    if (!targetUserId || !user?.office_id) return false;
+    const { error } = await supabase.from("user_permissions")
       .delete()
       .eq("office_id", user.office_id)
       .eq("user_id", targetUserId);
+    if (error) {
+      toast({
+        title: "Não foi possível redefinir as permissões",
+        description: "Tente novamente em instantes.",
+        variant: "destructive",
+      });
+      return false;
+    }
     setOverrides([]);
+    return true;
   };
 
   return { overrides, loading, setPermission, resetAll, refetch: fetch };
