@@ -74,6 +74,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const mountedRef = useRef(true);
   const initializingRef = useRef(false);
   const loginInProgressRef = useRef(false);
+  // Espelha `user` sem disparar re-render — usado em handleAuthStateChange (useCallback
+  // com closure própria) pra saber, sem depender de `user` no array de deps, se o
+  // TOKEN_REFRESHED é do mesmo usuário já carregado.
+  const userRef = useRef<User | null>(null);
+  useEffect(() => { userRef.current = user; }, [user]);
 
   // Identifica o usuário no monitoramento de erros (Sentry)
   useEffect(() => {
@@ -285,11 +290,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Handle auth state change
   const handleAuthStateChange = useCallback(async (event: string, newSession: Session | null) => {
     if (!mountedRef.current) return;
-    
+
     setSession(newSession);
-    
+
     if (newSession?.user) {
-      await processUserData(newSession.user);
+      // TOKEN_REFRESHED do MESMO usuário já carregado (ex.: supabase-js renova o
+      // token sozinho quando a aba volta a ficar visível) não tem nada novo pra
+      // buscar. Sem essa guarda, processUserData reexecutava do zero: o primeiro
+      // passo dele é setUser(initialUser) com um objeto SEM office_id — zerando
+      // por um instante todo dashboard que depende de user.office_id, até o
+      // fetch em background terminar e devolver o usuário completo.
+      const sameUserAlreadyLoaded = event === "TOKEN_REFRESHED" && userRef.current?.id === newSession.user.id;
+      if (!sameUserAlreadyLoaded) {
+        await processUserData(newSession.user);
+      }
     } else {
       setUser(null);
       setProfile(null);
