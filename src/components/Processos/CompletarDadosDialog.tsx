@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { tribunalFromCNJ } from "@/utils/tribunalCNJ";
 import { formatBRL } from "@/lib/currency";
+import type { TablesUpdate } from "@/integrations/supabase/rows";
 
 interface Props {
   open: boolean;
@@ -99,7 +100,7 @@ export function CompletarDadosDialog({ open, onOpenChange, processoId, numeroPro
     diffs.forEach((d) => { if (checked[d.col]) payload[d.col] = d.novo; });
     if (Object.keys(payload).length === 0) { onOpenChange(false); return; }
     setSaving(true);
-    const { error } = await supabase.from("processos").update(payload).eq("id", processoId);
+    const { error } = await supabase.from("processos").update(payload as TablesUpdate<"processos">).eq("id", processoId);
     setSaving(false);
     if (error) { toast({ variant: "destructive", title: "Erro ao salvar", description: error.message }); return; }
     toast({ title: "Dados completados", description: `${Object.keys(payload).length} campo(s) preenchido(s).` });
