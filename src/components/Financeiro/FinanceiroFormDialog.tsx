@@ -190,7 +190,9 @@ const FormDialog: React.FC<FormDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent aria-describedby={undefined} className="sm:max-w-sm p-0 rounded-3xl border border-black/5 dark:border-border shadow-premium overflow-hidden">
+      <DialogContent aria-describedby={undefined} className="sm:max-w-sm p-0 rounded-3xl border border-black/5 dark:border-border shadow-premium overflow-hidden max-h-[90vh] flex flex-col">
+
+       <div className="overflow-y-auto">
 
         {/* Header colorido */}
         <div className={cn(
@@ -464,6 +466,7 @@ const FormDialog: React.FC<FormDialogProps> = ({
             </Button>
           </div>
         </form>
+       </div>
       </DialogContent>
     </Dialog>
   );
