@@ -94,8 +94,10 @@ function PermissionsDialog({ open, onOpenChange, targetUserId, targetName, targe
   const handleChange = (key: string, value: boolean) => setPermission(key, value);
 
   const handleReset = async () => {
-    await resetAll();
-    toast({ title: "Permissões redefinidas", description: `${targetName} voltou às permissões padrão da função.` });
+    const ok = await resetAll();
+    if (ok) {
+      toast({ title: "Permissões redefinidas", description: `${targetName} voltou às permissões padrão da função.` });
+    }
   };
 
   return (

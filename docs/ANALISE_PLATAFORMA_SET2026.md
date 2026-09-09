@@ -1472,3 +1472,115 @@ Nenhuma mudança de banco/RLS — só `src/pages/Login.tsx` e
 `src/pages/Index.tsx`. Correção enviada como PR separado (correção da
 v1/PR #9), seguindo o padrão da sessão de nunca reescrever histórico já
 mergeado.
+
+## Parte 13 — segunda rodada de análise: `delete_office` e erros silenciosos em permissões/exclusões
+
+Nova rodada completa de análise (banco/RLS via `get_advisors` + leitura de
+função por função, e uma varredura dedicada do código-fonte) depois de
+fechado o panorama da parte 11. Corrigidos aqui os 3 achados de severidade
+alta; os demais (funções `SECURITY DEFINER` executáveis por `anon` sem
+necessidade, dependências desatualizadas, cobertura de testes, arquivos
+grandes, acessibilidade) ficam registrados como pendência pra uma próxima
+rodada.
+
+### Achado 1 — `delete_office` vazava exclusão pra outros escritórios do mesmo usuário
+
+A função (só `super_admin` pode chamar) tinha dois laços: o 1º apaga por
+`office_id` (sempre esteve correto); o 2º apagava por `user_id` em
+**qualquer** tabela com essa coluna, sem filtrar `office_id` — inclusive em
+tabelas que também têm `office_id` (timesheets, tarefas, financeiro...). Se
+um usuário pertencesse a mais de um escritório — o schema já permite isso,
+`office_users` tem `UNIQUE(office_id, user_id)`, não `UNIQUE(user_id)` —
+excluir UM dos escritórios dele apagaria os dados dele nos OUTROS também, e
+a função ainda derrubava a conta inteira em `auth.users` incondicionalmente
+pra todo membro do escritório alvo, mesmo quem continuasse ativo em outro
+lugar. Confirmado por query: hoje 0 usuários reais estão nessa situação —
+bug latente, não incidente já ocorrido.
+
+**Correção**: calcula, antes de qualquer `DELETE`, quais usuários ficam sem
+nenhuma outra vinculação ativa em `office_users` depois que o escritório
+sumir (e nunca inclui um `super_admin` global nessa lista, mesmo que também
+seja membro do escritório excluído) — só esses "usuários totalmente
+removidos" perdem dado fora do escopo de `office_id` e têm a conta de auth
+apagada. Quem continua em outro escritório ativo mantém conta e dados
+intactos. Migration: `20260909030000_fix_delete_office_cross_office_scope.sql`.
+
+**Verificação**: como a função mexe em `auth.users` (schema sensível, não
+dá pra testar com `BEGIN/ROLLBACK` direto em produção com o mesmo conforto
+das tabelas `public`), construí um Postgres local descartável (mesmo
+padrão do `supabase/tests/rls-standalone/`) com um fixture mínimo — só as
+peças que a função usa — e um cenário de 3 usuários: X (só no escritório A,
+o alvo), Z (A e B, ambos ativos) e um super_admin global que também é
+membro de A. Rodado contra a versão corrigida: X perde conta e dado; Z
+mantém conta, mantém o dado dele em B intocado, mantém o vínculo com B;
+super_admin global nunca é apagado; escritório B fica intacto. **Controle
+negativo**: a mesma bateria rodada contra a função ORIGINAL falha
+exatamente nesses 3 pontos — apaga Z de `auth.users`, apaga o dado de Z em
+B, e até apagaria o próprio super_admin chamador se ele fosse membro do
+escritório excluído. Aplicado em produção e conferido que a definição da
+função em produção já reflete a correção.
+
+### Achado 2 — `useUserPermissions` gravava/apagava permissão sem checar erro
+
+`setPermission`/`resetAll` (`src/hooks/useUserPermissions.tsx`) chamavam
+`upsert`/`delete` no Supabase e atualizavam o estado local (`setOverrides`)
+**incondicionalmente**, como se a gravação tivesse funcionado — um admin
+podia achar que revogou/concedeu uma permissão de membro da equipe
+enquanto o banco mantinha o valor antigo, sem nenhum aviso de erro na
+tela.
+
+**Correção**: as duas funções agora checam `error` do Supabase, mostram um
+toast de erro e **não** tocam o estado local se a gravação falhou (`return
+false`); só atualizam `overrides` depois de confirmar sucesso. O
+`PermissionsDialog.tsx` (único consumidor de `resetAll`) ajustado pra só
+mostrar o toast de sucesso quando `resetAll()` de fato retornar `true` —
+evita um "Permissões redefinidas" mentiroso em cima do toast de erro do
+próprio hook.
+
+### Achado 3 — aprovação em lote de exclusão marcava "aprovado" mesmo quando o delete falhava
+
+`aprovarMultiplasExclusoes` (`src/hooks/useExclusoesPendentes.tsx`) — usada
+na aprovação em massa de solicitações de exclusão de dados — rodava o
+`UPDATE deletado=true` de cada registro num loop sem checar `error`, e
+depois marcava **todas** as solicitações do lote como `status='aprovado'`
+independentemente do resultado individual. Um registro podia continuar
+existindo no banco com o log de auditoria dizendo que foi excluído.
+Inconsistente com a versão de item único (`aprovarExclusao`), que já
+checava esse erro corretamente.
+
+**Correção**: agora cada item do lote tem seu resultado rastreado
+(`succeededIds`/`failedIds`); só os que o `UPDATE` confirmou entram no
+`UPDATE status='aprovado'` seguinte e saem da lista local. Se algum item
+falhar, o hook mostra um toast dizendo quantos de quantos não puderam ser
+excluídos, e o item continua na fila (não é removido da lista local nem
+marcado como aprovado) — o admin pode tentar de novo.
+
+### Verificação (achados 2 e 3, código TS/React)
+
+| Verificação | Resultado |
+| --- | --- |
+| `tsc -p tsconfig.app.json` | limpo |
+| ESLint | 0 erros · 689 avisos (idêntico à linha de base) |
+| Vitest | 205/205 |
+| `vite build` | ok |
+
+### Pendente para a próxima rodada (não corrigido nesta parte)
+
+- 13 funções `SECURITY DEFINER` executáveis por `anon` sem necessidade —
+  a maioria falha fechada (retorna `false`/vazio pra `auth.uid()` nulo),
+  mas `office_has_access` e `share_processo_with_office` vazam informação
+  (status de assinatura; existência de um processo) via diferença de
+  retorno/erro pra quem nem está logado.
+- `enforce_office_seat_limit` (função de trigger) ainda exposta via RPC —
+  escapou da limpeza já feita em `revoke_trigger_exec_public` por ter sido
+  criada depois dessa migration.
+- `react-router-dom` na faixa vulnerável do `npm audit` (correção
+  não-quebra de compatibilidade disponível).
+- Zero teste automatizado em `AuthContext`, `useUserPermissions`,
+  cobrança/plano e o restante de `useExclusoesPendentes`.
+- Padrão "ler `offices.settings` → mesclar → salvar" duplicado de forma
+  idêntica em ~10 arquivos (mesma classe de bug do achado 2, ainda não
+  corrigida nesses outros pontos).
+- 41 arquivos >400 linhas (era 39), ~55 botões de ícone sem `aria-label`,
+  `@supabase/supabase-js` desatualizado — qualidade/manutenibilidade, sem
+  urgência.
