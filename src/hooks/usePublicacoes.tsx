@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
+import type { TablesUpdate } from "@/integrations/supabase/rows";
 
 export interface Publication {
   id: string;
@@ -173,7 +174,7 @@ export const usePublicacoes = () => {
             patch.processo_id = processoIdVinculado;
           }
           if (Object.keys(patch).length > 0) {
-            await supabase.from('publicacoes').update(patch).eq('id', existing.id);
+            await supabase.from('publicacoes').update(patch as TablesUpdate<'publicacoes'>).eq('id', existing.id);
           }
         } else {
           const saved = await createPublication(newRecord as any);

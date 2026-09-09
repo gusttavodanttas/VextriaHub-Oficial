@@ -244,7 +244,7 @@ export function useTarefas() {
       const payload: Record<string, any> = { ...(patch || {}) };
       if (concluir === true) Object.assign(payload, { concluida: true, status: 'concluida', concluida_em: now, concluida_por: user?.id ?? null, recorrencia_restantes: 0 });
       if (concluir === false) Object.assign(payload, { concluida: false, status: 'pendente', concluida_em: null, concluida_por: null });
-      const { data, error } = await supabase.from("tarefas").update(payload).in("id", ids).select("id");
+      const { data, error } = await supabase.from("tarefas").update(payload as TablesUpdate<"tarefas">).in("id", ids).select("id");
       assertRowsAffected(data, error, ids.length);
       // Gera a próxima ocorrência de cada recorrente concluída (não deixa a série morrer no bulk).
       for (const t of recorrentes) await gerarProximaOcorrencia(t);

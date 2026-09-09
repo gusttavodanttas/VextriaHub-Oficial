@@ -1791,6 +1791,78 @@ levantado na "nova análise completa" desta sessão está fechado — resta só
 manutenibilidade de fundo (arquivos grandes, `@supabase/supabase-js`
 desatualizado), sem urgência.
 
+## Parte 18 — `@supabase/supabase-js` atualizado (2.53 → 2.116)
+
+Último item pendente: dependência bem defasada (63 minor releases),
+sem CVE conhecida na versão antiga — atualização preventiva, não
+correção de bug.
+
+### Checagem de breaking changes
+
+Revisado o `CHANGELOG.md` oficial no intervalo 2.53→2.116 antes de
+atualizar. Nada aplicável a este projeto:
+- "drop Node.js 20 support" (2.110, exige Node 21+) — CI/deploy já rodam
+  Node 22 (`.github/workflows/ci.yml`/`deploy-oracle.yml`).
+- "remove node-fetch, requer fetch nativo" (2.79, Node 20+) — mesmo caso;
+  navegador sempre teve fetch nativo.
+- Renomeação `StorageAnalyticsApi`→`StorageAnalyticsClient` (2.83) — não
+  usado no projeto (`grep` confirma).
+- Mudança interna no client de auth (locks/`dispose()`, 2.107) — detalhe
+  de implementação, não muda a API pública usada aqui.
+- As edge functions (`supabase/functions/*`) importam via
+  `esm.sh/@supabase/supabase-js@2` (tag flutuante, sempre a última v2) —
+  já rodam a versão mais nova, independente do `package.json` do
+  frontend; esta atualização não muda nada lá.
+
+### O que a checagem de changelog NÃO pegou
+
+`tsc` acusou 7 erros de tipo em 6 arquivos após a atualização — uma
+mudança de tipagem mais rígida em `postgrest-js` (dependência transitiva,
+não documentada como "breaking" no changelog do `supabase-js` em si)
+passou a rejeitar `Record<string, any>`/`Record<string, unknown>` como
+argumento de `.update()`, mesmo quando o objeto só tem chaves de colunas
+reais — exige um tipo exato (sem assinatura de índice genérica).
+Comportamento em runtime não muda (é checagem estática), mas quebrava o
+build.
+
+**Correção**: mesmo idioma já usado em outros pontos do projeto (ex.
+`useProcessosV2.tsx`/`NovoPrazoStandaloneDialog.tsx`, que já faziam isso
+pro `.insert()`) — `as TablesUpdate<'tabela'>` no ponto de uso, usando o
+helper `TablesUpdate<T>` já existente em
+`src/integrations/supabase/rows.ts`. Único caso à parte:
+`Lixeira.tsx` restaura uma tabela **dinâmica** (`item.tabela: string`,
+só validada em runtime por uma allowlist) — não dá pra tipar
+estaticamente o shape exato de um update pra uma tabela que só se sabe
+qual é em tempo de execução, então esse ponto foi marcado `as any`
+(mesmo padrão já usado 3x nesse arquivo, com comentário explicando o
+porquê).
+
+### Verificação
+
+Teste de fumaça contra o projeto real (não só type-check): o client novo
+constrói normalmente e `auth.getSession()` responde certo; as chamadas de
+rede (`select`/`rpc`) bateram no allowlist de egress do próprio sandbox
+desta sessão (não é falha do `supabase-js` — erro estruturado 403 do
+proxy, prova que a requisição HTTP foi montada e enviada corretamente).
+A confirmação de ponta a ponta vem do deploy em produção logo após o
+merge, que roda em runner do GitHub Actions com rede plena.
+
+Efeito colateral observado: o chunk `supabase` do build quase dobrou de
+tamanho (116 KB → 224 KB minificado, ~32 KB → ~59 KB gzip) — reflexo de
+63 releases de funcionalidades novas na lib, não um problema desta
+mudança.
+
+| Verificação | Resultado |
+| --- | --- |
+| `tsc -p tsconfig.app.json` | limpo (após corrigir os 7 erros de tipagem) |
+| ESLint | 0 erros · 698 avisos (+1: o `as any` documentado em `Lixeira.tsx`) |
+| Vitest | 214/214 |
+| `vite build` | ok |
+
+Com esta parte, os dois itens de "manutenibilidade de fundo" citados
+acima ficam reduzidos a só um: arquivos grandes (sem urgência, trabalho
+de refatoração aberto, não um achado pontual).
+
 ## Parte 19 — título de processo/publicação capturado vinha misturado com "Não identificado"
 
 Reportado pelo usuário ao vivo: processos, prazos e publicações capturados

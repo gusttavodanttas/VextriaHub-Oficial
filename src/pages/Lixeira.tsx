@@ -200,7 +200,10 @@ export default function Lixeira() {
         // prazos não tem a coluna deletado_pendente — enviar o campo faz o restore inteiro falhar (item fica preso na lixeira).
         const restorePatch: Record<string, unknown> = { deletado: false };
         if (item.tabela !== 'prazos') restorePatch.deletado_pendente = false;
-        ({ error } = await tenantGuard(fromTabela(item.tabela).update(restorePatch).eq('id', item.id), item));
+        // item.tabela é dinâmico (guardado só em runtime por TABELAS_PERMITIDAS) --
+        // não dá pra tipar estaticamente o shape exato do update pra uma tabela
+        // que só se conhece em tempo de execução.
+        ({ error } = await tenantGuard(fromTabela(item.tabela).update(restorePatch as any).eq('id', item.id), item));
       }
       if (error) throw error;
       toast({ title: 'Restaurado', description: `${TABELA_CONFIG[item.tabela]?.label || item.tabela} restaurado com sucesso.` });
