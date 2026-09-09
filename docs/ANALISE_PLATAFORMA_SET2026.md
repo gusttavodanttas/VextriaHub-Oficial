@@ -1862,3 +1862,80 @@ mudança.
 Com esta parte, os dois itens de "manutenibilidade de fundo" citados
 acima ficam reduzidos a só um: arquivos grandes (sem urgência, trabalho
 de refatoração aberto, não um achado pontual).
+
+## Parte 19 — título de processo/publicação capturado vinha misturado com "Não identificado"
+
+Reportado pelo usuário ao vivo: processos, prazos e publicações capturados
+automaticamente às vezes vêm com "nomenclatura errada". Investigação
+confirmou um bug real e sistêmico na extração de partes dos processos —
+não catalogado antes.
+
+### Causa raiz
+
+`fetch-processo` e `fetch-by-oab` (edge functions que capturam processo
+via DataJud/PJE-Comunica) extraem autor/réu do processo e, quando um dos
+dois não é identificado no texto, gravam o valor literal `"Não
+identificado"` no campo. O bug: a condição que monta o `titulo` usava
+`OR` em vez de `AND` —
+
+```ts
+titulo: (autor !== "Não identificado" || reu !== "Não identificado")
+  ? `${autor} x ${reu}` : (classe || "Processo"),
+```
+
+— então bastava **um só** dos dois ser identificado pra cair no ramo que
+junta os dois, produzindo títulos tipo **"João Silva x Não
+identificado"** em vez de só "João Silva" (ou, pior, caindo no fallback
+errado do lado PJE: um código bruto de comunicação tipo
+`"INTIMACAO_ELETRONICA"` como título, quando nenhuma das duas partes era
+extraída). O mesmo padrão estava duplicado em **3 pontos** (`fetch-processo`
+tem sua própria cópia de `mapDatajudHit`/`mapPjeItem`, e `fetch-by-oab`
+tem outra, mais um terceiro ponto no merge de resultados DataJud+PJE
+dentro do próprio `fetch-by-oab`) — os dois arquivos
+duplicam ~300 linhas de lógica de mapeamento quase idêntica, um achado de
+manutenibilidade à parte (não corrigido nesta rodada).
+
+### Como isso vazava pras outras abas
+
+- **Processos**: o título capturado vai direto pra caixa "Processos
+  Encontrados" (`processos_encontrados.titulo`, gravado por
+  `robo-oab-diario`) e, se o usuário importa, vira o `titulo` real e
+  permanente do processo (`JudicialSyncDialog.tsx:320`, passthrough
+  direto).
+- **Publicações**: `robo-publicacoes-diario` usa o mesmo `item.titulo`
+  de `fetch-by-oab` como base, com fallback pro código bruto
+  (`tipo_documento`/`tipo_comunicacao`) quando falta — mesma poluição
+  vindo da origem.
+- **Prazos**: o digest diário de e-mail (`robo-prazos-diario`) e a UI
+  mostram `p.publicacoes?.titulo` como nome do prazo quando ele nasceu
+  de uma publicação capturada — herda a poluição de Publicações.
+
+### Correção
+
+Nos 3 pontos duplicados (`fetch-processo` e `fetch-by-oab`): a condição
+passa a exigir os **dois** nomes antes de juntar; com só um, usa esse
+nome sozinho; sem nenhum, cai pra `classe` (tipo do processo, ex.
+"Procedimento Comum Cível") — nunca mais um código bruto de comunicação
+nem `"Não identificado"` aparecem no título.
+
+### Verificação
+
+Lógica extraída verbatim e testada isolada (`deno run`) nos 4 cenários
+possíveis (ambos identificados / só autor / só réu / nenhum), com
+**controle negativo** confirmando que a versão antiga realmente produzia
+"Fulano x Não identificado" nos casos de uma parte só, e que a versão
+corrigida não produz mais isso em nenhum cenário. `deno lint` limpo nos
+dois arquivos (mesma contagem de avisos pré-existentes de
+`no-explicit-any`, nenhum novo). Não foi possível testar contra as APIs reais do
+DataJud/PJE nesta sessão (rede do sandbox não alcança esses hosts) — a
+lógica pura foi validada isoladamente; o comportamento de ponta a ponta
+fica pra confirmar no primeiro uso em produção.
+
+Dados já capturados com o título antigo (na caixa "Processos
+Encontrados" ou já importados) **não são corrigidos retroativamente** por
+esta mudança — só afeta capturas novas a partir do deploy. Corrigir o
+histórico exigiria decidir se vale reprocessar/re-derivar título de
+processos já importados, o que é uma decisão de produto à parte.
+
+Nenhuma mudança de banco/RLS — só as 3 funções edge
+(`fetch-processo`/`fetch-by-oab`).

@@ -103,6 +103,25 @@ function extractPartes(text: string): { autor: string; reu: string } {
   return { autor: cleanName(mA?.[1]), reu: cleanName(mP?.[1]) };
 }
 
+// A comunicação do PJE vem em HTML; strippar as tags (abaixo) não decodifica
+// as entidades (ex.: "Ju&iacute;za" ficava literal no título/nome extraído).
+const HTML_ENTITIES: Record<string, string> = {
+  nbsp: " ", amp: "&", lt: "<", gt: ">", quot: '"', apos: "'",
+  aacute: "á", Aacute: "Á", eacute: "é", Eacute: "É", iacute: "í", Iacute: "Í",
+  oacute: "ó", Oacute: "Ó", uacute: "ú", Uacute: "Ú",
+  atilde: "ã", Atilde: "Ã", otilde: "õ", Otilde: "Õ",
+  acirc: "â", Acirc: "Â", ecirc: "ê", Ecirc: "Ê", ocirc: "ô", Ocirc: "Ô",
+  ccedil: "ç", Ccedil: "Ç", agrave: "à", Agrave: "À", ordm: "º", ordf: "ª", deg: "°",
+};
+
+function decodeHtmlEntities(s: string): string {
+  if (!s) return s;
+  return s
+    .replace(/&#(\d+);/g, (_m, d) => String.fromCharCode(Number(d)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_m, h) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/&([a-zA-Z]+);/g, (m, name) => HTML_ENTITIES[name] ?? m);
+}
+
 // ============================================================================
 // CLASSIFICAÇÃO DE FASE / INSTÂNCIA
 // ============================================================================
@@ -267,7 +286,13 @@ function mapDatajudHit(hit: any, tribunalSigla?: string) {
   return {
     id: hit._id,
     numeroProcesso: source.numeroProcesso || "",
-    titulo: (autor !== "Não identificado" || reu !== "Não identificado") ? `${autor} x ${reu}` : (classe || "Processo"),
+    // "OR" aqui misturava um "Não identificado" literal no título quando só uma
+    // parte era achada (ex.: "Fulano x Não identificado"). Só junta os dois nomes
+    // quando os DOIS foram identificados; senão usa o que tem, ou a classe.
+    titulo: (autor !== "Não identificado" && reu !== "Não identificado") ? `${autor} x ${reu}`
+      : autor !== "Não identificado" ? autor
+      : reu !== "Não identificado" ? reu
+      : (classe || "Processo"),
     partes: `${autor} x ${reu}`,
     autor,
     reu,
@@ -305,7 +330,7 @@ function mapPjeItem(item: any, ufFallback: string) {
   if (!numProc) return null;
 
   const rawContent = item.texto_comunicacao || item.texto || item.textoComunicacao || item.conteudo || "";
-  const cleanContent = rawContent.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  const cleanContent = decodeHtmlEntities(rawContent.replace(/<[^>]*>/g, " ")).replace(/\s+/g, " ").trim();
   const { autor: extAutor, reu: extReu } = extractPartes(cleanContent);
   const dataDisp = item.data_disponibilizacao || item.dataDisponibilizacao || null;
 
@@ -320,7 +345,12 @@ function mapPjeItem(item: any, ufFallback: string) {
   return {
     id: String(item.id || numProc),
     numeroProcesso: numProc,
-    titulo: (extAutor?.trim() && extReu?.trim()) ? `${extAutor.trim()} x ${extReu.trim()}` : (tipoComunicacao || "Intimação"),
+    // Mesmo cuidado do mapDatajudHit: usa o nome que tem antes de cair pro
+    // código bruto da comunicação (ex.: "INTIMACAO_ELETRONICA") como título.
+    titulo: (extAutor?.trim() && extReu?.trim()) ? `${extAutor.trim()} x ${extReu.trim()}`
+      : extAutor?.trim() ? extAutor.trim()
+      : extReu?.trim() ? extReu.trim()
+      : (classe || tipoComunicacao || "Intimação"),
     partes: (extAutor?.trim() && extReu?.trim()) ? `${extAutor.trim()} x ${extReu.trim()}` : "",
     autor: extAutor || "",
     reu: extReu || "",
@@ -547,9 +577,15 @@ serve(async (req) => {
             if (existing.reu === "Não identificado" && p.reu) {
               existing.reu = p.reu;
             }
-            if (existing.autor !== "Não identificado" || existing.reu !== "Não identificado") {
+            // Mesmo cuidado: só junta os dois nomes quando os DOIS foram
+            // identificados (senão o título ficava "Fulano x Não identificado").
+            if (existing.autor !== "Não identificado" && existing.reu !== "Não identificado") {
               existing.titulo = `${existing.autor} x ${existing.reu}`;
               existing.partes = existing.titulo;
+            } else if (existing.autor !== "Não identificado") {
+              existing.titulo = existing.autor;
+            } else if (existing.reu !== "Não identificado") {
+              existing.titulo = existing.reu;
             }
             if (p.andamentos && p.andamentos.length > 0) {
               const dataJudAndamentos = existing.andamentos || [];

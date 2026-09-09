@@ -94,6 +94,25 @@ function extractPartes(text: string): { autor: string; reu: string } {
   return { autor: cleanName(mA?.[1]), reu: cleanName(mP?.[1]) };
 }
 
+// A comunicação do PJE vem em HTML; strippar as tags (abaixo) não decodifica
+// as entidades (ex.: "Ju&iacute;za" ficava literal no título/nome extraído).
+const HTML_ENTITIES: Record<string, string> = {
+  nbsp: " ", amp: "&", lt: "<", gt: ">", quot: '"', apos: "'",
+  aacute: "á", Aacute: "Á", eacute: "é", Eacute: "É", iacute: "í", Iacute: "Í",
+  oacute: "ó", Oacute: "Ó", uacute: "ú", Uacute: "Ú",
+  atilde: "ã", Atilde: "Ã", otilde: "õ", Otilde: "Õ",
+  acirc: "â", Acirc: "Â", ecirc: "ê", Ecirc: "Ê", ocirc: "ô", Ocirc: "Ô",
+  ccedil: "ç", Ccedil: "Ç", agrave: "à", Agrave: "À", ordm: "º", ordf: "ª", deg: "°",
+};
+
+function decodeHtmlEntities(s: string): string {
+  if (!s) return s;
+  return s
+    .replace(/&#(\d+);/g, (_m, d) => String.fromCharCode(Number(d)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_m, h) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/&([a-zA-Z]+);/g, (m, name) => HTML_ENTITIES[name] ?? m);
+}
+
 // ============================================================================
 // CLASSIFICAÇÃO
 // ============================================================================
@@ -278,7 +297,13 @@ function mapDatajudHit(hit: any, tribunalSigla?: string) {
   return {
     id: hit._id,
     numeroProcesso: source.numeroProcesso || "",
-    titulo: (autor !== "Não identificado" || reu !== "Não identificado") ? `${autor} x ${reu}` : (classe || "Processo"),
+    // "OR" aqui misturava um "Não identificado" literal no título quando só uma
+    // parte era achada (ex.: "Fulano x Não identificado"). Só junta os dois nomes
+    // quando os DOIS foram identificados; senão usa o que tem, ou a classe.
+    titulo: (autor !== "Não identificado" && reu !== "Não identificado") ? `${autor} x ${reu}`
+      : autor !== "Não identificado" ? autor
+      : reu !== "Não identificado" ? reu
+      : (classe || "Processo"),
     partes: `${autor} x ${reu}`,
     autor,
     reu,
@@ -313,7 +338,7 @@ function mapPjeItem(item: any, ufFallback: string) {
   if (!numProc) return null;
 
   const rawContent = item.texto_comunicacao || item.texto || item.textoComunicacao || item.conteudo || "";
-  const cleanContent = rawContent.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  const cleanContent = decodeHtmlEntities(rawContent.replace(/<[^>]*>/g, " ")).replace(/\s+/g, " ").trim();
   const { autor: extAutor, reu: extReu } = extractPartes(cleanContent);
   const dataDisp = item.data_disponibilizacao || item.dataDisponibilizacao || null;
 
@@ -328,7 +353,12 @@ function mapPjeItem(item: any, ufFallback: string) {
   return {
     id: String(item.id || numProc),
     numeroProcesso: numProc,
-    titulo: extAutor && extReu ? `${extAutor} x ${extReu}` : (tipoComunicacao || "Comunicação"),
+    // Mesmo cuidado do mapDatajudHit: usa o nome que tem antes de cair pro
+    // código bruto da comunicação (ex.: "INTIMACAO_ELETRONICA") como título.
+    titulo: extAutor && extReu ? `${extAutor} x ${extReu}`
+      : extAutor ? extAutor
+      : extReu ? extReu
+      : (classe || tipoComunicacao || "Comunicação"),
     partes: extAutor && extReu ? `${extAutor} x ${extReu}` : "",
     autor: extAutor || "",
     reu: extReu || "",
@@ -548,7 +578,7 @@ serve(async (req) => {
         // PJE Comunica = publicações, NÃO andamentos. Usamos só para extrair partes.
         for (const it of pjeItems) {
           const rawContent = it.texto_comunicacao || it.texto || it.textoComunicacao || it.conteudo || "";
-          const cleanContent = rawContent.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+          const cleanContent = decodeHtmlEntities(rawContent.replace(/<[^>]*>/g, " ")).replace(/\s+/g, " ").trim();
 
           // Tenta extrair partes do texto da comunicação (pega o melhor match dos N)
           if (cleanContent && (!pjeBestPartes || (!pjeBestPartes.autor || !pjeBestPartes.reu))) {
@@ -598,10 +628,15 @@ serve(async (req) => {
         if (baseProcesso.reu === "Não identificado" && pjeFallback.reu) {
           merged.reu = pjeFallback.reu;
         }
-        // Re-monta título se passou a ter partes
-        if (merged.autor !== "Não identificado" || merged.reu !== "Não identificado") {
+        // Re-monta título se passou a ter partes. Mesmo cuidado: só junta os dois
+        // nomes quando os DOIS foram identificados (senão ficava "Fulano x Não identificado").
+        if (merged.autor !== "Não identificado" && merged.reu !== "Não identificado") {
           merged.titulo = `${merged.autor} x ${merged.reu}`;
           merged.partes = merged.titulo;
+        } else if (merged.autor !== "Não identificado") {
+          merged.titulo = merged.autor;
+        } else if (merged.reu !== "Não identificado") {
+          merged.titulo = merged.reu;
         }
         // Vara/comarca: prioriza DataJud, fallback PJE
         merged.vara = baseProcesso.vara || pjeFallback.vara;
