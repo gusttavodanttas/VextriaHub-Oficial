@@ -1986,3 +1986,53 @@ externas) cobrindo todas as funções compartilhadas — todos passaram.
 nenhum novo). Deploy feito com o arquivo compartilhado incluído no bundle
 de cada função (deploy independente por função no Supabase; fonte única no
 git).
+## Parte 20 — módulo Financeiro: separação PJ/PF (índice de mistura) e priorização de despesas
+
+Usuário enviou um protótipo próprio ("JurisFinance AI", feito no Google AI
+Studio — stack Firebase + Gemini, incompatível com o Supabase do
+VextriaHub) com ideias para o controle financeiro de um advogado titular.
+Dos recursos do protótipo, dois foram escolhidos para reimplementar
+nativamente no módulo Financeiro existente (sem herdar o stack Firebase):
+
+### 1. Separação PJ/PF + Índice de Mistura Patrimonial
+
+Nova coluna `financeiro.escopo` (`'pj'` = escritório, `'pf'` = pessoal do
+titular, default `'pj'` — todo lançamento existente já era do escritório).
+O dashboard ganhou um card "Índice de Mistura Patrimonial" = % das despesas
+não canceladas que são PF, com faixas de alerta (0% Excelente, <10% Sob
+Controle, <20% Alerta, ≥20% Risco Alto) — sinal de risco fiscal quando o
+caixa do escritório está pagando contas pessoais (risco de desconsideração
+da personalidade jurídica). Filtro de escopo na lista, badge PJ/PF em cada
+lançamento, seletor PJ/PF no formulário de criação/edição.
+
+### 2. Priorização de Despesas (G1/G2/G3/Esperar)
+
+Nova coluna `financeiro.prioridade` (`g1`=essencial, `g2`=importante,
+`g3`=contornável, `esperar`=aguardar caixa, `null`=não classificada) —
+opcional, só relevante pra despesas. Nova aba "Priorização" na página
+Financeiro agrupando despesas pendentes/vencidas por prioridade, com
+subtotal por grupo, seletor de prioridade inline e botão "Pagar" (reusa a
+mutation `markPago` já existente). Deliberadamente **não** foi criada uma
+tabela paralela de "contas a pagar" (como o protótipo tinha) — a tabela
+`financeiro` já modela isso via `status='pendente'`; duplicar seria
+redundância desnecessária.
+
+Categorias de receita/despesa por escopo (o protótipo tinha listas
+separadas para PJ e PF) **não** foram diferenciadas — mantido o sistema de
+categorias único e configurável já existente (`offices.settings`), para não
+adicionar uma segunda dimensão de configuração sem pedido explícito.
+
+**Fora de escopo desta rodada** (não implementado, ficou no protótipo):
+conciliação de extrato via IA, alertas por WhatsApp, simulador de metas de
+contrato — o usuário pode pedir cada um separadamente.
+
+### Verificação
+
+Migração aplicada (`financeiro_escopo_pj_pf_e_prioridade`), tipos do
+Supabase regenerados e conferidos linha a linha contra o schema real.
+`tsc` limpo, ESLint sem erros novos (mesmos avisos pré-existentes), 214/214
+testes (Vitest) passando, `vite build` ok. Teste end-to-end no navegador
+**não foi possível nesta sessão** — a página exige login autenticado contra
+o Supabase real, e a rede do sandbox não alcança o host do projeto (mesma
+limitação já registrada nas partes anteriores); a confirmação final fica
+para o primeiro uso em produção.

@@ -14,6 +14,8 @@ const DEFAULT_CATEGORIAS_DESPESA = ["Custas", "Diligências", "Despesas de Escri
 
 type StatusType = "pendente" | "pago" | "vencido" | "cancelado";
 type TipoType = "receita" | "despesa";
+type EscopoType = "pj" | "pf";
+type PrioridadeType = "g1" | "g2" | "g3" | "esperar";
 
 interface FinanceiroItem {
   id: string;
@@ -33,6 +35,8 @@ interface FinanceiroItem {
   parcela_numero?: number | null;
   parcela_total?: number | null;
   recorrencia?: string | null;
+  escopo: EscopoType;
+  prioridade?: PrioridadeType | null;
   clientes?: { nome: string } | null;
 }
 
@@ -51,6 +55,8 @@ interface FormState {
   categoria: string;
   cliente_id: string;
   processo_id: string;
+  escopo: EscopoType;
+  prioridade: PrioridadeType | typeof NONE;
   // Recorrência / parcelamento
   modo: ModoLancamento;
   parcelas: string;        // número de parcelas (parcelado)
@@ -71,6 +77,8 @@ const defaultForm = (tipo: TipoType = "receita"): FormState => ({
   categoria: NONE,
   cliente_id: NONE,
   processo_id: NONE,
+  escopo: "pj",
+  prioridade: NONE,
   modo: "unico",
   parcelas: "2",
   recorrencia: "mensal",
@@ -85,7 +93,19 @@ const statusConfig: Record<StatusType, { label: string; className: string }> = {
   cancelado: { label: "Cancelado", className: "border-muted/30 text-muted-foreground bg-muted/10 font-bold" },
 };
 
+const escopoConfig: Record<EscopoType, { label: string; className: string }> = {
+  pj: { label: "Escritório", className: "border-blue-500/40 text-blue-500 bg-blue-500/10 font-bold" },
+  pf: { label: "Pessoal",    className: "border-violet-500/40 text-violet-500 bg-violet-500/10 font-bold" },
+};
+
+const prioridadeConfig: Record<PrioridadeType, { label: string; className: string }> = {
+  g1:      { label: "G1 · Essencial",    className: "border-red-500/40 text-red-500 bg-red-500/10 font-bold" },
+  g2:      { label: "G2 · Importante",   className: "border-orange-500/40 text-orange-500 bg-orange-500/10 font-bold" },
+  g3:      { label: "G3 · Contornável",  className: "border-slate-400/40 text-slate-500 bg-slate-400/10 font-bold" },
+  esperar: { label: "Esperar",           className: "border-amber-500/40 text-amber-600 bg-amber-500/10 font-bold" },
+};
+
 const fmt = (v: number) => formatBRL(v); // 2 casas = mesmo comportamento do toLocaleString anterior
 
-export { NONE, DEFAULT_CATEGORIAS_RECEITA, DEFAULT_CATEGORIAS_DESPESA, toNull, defaultForm, statusConfig, fmt };
-export type { StatusType, TipoType, FinanceiroItem, ClienteOption, ProcessoOption, ModoLancamento, RecorrenciaTipo, FormState };
+export { NONE, DEFAULT_CATEGORIAS_RECEITA, DEFAULT_CATEGORIAS_DESPESA, toNull, defaultForm, statusConfig, escopoConfig, prioridadeConfig, fmt };
+export type { StatusType, TipoType, EscopoType, PrioridadeType, FinanceiroItem, ClienteOption, ProcessoOption, ModoLancamento, RecorrenciaTipo, FormState };

@@ -539,11 +539,13 @@ export type Database = {
           deletado: boolean
           deletado_pendente: boolean
           descricao: string
+          escopo: string
           grupo_id: string | null
           id: string
           office_id: string
           parcela_numero: number | null
           parcela_total: number | null
+          prioridade: string | null
           processo_id: string | null
           recorrencia: string | null
           status: string | null
@@ -561,11 +563,13 @@ export type Database = {
           deletado?: boolean
           deletado_pendente?: boolean
           descricao: string
+          escopo?: string
           grupo_id?: string | null
           id?: string
           office_id: string
           parcela_numero?: number | null
           parcela_total?: number | null
+          prioridade?: string | null
           processo_id?: string | null
           recorrencia?: string | null
           status?: string | null
@@ -583,11 +587,13 @@ export type Database = {
           deletado?: boolean
           deletado_pendente?: boolean
           descricao?: string
+          escopo?: string
           grupo_id?: string | null
           id?: string
           office_id?: string
           parcela_numero?: number | null
           parcela_total?: number | null
+          prioridade?: string | null
           processo_id?: string | null
           recorrencia?: string | null
           status?: string | null

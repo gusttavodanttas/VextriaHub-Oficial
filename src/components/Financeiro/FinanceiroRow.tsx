@@ -53,7 +53,7 @@ import {
   addWeeks,
 } from "date-fns";
 import { cn } from "@/lib/utils";
-import { fmt, statusConfig, type FinanceiroItem } from "./shared";
+import { fmt, statusConfig, escopoConfig, prioridadeConfig, type FinanceiroItem } from "./shared";
 
 // ─── Row ─────────────────────────────────────────────────────────────────────
 
@@ -69,6 +69,8 @@ const FinanceiroRow: React.FC<{
   const cfg = statusConfig[item.status] ?? statusConfig.cancelado;
   const isParcela = !!item.parcela_total;
   const isRecorrente = !!item.recorrencia && !isParcela;
+  const escopoCfg = escopoConfig[item.escopo] ?? escopoConfig.pj;
+  const prioridadeCfg = item.prioridade ? prioridadeConfig[item.prioridade] : null;
 
   return (
     <div className={cn(
@@ -100,6 +102,14 @@ const FinanceiroRow: React.FC<{
               <Repeat className="h-3 w-3" />
               {item.recorrencia}
             </span>
+          )}
+          <Badge className={cn("px-2 py-0.5 rounded-lg text-[9px] uppercase tracking-widest", escopoCfg.className)}>
+            {escopoCfg.label}
+          </Badge>
+          {prioridadeCfg && (
+            <Badge className={cn("px-2 py-0.5 rounded-lg text-[9px] uppercase tracking-widest", prioridadeCfg.className)}>
+              {prioridadeCfg.label}
+            </Badge>
           )}
         </div>
         <div className="flex flex-wrap gap-2 mt-1 text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">
