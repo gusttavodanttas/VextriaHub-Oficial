@@ -62,6 +62,11 @@ const Login = () => {
 
       const userEmail = user?.email || session?.user?.email;
       const redirectPath = getRedirectPath(user?.role, userEmail);
+      // Marca que este redirect pode ter usado um role ainda não confirmado (o
+      // profile carrega em background — ver processUserData em AuthContext).
+      // Index.tsx usa essa marca pra se auto-corrigir SÓ nesta janela pós-login,
+      // sem prender o admin em /admin pra sempre a cada vez que clicar "Início".
+      sessionStorage.setItem('vh_post_login_redirect', '1');
       navigate(redirectPath, {
         replace: true
       });
@@ -89,6 +94,7 @@ const Login = () => {
 
         const userEmail = user?.email || session?.user?.email;
         const redirectPath = getRedirectPath(user?.role, userEmail);
+        sessionStorage.setItem('vh_post_login_redirect', '1');
         navigate(redirectPath, {
           replace: true
         });

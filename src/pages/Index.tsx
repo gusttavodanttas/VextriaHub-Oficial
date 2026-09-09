@@ -130,16 +130,22 @@ const Index = () => {
     }
   }, [validatePayment]);
 
-  useEffect(() => {
-    // isOfficeAdmin já cobre super_admin (é um superconjunto) — mantém os dois só
-    // para não mudar o texto de loading abaixo. Sem isOfficeAdmin aqui, um admin de
-    // escritório logando ficava preso em /dashboard: o redirect do Login.tsx roda
-    // 100ms após o login usando user.role, que nesse momento ainda não voltou do
-    // fetch assíncrono do profile — só corrigia se o usuário navegasse manualmente.
-    if (isSuperAdmin || isOfficeAdmin) navigate('/admin', { replace: true });
-  }, [isSuperAdmin, isOfficeAdmin, navigate]);
+  // Sinalizador setado só pelo Login.tsx (janela pós-login onde o redirect podia
+  // ter usado um role ainda não confirmado — ver processUserData em AuthContext,
+  // que libera a UI com um role provisório antes do profile real carregar). Preso
+  // ao mount: se virar admin true depois (profile chegando em background), ainda
+  // corrige; mas uma vez consumido, clicar "Início" de novo mostra o dashboard de
+  // verdade — antes disto o admin nunca conseguia ver a própria home, só /admin.
+  const [pendingLoginRedirect] = useState(() => sessionStorage.getItem('vh_post_login_redirect') === '1');
 
-  if (isSuperAdmin || isOfficeAdmin) {
+  useEffect(() => {
+    if (pendingLoginRedirect && (isSuperAdmin || isOfficeAdmin)) {
+      sessionStorage.removeItem('vh_post_login_redirect');
+      navigate('/admin', { replace: true });
+    }
+  }, [pendingLoginRedirect, isSuperAdmin, isOfficeAdmin, navigate]);
+
+  if (pendingLoginRedirect && (isSuperAdmin || isOfficeAdmin)) {
     return (
       <div className="flex items-center justify-center min-h-[60vh] gap-3">
         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
