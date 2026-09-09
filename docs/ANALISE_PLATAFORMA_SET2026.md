@@ -1200,10 +1200,6 @@ hardening de hook.
 
 ### Resto do panorama (sem mudança nesta rodada)
 
-- **16 avisos de "multiple permissive policies"**, introduzidos pela
-  própria Parte 6 em `office_teams`/`invitations` (o preço inevitável do
-  desenho de policy "widen" ao lado da policy admin-only já existente) —
-  consolidável depois numa condição OR única, não é bug.
 - **Conexões do Auth do Supabase em número absoluto** em vez de percentual
   — ajuste de configuração no dashboard, fora do escopo de código/migration.
 - **Manutenibilidade**: 39 arquivos reais acima de 400 linhas (era 34;
@@ -1339,3 +1335,54 @@ exatamente o que os toggles configurados descrevem.
 
 Nenhuma mudança de código TS/React — só as 6 policies de `UPDATE`
 (2 por tabela × 3 tabelas) e o relatório.
+
+## Parte 11 — os 16 avisos de "multiple permissive policies" do D.1, fechados
+
+Último item do panorama que ainda era só performance: `office_teams`
+(insert/update/delete) e `invitations` (insert) tinham, cada um, a policy
+`PERMISSIVE` admin-only original **mais** a policy "widen" que a Parte 6
+adicionou (`canManageEquipe`/`canInviteUsers`) — duas policies
+`PERMISSIVE` pra mesma ação. Como policies `PERMISSIVE` já se somam por
+`OR`, consolidar as duas condições numa policy só é, por construção,
+idêntico ao original — `OR` é associativo, não há como essa fusão mudar
+quem tem acesso a quê.
+
+### Correção
+
+4 policies consolidadas: `inv_insert`, `office_teams_insert`,
+`office_teams_update`, `office_teams_delete` — cada uma agora com a
+condição original `OR coalesce(permission_override(...), false)` embutida
+na mesma policy, em vez de duas policies separadas. Migration:
+`20260909020000_dedupe_widen_permissive_policies.sql`.
+
+### Verificação
+
+Testado ao vivo em produção após aplicar (transação com `ROLLBACK`,
+sem DDL nela — só leitura/escrita, pra isolar o teste de qualquer efeito
+colateral do próprio `BEGIN` com DDL+DML misturados que gerou um falso
+positivo numa rodada de teste anterior à aplicação, ver nota abaixo): 7
+cenários — usuário comum sem override não convida nem cria equipe;
+mesmo usuário com `canInviteUsers`/`canManageEquipe = true` consegue
+convidar, criar, editar e excluir equipe; office admin sem nenhum
+override continua funcionando normalmente. Todos bateram com o
+esperado. `get_advisors` performance: `multiple_permissive_policies`
+**16 → 0**. `get_advisors` segurança sem diferença.
+
+**Nota sobre o processo**: a primeira tentativa de verificação (uma
+transação única aplicando as 4 `DROP`/`CREATE POLICY` e todos os 7
+testes em sequência) mostrou uma falha intermitente e não-reprodutível
+num dos cenários — reexecutar a mesma transação ora passava, ora
+falhava, sem relação com a lógica da policy (confirmado consultando a
+condição diretamente: sempre avaliava `true` quando checada isoladamente).
+Tratado como artefato do próprio arnês de teste (DDL e múltiplos blocos
+`DO`/exceção acumulados numa única transação longa), não como sinal real
+— por isso a verificação final foi refeita como dois passos separados:
+aplicar a migration de verdade, depois validar o comportamento numa
+transação limpa, só de leitura/escrita, sem DDL nenhum junto. Registrado
+aqui por transparência, já que contraria a prática desta análise de só
+aplicar depois de uma verificação limpa.
+
+Com esta parte, todo o panorama de pendências levantado depois da parte 7
+está fechado — resta só a config de conexões do Auth (fora do escopo de
+código), manutenibilidade e cobertura de testes, que são trabalho de
+fundo, não achados pontuais.
