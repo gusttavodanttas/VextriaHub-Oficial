@@ -1566,8 +1566,9 @@ marcado como aprovado) — o admin pode tentar de novo.
 
 ### Pendente para a próxima rodada (não corrigido nesta parte)
 
-- Zero teste automatizado em `AuthContext`, `useUserPermissions`,
-  cobrança/plano e o restante de `useExclusoesPendentes`.
+- Zero teste automatizado em `useUserPermissions`, cobrança/plano e o
+  restante de `useExclusoesPendentes` (`AuthContext` ganhou cobertura na
+  Parte 15, logo abaixo).
 - Padrão "ler `offices.settings` → mesclar → salvar" duplicado de forma
   idêntica em ~10 arquivos (mesma classe de bug do achado 2, ainda não
   corrigida nesses outros pontos).
@@ -1647,3 +1648,55 @@ perdeu os dois. `npm audit`: `react-router-dom`/`react-router` caem de
 Só GRANT/REVOKE nas funções (sem mudar corpo/lógica) e o bump de
 `react-router-dom` — nenhuma mudança de comportamento esperada pra
 usuário autenticado.
+
+## Parte 15 — cobertura de teste pro `AuthContext`
+
+Último item pendente de severidade relevante das rodadas 2/3: `AuthContext`
+— a área que já causou o bug real de produção da Parte 12 (admin de
+escritório sempre caindo em `/admin`, nunca vendo o próprio dashboard) —
+não tinha nenhum teste automatizado. A causa raiz daquele bug era
+especificamente uma corrida: `processUserData` libera a UI com um `role`
+**provisório** (`user`, ou `super_admin` só se o e-mail estiver na lista
+global) antes do profile real terminar de carregar em background
+(`fetchProfile`/`createProfile`/`fetchOfficeData`), e qualquer lógica de
+redirecionamento que rodasse nessa janela via o role errado.
+
+### O que os testes travam
+
+`src/tests/auth/AuthContext.test.tsx`, 9 testes:
+
+- **`getRedirectPath`** (a função usada por `Login.tsx` pra decidir o
+  destino pós-login): `admin` → `/admin`; `user`/`undefined` → `/dashboard`;
+  e-mail da lista global de super admin → `/admin` **mesmo com role
+  "user"** vindo do banco (o `isSystemAdmin` do E.1 tem prioridade).
+- **A corrida do `processUserData`**: dispara um evento `SIGNED_IN`
+  simulado e espera o `role` convergir do provisório pro real assim que o
+  profile mockado "chega" — inclusive o caso de usuário sem profile/sem
+  escritório nenhum (`role` fica em `user`, `isOfficeAdmin` `false`, sem
+  travar nem sobrar em estado inconsistente).
+- **`isSuperAdmin`**: e-mail da lista global vale mesmo com `role: 'user'`
+  no profile; `role: 'super_admin'` no profile vale mesmo com e-mail fora
+  da lista global — as duas fontes que `isUserSuperAdmin` combina.
+- **`login`**: sucesso processa a sessão retornada e autentica; erro
+  devolve `{ error }` sem autenticar ninguém.
+- **`logout`**: limpa `user`/`session`/`isAuthenticated` e navega pra
+  `/login`.
+
+### Verificação
+
+**Controle negativo**: comentei `setUser(finalUser)` (a linha que aplica o
+role REAL depois do fetch em background) em `AuthContext.tsx` e rodei a
+suíte — 2 dos 9 testes falham exatamente onde deveriam (a convergência do
+role real e o `logout`, que depende dela), confirmando que os testes
+prendem o comportamento de verdade, não são tautológicos. Revertido antes
+de seguir (nenhuma mudança de lógica nesta parte, só o teste novo).
+
+| Verificação | Resultado |
+| --- | --- |
+| `tsc -p tsconfig.app.json` | limpo |
+| ESLint | 0 erros · 697 avisos (8 novos, todos `no-explicit-any` nos mocks — mesmo padrão já usado em `useProcessoSubData.test.tsx`) |
+| Vitest | 214/214 (era 205; +9 novos) |
+| `vite build` | ok |
+
+Nenhuma mudança de banco/RLS nem de código de produção — só o arquivo de
+teste novo.
