@@ -20,7 +20,7 @@ import { AlertCircle, FileText, CheckSquare, TrendingUp, ArrowRight, Plus, Calen
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useStats } from "@/hooks/useStats";
 import { useMyStats } from "@/hooks/useMyStats";
 import { useMyActivity } from "@/hooks/useMyActivity";
@@ -104,6 +104,7 @@ function KpiCard({ icon: Icon, label, value, sub, color, bg, onClick, urgent, lo
 const Index = () => {
   const { isSuperAdmin, isOfficeAdmin, validatePayment } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { stats, loading: statsLoading, refresh } = useStats();
   const myStats = useMyStats();
   const { items: activity, loading: activityLoading } = useMyActivity(6);
@@ -130,17 +131,18 @@ const Index = () => {
     }
   }, [validatePayment]);
 
-  // Sinalizador setado só pelo Login.tsx (janela pós-login onde o redirect podia
-  // ter usado um role ainda não confirmado — ver processUserData em AuthContext,
-  // que libera a UI com um role provisório antes do profile real carregar). Preso
-  // ao mount: se virar admin true depois (profile chegando em background), ainda
-  // corrige; mas uma vez consumido, clicar "Início" de novo mostra o dashboard de
-  // verdade — antes disto o admin nunca conseguia ver a própria home, só /admin.
-  const [pendingLoginRedirect] = useState(() => sessionStorage.getItem('vh_post_login_redirect') === '1');
+  // Marcado só pelo Login.tsx no state DESTA navegação (não em sessionStorage —
+  // uma flag persistida ficava "pendurada" quando o login já mandava certo pra
+  // /admin sem nunca passar por aqui, e reabria o bug no primeiro clique manual
+  // em "Início" depois). location.state some sozinho quando o usuário navega de
+  // novo, então um clique deliberado em "Início" nunca carrega essa marca —
+  // só a navegação de saída do Login.tsx carrega, e só ela deve se
+  // auto-corrigir quando o role ainda estava provisório (ver processUserData em
+  // AuthContext) na hora do redirect.
+  const pendingLoginRedirect = (location.state as { fromLoginRedirect?: boolean } | null)?.fromLoginRedirect === true;
 
   useEffect(() => {
     if (pendingLoginRedirect && (isSuperAdmin || isOfficeAdmin)) {
-      sessionStorage.removeItem('vh_post_login_redirect');
       navigate('/admin', { replace: true });
     }
   }, [pendingLoginRedirect, isSuperAdmin, isOfficeAdmin, navigate]);

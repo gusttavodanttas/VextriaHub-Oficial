@@ -62,13 +62,14 @@ const Login = () => {
 
       const userEmail = user?.email || session?.user?.email;
       const redirectPath = getRedirectPath(user?.role, userEmail);
-      // Marca que este redirect pode ter usado um role ainda não confirmado (o
-      // profile carrega em background — ver processUserData em AuthContext).
-      // Index.tsx usa essa marca pra se auto-corrigir SÓ nesta janela pós-login,
-      // sem prender o admin em /admin pra sempre a cada vez que clicar "Início".
-      sessionStorage.setItem('vh_post_login_redirect', '1');
+      // fromLoginRedirect vai no state DESTA navegação específica (não em
+      // localStorage/sessionStorage) — Index.tsx só se auto-corrige quando FOI
+      // esta navegação que o trouxe até lá (role ainda podia estar provisório —
+      // ver processUserData em AuthContext), nunca num clique manual depois em
+      // "Início", que cria uma navegação nova sem esse state.
       navigate(redirectPath, {
-        replace: true
+        replace: true,
+        state: { fromLoginRedirect: true }
       });
     }
   }, [isAuthenticated, navigate, location, loginInProgress, session, user, getRedirectPath]);
@@ -94,9 +95,9 @@ const Login = () => {
 
         const userEmail = user?.email || session?.user?.email;
         const redirectPath = getRedirectPath(user?.role, userEmail);
-        sessionStorage.setItem('vh_post_login_redirect', '1');
         navigate(redirectPath, {
-          replace: true
+          replace: true,
+          state: { fromLoginRedirect: true }
         });
         setLoginInProgress(false);
       }, 100);
