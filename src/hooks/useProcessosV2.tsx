@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { NovoProcesso } from '@/types/database';
 import { Processo } from '@/types/processo';
-import type { TablesInsert } from '@/integrations/supabase/rows';
+import type { TablesInsert, TablesUpdate } from '@/integrations/supabase/rows';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getErrorMessage } from '@/lib/errors';
 import { planQuotaMessage } from '@/lib/planQuotaError';
@@ -177,7 +177,7 @@ export function useProcessosV2() {
       if (existing) {
         const { data: updated, error: updateError } = await supabase
           .from('processos')
-          .update(insertPayload)
+          .update(insertPayload as TablesUpdate<'processos'>)
           .eq('id', existing.id)
           .select('*, cliente:clientes(nome)')
           .single();
@@ -378,7 +378,7 @@ export function useProcessosV2() {
 
       const { data: result, error } = await supabase
         .from('processos')
-        .update(updatePayload)
+        .update(updatePayload as TablesUpdate<'processos'>)
         .eq('id', id)
         .select('*, cliente:clientes(nome)')
         .single();

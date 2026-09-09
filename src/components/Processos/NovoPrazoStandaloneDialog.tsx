@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import type { TablesInsert } from "@/integrations/supabase/rows";
+import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/rows";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   CalendarClock, Newspaper, Shield, AlertOctagon, Search, X,
@@ -631,10 +631,10 @@ export const NovoPrazoStandaloneDialog = ({
             : (prazoParaEditar?.processo_id ?? selectedProcesso?.id ?? null),
         };
         if (formData.avisosDias != null) updates.avisos_dias = formData.avisosDias;
-        let { error } = await supabase.from('prazos').update(updates).eq('id', prazoParaEditar!.id!);
+        let { error } = await supabase.from('prazos').update(updates as TablesUpdate<'prazos'>).eq('id', prazoParaEditar!.id!);
         if (error && /titular/.test(error.message || '')) { // coluna ainda não criada
           const { titular: _t, ...semTitular } = updates;
-          ({ error } = await supabase.from('prazos').update(semTitular).eq('id', prazoParaEditar!.id!));
+          ({ error } = await supabase.from('prazos').update(semTitular as TablesUpdate<'prazos'>).eq('id', prazoParaEditar!.id!));
         }
         if (error) throw error;
         toast({ title: "Prazo atualizado", description: "As alterações foram salvas." });
