@@ -94,6 +94,25 @@ function extractPartes(text: string): { autor: string; reu: string } {
   return { autor: cleanName(mA?.[1]), reu: cleanName(mP?.[1]) };
 }
 
+// A comunicação do PJE vem em HTML; strippar as tags (abaixo) não decodifica
+// as entidades (ex.: "Ju&iacute;za" ficava literal no título/nome extraído).
+const HTML_ENTITIES: Record<string, string> = {
+  nbsp: " ", amp: "&", lt: "<", gt: ">", quot: '"', apos: "'",
+  aacute: "á", Aacute: "Á", eacute: "é", Eacute: "É", iacute: "í", Iacute: "Í",
+  oacute: "ó", Oacute: "Ó", uacute: "ú", Uacute: "Ú",
+  atilde: "ã", Atilde: "Ã", otilde: "õ", Otilde: "Õ",
+  acirc: "â", Acirc: "Â", ecirc: "ê", Ecirc: "Ê", ocirc: "ô", Ocirc: "Ô",
+  ccedil: "ç", Ccedil: "Ç", agrave: "à", Agrave: "À", ordm: "º", ordf: "ª", deg: "°",
+};
+
+function decodeHtmlEntities(s: string): string {
+  if (!s) return s;
+  return s
+    .replace(/&#(\d+);/g, (_m, d) => String.fromCharCode(Number(d)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_m, h) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/&([a-zA-Z]+);/g, (m, name) => HTML_ENTITIES[name] ?? m);
+}
+
 // ============================================================================
 // CLASSIFICAÇÃO
 // ============================================================================
@@ -319,7 +338,7 @@ function mapPjeItem(item: any, ufFallback: string) {
   if (!numProc) return null;
 
   const rawContent = item.texto_comunicacao || item.texto || item.textoComunicacao || item.conteudo || "";
-  const cleanContent = rawContent.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  const cleanContent = decodeHtmlEntities(rawContent.replace(/<[^>]*>/g, " ")).replace(/\s+/g, " ").trim();
   const { autor: extAutor, reu: extReu } = extractPartes(cleanContent);
   const dataDisp = item.data_disponibilizacao || item.dataDisponibilizacao || null;
 
@@ -559,7 +578,7 @@ serve(async (req) => {
         // PJE Comunica = publicações, NÃO andamentos. Usamos só para extrair partes.
         for (const it of pjeItems) {
           const rawContent = it.texto_comunicacao || it.texto || it.textoComunicacao || it.conteudo || "";
-          const cleanContent = rawContent.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+          const cleanContent = decodeHtmlEntities(rawContent.replace(/<[^>]*>/g, " ")).replace(/\s+/g, " ").trim();
 
           // Tenta extrair partes do texto da comunicação (pega o melhor match dos N)
           if (cleanContent && (!pjeBestPartes || (!pjeBestPartes.autor || !pjeBestPartes.reu))) {
