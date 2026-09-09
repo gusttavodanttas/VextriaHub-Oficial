@@ -1174,7 +1174,7 @@ UPDATE/DELETE realmente afetou) foi fechada:
   `.select().single()` (que já lança erro em 0 linhas) e `deleteMutation`
   já conferia `data.length === 0` desde antes desta rodada.
 
-### Achado novo: o toggle "Excluir" não tem efeito em clientes/processos/atendimentos
+### Achado novo: o toggle "Excluir" não tem efeito em clientes/processos/atendimentos *(corrigido — ver Parte 10 abaixo)*
 
 Ao revisar `useClientes.tsx` percebi que a ação de "excluir" nessas três
 tabelas é sempre um **soft delete via `UPDATE`** (`deletado = true`), nunca
@@ -1280,3 +1280,62 @@ TS/React nesta parte — só migration e relatório). `npm run test:rls` não
 rodou neste ambiente (container sem Postgres local instalado, mesma
 limitação já registrada na Parte 2) — a validação desta rodada foi feita
 inteiramente contra produção, com `ROLLBACK`.
+
+## Parte 10 — o toggle "Excluir" de clientes/processos/atendimentos passa a valer
+
+Fecha o achado novo da Parte 8: a exclusão nessas 3 tabelas é sempre
+soft-delete via `UPDATE` (`deletado = true`), nunca um `DELETE` de
+verdade — então `canDeleteClients`/`canDeleteProcesses`/`canDeleteAtendimentos`,
+mapeados pra ação `delete` do Postgres, nunca tinham efeito nenhum. Quem
+de fato bloqueava/liberava a exclusão era o toggle "Editar" (e, em
+atendimentos, também "Gerenciar Agenda").
+
+### Correção
+
+A policy de `UPDATE` passa a diferenciar "estou editando um campo normal"
+de "estou marcando como excluído", usando `WITH CHECK` sobre o valor
+**novo** de `deletado`/`deletado_pendente` — `USING` não enxerga esse
+valor (só o valor antigo da linha), por isso as duas pontas viram
+`using (true)` e toda a decisão migra pro `WITH CHECK`, que o Postgres
+avalia contra a linha resultante e, se falhar, **lança erro** (não é
+silencioso como um `USING` que bloqueia — é a mesma garantia forte que já
+vale pra `INSERT`).
+
+Resultado, para cada uma das 3 tabelas:
+
+- **Edição normal** (`deletado` continua `false`) → continua exigindo
+  `canEdit*` (e `canManageAgenda`, em atendimentos), exatamente como antes.
+- **Transição para `deletado`/`deletado_pendente = true`** → passa a
+  exigir `canDelete*`, **independente** de `canEdit*`/`canManageAgenda`.
+
+Migration: `20260909010000_fix_soft_delete_permission_split.sql`.
+
+### Verificação
+
+Testado ao vivo em produção, dentro de transações com `ROLLBACK`, usando
+linhas de teste criadas e apagadas na própria transação — **11 cenários**
+cobrindo as 3 tabelas:
+
+| Cenário | Antes desta correção | Depois |
+| --- | --- | --- |
+| `canEdit*=false`, edição normal | bloqueado | bloqueado (inalterado) |
+| `canEdit*=false`, `canDelete*` padrão, soft-delete | **bloqueado (bug)** | **permitido** |
+| `canDelete*=false`, soft-delete | **permitido (bug)** | **bloqueado** |
+| `canDelete*=false`, `canEdit*=true`, edição normal | permitido | permitido (inalterado) |
+
+Em `atendimentos` o mesmo padrão foi testado com `canEditAtendimentos` e
+`canManageAgenda` desligados ao mesmo tempo — confirmando que a edição
+normal ainda exige os dois, mas o soft-delete passa a depender só de
+`canDeleteAtendimentos`. `get_advisors` (segurança) sem regressões.
+
+Efeito colateral positivo: o usuário real do escritório "Gustavo Dantas
+Advogados Associados" (que já tinha `canEditClients`/`canEditProcesses`/
+`canEditAtendimentos`/`canManageAgenda` desligados desde a Parte 6) estava,
+sem essa correção, **impedido de excluir** clientes/processos/atendimentos
+mesmo nunca tendo tido `canDeleteClients`/`canDeleteProcesses`/
+`canDeleteAtendimentos` desligado — uma restrição a mais do que o admin
+pretendia. Agora ele pode excluir normalmente, só não pode editar, que é
+exatamente o que os toggles configurados descrevem.
+
+Nenhuma mudança de código TS/React — só as 6 policies de `UPDATE`
+(2 por tabela × 3 tabelas) e o relatório.
