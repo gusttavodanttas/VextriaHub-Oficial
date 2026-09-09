@@ -1386,3 +1386,61 @@ Com esta parte, todo o panorama de pendências levantado depois da parte 7
 está fechado — resta só a config de conexões do Auth (fora do escopo de
 código), manutenibilidade e cobertura de testes, que são trabalho de
 fundo, não achados pontuais.
+
+## Parte 12 — admin de escritório nunca conseguia ver o próprio dashboard
+
+Reportado ao vivo por um usuário real (admin do escritório "Gustavo Dantas
+Advogados Associados"): login cai em `/admin` (esperado — é o comportamento
+do E.1) e clicar em "Início" na barra lateral **também** cai em `/admin`,
+sempre mostrando "Solicitações de Exclusão" — nunca o dashboard de verdade
+(KPIs, calendário, ações rápidas).
+
+### Causa raiz
+
+O item "Início" da barra lateral está correto — aponta pra `/dashboard`. O
+bug estava dentro do próprio componente do dashboard (`Index.tsx`): a
+correção do achado E.1 (parte 4) adicionou um redirecionamento
+incondicional — `if (isSuperAdmin || isOfficeAdmin) navigate('/admin')` —
+que roda **toda vez** que o componente monta, não só logo após o login. O
+propósito original era corrigir uma corrida de timing real: o
+`AuthContext` libera a UI com um `role` provisório antes do profile
+carregar de verdade em background (`processUserData`), e o redirect do
+`Login.tsx` (que roda ~100ms depois do login) podia usar esse role
+provisório errado e mandar um admin pra `/dashboard`. Só que a correção
+ficou permanente: qualquer admin que clicasse em "Início" de propósito
+era jogado de volta pra `/admin` — a barra lateral já tinha um link
+dedicado e correto pra isso ("Solicitações", `/admin?tab=requests`), mas
+o dashboard normal nunca ficava acessível.
+
+### Correção
+
+`Login.tsx` marca um sinalizador (`sessionStorage`) só nos dois pontos
+onde o redirect pós-login roda. `Index.tsx` lê esse sinalizador **uma vez**
+no mount (`useState` com inicializador lazy) e só se auto-corrige pra
+`/admin` enquanto ele existir — consumindo-o (removendo) assim que
+corrige. Fora dessa janela pós-login (ou seja: qualquer clique manual em
+"Início" depois), o admin vê o dashboard normalmente, exatamente como um
+usuário comum.
+
+### Verificação
+
+Rastreamento completo do fluxo de estado (`AuthContext.processUserData` →
+`Login.tsx` → `Index.tsx`) confirmando que o sinalizador cobre exatamente
+a janela de corrida original sem reintroduzi-la: se o `role` real só
+chega depois do primeiro mount do `Index.tsx`, o efeito roda de novo
+(dependência em `isSuperAdmin`/`isOfficeAdmin`) e ainda corrige, porque
+`pendingLoginRedirect` foi capturado uma vez só no mount e permanece
+`true` durante toda a vida do componente. Não foi possível testar o
+fluxo de login ao vivo no navegador nesta sessão (exigiria credenciais
+reais de um admin de produção); a verificação foi por leitura completa
+do código e pelos 4 checks automatizados abaixo.
+
+| Verificação | Resultado |
+| --- | --- |
+| `tsc -p tsconfig.app.json` | limpo |
+| ESLint | 0 erros · 689 avisos (idêntico à linha de base) |
+| Vitest | 205/205 |
+| `vite build` | ok |
+
+Nenhuma mudança de banco/RLS — só `src/pages/Login.tsx` e
+`src/pages/Index.tsx`.
