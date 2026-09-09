@@ -236,6 +236,46 @@ describe('AuthContext', () => {
       // Deixa qualquer microtask pendente assentar antes do teste terminar.
       await act(async () => { await Promise.resolve(); });
     });
+
+    it('mantém user.office_id intacto quando o supabase-js dispara SIGNED_IN de novo pro MESMO usuário (fluxo de recuperação de sessão)', async () => {
+      // O @supabase/auth-js não dispara só TOKEN_REFRESHED na volta de
+      // visibilidade — o caminho de recuperação de sessão com "proxy user"
+      // (_recoverAndRefresh) pode disparar SIGNED_IN pro MESMO usuário. Uma
+      // guarda que checasse só o nome do evento (em vez do id do usuário)
+      // deixaria esse caminho passar direto e reproduzir o mesmo bug.
+      mockTableData['profiles'] = {
+        user_id: 'user-1',
+        role: 'admin',
+        full_name: 'João',
+        email: 'joao@escritorio.com',
+        office_id: 'office-1',
+        created_at: new Date().toISOString(),
+      };
+      mockTableData['office_users'] = {
+        user_id: 'user-1',
+        office_id: 'office-1',
+        role: 'admin',
+        active: true,
+        office: { id: 'office-1', name: 'Escritório Teste' },
+      };
+
+      renderAuth();
+      await waitFor(() => expect(latestAuth?.isLoading).toBe(false));
+
+      const sbUser = makeSupabaseUser();
+      await act(async () => {
+        hoisted.authChangeCallback?.('SIGNED_IN', makeSession(sbUser));
+      });
+      await waitFor(() => expect(screen.getByTestId('officeId').textContent).toBe('office-1'));
+
+      act(() => {
+        hoisted.authChangeCallback?.('SIGNED_IN', makeSession(sbUser));
+      });
+      expect(screen.getByTestId('officeId').textContent).toBe('office-1');
+      expect(screen.getByTestId('role').textContent).toBe('admin');
+
+      await act(async () => { await Promise.resolve(); });
+    });
   });
 
   describe('isSuperAdmin', () => {

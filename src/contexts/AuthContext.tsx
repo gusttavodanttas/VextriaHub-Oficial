@@ -294,13 +294,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSession(newSession);
 
     if (newSession?.user) {
-      // TOKEN_REFRESHED do MESMO usuário já carregado (ex.: supabase-js renova o
-      // token sozinho quando a aba volta a ficar visível) não tem nada novo pra
-      // buscar. Sem essa guarda, processUserData reexecutava do zero: o primeiro
-      // passo dele é setUser(initialUser) com um objeto SEM office_id — zerando
-      // por um instante todo dashboard que depende de user.office_id, até o
-      // fetch em background terminar e devolver o usuário completo.
-      const sameUserAlreadyLoaded = event === "TOKEN_REFRESHED" && userRef.current?.id === newSession.user.id;
+      // Evento do MESMO usuário já carregado não tem nada novo pra buscar —
+      // reprocessar do zero é o que causava o "zera e volta". Generalizado por
+      // ID de usuário, não por nome de evento: o supabase-js dispara TOKEN_REFRESHED
+      // quando renova o token sozinho ao a aba voltar a ficar visível, MAS também
+      // pode disparar SIGNED_IN nesse mesmo cenário (fluxo de recuperação de sessão
+      // com "proxy user" em _recoverAndRefresh, no @supabase/auth-js) — checar só
+      // TOKEN_REFRESHED deixava esse segundo caminho passar direto e reproduzir o
+      // mesmo bug. Em qualquer um desses eventos, o primeiro passo de
+      // processUserData é setUser(initialUser) com um objeto SEM office_id,
+      // zerando por um instante todo dashboard que depende de user.office_id, até
+      // o fetch em background devolver o usuário completo de volta.
+      const sameUserAlreadyLoaded = userRef.current?.id === newSession.user.id;
       if (!sameUserAlreadyLoaded) {
         await processUserData(newSession.user);
       }
