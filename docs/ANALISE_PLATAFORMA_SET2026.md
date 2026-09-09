@@ -1566,16 +1566,6 @@ marcado como aprovado) — o admin pode tentar de novo.
 
 ### Pendente para a próxima rodada (não corrigido nesta parte)
 
-- 13 funções `SECURITY DEFINER` executáveis por `anon` sem necessidade —
-  a maioria falha fechada (retorna `false`/vazio pra `auth.uid()` nulo),
-  mas `office_has_access` e `share_processo_with_office` vazam informação
-  (status de assinatura; existência de um processo) via diferença de
-  retorno/erro pra quem nem está logado.
-- `enforce_office_seat_limit` (função de trigger) ainda exposta via RPC —
-  escapou da limpeza já feita em `revoke_trigger_exec_public` por ter sido
-  criada depois dessa migration.
-- `react-router-dom` na faixa vulnerável do `npm audit` (correção
-  não-quebra de compatibilidade disponível).
 - Zero teste automatizado em `AuthContext`, `useUserPermissions`,
   cobrança/plano e o restante de `useExclusoesPendentes`.
 - Padrão "ler `offices.settings` → mesclar → salvar" duplicado de forma
@@ -1584,3 +1574,76 @@ marcado como aprovado) — o admin pode tentar de novo.
 - 41 arquivos >400 linhas (era 39), ~55 botões de ícone sem `aria-label`,
   `@supabase/supabase-js` desatualizado — qualidade/manutenibilidade, sem
   urgência.
+
+(Os outros 3 itens que estavam pendentes aqui — funções `SECURITY DEFINER`
+executáveis por `anon`, `enforce_office_seat_limit` exposta via RPC, e
+`react-router-dom` vulnerável — foram resolvidos na Parte 14, logo abaixo.)
+
+## Parte 14 — terceira rodada: fecha o resto da superfície de `anon` e a dependência vulnerável
+
+Continuação direta da Parte 13 — os 3 achados de severidade média/alta que
+tinham ficado pendentes.
+
+### `react-router-dom` na faixa vulnerável
+
+`npm audit` apontava `react-router-dom`/`react-router`/`@remix-run/router`
+com CVE de severidade **alta** (open-redirect/XSS, faixa `<=1.23.2` do
+`@remix-run/router`) na versão instalada (`6.27.0`). Atualizado pra
+`6.30.6` — ainda dentro do range `^6.x` declarado no `package.json`
+(`^6.26.2` → `^6.30.6`), **sem** subir pra v7 (que seria mudança quebra de
+compatibilidade e exigiria migração à parte). Resultado: a vulnerabilidade
+alta some; sobram 2 avisos **moderados** no `react-router` (open-redirect
+via barra invertida em `<Link>`, e injeção de construtor via
+`deserializeErrors` em SSR — este projeto não usa SSR) que só têm correção
+na v7 — registrados como pendência de uma migração maior, fora do escopo
+de uma atualização de dependência.
+
+### 13 funções `SECURITY DEFINER` executáveis por `anon` sem necessidade
+
+Confirmado corpo por corpo (Parte 13) que 11 das 13 falham fechado pra
+`auth.uid()` nulo, mas `office_has_access` e `share_processo_with_office`
+vazavam informação (status de assinatura de um escritório; existência de
+um processo) pra quem nem está logado, via diferença de retorno/erro.
+Revogado `EXECUTE` de `public`/`anon` nas 13 e reconcedido explicitamente
+só pra `authenticated`/`service_role` — mesmo padrão já usado em
+`hygiene_signup_plan_revoke_public`. `confirm_invited_user` fica de fora
+de propósito (única que precisa ser `anon`, fluxo de confirmação de
+convite antes do login). Migration:
+`20260909040000_revoke_anon_execute_security_definer_funcs.sql`.
+
+Confirmado por leitura de cada chamada `.rpc(...)` no frontend (`grep` em
+`src/`) que nenhuma dessas 13 funções é chamada antes do usuário estar
+autenticado — as únicas chamadas diretas (`ensure_office_for_user`,
+`share_processo_with_office`, `my_oab_quota`) rodam depois do login
+confirmado; as demais só são usadas internamente por RLS policies (nunca
+via RPC do cliente), que não passam pelo ACL de `EXECUTE` do papel `anon`.
+
+### `enforce_office_seat_limit` exposta via RPC por engano
+
+Função de **trigger** (dispara em `INSERT`/`UPDATE` de `office_users`),
+não deveria ser chamável via `/rest/v1/rpc` — escapou da limpeza genérica
+de `revoke_trigger_exec_public` por ter sido criada depois dessa
+migration. Revogado `EXECUTE` de `public`/`anon`/`authenticated`; triggers
+continuam funcionando normalmente (o executor do Postgres não passa pelo
+ACL de `EXECUTE` pra disparar um trigger).
+
+### Verificação
+
+`get_advisors` (segurança): `anon_security_definer_function_executable`
+**13 → 1** (só `confirm_invited_user`, intencional);
+`enforce_office_seat_limit` some da lista de `authenticated` também.
+Conferido via `has_function_privilege` em produção que as 13 perderam
+`anon` mas mantiveram `authenticated`, e que `enforce_office_seat_limit`
+perdeu os dois. `npm audit`: `react-router-dom`/`react-router` caem de
+**alta** pra **moderada** (só resolvível com v7, fora de escopo).
+
+| Verificação | Resultado |
+| --- | --- |
+| `tsc -p tsconfig.app.json` | limpo |
+| ESLint | 0 erros · 689 avisos (idêntico à linha de base) |
+| Vitest | 205/205 |
+| `vite build` | ok |
+
+Só GRANT/REVOKE nas funções (sem mudar corpo/lógica) e o bump de
+`react-router-dom` — nenhuma mudança de comportamento esperada pra
+usuário autenticado.
