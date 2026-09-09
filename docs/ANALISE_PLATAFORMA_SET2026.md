@@ -2036,3 +2036,70 @@ testes (Vitest) passando, `vite build` ok. Teste end-to-end no navegador
 o Supabase real, e a rede do sandbox não alcança o host do projeto (mesma
 limitação já registrada nas partes anteriores); a confirmação final fica
 para o primeiro uso em produção.
+
+## Parte 21 — dashboard zerava por um instante ao voltar de aba (TOKEN_REFRESHED)
+
+Usuário relatou: sai da aba da plataforma, volta, o dashboard mostra 0 itens
+por um instante e depois volta ao normal.
+
+### Causa raiz
+
+O `supabase-js` renova o token de sessão sozinho quando a aba volta a ficar
+visível, disparando `TOKEN_REFRESHED` no `onAuthStateChange`. O
+`AuthContext` tratava esse evento igual a um login novo — reexecutava
+`processUserData()`, cujo primeiro passo (síncrono, antes de qualquer
+chamada de rede) seta um `initialUser` **sem `office_id`**. Isso zera
+`user.office_id` por um instante em toda a aplicação (qualquer hook com
+`enabled: !!officeId` fica sem dados) até o fetch em background devolver o
+usuário completo de volta.
+
+### Correção
+
+`handleAuthStateChange` agora pula o reprocessamento quando o evento é
+`TOKEN_REFRESHED` do **mesmo usuário já carregado** — não há nada novo pra
+buscar nesse caso. Login de fato, troca de usuário, ou qualquer outro
+evento continuam processados normalmente.
+
+### Verificação
+
+Teste de regressão em `AuthContext.test.tsx`, com **controle negativo**:
+rodado contra o código sem a correção, confirma que falha (`officeId` vira
+`'none'` no instante do `TOKEN_REFRESHED`); com a correção, passa. `tsc`
+limpo, ESLint sem erros novos, 215/215 testes, `vite build` ok.
+
+## Parte 22 — módulo Financeiro: importar planilha (Excel/CSV) com IA
+
+Terceiro pedido a partir do protótipo enviado pelo usuário: subir uma
+planilha (Excel ou exportada do Google Planilhas) e a IA ajudar a
+classificar as linhas em receitas/despesas.
+
+### Implementação
+
+- **Parsing no client**: `.xlsx`/`.xls` via `read-excel-file/universal`
+  (biblioteca focada em leitura, sem as vulnerabilidades de
+  prototype-pollution/ReDoS não corrigidas do pacote `xlsx` no npm —
+  confirmado via `npm audit` que `read-excel-file` não adiciona nenhuma
+  vulnerabilidade nova ao baseline do projeto, enquanto `xlsx` adicionava 2
+  altas). `.csv` via parser próprio (testado com aspas, vírgula/quebra de
+  linha dentro de campo, CRLF).
+- **Classificação por IA**: novo modo `importar_financeiro` no edge
+  function `ai-advisor` já existente (reaproveita o mesmo gate de plano
+  Premium e o mesmo teto de uso mensal por escritório que os outros modos
+  já tinham — nenhum gate novo pra manter). Recebe até 150 linhas brutas e
+  devolve cada uma classificada (tipo, descrição, valor, data, categoria,
+  escopo PJ/PF, confiança) — sempre positivo, categorias existentes do
+  escritório sugeridas primeiro.
+- **Revisão obrigatória**: a IA só sugere — o usuário revisa e edita cada
+  linha (marcar/desmarcar, trocar tipo/categoria/escopo/valor/data) antes
+  de qualquer INSERT. Linhas com confiança baixa (<60) ganham um selo
+  "Confira".
+
+### Verificação
+
+8 testes do parser CSV (aspas, vírgula interna, aspas escapadas, CRLF,
+quebra de linha dentro de campo, linhas vazias) — todos passaram. `tsc`
+limpo, ESLint sem erros novos, 222/222 testes (Vitest), `vite build` ok
+(a lib de planilha empacotou sem exigir polyfills Node). Deploy do
+`ai-advisor` (v9) já feito em produção. Teste end-to-end (upload real +
+chamada de IA) não foi possível nesta sessão pela mesma limitação de rede
+do sandbox já registrada — a confirmação final fica pro primeiro uso.

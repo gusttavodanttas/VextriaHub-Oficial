@@ -409,6 +409,46 @@ serve(async (req) => {
       return json({ ok: true, mode, data: out });
     }
 
+    // ── IMPORTAR PLANILHA (Financeiro) ──
+    // Recebe linhas brutas (já extraídas no client de um .xlsx/.xls/.csv — a
+    // extração de arquivo não roda aqui, só a classificação) e devolve cada
+    // uma classificada como receita/despesa. O usuário sempre revisa e
+    // confirma no client antes de qualquer INSERT — este modo só sugere.
+    if (mode === "importar_financeiro") {
+      const rows = Array.isArray(body?.rows) ? body.rows : [];
+      if (!rows.length) return json({ error: "sem-linhas" }, 400);
+      // Teto de linhas por chamada: uma planilha de centenas de linhas estouraria
+      // o contexto/custo de uma única chamada; 150 cobre um extrato mensal comum.
+      const capped = rows.slice(0, 150);
+      const categoriasReceita = Array.isArray(body?.categoriasReceita) ? body.categoriasReceita.slice(0, 30) : [];
+      const categoriasDespesa = Array.isArray(body?.categoriasDespesa) ? body.categoriasDespesa.slice(0, 30) : [];
+      const linhas = capped.map((r: unknown, i: number) => `${i}: ${JSON.stringify(r).slice(0, 500)}`).join("\n");
+      const system =
+        "Você extrai lançamentos financeiros (receitas e despesas) de linhas brutas de uma planilha " +
+        "(extrato bancário ou controle financeiro) de um escritório de advocacia brasileiro. Cada linha pode ser " +
+        "um cabeçalho, uma linha vazia, um subtotal, ou um lançamento real — use \"incluir\": false para tudo que " +
+        "não for um lançamento real.\n" +
+        `Categorias de RECEITA já cadastradas (prefira uma destas quando fizer sentido; senão sugira uma nova curta): ${JSON.stringify(categoriasReceita)}.\n` +
+        `Categorias de DESPESA já cadastradas: ${JSON.stringify(categoriasDespesa)}.\n` +
+        "Nunca invente valor ou data que não estejam na linha. Se não achar uma data válida, use null. O valor é " +
+        "SEMPRE um número positivo (mesmo que a planilha mostre negativo pra indicar despesa) — o sinal quem " +
+        "define é o campo \"tipo\".\n" +
+        "Responda em JSON com a chave \"itens\": um array na MESMA ordem e MESMO tamanho das linhas recebidas, " +
+        "cada item com: index (number, igual ao número da linha recebida), incluir (boolean), " +
+        "tipo (\"receita\"|\"despesa\"), descricao (string curta e clara), valor (number), " +
+        "data_vencimento (string \"YYYY-MM-DD\" ou null), categoria (string ou null), " +
+        "escopo (\"pj\"|\"pf\", default \"pj\" — só \"pf\" se a linha claramente indicar gasto/receita pessoal do " +
+        "titular, não do escritório), confidence (number de 0 a 100). Em português do Brasil.";
+      const out = parseJson(await chatCompletion(
+        [{ role: "system", content: system }, { role: "user", content: linhas }],
+        true,
+        tokens,
+      )) as { itens?: unknown[] };
+      await registrarTokens();
+      const itens = Array.isArray(out.itens) ? out.itens : [];
+      return json({ ok: true, mode, total_linhas: capped.length, itens });
+    }
+
     // ── INSIGHTS ──
     const period = String(body?.period || "semana");
     const snap = await buildSnapshot(anon, officeId, office?.name || "", period);

@@ -28,6 +28,17 @@ export interface ResumoPublicacao {
   urgencia?: 'alta' | 'media' | 'baixa';
   prazo_sugerido?: { titulo?: string; dias?: number | null; tipo?: string; descricao?: string } | null;
 }
+export interface ItemImportadoFinanceiro {
+  index: number;
+  incluir: boolean;
+  tipo: 'receita' | 'despesa';
+  descricao: string;
+  valor: number;
+  data_vencimento: string | null;
+  categoria: string | null;
+  escopo: 'pj' | 'pf';
+  confidence: number;
+}
 
 export class AdvisorError extends Error {
   code: string;
@@ -62,6 +73,10 @@ export function useAiAdvisor() {
       invoke<{ ok: boolean; data: ResumoProcesso }>('ai-advisor', { mode: 'resumo_processo', processoId }),
     resumoPublicacao: (publicacaoId: string) =>
       invoke<{ ok: boolean; data: ResumoPublicacao }>('ai-advisor', { mode: 'resumo_publicacao', publicacaoId }),
+    importarFinanceiro: (rows: string[][], categoriasReceita: string[], categoriasDespesa: string[]) =>
+      invoke<{ ok: boolean; total_linhas: number; itens: ItemImportadoFinanceiro[] }>('ai-advisor', {
+        mode: 'importar_financeiro', rows, categoriasReceita, categoriasDespesa,
+      }),
     tts: (text: string, voice?: string) =>
       invoke<{ ok: boolean; audio: string; mime: string }>('ai-voice', { text, voice }),
   };
