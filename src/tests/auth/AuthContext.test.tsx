@@ -83,6 +83,7 @@ function Probe() {
       <span data-testid="role">{auth.user?.role ?? 'none'}</span>
       <span data-testid="isSuperAdmin">{String(auth.isSuperAdmin)}</span>
       <span data-testid="isOfficeAdmin">{String(auth.isOfficeAdmin)}</span>
+      <span data-testid="officeId">{auth.user?.office_id ?? 'none'}</span>
     </div>
   );
 }
@@ -188,6 +189,52 @@ describe('AuthContext', () => {
       await waitFor(() => expect(screen.getByTestId('role').textContent).toBe('user'));
       expect(latestAuth!.isOfficeAdmin).toBe(false);
       expect(latestAuth!.isSuperAdmin).toBe(false);
+    });
+  });
+
+  describe('TOKEN_REFRESHED — não deve zerar o dashboard ao voltar de aba', () => {
+    it('mantém user.office_id intacto quando o supabase-js renova o token do MESMO usuário já carregado', async () => {
+      mockTableData['profiles'] = {
+        user_id: 'user-1',
+        role: 'admin',
+        full_name: 'João',
+        email: 'joao@escritorio.com',
+        office_id: 'office-1',
+        created_at: new Date().toISOString(),
+      };
+      mockTableData['office_users'] = {
+        user_id: 'user-1',
+        office_id: 'office-1',
+        role: 'admin',
+        active: true,
+        office: { id: 'office-1', name: 'Escritório Teste' },
+      };
+
+      renderAuth();
+      await waitFor(() => expect(latestAuth?.isLoading).toBe(false));
+
+      const sbUser = makeSupabaseUser();
+      await act(async () => {
+        hoisted.authChangeCallback?.('SIGNED_IN', makeSession(sbUser));
+      });
+      await waitFor(() => expect(screen.getByTestId('officeId').textContent).toBe('office-1'));
+
+      // TOKEN_REFRESHED do MESMO usuário — é o que o supabase-js dispara sozinho
+      // quando a aba volta a ficar visível. Antes do fix, isso reexecutava
+      // processUserData, cujo PRIMEIRO passo (síncrono, antes de qualquer await)
+      // é setUser(initialUser) com um objeto SEM office_id — zerando o dashboard
+      // por um instante, até o fetch em background (assíncrono) devolver o
+      // usuário completo. Por isso o dispatch aqui é síncrono (act não-async):
+      // pega o estado logo após o passo síncrono, antes do fetch em background
+      // ter chance de resolver e mascarar a regressão.
+      act(() => {
+        hoisted.authChangeCallback?.('TOKEN_REFRESHED', makeSession(sbUser));
+      });
+      expect(screen.getByTestId('officeId').textContent).toBe('office-1');
+      expect(screen.getByTestId('role').textContent).toBe('admin');
+
+      // Deixa qualquer microtask pendente assentar antes do teste terminar.
+      await act(async () => { await Promise.resolve(); });
     });
   });
 
