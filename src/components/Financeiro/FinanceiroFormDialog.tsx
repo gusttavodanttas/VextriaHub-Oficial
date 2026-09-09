@@ -41,13 +41,15 @@ import {
   X,
   Repeat,
   Layers,
+  Building2,
+  User,
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { parcelasRows, recorrenciaRows } from "@/lib/financeiroCalc";
 import {
   NONE, toNull, fmt,
-  type StatusType, type TipoType, type ModoLancamento, type RecorrenciaTipo,
+  type StatusType, type TipoType, type EscopoType, type PrioridadeType, type ModoLancamento, type RecorrenciaTipo,
   type FormState, type ClienteOption, type ProcessoOption,
 } from "./shared";
 
@@ -118,6 +120,8 @@ const FormDialog: React.FC<FormDialogProps> = ({
       categoria: toNull(form.categoria),
       cliente_id: toNull(form.cliente_id),
       processo_id: toNull(form.processo_id),
+      escopo: form.escopo,
+      prioridade: form.tipo === "despesa" ? toNull(form.prioridade) : null,
       user_id: userId,
       office_id: officeId,
       data_pagamento: form.status === "pago" ? format(new Date(), "yyyy-MM-dd") : null,
@@ -336,6 +340,44 @@ const FormDialog: React.FC<FormDialogProps> = ({
               )}
             </div>
           )}
+
+          {/* Escopo PJ/PF + Prioridade (só despesa) */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Escopo</Label>
+              <div className="flex bg-muted/30 p-1 rounded-xl border border-black/8 dark:border-border">
+                <button type="button" onClick={() => set("escopo", "pj")}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wide transition-all",
+                    form.escopo === "pj" ? "bg-blue-500 text-white shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  )}>
+                  <Building2 className="h-3.5 w-3.5" />PJ
+                </button>
+                <button type="button" onClick={() => set("escopo", "pf")}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wide transition-all",
+                    form.escopo === "pf" ? "bg-violet-500 text-white shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  )}>
+                  <User className="h-3.5 w-3.5" />PF
+                </button>
+              </div>
+            </div>
+            {form.tipo === "despesa" ? (
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Prioridade</Label>
+                <Select value={form.prioridade} onValueChange={(v) => set("prioridade", v as PrioridadeType)}>
+                  <SelectTrigger className="rounded-xl h-10 text-sm"><SelectValue placeholder="Não classificada" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}>Não classificada</SelectItem>
+                    <SelectItem value="g1">G1 · Essencial</SelectItem>
+                    <SelectItem value="g2">G2 · Importante</SelectItem>
+                    <SelectItem value="g3">G3 · Contornável</SelectItem>
+                    <SelectItem value="esperar">Esperar</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : <div />}
+          </div>
 
           {/* Categoria + Status */}
           <div className="grid grid-cols-2 gap-4">
