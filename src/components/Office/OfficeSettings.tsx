@@ -127,7 +127,10 @@ export const OfficeSettings: React.FC = () => {
       // Dados fiscais ficam em offices.settings (jsonb)
       const { data: cur } = await supabase.from("offices").select("settings").eq("id", office.id).maybeSingle();
       const merged = { ...((cur?.settings as any) || {}), fiscal, primary_color: brandColor || null };
-      await supabase.from("offices").update({ settings: merged }).eq("id", office.id);
+      const { error: settingsError } = await supabase.from("offices").update({ settings: merged }).eq("id", office.id);
+      // Supabase não lança em erro/bloqueio de RLS — sem checar, a tela dizia
+      // "salvo com sucesso" mesmo com os dados fiscais/cor intocados no banco.
+      if (settingsError) throw settingsError;
       if (result) {
         toast({ title: "Escritório atualizado", description: "As informações foram salvas com sucesso." });
       }

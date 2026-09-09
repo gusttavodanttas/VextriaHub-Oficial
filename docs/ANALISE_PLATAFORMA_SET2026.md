@@ -1568,10 +1568,8 @@ marcado como aprovado) — o admin pode tentar de novo.
 
 - Zero teste automatizado em `useUserPermissions`, cobrança/plano e o
   restante de `useExclusoesPendentes` (`AuthContext` ganhou cobertura na
-  Parte 15, logo abaixo).
-- Padrão "ler `offices.settings` → mesclar → salvar" duplicado de forma
-  idêntica em ~10 arquivos (mesma classe de bug do achado 2, ainda não
-  corrigida nesses outros pontos).
+  Parte 15, logo abaixo; o padrão de `offices.settings` foi fechado na
+  Parte 16).
 - 41 arquivos >400 linhas (era 39), ~55 botões de ícone sem `aria-label`,
   `@supabase/supabase-js` desatualizado — qualidade/manutenibilidade, sem
   urgência.
@@ -1700,3 +1698,52 @@ de seguir (nenhuma mudança de lógica nesta parte, só o teste novo).
 
 Nenhuma mudança de banco/RLS nem de código de produção — só o arquivo de
 teste novo.
+
+## Parte 16 — o mesmo padrão de erro silencioso em `offices.settings`, fechado nos outros ~10 arquivos
+
+Último item pendente das rodadas 2/3: o achado 2 (Parte 13) tinha corrigido
+`useUserPermissions`, mas a mesma classe de bug — ler `offices.settings`,
+mesclar em memória, gravar sem checar `error`/linhas afetadas — estava
+duplicada de forma quase idêntica em ~10 lugares. Conferido achado por
+achado (nem todos eram bug de verdade):
+
+- **`useOfficeSettingList.tsx`** — já era a implementação de referência
+  (checa `error`, checa linhas afetadas via `.select('id')`, reverte o
+  otimista, mostra toast). Nada a corrigir.
+- **`ChartsConfigDialog.tsx`** — já checava `error` e mostrava toast antes
+  de fechar. Nada a corrigir.
+- **`useChartsData.tsx`** — só leitura de `offices.settings` pros
+  gráficos, nunca grava. Fora do escopo deste achado.
+- **`useOfficeSettingValue.tsx`**, **`useAtendimentos.tsx`**
+  (`useAtendimentoTipos`), **`useFinanceiro.tsx`**
+  (`useFinanceiroCategorias`), **`useTimesheetConfig.tsx`**,
+  **`NovoPrazoStandaloneDialog.tsx`** (`GerenciarTiposModal.saveFeriados`)
+  — nenhum checava `error` nem linhas afetadas; `useOfficeSettingValue` e
+  `saveFeriados` ainda atualizavam o estado local **antes** de saber se a
+  gravação deu certo, sem nunca reverter. Corrigidos pra checar
+  `error`/linhas afetadas (mesmo idioma de `assertRowsAffected` já usado
+  em `useFinanceiro`/`useAtendimentos` pra outras mutações, ou o mesmo
+  padrão de `useOfficeSettingList` onde fazia mais sentido manter o
+  formato local), reverter o otimista e avisar via toast quando falha.
+- **`OfficeSettings.tsx`** (dados fiscais + cor da marca) — o `try/catch`
+  existente nunca pegava essa falha porque o Supabase não *lança* erro de
+  RLS/gravação, só devolve `{ error }` — o código descartava esse retorno
+  e sempre mostrava "Escritório atualizado com sucesso". Agora propaga o
+  `error` pro `throw` que o catch já tratava.
+- **`DemandGoalsConfig.tsx`** — o `persist` já checava `error` e mostrava
+  toast, mas o estado otimista (`metasDemanda`) nunca era revertido numa
+  falha: o usuário via o toast de erro E a meta continuava aparecendo como
+  adicionada/removida na tela. Agora reverte pro estado anterior quando
+  `persist` retorna `false`.
+
+### Verificação
+
+| Verificação | Resultado |
+| --- | --- |
+| `tsc -p tsconfig.app.json` | limpo |
+| ESLint | 0 erros · 697 avisos (idêntico à Parte 15) |
+| Vitest | 214/214 |
+| `vite build` | ok |
+
+Sem mudança de banco/RLS — só os 8 arquivos de código TS/React que de fato
+tinham o bug.

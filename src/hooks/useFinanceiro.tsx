@@ -112,6 +112,7 @@ const useFinanceiro = (officeId: string | null | undefined) => {
 
 const useFinanceiroCategorias = (officeId: string) => {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data } = useQuery({
     queryKey: ["office-settings", officeId],
@@ -133,9 +134,16 @@ const useFinanceiroCategorias = (officeId: string) => {
   const save = useCallback(async (receita: string[], despesa: string[]) => {
     const { data: cur } = await supabase.from("offices").select("settings").eq("id", officeId).maybeSingle();
     const merged = { ...(cur?.settings as any ?? {}), fin_categorias_receita: receita, fin_categorias_despesa: despesa };
-    await supabase.from("offices").update({ settings: merged }).eq("id", officeId);
+    const { data: updated, error } = await supabase.from("offices").update({ settings: merged }).eq("id", officeId).select("id");
+    try {
+      assertRowsAffected(updated, error, 1);
+    } catch (e) {
+      toast({ title: "Erro ao salvar", description: e instanceof Error ? e.message : "Não foi possível salvar.", variant: "destructive" });
+      return false;
+    }
     queryClient.invalidateQueries({ queryKey: ["office-settings", officeId] });
-  }, [officeId, queryClient]);
+    return true;
+  }, [officeId, queryClient, toast]);
 
   return {
     categoriasReceita: data?.receita ?? DEFAULT_CATEGORIAS_RECEITA,

@@ -58,7 +58,7 @@ export function DemandGoalsConfig() {
   }, [user?.office_id, contarProcessos]);
 
   const persist = async (lista: MetaDemanda[]) => {
-    if (!user?.office_id) return;
+    if (!user?.office_id) return false;
     setSaving(true);
     const { data: cur } = await supabase.from("offices").select("settings").eq("id", user.office_id).maybeSingle();
     // Salva sem o campo calculado (processosAtuais é derivado)
@@ -66,8 +66,12 @@ export function DemandGoalsConfig() {
     const merged = { ...((cur?.settings as any) || {}), metas_demanda: toSave };
     const { error } = await supabase.from("offices").update({ settings: merged }).eq("id", user.office_id);
     setSaving(false);
-    if (error) toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
-    else toast({ title: "Metas por demanda salvas" });
+    if (error) {
+      toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
+      return false;
+    }
+    toast({ title: "Metas por demanda salvas" });
+    return true;
   };
 
   const adicionarMeta = async () => {
@@ -77,16 +81,20 @@ export function DemandGoalsConfig() {
       id: crypto.randomUUID(), ...novaMeta,
       processosAtuais: counts[novaMeta.tipo.trim().toLowerCase()] || 0, faturamentoAtual: 0,
     };
+    const anterior = metasDemanda;
     const lista = [...metasDemanda, nova];
     setMetasDemanda(lista);
     setNovaMeta({ tipo: "", metaProcessos: 0, metaFaturamento: 0, cor: "bg-blue-500" });
-    persist(lista);
+    // Reverte o otimista se a gravação falhar — senão a meta "nova" ficava na
+    // tela pra sempre mesmo sem existir no banco.
+    if (!(await persist(lista))) setMetasDemanda(anterior);
   };
 
-  const removerMeta = (id: string) => {
+  const removerMeta = async (id: string) => {
+    const anterior = metasDemanda;
     const lista = metasDemanda.filter(m => m.id !== id);
     setMetasDemanda(lista);
-    persist(lista);
+    if (!(await persist(lista))) setMetasDemanda(anterior);
   };
 
   const atualizarMeta = (id: string, campo: keyof MetaDemanda, valor: any) => {

@@ -51,7 +51,7 @@ const NONE = "__none__";
 const TimesheetSettingsDialog: React.FC<{
   open: boolean; onClose: () => void;
   config: TimesheetConfig; clientes: { id: string; nome: string }[];
-  onSave: (cfg: Partial<TimesheetConfig>) => Promise<void>;
+  onSave: (cfg: Partial<TimesheetConfig>) => Promise<boolean>;
 }> = ({ open, onClose, config, clientes, onSave }) => {
   const [padrao, setPadrao] = useState("");
   const [arred, setArred] = useState<Arredondamento>("nenhum");
@@ -70,7 +70,14 @@ const TimesheetSettingsDialog: React.FC<{
 
   const nomeCli = (id: string) => clientes.find(c => c.id === id)?.nome || id;
   const addRate = () => { if (!novoCli || !novoRate) return; setMapa(m => ({ ...m, [novoCli]: Number(novoRate) })); setNovoCli(""); setNovoRate(""); };
-  const salvar = async () => { setSaving(true); await onSave({ valorPadrao: padrao ? Number(padrao) : null, arredondamento: arred, valorClientes: mapa }); setSaving(false); onClose(); };
+  const salvar = async () => {
+    setSaving(true);
+    const ok = await onSave({ valorPadrao: padrao ? Number(padrao) : null, arredondamento: arred, valorClientes: mapa });
+    setSaving(false);
+    // Só fecha em caso de sucesso — se falhou, o hook já mostrou o toast de erro
+    // e o usuário pode tentar de novo sem perder o que preencheu.
+    if (ok) onClose();
+  };
 
   const disponiveis = clientes.filter(c => mapa[c.id] == null);
 
