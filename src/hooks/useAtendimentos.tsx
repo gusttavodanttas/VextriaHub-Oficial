@@ -103,6 +103,7 @@ export const useAtendimentos = (officeId: string | null | undefined) => {
 // Tipos de atendimento personalizados do escritório (offices.settings.at_tipos_extras)
 export const useAtendimentoTipos = (officeId: string) => {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: extras = [] } = useQuery<string[]>({
     queryKey: ["office-settings-at", officeId],
@@ -116,9 +117,16 @@ export const useAtendimentoTipos = (officeId: string) => {
   const save = useCallback(async (tipos: string[]) => {
     const { data: cur } = await supabase.from("offices").select("settings").eq("id", officeId).maybeSingle();
     const merged = { ...(cur?.settings as any ?? {}), at_tipos_extras: tipos };
-    await supabase.from("offices").update({ settings: merged }).eq("id", officeId);
+    const { data: updated, error } = await supabase.from("offices").update({ settings: merged }).eq("id", officeId).select("id");
+    try {
+      assertRowsAffected(updated, error, 1);
+    } catch (e) {
+      toast({ title: "Erro ao salvar", description: e instanceof Error ? e.message : "Não foi possível salvar.", variant: "destructive" });
+      return false;
+    }
     queryClient.invalidateQueries({ queryKey: ["office-settings-at", officeId] });
-  }, [officeId, queryClient]);
+    return true;
+  }, [officeId, queryClient, toast]);
 
   return { extras, save };
 };

@@ -265,10 +265,19 @@ export function GerenciarTiposModal({ open, onClose, officeId }: GerenciarTiposP
     setFeriados(((data?.settings as any)?.prazo_feriados as string[]) ?? []);
   };
   const saveFeriados = async (arr: string[]) => {
-    setFeriados(arr);
+    const previous = feriados;
+    setFeriados(arr); // otimista
     const { data: cur } = await supabase.from('offices').select('settings').eq('id', officeId).maybeSingle();
     const merged = { ...((cur?.settings as any) ?? {}), prazo_feriados: arr };
-    await supabase.from('offices').update({ settings: merged }).eq('id', officeId);
+    const { data: updated, error } = await supabase.from('offices').update({ settings: merged }).eq('id', officeId).select('id');
+    if (error || !updated || updated.length === 0) {
+      setFeriados(previous);
+      toast({
+        title: 'Erro ao salvar feriado',
+        description: error?.message ?? 'Só um administrador do escritório pode alterar esta configuração.',
+        variant: 'destructive',
+      });
+    }
   };
   const addFeriado = () => {
     if (!novoFeriado) return;

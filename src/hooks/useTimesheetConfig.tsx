@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 export type Arredondamento = "nenhum" | "6" | "15";
 
@@ -14,6 +15,7 @@ const EMPTY: TimesheetConfig = { valorPadrao: null, valorClientes: {}, arredonda
 
 export function useTimesheetConfig(officeId: string) {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data } = useQuery<TimesheetConfig>({
     queryKey: ["ts-config", officeId],
@@ -35,9 +37,18 @@ export function useTimesheetConfig(officeId: string) {
     if (cfg.valorPadrao !== undefined) merged.ts_valor_hora_padrao = cfg.valorPadrao;
     if (cfg.valorClientes !== undefined) merged.ts_valor_hora_clientes = cfg.valorClientes;
     if (cfg.arredondamento !== undefined) merged.ts_arredondamento = cfg.arredondamento;
-    await supabase.from("offices").update({ settings: merged }).eq("id", officeId);
+    const { data: updated, error } = await supabase.from("offices").update({ settings: merged }).eq("id", officeId).select("id");
+    if (error || !updated || updated.length === 0) {
+      toast({
+        title: "Erro ao salvar",
+        description: error?.message ?? "Só um administrador do escritório pode alterar esta configuração.",
+        variant: "destructive",
+      });
+      return false;
+    }
     queryClient.invalidateQueries({ queryKey: ["ts-config", officeId] });
-  }, [officeId, queryClient]);
+    return true;
+  }, [officeId, queryClient, toast]);
 
   return { config: data ?? EMPTY, save };
 }
