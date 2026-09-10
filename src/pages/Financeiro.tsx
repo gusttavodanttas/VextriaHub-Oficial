@@ -47,6 +47,7 @@ import {
   ListOrdered,
   ArrowRight,
   FileSpreadsheet,
+  Download,
 } from "lucide-react";
 import {
   format,
@@ -184,6 +185,34 @@ const Financeiro = () => {
   }, [pendentesPagar]);
   const somaGrupo = (arr: FinanceiroItem[]) => arr.reduce((acc, i) => acc + i.valor, 0);
 
+  // Exporta os lançamentos visíveis (respeita os filtros ativos). `descricao`
+  // é obrigatório no schema — toda linha exportada tem descrição preenchida.
+  const exportCSV = () => {
+    const header = ["Tipo", "Descrição", "Categoria", "Valor", "Vencimento", "Pagamento", "Status", "Escopo", "Prioridade", "Cliente"];
+    const linhas = filtered.map((i) => [
+      i.tipo === "receita" ? "Receita" : "Despesa",
+      i.descricao,
+      i.categoria ?? "",
+      fmt(i.valor),
+      format(parseISO(i.data_vencimento), "dd/MM/yyyy"),
+      i.data_pagamento ? format(parseISO(i.data_pagamento), "dd/MM/yyyy") : "",
+      statusConfig[i.status].label,
+      escopoConfig[i.escopo].label,
+      i.prioridade ? prioridadeConfig[i.prioridade].label : "",
+      i.clientes?.nome ?? "",
+    ]);
+    const csv = [header, ...linhas]
+      .map((r) => r.map((f) => `"${String(f ?? "").replace(/"/g, '""')}"`).join(";"))
+      .join("\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `financeiro_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const openNew = (tipo: TipoType) => {
     setEditItem(null);
     setDefaultTipo(tipo);
@@ -262,6 +291,9 @@ const Financeiro = () => {
             </Button>
             <Button size="icon" variant="ghost" className="h-11 w-11 rounded-xl" onClick={() => setImportDialogOpen(true)} title="Importar planilha (Excel/CSV)" aria-label="Importar planilha">
               <FileSpreadsheet className="h-5 w-5 text-muted-foreground" />
+            </Button>
+            <Button size="icon" variant="ghost" className="h-11 w-11 rounded-xl" onClick={exportCSV} disabled={filtered.length === 0} title="Exportar lançamentos (CSV)" aria-label="Exportar lançamentos">
+              <Download className="h-5 w-5 text-muted-foreground" />
             </Button>
             <Button size="lg"
               className="rounded-xl h-11 px-5 font-black uppercase text-xs tracking-widest bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20"
