@@ -3,7 +3,12 @@
 // vulnerabilidades de prototype-pollution/ReDoS do pacote `xlsx` no npm).
 // CSV via parser próprio — formato simples o bastante pra não precisar de
 // dependência, e evita puxar mais uma lib só pra isso.
-import { readSheet } from "read-excel-file/universal";
+//
+// O export default do read-excel-file lê TODAS as abas do arquivo (cada uma
+// com seu nome) — usamos isso pra deixar a IA analisar o arquivo inteiro, não
+// só a primeira aba, o que importa muito pra planilhas com abas separadas
+// tipo "Escritório" / "Pessoal".
+import readXlsxFile from "read-excel-file/universal";
 
 // Parser CSV com suporte a campos entre aspas (vírgula/quebra de linha dentro
 // do campo, aspas escapadas como "").
@@ -51,19 +56,46 @@ function cellToString(cell: unknown): string {
   return String(cell);
 }
 
-// Lê um arquivo .csv, .xlsx ou .xls e devolve as linhas como strings
+export interface ParsedSheet {
+  aba: string;
+  rows: string[][];
+}
+
+// Lê um arquivo .csv, .xlsx ou .xls e devolve TODAS as abas como strings
 // (sem interpretar significado — a classificação por IA acontece depois).
-export async function parseSpreadsheetFile(file: File): Promise<string[][]> {
+// CSV não tem conceito de aba, então volta como uma aba única.
+export async function parseSpreadsheetFile(file: File): Promise<ParsedSheet[]> {
   const name = file.name.toLowerCase();
   if (name.endsWith(".csv")) {
     const text = await file.text();
-    return parseCsv(text);
+    return [{ aba: file.name.replace(/\.csv$/i, "") || "Planilha", rows: parseCsv(text) }];
   }
-  const data = await readSheet(file);
-  return data.map((row) => row.map(cellToString));
+  const sheets = await readXlsxFile(file);
+  return sheets.map((s) => ({ aba: s.sheet, rows: s.data.map((row) => row.map(cellToString)) }));
 }
 
 // Remove linhas totalmente vazias (comuns no fim de planilhas exportadas).
 export function stripEmptyRows(rows: string[][]): string[][] {
   return rows.filter((row) => row.some((cell) => cell.trim() !== ""));
+}
+
+export interface AbaCelulas {
+  aba: string;
+  celulas: string[];
+}
+
+// Achata as linhas de várias abas em uma lista única pra classificação por IA,
+// carregando junto de qual aba cada linha veio — o nome da aba (ex.: "Pessoal"
+// vs "Escritório") é um sinal forte pra IA diferenciar escopo PF/PJ. Corta no
+// limite TOTAL combinado (não por aba), pois todas as linhas vão numa única
+// chamada de IA.
+export function combineSheets(sheets: ParsedSheet[], max: number): AbaCelulas[] {
+  const combined: AbaCelulas[] = [];
+  for (const sheet of sheets) {
+    for (const row of sheet.rows) {
+      if (combined.length >= max) return combined;
+      combined.push({ aba: sheet.aba, celulas: row });
+    }
+  }
+  return combined;
 }

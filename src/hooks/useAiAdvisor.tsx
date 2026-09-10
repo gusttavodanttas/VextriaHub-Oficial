@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import type { AbaCelulas } from '@/lib/spreadsheetParser';
 
 export type AdvisorPeriod = 'hoje' | 'semana' | 'mes' | 'ano';
 
@@ -73,7 +74,7 @@ export function useAiAdvisor() {
       invoke<{ ok: boolean; data: ResumoProcesso }>('ai-advisor', { mode: 'resumo_processo', processoId }),
     resumoPublicacao: (publicacaoId: string) =>
       invoke<{ ok: boolean; data: ResumoPublicacao }>('ai-advisor', { mode: 'resumo_publicacao', publicacaoId }),
-    importarFinanceiro: (rows: string[][], categoriasReceita: string[], categoriasDespesa: string[]) =>
+    importarFinanceiro: (rows: AbaCelulas[], categoriasReceita: string[], categoriasDespesa: string[]) =>
       invoke<{ ok: boolean; total_linhas: number; itens: ItemImportadoFinanceiro[] }>('ai-advisor', {
         mode: 'importar_financeiro', rows, categoriasReceita, categoriasDespesa,
       }),

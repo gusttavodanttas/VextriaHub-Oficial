@@ -410,24 +410,36 @@ serve(async (req) => {
     }
 
     // ── IMPORTAR PLANILHA (Financeiro) ──
-    // Recebe linhas brutas (já extraídas no client de um .xlsx/.xls/.csv — a
-    // extração de arquivo não roda aqui, só a classificação) e devolve cada
-    // uma classificada como receita/despesa. O usuário sempre revisa e
-    // confirma no client antes de qualquer INSERT — este modo só sugere.
+    // Recebe linhas já extraídas no client de TODAS as abas de um .xlsx/.xls
+    // (ou a aba única de um .csv) — a extração de arquivo não roda aqui, só a
+    // classificação. Cada linha chega como { aba, celulas }: "aba" é o nome
+    // da aba/planilha de origem (ex.: "Escritório", "Pessoal", "Janeiro") e é
+    // um sinal forte pra IA diferenciar escopo PF/PJ. Devolve cada linha
+    // classificada como receita/despesa. O usuário sempre revisa e confirma
+    // no client antes de qualquer INSERT — este modo só sugere.
     if (mode === "importar_financeiro") {
       const rows = Array.isArray(body?.rows) ? body.rows : [];
       if (!rows.length) return json({ error: "sem-linhas" }, 400);
       // Teto de linhas por chamada: uma planilha de centenas de linhas estouraria
-      // o contexto/custo de uma única chamada; 150 cobre um extrato mensal comum.
+      // o contexto/custo de uma única chamada; 150 cobre um extrato mensal comum,
+      // já somando todas as abas.
       const capped = rows.slice(0, 150);
       const categoriasReceita = Array.isArray(body?.categoriasReceita) ? body.categoriasReceita.slice(0, 30) : [];
       const categoriasDespesa = Array.isArray(body?.categoriasDespesa) ? body.categoriasDespesa.slice(0, 30) : [];
       const linhas = capped.map((r: unknown, i: number) => `${i}: ${JSON.stringify(r).slice(0, 500)}`).join("\n");
       const system =
         "Você extrai lançamentos financeiros (receitas e despesas) de linhas brutas de uma planilha " +
-        "(extrato bancário ou controle financeiro) de um escritório de advocacia brasileiro. Cada linha pode ser " +
-        "um cabeçalho, uma linha vazia, um subtotal, ou um lançamento real — use \"incluir\": false para tudo que " +
-        "não for um lançamento real.\n" +
+        "(extrato bancário ou controle financeiro) de um escritório de advocacia brasileiro. A planilha pode ter " +
+        "VÁRIAS ABAS diferentes — cada linha recebida vem como um objeto { aba, celulas }, onde \"aba\" é o nome " +
+        "da aba/planilha de origem e \"celulas\" são os valores das colunas daquela linha. Analise TODAS as " +
+        "linhas de TODAS as abas recebidas, sem ignorar nenhuma aba. Cada linha pode ser um cabeçalho, uma linha " +
+        "vazia, um subtotal, ou um lançamento real — use \"incluir\": false para tudo que não for um lançamento " +
+        "real.\n" +
+        "O nome da aba é um sinal FORTE pra decidir o escopo: abas chamadas algo como \"Pessoal\", \"Doméstico\", " +
+        "\"Casa\", ou com o nome de uma pessoa física, indicam escopo \"pf\"; abas chamadas com o nome do " +
+        "escritório, \"PJ\", \"Escritório\", \"Empresa\", ou meses/anos de um controle do escritório, indicam " +
+        "escopo \"pj\". Combine esse sinal da aba com o conteúdo da própria linha (descrição, categoria) — se " +
+        "ainda assim ficar ambíguo, use \"pj\" como padrão.\n" +
         `Categorias de RECEITA já cadastradas (prefira uma destas quando fizer sentido; senão sugira uma nova curta): ${JSON.stringify(categoriasReceita)}.\n` +
         `Categorias de DESPESA já cadastradas: ${JSON.stringify(categoriasDespesa)}.\n` +
         "Nunca invente valor ou data que não estejam na linha. Se não achar uma data válida, use null. O valor é " +
@@ -437,8 +449,8 @@ serve(async (req) => {
         "cada item com: index (number, igual ao número da linha recebida), incluir (boolean), " +
         "tipo (\"receita\"|\"despesa\"), descricao (string curta e clara), valor (number), " +
         "data_vencimento (string \"YYYY-MM-DD\" ou null), categoria (string ou null), " +
-        "escopo (\"pj\"|\"pf\", default \"pj\" — só \"pf\" se a linha claramente indicar gasto/receita pessoal do " +
-        "titular, não do escritório), confidence (number de 0 a 100). Em português do Brasil.";
+        "escopo (\"pj\"|\"pf\", seguindo a regra do nome da aba acima), confidence (number de 0 a 100). " +
+        "Em português do Brasil.";
       const out = parseJson(await chatCompletion(
         [{ role: "system", content: system }, { role: "user", content: linhas }],
         true,
