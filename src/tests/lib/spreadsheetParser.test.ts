@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseCsv, stripEmptyRows } from "@/lib/spreadsheetParser";
+import { parseCsv, stripEmptyRows, combineSheets, type ParsedSheet } from "@/lib/spreadsheetParser";
 
 describe("parseCsv", () => {
   it("separa linhas e colunas simples", () => {
@@ -58,5 +58,37 @@ describe("stripEmptyRows", () => {
 
   it("mantém linha com pelo menos uma célula não-vazia", () => {
     expect(stripEmptyRows([["", "x", ""]])).toEqual([["", "x", ""]]);
+  });
+});
+
+describe("combineSheets", () => {
+  it("achata linhas de várias abas em ordem, marcando a aba de origem", () => {
+    const sheets: ParsedSheet[] = [
+      { aba: "Escritório", rows: [["Honorários", "1500"], ["Aluguel", "800"]] },
+      { aba: "Pessoal", rows: [["Mercado", "300"]] },
+    ];
+    expect(combineSheets(sheets, 150)).toEqual([
+      { aba: "Escritório", celulas: ["Honorários", "1500"] },
+      { aba: "Escritório", celulas: ["Aluguel", "800"] },
+      { aba: "Pessoal", celulas: ["Mercado", "300"] },
+    ]);
+  });
+
+  it("corta no limite TOTAL combinado, mesmo no meio de uma aba", () => {
+    const sheets: ParsedSheet[] = [
+      { aba: "A", rows: [["1"], ["2"], ["3"]] },
+      { aba: "B", rows: [["4"], ["5"]] },
+    ];
+    const result = combineSheets(sheets, 4);
+    expect(result).toEqual([
+      { aba: "A", celulas: ["1"] },
+      { aba: "A", celulas: ["2"] },
+      { aba: "A", celulas: ["3"] },
+      { aba: "B", celulas: ["4"] },
+    ]);
+  });
+
+  it("lista vazia de abas resulta em lista vazia", () => {
+    expect(combineSheets([], 150)).toEqual([]);
   });
 });

@@ -1,7 +1,7 @@
 // Importação de lançamentos financeiros a partir de planilha (Excel/CSV),
 // com a IA sugerindo tipo/categoria/escopo/valor pra cada linha — o usuário
 // sempre revisa e confirma antes de qualquer INSERT (a IA só sugere).
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -15,7 +15,7 @@ import {
 import { FileSpreadsheet, Sparkles, Loader2, Upload, Trash2, Building2, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { parseSpreadsheetFile, stripEmptyRows } from "@/lib/spreadsheetParser";
+import { parseSpreadsheetFile, stripEmptyRows, combineSheets, type ParsedSheet } from "@/lib/spreadsheetParser";
 import { useAiAdvisor, AdvisorError, type ItemImportadoFinanceiro } from "@/hooks/useAiAdvisor";
 import { fmt, type EscopoType, type TipoType } from "./shared";
 import type { TablesInsert } from "@/integrations/supabase/rows";
@@ -46,15 +46,20 @@ export function ImportarPlanilhaDialog({
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [fileName, setFileName] = useState("");
-  const [rawRows, setRawRows] = useState<string[][]>([]);
+  const [sheets, setSheets] = useState<ParsedSheet[]>([]);
   const [parsing, setParsing] = useState(false);
   const [classificando, setClassificando] = useState(false);
   const [items, setItems] = useState<EditableItem[] | null>(null);
   const [error, setError] = useState("");
 
+  const totalRows = sheets.reduce((acc, s) => acc + s.rows.length, 0);
+  // Linhas de todas as abas achatadas numa lista só, já cortada no teto total
+  // (a IA recebe tudo numa única chamada — ver combineSheets).
+  const combinedRows = useMemo(() => combineSheets(sheets, MAX_LINHAS), [sheets]);
+
   const reset = () => {
     setFileName("");
-    setRawRows([]);
+    setSheets([]);
     setItems(null);
     setError("");
   };
@@ -63,13 +68,15 @@ export function ImportarPlanilhaDialog({
     setError("");
     setParsing(true);
     try {
-      const parsed = stripEmptyRows(await parseSpreadsheetFile(file));
+      const parsed = (await parseSpreadsheetFile(file))
+        .map((s) => ({ aba: s.aba, rows: stripEmptyRows(s.rows) }))
+        .filter((s) => s.rows.length > 0);
       if (parsed.length === 0) {
         setError("Não encontramos nenhuma linha com dados nessa planilha.");
         return;
       }
       setFileName(file.name);
-      setRawRows(parsed.slice(0, MAX_LINHAS));
+      setSheets(parsed);
       setItems(null);
     } catch (e) {
       setError("Não foi possível ler esse arquivo. Confirme que é um .xlsx, .xls ou .csv válido.");
@@ -83,7 +90,7 @@ export function ImportarPlanilhaDialog({
     setError("");
     setClassificando(true);
     try {
-      const { itens } = await importarFinanceiro(rawRows, categoriasReceita, categoriasDespesa);
+      const { itens } = await importarFinanceiro(combinedRows, categoriasReceita, categoriasDespesa);
       const editable: EditableItem[] = itens.map((it, i) => ({
         ...it,
         key: `item-${i}`,
@@ -150,8 +157,8 @@ export function ImportarPlanilhaDialog({
             Importar planilha (Excel / CSV)
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Suba um .xlsx, .xls ou .csv (inclusive exportado do Google Planilhas) — a IA sugere tipo, categoria e
-            valor de cada linha, e você revisa antes de importar.
+            Suba um .xlsx, .xls ou .csv (inclusive exportado do Google Planilhas) — a IA analisa TODAS as abas do
+            arquivo e sugere tipo, categoria, valor e escopo (PJ/PF) de cada linha, e você revisa antes de importar.
           </DialogDescription>
         </DialogHeader>
 
@@ -166,27 +173,40 @@ export function ImportarPlanilhaDialog({
               <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-black">.xlsx · .xls · .csv</p>
             </button>
 
-            {rawRows.length > 0 && (
+            {sheets.length > 0 && (
               <div className="space-y-3">
                 <p className="text-xs text-muted-foreground">
-                  <span className="font-bold text-foreground">{rawRows.length}</span> linha(s) encontrada(s)
-                  {rawRows.length >= MAX_LINHAS && ` (limite de ${MAX_LINHAS} por importação)`}.
+                  <span className="font-bold text-foreground">{totalRows}</span> linha(s) em{" "}
+                  <span className="font-bold text-foreground">{sheets.length}</span> aba(s)
+                  {combinedRows.length >= MAX_LINHAS && ` (limite de ${MAX_LINHAS} linhas por importação, somando todas as abas)`}.
                 </p>
+                {sheets.length > 1 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {sheets.map((s) => (
+                      <Badge key={s.aba} variant="outline" className="rounded-lg text-[10px] font-bold">
+                        {s.aba} · {s.rows.length}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
                 <div className="rounded-2xl border border-black/5 dark:border-border overflow-x-auto max-h-40">
                   <table className="w-full text-[11px]">
                     <tbody>
-                      {rawRows.slice(0, 6).map((row, i) => (
+                      {combinedRows.slice(0, 6).map((item, i) => (
                         <tr key={i} className="border-b border-black/5 dark:border-border last:border-0">
-                          {row.slice(0, 6).map((cell, j) => (
+                          {sheets.length > 1 && (
+                            <td className="px-2 py-1.5 whitespace-nowrap text-[10px] font-black text-primary/70">{item.aba}</td>
+                          )}
+                          {item.celulas.slice(0, 6).map((cell, j) => (
                             <td key={j} className="px-2 py-1.5 whitespace-nowrap text-muted-foreground">{cell || "—"}</td>
                           ))}
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                  {rawRows.length > 6 && (
+                  {combinedRows.length > 6 && (
                     <p className="text-[10px] text-muted-foreground/60 px-2 py-1.5">
-                      + {rawRows.length - 6} linha(s) — prévia mostra só as 6 primeiras.
+                      + {combinedRows.length - 6} linha(s) — prévia mostra só as 6 primeiras.
                     </p>
                   )}
                 </div>
