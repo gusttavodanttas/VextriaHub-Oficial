@@ -65,14 +65,19 @@ interface FormDialogProps {
   categoriasReceita: string[];
   categoriasDespesa: string[];
   gruposPrioridade: PrioridadeGrupo[];
+  // Permite converter um lançamento avulso já existente (sem grupo_id) em
+  // parcelado/recorrente, gerando as parcelas/ocorrências futuras a partir de agora.
+  permiteConverterSerie?: boolean;
   onSave: (data: any) => void;
   onUpdate: (data: any) => void;
+  onConvertToSerie: (updatePayload: any, novasLinhas: any[]) => void;
   loading: boolean;
 }
 
 const FormDialog: React.FC<FormDialogProps> = ({
   open, onClose, initial, editId, officeId, userId,
-  categoriasReceita, categoriasDespesa, gruposPrioridade, onSave, onUpdate, loading,
+  categoriasReceita, categoriasDespesa, gruposPrioridade, permiteConverterSerie,
+  onSave, onUpdate, onConvertToSerie, loading,
 }) => {
   const [form, setForm] = useState<FormState>(initial);
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
@@ -133,7 +138,47 @@ const FormDialog: React.FC<FormDialogProps> = ({
     };
 
     if (editId) {
-      onUpdate({ id: editId, ...base, valor: valorTotal, data_vencimento: form.data_vencimento });
+      if (form.modo === "unico" || !permiteConverterSerie) {
+        onUpdate({ id: editId, ...base, valor: valorTotal, data_vencimento: form.data_vencimento });
+        return;
+      }
+
+      // Converte um lançamento avulso em série: esta edição vira a 1ª parcela/
+      // ocorrência, e as futuras são criadas a partir dela (mesmo valor, datas
+      // incrementadas), ligadas por um novo grupo_id.
+      const grupo_id = crypto.randomUUID();
+      if (form.modo === "parcelado") {
+        const restantes = Math.max(1, Math.min(119, parseInt(form.parcelas) || 1));
+        const parcela_total = restantes + 1;
+        const updatePayload = {
+          id: editId, ...base, valor: valorTotal, data_vencimento: form.data_vencimento,
+          grupo_id, recorrencia: null, parcela_numero: 1, parcela_total,
+          descricao: `${base.descricao} (1/${parcela_total})`,
+        };
+        const novasLinhas = recorrenciaRows(valorTotal, restantes + 1, form.data_vencimento, "mensal")
+          .slice(1)
+          .map((r, i) => ({
+            ...base, grupo_id, recorrencia: null, status: "pendente", data_pagamento: null, valor_pago: null,
+            valor: r.valor, data_vencimento: r.data_vencimento,
+            parcela_numero: i + 2, parcela_total,
+            descricao: `${base.descricao} (${i + 2}/${parcela_total})`,
+          }));
+        onConvertToSerie(updatePayload, novasLinhas);
+      } else {
+        const meses = Math.max(1, Math.min(119, parseInt(form.meses_recorrencia) || 1));
+        const updatePayload = {
+          id: editId, ...base, valor: valorTotal, data_vencimento: form.data_vencimento,
+          grupo_id, recorrencia: form.recorrencia, parcela_numero: null, parcela_total: null,
+        };
+        const novasLinhas = recorrenciaRows(valorTotal, meses + 1, form.data_vencimento, form.recorrencia)
+          .slice(1)
+          .map((r) => ({
+            ...base, grupo_id, parcela_numero: null, parcela_total: null, recorrencia: form.recorrencia,
+            status: "pendente", data_pagamento: null, valor_pago: null,
+            valor: r.valor, data_vencimento: r.data_vencimento,
+          }));
+        onConvertToSerie(updatePayload, novasLinhas);
+      }
       return;
     }
 
@@ -181,15 +226,19 @@ const FormDialog: React.FC<FormDialogProps> = ({
   const nParcelas = parseInt(form.parcelas) || 2;
   const nRecorrencia = parseInt(form.meses_recorrencia) || 12;
 
-  // Preview de resumo
+  // Preview de resumo — na criação, o valor digitado é o TOTAL a dividir; na
+  // conversão de um lançamento existente, o valor já É o de cada parcela/
+  // ocorrência (a que já existe vira a 1ª, as demais têm o mesmo valor).
   const resumo = (() => {
-    if (!valorNum || editId) return null;
+    if (!valorNum) return null;
     if (form.modo === "parcelado") {
+      if (editId) return `+ ${nParcelas} parcela${nParcelas === 1 ? "" : "s"} de ${fmt(valorNum)} — total ${nParcelas + 1}×`;
       const pv = Math.round(valorNum / nParcelas * 100) / 100;
       return `${nParcelas}× de ${fmt(pv)} mensais — total ${fmt(valorNum)}`;
     }
     if (form.modo === "recorrente") {
       const freq = form.recorrencia === "semanal" ? "semanais" : form.recorrencia === "quinzenal" ? "quinzenais" : "mensais";
+      if (editId) return `+ ${nRecorrencia} lançamentos ${freq} de ${fmt(valorNum)}`;
       return `${nRecorrencia} lançamentos ${freq} de ${fmt(valorNum)}`;
     }
     return null;
@@ -259,15 +308,17 @@ const FormDialog: React.FC<FormDialogProps> = ({
             </div>
           </div>
 
-          {/* Modo lançamento */}
-          {!editId && (
+          {/* Modo lançamento (na edição, só aparece pra converter um avulso em série) */}
+          {(!editId || permiteConverterSerie) && (
             <div className="space-y-3">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Tipo de lançamento</Label>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                {editId ? "É fixa ou parcelada?" : "Tipo de lançamento"}
+              </Label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {([
-                  { value: "unico",      label: "Único",      Icon: DollarSign, desc: "Um lançamento" },
-                  { value: "parcelado",  label: "Parcelado",  Icon: Layers,     desc: "Divide em parcelas" },
-                  { value: "recorrente", label: "Recorrente", Icon: Repeat,     desc: "Repete periodicamente" },
+                  { value: "unico",      label: "Único",      Icon: DollarSign, desc: editId ? "Manter como está" : "Um lançamento" },
+                  { value: "parcelado",  label: "Parcelado",  Icon: Layers,     desc: editId ? "Criar parcelas futuras" : "Divide em parcelas" },
+                  { value: "recorrente", label: "Recorrente", Icon: Repeat,     desc: editId ? "Criar ocorrências futuras" : "Repete periodicamente" },
                 ] as const).map(({ value, label, Icon, desc }) => (
                   <button key={value} type="button"
                     onClick={() => set("modo", value)}
@@ -293,7 +344,9 @@ const FormDialog: React.FC<FormDialogProps> = ({
                   isReceita ? "bg-emerald-500/5 border-emerald-500/20" : "bg-orange-500/5 border-orange-500/20"
                 )}>
                   <div className="flex items-center justify-between">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Nº de parcelas</Label>
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                      {editId ? "Parcelas restantes" : "Nº de parcelas"}
+                    </Label>
                     {resumo && <span className={cn("text-xs font-bold", isReceita ? "text-emerald-500" : "text-orange-500")}>{resumo}</span>}
                   </div>
                   <div className="flex items-center gap-3">
@@ -307,7 +360,7 @@ const FormDialog: React.FC<FormDialogProps> = ({
                             : "border-black/10 dark:border-border text-muted-foreground hover:border-foreground/20"
                         )}>{n}x</button>
                     ))}
-                    <Input type="number" min={2} max={120} value={form.parcelas}
+                    <Input type="number" min={editId ? 1 : 2} max={editId ? 119 : 120} value={form.parcelas}
                       onChange={(e) => set("parcelas", e.target.value)}
                       className="rounded-xl h-9 w-16 text-center text-xs font-bold" />
                   </div>
@@ -334,9 +387,11 @@ const FormDialog: React.FC<FormDialogProps> = ({
                       </Select>
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Gerar por</Label>
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                        {editId ? "Gerar mais" : "Gerar por"}
+                      </Label>
                       <div className="flex items-center gap-2">
-                        <Input type="number" min={1} max={120} value={form.meses_recorrencia}
+                        <Input type="number" min={1} max={119} value={form.meses_recorrencia}
                           onChange={(e) => set("meses_recorrencia", e.target.value)}
                           className="rounded-xl h-9 text-center text-sm font-bold" />
                         <span className="text-xs text-muted-foreground whitespace-nowrap">
@@ -478,7 +533,11 @@ const FormDialog: React.FC<FormDialogProps> = ({
               {loading
                 ? <Loader2 className="h-4 w-4 animate-spin" />
                 : editId
-                  ? "Salvar alterações"
+                  ? permiteConverterSerie && form.modo === "parcelado"
+                    ? `Salvar e criar ${nParcelas} parcelas`
+                    : permiteConverterSerie && form.modo === "recorrente"
+                      ? `Salvar e criar ${nRecorrencia} lançamentos`
+                      : "Salvar alterações"
                   : form.modo === "parcelado"
                     ? `Criar ${nParcelas} parcelas`
                     : form.modo === "recorrente"
