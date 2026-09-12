@@ -203,7 +203,7 @@ const FinanceiroRow: React.FC<{
 
       <div className="flex items-center gap-3 sm:ml-auto shrink-0">
         <p className={cn("text-xl font-black tracking-tighter", item.tipo === "receita" ? "text-emerald-500" : "text-orange-500")}>
-          {item.tipo === "despesa" && "- "}{fmt(item.valor)}
+          {item.tipo === "despesa" && "- "}{fmt(isParcial ? saldoRestante(item) : item.valor)}
         </p>
 
         <Badge className={cn("px-3 py-1 rounded-xl text-[9px] uppercase tracking-widest", cfg.className)}>

@@ -75,11 +75,11 @@ interface FormState {
 const toNull = (v: string | null | undefined) =>
   !v || v === NONE || v.trim() === "" ? null : v;
 
-const defaultForm = (tipo: TipoType = "receita"): FormState => ({
+const defaultForm = (tipo: TipoType = "receita", dataBase: Date = new Date()): FormState => ({
   tipo,
   descricao: "",
   valor: "",
-  data_vencimento: format(new Date(), "yyyy-MM-dd"),
+  data_vencimento: format(dataBase, "yyyy-MM-dd"),
   status: "pendente",
   categoria: NONE,
   cliente_id: NONE,

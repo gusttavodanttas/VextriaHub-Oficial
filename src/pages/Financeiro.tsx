@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { PermissionGuard } from "@/components/Auth/PermissionGuard";
 import { toNull } from "@/components/Financeiro/shared";
+import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/rows";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,6 +49,8 @@ import {
   ArrowRight,
   FileSpreadsheet,
   Download,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import {
   format,
@@ -56,9 +59,11 @@ import {
   parseISO,
   isAfter,
   isBefore,
+  isSameMonth,
   addMonths,
   addWeeks,
 } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
 // Módulos extraídos deste arquivo (desmonte do god-component) — comportamento idêntico
@@ -104,10 +109,15 @@ const Financeiro = () => {
   const [defaultTipo, setDefaultTipo] = useState<TipoType>("receita");
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
-  // Stats
-  const hoje = new Date();
-  const mesStart = startOfMonth(hoje);
-  const mesEnd = endOfMonth(hoje);
+  // Mês em visualização — navegável (não trava no mês corrente), afeta os
+  // cards "do Mês" e as listas (Priorização fica de fora, é um work-list vivo).
+  const [mesRef, setMesRef] = useState(() => startOfMonth(new Date()));
+  const mesStart = startOfMonth(mesRef);
+  const mesEnd = endOfMonth(mesRef);
+  const isMesAtual = isSameMonth(mesRef, new Date());
+  const mesAnterior = () => setMesRef((d) => addMonths(d, -1));
+  const proximoMes = () => setMesRef((d) => addMonths(d, 1));
+  const irParaHoje = () => setMesRef(startOfMonth(new Date()));
 
   const stats = useMemo(() => {
     const receitaMes = items
@@ -170,8 +180,9 @@ const Financeiro = () => {
     const matchStatus = filtroStatus === "todos" || i.status === filtroStatus;
     const matchCat = filtroCategoria === "todas" || i.categoria === filtroCategoria;
     const matchEscopo = filtroEscopo === "todos" || i.escopo === filtroEscopo;
-    return matchBusca && matchStatus && matchCat && matchEscopo;
-  }), [items, dBusca, filtroStatus, filtroCategoria, filtroEscopo]);
+    const matchMes = !isBefore(parseISO(i.data_vencimento), mesStart) && !isAfter(parseISO(i.data_vencimento), mesEnd);
+    return matchBusca && matchStatus && matchCat && matchEscopo && matchMes;
+  }), [items, dBusca, filtroStatus, filtroCategoria, filtroEscopo, mesStart, mesEnd]);
 
   const receber = filtered.filter((i) => i.tipo === "receita");
   const pagar = filtered.filter((i) => i.tipo === "despesa");
@@ -246,6 +257,17 @@ const Financeiro = () => {
     update.mutate(data, { onSuccess: () => setDialogOpen(false) });
   };
 
+  // Converte um lançamento avulso em série: só cria as parcelas/ocorrências
+  // futuras depois que a atualização do próprio lançamento (virando a 1ª) confirmar.
+  const handleConvertToSerie = (
+    updatePayload: TablesUpdate<"financeiro"> & { id: string },
+    novasLinhas: TablesInsert<"financeiro">[],
+  ) => {
+    update.mutate(updatePayload, {
+      onSuccess: () => create.mutate(novasLinhas, { onSuccess: () => setDialogOpen(false) }),
+    });
+  };
+
   const handleRegistrarPagamento = (item: FinanceiroItem, valor: number) => {
     setLoadingId(item.id);
     registrarPagamento.mutate({ item, valor }, { onSettled: () => setLoadingId(null) });
@@ -278,7 +300,7 @@ const Financeiro = () => {
         recorrencia: "mensal",
         meses_recorrencia: "12",
       }
-    : defaultForm(defaultTipo);
+    : defaultForm(defaultTipo, isMesAtual ? new Date() : mesRef);
 
   const handleCancelarGrupo = (grupoId: string) => {
     if (!confirm("Cancelar todos os lançamentos futuros pendentes deste grupo?")) return;
@@ -327,6 +349,22 @@ const Financeiro = () => {
               <Plus className="mr-2 h-5 w-5" />Nova Receita
             </Button>
           </div>
+        </div>
+
+        {/* Navegação de mês — afeta os cards "do Mês" e as listas abaixo */}
+        <div className="flex items-center gap-2">
+          <Button size="icon" variant="outline" className="h-9 w-9 rounded-xl" onClick={mesAnterior} title="Mês anterior" aria-label="Mês anterior">
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button size="icon" variant="outline" className="h-9 w-9 rounded-xl" onClick={proximoMes} title="Próximo mês" aria-label="Próximo mês">
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <p className="text-sm font-black tracking-tight capitalize w-40">{format(mesRef, "MMMM yyyy", { locale: ptBR })}</p>
+          {!isMesAtual && (
+            <Button variant="outline" className="h-9 rounded-xl px-3 text-[10px] font-black uppercase tracking-widest" onClick={irParaHoje}>
+              Hoje
+            </Button>
+          )}
         </div>
 
         {/* Stats */}
@@ -536,8 +574,10 @@ const Financeiro = () => {
             categoriasReceita={categoriasReceita}
             categoriasDespesa={categoriasDespesa}
             gruposPrioridade={gruposPrioridade}
+            permiteConverterSerie={!!editItem && !editItem.grupo_id}
             onSave={handleSave}
             onUpdate={handleUpdate}
+            onConvertToSerie={handleConvertToSerie}
             loading={create.isPending || update.isPending}
           />
         )}
