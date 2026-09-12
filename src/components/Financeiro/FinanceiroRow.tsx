@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   DollarSign,
   TrendingUp,
@@ -53,24 +54,82 @@ import {
   addWeeks,
 } from "date-fns";
 import { cn } from "@/lib/utils";
-import { fmt, statusConfig, escopoConfig, prioridadeConfig, type FinanceiroItem } from "./shared";
+import {
+  fmt, statusConfig, escopoConfig, NONE, prioridadeBadgeClassName,
+  valorPago, saldoRestante, type FinanceiroItem, type PrioridadeGrupo,
+} from "./shared";
+
+// ─── Registrar pagamento (total ou parcial) ────────────────────────────────────
+
+const RegistrarPagamentoPopover: React.FC<{
+  item: FinanceiroItem;
+  onConfirm: (valor: number) => void;
+  loading: boolean;
+  children: React.ReactNode;
+}> = ({ item, onConfirm, loading, children }) => {
+  const [open, setOpen] = useState(false);
+  const [valorStr, setValorStr] = useState("");
+  const restante = saldoRestante(item);
+  const isReceita = item.tipo === "receita";
+
+  const handleOpenChange = (o: boolean) => {
+    setOpen(o);
+    if (o) setValorStr(String(restante));
+  };
+
+  const handleConfirm = () => {
+    const v = parseFloat(valorStr.replace(",", "."));
+    if (!v || v <= 0) return;
+    onConfirm(Math.min(v, restante));
+    setOpen(false);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={handleOpenChange}>
+      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      <PopoverContent className="w-64 rounded-2xl p-4 space-y-3" align="end">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+            {isReceita ? "Registrar recebimento" : "Registrar pagamento"}
+          </p>
+          <p className="text-[10px] text-muted-foreground/70 mt-0.5">Saldo restante: {fmt(restante)}</p>
+        </div>
+        <div className="relative">
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-black text-muted-foreground">R$</span>
+          <Input type="number" min="0.01" max={restante} step="0.01" value={valorStr} autoFocus
+            onChange={(e) => setValorStr(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleConfirm())}
+            className="rounded-xl h-10 pl-9 text-sm font-bold tabular-nums" />
+        </div>
+        <Button size="sm" onClick={handleConfirm} disabled={loading}
+          className="w-full rounded-xl h-9 font-black uppercase text-[10px] tracking-widest bg-emerald-500 hover:bg-emerald-600 text-white">
+          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Confirmar"}
+        </Button>
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 // ─── Row ─────────────────────────────────────────────────────────────────────
 
 const FinanceiroRow: React.FC<{
   item: FinanceiroItem;
-  onMarkPago: (id: string) => void;
+  onRegistrarPagamento: (item: FinanceiroItem, valor: number) => void;
   onEdit: (item: FinanceiroItem) => void;
   onDelete: (id: string) => void;
   onCancelarGrupo: (grupoId: string) => void;
+  onPrioridadeChange: (id: string, prioridade: string | null) => void;
+  gruposPrioridade: PrioridadeGrupo[];
   loadingId: string | null;
-}> = ({ item, onMarkPago, onEdit, onDelete, onCancelarGrupo, loadingId }) => {
+}> = ({ item, onRegistrarPagamento, onEdit, onDelete, onCancelarGrupo, onPrioridadeChange, gruposPrioridade, loadingId }) => {
   const isVencido = item.status === "vencido";
   const cfg = statusConfig[item.status] ?? statusConfig.cancelado;
   const isParcela = !!item.parcela_total;
   const isRecorrente = !!item.recorrencia && !isParcela;
   const escopoCfg = escopoConfig[item.escopo] ?? escopoConfig.pj;
-  const prioridadeCfg = item.prioridade ? prioridadeConfig[item.prioridade] : null;
+  const prioridadeIndex = gruposPrioridade.findIndex((g) => g.id === item.prioridade);
+  const prioridadeGrupo = prioridadeIndex >= 0 ? gruposPrioridade[prioridadeIndex] : undefined;
+  const isParcial = item.status === "parcial";
 
   return (
     <div className={cn(
@@ -106,9 +165,9 @@ const FinanceiroRow: React.FC<{
           <Badge className={cn("px-2 py-0.5 rounded-lg text-[9px] uppercase tracking-widest", escopoCfg.className)}>
             {escopoCfg.label}
           </Badge>
-          {prioridadeCfg && (
-            <Badge className={cn("px-2 py-0.5 rounded-lg text-[9px] uppercase tracking-widest", prioridadeCfg.className)}>
-              {prioridadeCfg.label}
+          {prioridadeGrupo && (
+            <Badge className={cn("px-2 py-0.5 rounded-lg text-[9px] uppercase tracking-widest", prioridadeBadgeClassName(prioridadeIndex))}>
+              {prioridadeGrupo.label}
             </Badge>
           )}
         </div>
@@ -121,8 +180,26 @@ const FinanceiroRow: React.FC<{
             <Calendar className="h-3 w-3 text-primary" />
             {format(parseISO(item.data_vencimento), "dd/MM/yyyy")}
           </span>
+          {isParcial && (
+            <>
+              <span className="opacity-40">·</span>
+              <span className="text-sky-500">{fmt(valorPago(item))} de {fmt(item.valor)} pago</span>
+            </>
+          )}
         </div>
       </div>
+
+      {item.tipo === "despesa" && (
+        <Select value={item.prioridade ?? NONE} onValueChange={(v) => onPrioridadeChange(item.id, v === NONE ? null : v)}>
+          <SelectTrigger className="w-[132px] h-8 rounded-lg text-[10px] shrink-0"><SelectValue placeholder="Prioridade" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NONE}>Não classificada</SelectItem>
+            {gruposPrioridade.map((g) => (
+              <SelectItem key={g.id} value={g.id}>{g.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
 
       <div className="flex items-center gap-3 sm:ml-auto shrink-0">
         <p className={cn("text-xl font-black tracking-tighter", item.tipo === "receita" ? "text-emerald-500" : "text-orange-500")}>
@@ -136,11 +213,15 @@ const FinanceiroRow: React.FC<{
 
         <div className="flex gap-1">
           {item.status !== "pago" && item.status !== "cancelado" && (
-            <Button size="icon" variant="ghost"
-              className="h-8 w-8 rounded-xl hover:bg-emerald-500/10 hover:text-emerald-500"
-              onClick={() => onMarkPago(item.id)} disabled={loadingId === item.id} title="Marcar como pago" aria-label="Marcar como pago">
-              {loadingId === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-            </Button>
+            <RegistrarPagamentoPopover item={item} loading={loadingId === item.id}
+              onConfirm={(valor) => onRegistrarPagamento(item, valor)}>
+              <Button size="icon" variant="ghost"
+                className="h-8 w-8 rounded-xl hover:bg-emerald-500/10 hover:text-emerald-500"
+                disabled={loadingId === item.id} title={item.tipo === "receita" ? "Registrar recebimento" : "Registrar pagamento"}
+                aria-label={item.tipo === "receita" ? "Registrar recebimento" : "Registrar pagamento"}>
+                {loadingId === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+              </Button>
+            </RegistrarPagamentoPopover>
           )}
           <Button size="icon" variant="ghost"
             className="h-8 w-8 rounded-xl hover:bg-primary/10 hover:text-primary"
@@ -187,4 +268,4 @@ const LoadingSkeleton = () => (
 
 // ─── Hook de categorias (persiste em offices.settings no Supabase) ───────────
 
-export { FinanceiroRow, EmptyState, LoadingSkeleton };
+export { FinanceiroRow, EmptyState, LoadingSkeleton, RegistrarPagamentoPopover };
