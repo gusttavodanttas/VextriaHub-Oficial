@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { PermissionGuard } from "@/components/Auth/PermissionGuard";
 import { toNull } from "@/components/Financeiro/shared";
+import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/rows";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -258,7 +259,10 @@ const Financeiro = () => {
 
   // Converte um lançamento avulso em série: só cria as parcelas/ocorrências
   // futuras depois que a atualização do próprio lançamento (virando a 1ª) confirmar.
-  const handleConvertToSerie = (updatePayload: any, novasLinhas: any[]) => {
+  const handleConvertToSerie = (
+    updatePayload: TablesUpdate<"financeiro"> & { id: string },
+    novasLinhas: TablesInsert<"financeiro">[],
+  ) => {
     update.mutate(updatePayload, {
       onSuccess: () => create.mutate(novasLinhas, { onSuccess: () => setDialogOpen(false) }),
     });

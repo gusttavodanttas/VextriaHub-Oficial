@@ -47,11 +47,14 @@ import {
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { parcelasRows, recorrenciaRows } from "@/lib/financeiroCalc";
+import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/rows";
 import {
   NONE, toNull, fmt,
   type StatusType, type TipoType, type EscopoType, type PrioridadeGrupo, type ModoLancamento, type RecorrenciaTipo,
   type FormState, type ClienteOption, type ProcessoOption,
 } from "./shared";
+
+type FinanceiroUpdatePayload = TablesUpdate<"financeiro"> & { id: string };
 
 // ─── Form Dialog ──────────────────────────────────────────────────────────────
 
@@ -70,7 +73,7 @@ interface FormDialogProps {
   permiteConverterSerie?: boolean;
   onSave: (data: any) => void;
   onUpdate: (data: any) => void;
-  onConvertToSerie: (updatePayload: any, novasLinhas: any[]) => void;
+  onConvertToSerie: (updatePayload: FinanceiroUpdatePayload, novasLinhas: TablesInsert<"financeiro">[]) => void;
   loading: boolean;
 }
 
