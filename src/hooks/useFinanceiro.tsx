@@ -6,8 +6,9 @@ import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
-  DEFAULT_CATEGORIAS_RECEITA, DEFAULT_CATEGORIAS_DESPESA,
-  type FinanceiroItem,
+  DEFAULT_CATEGORIAS_RECEITA, DEFAULT_CATEGORIAS_DESPESA, DEFAULT_GRUPOS_PRIORIDADE,
+  valorPago as calcValorPago,
+  type FinanceiroItem, type PrioridadeGrupo,
 } from "@/components/Financeiro/shared";
 import { assertRowsAffected } from "@/lib/errors";
 import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/rows";
@@ -70,16 +71,25 @@ const useFinanceiro = (officeId: string | null | undefined) => {
     onError: (e: Error) => toast({ title: "Erro ao excluir", description: e.message, variant: "destructive" }),
   });
 
-  const markPago = useMutation({
-    mutationFn: async (id: string) => {
-      const { data, error } = await supabase
-        .from("financeiro")
-        .update({ status: "pago", data_pagamento: format(new Date(), "yyyy-MM-dd") })
-        .eq("id", id)
-        .select("id");
+  // Registra um pagamento/recebimento (total ou parcial) sobre um lançamento.
+  // `valor` é o quanto está sendo pago agora, somado ao que já tinha sido pago
+  // antes (item.valor_pago) — se o total acumulado cobre o valor do lançamento,
+  // o status vira "pago"; senão fica "parcial" guardando o saldo já quitado.
+  const registrarPagamento = useMutation({
+    mutationFn: async ({ item, valor }: { item: FinanceiroItem; valor: number }) => {
+      const pagoAtual = calcValorPago(item);
+      const totalPago = Math.min(item.valor, Math.max(0, pagoAtual + valor));
+      const quitado = totalPago >= item.valor - 0.005;
+      const payload = {
+        status: quitado ? "pago" : "parcial",
+        valor_pago: totalPago,
+        data_pagamento: format(new Date(), "yyyy-MM-dd"),
+      };
+      const { data, error } = await supabase.from("financeiro").update(payload).eq("id", item.id).select("id");
       assertRowsAffected(data, error, 1);
+      return quitado;
     },
-    onSuccess: () => { invalidate(); toast({ title: "Marcado como pago!" }); },
+    onSuccess: (quitado) => { invalidate(); toast({ title: quitado ? "Marcado como pago!" : "Pagamento parcial registrado!" }); },
     onError: (e: Error) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
@@ -106,7 +116,7 @@ const useFinanceiro = (officeId: string | null | undefined) => {
     onError: (e: Error) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
-  return { query, create, update, remove, markPago, cancelarGrupo };
+  return { query, create, update, remove, registrarPagamento, cancelarGrupo };
 };
 
 
@@ -153,4 +163,45 @@ const useFinanceiroCategorias = (officeId: string) => {
 };
 
 
-export { useFinanceiro, useFinanceiroCategorias };
+// Grupos de prioridade das despesas (G1/G2/G3/Esperar por padrão) — assim como
+// as categorias, customizáveis por escritório e persistidos em offices.settings.
+const useFinanceiroGruposPrioridade = (officeId: string) => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const { data } = useQuery({
+    queryKey: ["office-settings-prioridade", officeId],
+    enabled: !!officeId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("offices")
+        .select("settings")
+        .eq("id", officeId)
+        .maybeSingle();
+      const s = (data?.settings as any) ?? {};
+      return (s.fin_grupos_prioridade as PrioridadeGrupo[]) ?? DEFAULT_GRUPOS_PRIORIDADE;
+    },
+  });
+
+  const save = useCallback(async (grupos: PrioridadeGrupo[]) => {
+    const { data: cur } = await supabase.from("offices").select("settings").eq("id", officeId).maybeSingle();
+    const merged = { ...(cur?.settings as any ?? {}), fin_grupos_prioridade: grupos };
+    const { data: updated, error } = await supabase.from("offices").update({ settings: merged }).eq("id", officeId).select("id");
+    try {
+      assertRowsAffected(updated, error, 1);
+    } catch (e) {
+      toast({ title: "Erro ao salvar", description: e instanceof Error ? e.message : "Não foi possível salvar.", variant: "destructive" });
+      return false;
+    }
+    queryClient.invalidateQueries({ queryKey: ["office-settings-prioridade", officeId] });
+    return true;
+  }, [officeId, queryClient, toast]);
+
+  return {
+    gruposPrioridade: data ?? DEFAULT_GRUPOS_PRIORIDADE,
+    save,
+  };
+};
+
+
+export { useFinanceiro, useFinanceiroCategorias, useFinanceiroGruposPrioridade };

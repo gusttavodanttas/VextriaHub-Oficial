@@ -553,6 +553,7 @@ export type Database = {
           updated_at: string
           user_id: string
           valor: number
+          valor_pago: number | null
         }
         Insert: {
           categoria?: string | null
@@ -577,6 +578,7 @@ export type Database = {
           updated_at?: string
           user_id: string
           valor: number
+          valor_pago?: number | null
         }
         Update: {
           categoria?: string | null
@@ -601,6 +603,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
           valor?: number
+          valor_pago?: number | null
         }
         Relationships: [
           {

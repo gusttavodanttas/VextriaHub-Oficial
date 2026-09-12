@@ -63,13 +63,15 @@ import { cn } from "@/lib/utils";
 
 // Módulos extraídos deste arquivo (desmonte do god-component) — comportamento idêntico
 import {
-  NONE, fmt, defaultForm, statusConfig, escopoConfig, prioridadeConfig,
-  type FinanceiroItem, type FormState, type StatusType, type TipoType, type EscopoType, type PrioridadeType,
+  NONE, fmt, defaultForm, statusConfig, escopoConfig, prioridadeAccentClassName, findPrioridadeGrupo,
+  valorPago, saldoRestante,
+  type FinanceiroItem, type FormState, type StatusType, type TipoType, type EscopoType,
 } from "@/components/Financeiro/shared";
-import { useFinanceiro, useFinanceiroCategorias } from "@/hooks/useFinanceiro";
+import { useFinanceiro, useFinanceiroCategorias, useFinanceiroGruposPrioridade } from "@/hooks/useFinanceiro";
 import { GerenciarCategoriasDialog } from "@/components/Financeiro/GerenciarCategoriasDialog";
+import { GerenciarPrioridadesDialog } from "@/components/Financeiro/GerenciarPrioridadesDialog";
 import { FormDialog } from "@/components/Financeiro/FinanceiroFormDialog";
-import { FinanceiroRow, EmptyState, LoadingSkeleton } from "@/components/Financeiro/FinanceiroRow";
+import { FinanceiroRow, EmptyState, LoadingSkeleton, RegistrarPagamentoPopover } from "@/components/Financeiro/FinanceiroRow";
 import { ImportarPlanilhaDialog } from "@/components/Financeiro/ImportarPlanilhaDialog";
 import { DiligenciasFinanceiroPanel } from "@/components/Correspondentes/DiligenciasFinanceiroPanel";
 // ─── Page ────────────────────────────────────────────────────────────────────
@@ -78,10 +80,11 @@ const Financeiro = () => {
   const { user, office } = useAuth();
   const officeId = office?.id ?? user?.office_id ?? "";
 
-  const { query, create, update, remove, markPago, cancelarGrupo } = useFinanceiro(officeId);
+  const { query, create, update, remove, registrarPagamento, cancelarGrupo } = useFinanceiro(officeId);
   const items = query.data ?? [];
 
   const { categoriasReceita, categoriasDespesa, save: saveCategorias } = useFinanceiroCategorias(officeId);
+  const { gruposPrioridade, save: saveGruposPrioridade } = useFinanceiroGruposPrioridade(officeId);
 
   const handleSaveCategorias = async (receita: string[], despesa: string[]) => {
     await saveCategorias(receita, despesa);
@@ -95,6 +98,7 @@ const Financeiro = () => {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [catDialogOpen, setCatDialogOpen] = useState(false);
+  const [prioridadeDialogOpen, setPrioridadeDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [editItem, setEditItem] = useState<FinanceiroItem | null>(null);
   const [defaultTipo, setDefaultTipo] = useState<TipoType>("receita");
@@ -112,19 +116,23 @@ const Financeiro = () => {
         && !isAfter(parseISO(i.data_vencimento), mesEnd))
       .reduce((acc, i) => acc + i.valor, 0);
 
+    // "A receber"/"A pagar" contam o saldo ainda em aberto — para um lançamento
+    // "parcial" isso é o restante, não o valor total original.
     const aReceber = items
-      .filter((i) => i.tipo === "receita" && (i.status === "pendente" || i.status === "vencido"))
-      .reduce((acc, i) => acc + i.valor, 0);
+      .filter((i) => i.tipo === "receita" && (i.status === "pendente" || i.status === "vencido" || i.status === "parcial"))
+      .reduce((acc, i) => acc + saldoRestante(i), 0);
 
     const aPagar = items
-      .filter((i) => i.tipo === "despesa" && (i.status === "pendente" || i.status === "vencido"))
-      .reduce((acc, i) => acc + i.valor, 0);
+      .filter((i) => i.tipo === "despesa" && (i.status === "pendente" || i.status === "vencido" || i.status === "parcial"))
+      .reduce((acc, i) => acc + saldoRestante(i), 0);
 
+    // Movimentação de caixa do mês: valor efetivamente pago/recebido (não o valor
+    // total do lançamento) — pra "pago" isso já é o valor cheio.
     const saldo = items
-      .filter((i) => i.status === "pago" && i.data_pagamento
+      .filter((i) => (i.status === "pago" || i.status === "parcial") && i.data_pagamento
         && !isBefore(parseISO(i.data_pagamento), mesStart)
         && !isAfter(parseISO(i.data_pagamento), mesEnd))
-      .reduce((acc, i) => acc + (i.tipo === "receita" ? i.valor : -i.valor), 0);
+      .reduce((acc, i) => acc + (i.tipo === "receita" ? valorPago(i) : -valorPago(i)), 0);
 
     return { receitaMes, aReceber, aPagar, saldo };
   }, [items]);
@@ -168,37 +176,42 @@ const Financeiro = () => {
   const receber = filtered.filter((i) => i.tipo === "receita");
   const pagar = filtered.filter((i) => i.tipo === "despesa");
 
-  // Priorização: despesas pendentes/vencidas, agrupadas por prioridade —
-  // ajuda a decidir o que pagar primeiro quando o caixa aperta.
+  // Priorização: despesas ainda em aberto (pendente/vencida/parcial), agrupadas
+  // pelos grupos de prioridade configurados pelo escritório — ajuda a decidir o
+  // que pagar primeiro quando o caixa aperta.
   const pendentesPagar = useMemo(
-    () => items.filter((i) => i.tipo === "despesa" && (i.status === "pendente" || i.status === "vencido")),
+    () => items.filter((i) => i.tipo === "despesa" && (i.status === "pendente" || i.status === "vencido" || i.status === "parcial")),
     [items]
   );
-  const gruposPrioridade = useMemo(() => {
-    const grupos: Record<PrioridadeType | "sem_classificacao", FinanceiroItem[]> = {
-      g1: [], g2: [], g3: [], esperar: [], sem_classificacao: [],
-    };
+  const SEM_CLASSIFICACAO = "sem_classificacao";
+  const pendentesPorGrupo = useMemo(() => {
+    const buckets: Record<string, FinanceiroItem[]> = { [SEM_CLASSIFICACAO]: [] };
+    gruposPrioridade.forEach((g) => { buckets[g.id] = []; });
     pendentesPagar.forEach((i) => {
-      grupos[i.prioridade ?? "sem_classificacao"].push(i);
+      const bucket = i.prioridade && buckets[i.prioridade] ? i.prioridade : SEM_CLASSIFICACAO;
+      buckets[bucket].push(i);
     });
-    return grupos;
-  }, [pendentesPagar]);
-  const somaGrupo = (arr: FinanceiroItem[]) => arr.reduce((acc, i) => acc + i.valor, 0);
+    return buckets;
+  }, [pendentesPagar, gruposPrioridade]);
+  // Soma o saldo em aberto (não o valor total) — relevante pra contas parciais.
+  const somaGrupo = (arr: FinanceiroItem[]) => arr.reduce((acc, i) => acc + saldoRestante(i), 0);
 
   // Exporta os lançamentos visíveis (respeita os filtros ativos). `descricao`
   // é obrigatório no schema — toda linha exportada tem descrição preenchida.
   const exportCSV = () => {
-    const header = ["Tipo", "Descrição", "Categoria", "Valor", "Vencimento", "Pagamento", "Status", "Escopo", "Prioridade", "Cliente"];
+    const header = ["Tipo", "Descrição", "Categoria", "Valor", "Valor Pago", "Saldo", "Vencimento", "Pagamento", "Status", "Escopo", "Prioridade", "Cliente"];
     const linhas = filtered.map((i) => [
       i.tipo === "receita" ? "Receita" : "Despesa",
       i.descricao,
       i.categoria ?? "",
       fmt(i.valor),
+      fmt(valorPago(i)),
+      fmt(saldoRestante(i)),
       format(parseISO(i.data_vencimento), "dd/MM/yyyy"),
       i.data_pagamento ? format(parseISO(i.data_pagamento), "dd/MM/yyyy") : "",
       statusConfig[i.status].label,
       escopoConfig[i.escopo].label,
-      i.prioridade ? prioridadeConfig[i.prioridade].label : "",
+      findPrioridadeGrupo(gruposPrioridade, i.prioridade)?.label ?? "",
       i.clientes?.nome ?? "",
     ]);
     const csv = [header, ...linhas]
@@ -233,9 +246,13 @@ const Financeiro = () => {
     update.mutate(data, { onSuccess: () => setDialogOpen(false) });
   };
 
-  const handleMarkPago = (id: string) => {
-    setLoadingId(id);
-    markPago.mutate(id, { onSettled: () => setLoadingId(null) });
+  const handleRegistrarPagamento = (item: FinanceiroItem, valor: number) => {
+    setLoadingId(item.id);
+    registrarPagamento.mutate({ item, valor }, { onSettled: () => setLoadingId(null) });
+  };
+
+  const handlePrioridadeChange = (id: string, prioridade: string | null) => {
+    update.mutate({ id, prioridade });
   };
 
   const handleDelete = (id: string) => {
@@ -255,6 +272,7 @@ const Financeiro = () => {
         processo_id: toNull(editItem.processo_id) ?? NONE,
         escopo: editItem.escopo ?? "pj",
         prioridade: editItem.prioridade ?? NONE,
+        valor_pago: editItem.valor_pago != null ? String(editItem.valor_pago) : "",
         modo: "unico",
         parcelas: "2",
         recorrencia: "mensal",
@@ -288,6 +306,9 @@ const Financeiro = () => {
           <div className="flex items-center gap-2 glass-morphism p-2 rounded-2xl border border-black/5 dark:border-border bg-black/[0.02] dark:bg-muted/30 shadow-premium">
             <Button size="icon" variant="ghost" className="h-11 w-11 rounded-xl" onClick={() => setCatDialogOpen(true)} title="Gerenciar categorias" aria-label="Gerenciar categorias">
               <Settings2 className="h-5 w-5 text-muted-foreground" />
+            </Button>
+            <Button size="icon" variant="ghost" className="h-11 w-11 rounded-xl" onClick={() => setPrioridadeDialogOpen(true)} title="Gerenciar grupos de prioridade" aria-label="Gerenciar grupos de prioridade">
+              <ListOrdered className="h-5 w-5 text-muted-foreground" />
             </Button>
             <Button size="icon" variant="ghost" className="h-11 w-11 rounded-xl" onClick={() => setImportDialogOpen(true)} title="Importar planilha (Excel/CSV)" aria-label="Importar planilha">
               <FileSpreadsheet className="h-5 w-5 text-muted-foreground" />
@@ -368,6 +389,7 @@ const Financeiro = () => {
               <SelectItem value="todos">Todos os status</SelectItem>
               <SelectItem value="pendente">Pendente</SelectItem>
               <SelectItem value="pago">Pago</SelectItem>
+              <SelectItem value="parcial">Parcial</SelectItem>
               <SelectItem value="vencido">Vencido</SelectItem>
               <SelectItem value="cancelado">Cancelado</SelectItem>
             </SelectContent>
@@ -419,34 +441,29 @@ const Financeiro = () => {
                 ? <EmptyState label={emptyLabel} onNew={() => openNew(tipo)} />
                 : data.map((item) => (
                     <FinanceiroRow key={item.id} item={item}
-                      onMarkPago={handleMarkPago} onEdit={openEdit}
+                      onRegistrarPagamento={handleRegistrarPagamento} onEdit={openEdit}
                       onDelete={handleDelete} onCancelarGrupo={handleCancelarGrupo}
+                      onPrioridadeChange={handlePrioridadeChange} gruposPrioridade={gruposPrioridade}
                       loadingId={loadingId} />
                   ))
               }
             </TabsContent>
           ))}
 
-          {/* Priorização: despesas pendentes/vencidas agrupadas por urgência */}
+          {/* Priorização: despesas em aberto agrupadas pelos grupos configurados */}
           <TabsContent value="priorizacao" className="space-y-6 entry-animate">
             {query.isLoading ? <LoadingSkeleton /> : pendentesPagar.length === 0 ? (
               <EmptyState label="Nenhuma despesa pendente para priorizar" onNew={() => openNew("despesa")} />
             ) : (
               ([
-                { key: "g1" as const,               label: "G1 · Essencial",   hint: "Sem isso o escritório para de funcionar", accent: "border-red-500/30 bg-red-500/5" },
-                { key: "g2" as const,               label: "G2 · Importante",  hint: "Impacta a operação, mas dá pra segurar alguns dias", accent: "border-orange-500/30 bg-orange-500/5" },
-                { key: "g3" as const,                label: "G3 · Contornável", hint: "Pode esperar sem grande prejuízo", accent: "border-slate-400/30 bg-slate-400/5" },
-                { key: "esperar" as const,           label: "Esperar",         hint: "Segurado até o caixa recompor", accent: "border-amber-500/30 bg-amber-500/5" },
-                { key: "sem_classificacao" as const, label: "Sem Classificação", hint: "Ainda não avaliadas", accent: "border-muted/40 bg-muted/10" },
-              ]).map(({ key, label, hint, accent }) => {
-                const grupoItens = gruposPrioridade[key];
+                ...gruposPrioridade.map((g, i) => ({ key: g.id, label: g.label, accent: prioridadeAccentClassName(i) })),
+                { key: SEM_CLASSIFICACAO, label: "Sem Classificação", accent: "border-muted/40 bg-muted/10" },
+              ]).map(({ key, label, accent }) => {
+                const grupoItens = pendentesPorGrupo[key] ?? [];
                 return (
                   <div key={key} className={cn("rounded-3xl border p-5 space-y-3", accent)}>
                     <div className="flex items-center justify-between flex-wrap gap-2">
-                      <div>
-                        <p className="text-xs font-black uppercase tracking-widest">{label}</p>
-                        <p className="text-[10px] text-muted-foreground">{hint}</p>
-                      </div>
+                      <p className="text-xs font-black uppercase tracking-widest">{label}</p>
                       <span className="text-sm font-black tabular-nums">{fmt(somaGrupo(grupoItens))} · {grupoItens.length} conta{grupoItens.length === 1 ? "" : "s"}</span>
                     </div>
                     {grupoItens.length === 0 ? (
@@ -466,27 +483,34 @@ const Financeiro = () => {
                                       <AlertCircle className="h-3 w-3 mr-1" />Vencido
                                     </Badge>
                                   )}
+                                  {item.status === "parcial" && (
+                                    <Badge className={cn("px-2 py-0.5 rounded-lg text-[9px] uppercase tracking-widest", statusConfig.parcial.className)}>
+                                      {fmt(valorPago(item))} de {fmt(item.valor)}
+                                    </Badge>
+                                  )}
                                 </div>
                                 <p className="text-[10px] text-muted-foreground mt-0.5">
                                   Vence em {format(parseISO(item.data_vencimento), "dd/MM/yyyy")}
                                 </p>
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
-                                <span className="font-black tabular-nums text-orange-500">{fmt(item.valor)}</span>
-                                <Select value={item.prioridade ?? NONE} onValueChange={(v) => update.mutate({ id: item.id, prioridade: v === NONE ? null : v })}>
+                                <span className="font-black tabular-nums text-orange-500">{fmt(saldoRestante(item))}</span>
+                                <Select value={item.prioridade ?? NONE} onValueChange={(v) => handlePrioridadeChange(item.id, v === NONE ? null : v)}>
                                   <SelectTrigger className="w-[132px] h-8 rounded-lg text-[10px]"><SelectValue /></SelectTrigger>
                                   <SelectContent>
                                     <SelectItem value={NONE}>Não classificada</SelectItem>
-                                    <SelectItem value="g1">G1 · Essencial</SelectItem>
-                                    <SelectItem value="g2">G2 · Importante</SelectItem>
-                                    <SelectItem value="g3">G3 · Contornável</SelectItem>
-                                    <SelectItem value="esperar">Esperar</SelectItem>
+                                    {gruposPrioridade.map((g) => (
+                                      <SelectItem key={g.id} value={g.id}>{g.label}</SelectItem>
+                                    ))}
                                   </SelectContent>
                                 </Select>
-                                <Button size="sm" className="h-8 rounded-lg text-[10px] font-black uppercase tracking-wide bg-emerald-500 hover:bg-emerald-600 text-white"
-                                  onClick={() => handleMarkPago(item.id)} disabled={loadingId === item.id}>
-                                  {loadingId === item.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Pagar</>}
-                                </Button>
+                                <RegistrarPagamentoPopover item={item} loading={loadingId === item.id}
+                                  onConfirm={(valor) => handleRegistrarPagamento(item, valor)}>
+                                  <Button size="sm" className="h-8 rounded-lg text-[10px] font-black uppercase tracking-wide bg-emerald-500 hover:bg-emerald-600 text-white"
+                                    disabled={loadingId === item.id}>
+                                    {loadingId === item.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Pagar</>}
+                                  </Button>
+                                </RegistrarPagamentoPopover>
                               </div>
                             </div>
                           );
@@ -511,6 +535,7 @@ const Financeiro = () => {
             userId={user?.id ?? ""}
             categoriasReceita={categoriasReceita}
             categoriasDespesa={categoriasDespesa}
+            gruposPrioridade={gruposPrioridade}
             onSave={handleSave}
             onUpdate={handleUpdate}
             loading={create.isPending || update.isPending}
@@ -524,6 +549,14 @@ const Financeiro = () => {
           categoriasReceita={categoriasReceita}
           categoriasDespesa={categoriasDespesa}
           onSave={handleSaveCategorias}
+        />
+
+        {/* Dialog grupos de prioridade */}
+        <GerenciarPrioridadesDialog
+          open={prioridadeDialogOpen}
+          onClose={() => setPrioridadeDialogOpen(false)}
+          grupos={gruposPrioridade}
+          onSave={saveGruposPrioridade}
         />
 
         {/* Dialog importar planilha */}

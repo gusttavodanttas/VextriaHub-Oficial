@@ -49,7 +49,7 @@ import { cn } from "@/lib/utils";
 import { parcelasRows, recorrenciaRows } from "@/lib/financeiroCalc";
 import {
   NONE, toNull, fmt,
-  type StatusType, type TipoType, type EscopoType, type PrioridadeType, type ModoLancamento, type RecorrenciaTipo,
+  type StatusType, type TipoType, type EscopoType, type PrioridadeGrupo, type ModoLancamento, type RecorrenciaTipo,
   type FormState, type ClienteOption, type ProcessoOption,
 } from "./shared";
 
@@ -64,6 +64,7 @@ interface FormDialogProps {
   userId: string;
   categoriasReceita: string[];
   categoriasDespesa: string[];
+  gruposPrioridade: PrioridadeGrupo[];
   onSave: (data: any) => void;
   onUpdate: (data: any) => void;
   loading: boolean;
@@ -71,7 +72,7 @@ interface FormDialogProps {
 
 const FormDialog: React.FC<FormDialogProps> = ({
   open, onClose, initial, editId, officeId, userId,
-  categoriasReceita, categoriasDespesa, onSave, onUpdate, loading,
+  categoriasReceita, categoriasDespesa, gruposPrioridade, onSave, onUpdate, loading,
 }) => {
   const [form, setForm] = useState<FormState>(initial);
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
@@ -113,6 +114,9 @@ const FormDialog: React.FC<FormDialogProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const valorTotal = parseFloat(form.valor) || 0;
+    const valorPagoNum = form.status === "parcial"
+      ? Math.min(valorTotal, Math.max(0, parseFloat(form.valor_pago) || 0))
+      : form.status === "pago" ? valorTotal : null;
     const base = {
       tipo: form.tipo,
       descricao: form.descricao.trim(),
@@ -124,7 +128,8 @@ const FormDialog: React.FC<FormDialogProps> = ({
       prioridade: form.tipo === "despesa" ? toNull(form.prioridade) : null,
       user_id: userId,
       office_id: officeId,
-      data_pagamento: form.status === "pago" ? format(new Date(), "yyyy-MM-dd") : null,
+      valor_pago: valorPagoNum,
+      data_pagamento: (form.status === "pago" || form.status === "parcial") ? format(new Date(), "yyyy-MM-dd") : null,
     };
 
     if (editId) {
@@ -142,6 +147,7 @@ const FormDialog: React.FC<FormDialogProps> = ({
         recorrencia: null,
         status: "pendente",
         data_pagamento: null,
+        valor_pago: null,
         valor: r.valor,
         data_vencimento: r.data_vencimento,
         parcela_numero: r.parcela_numero,
@@ -159,6 +165,7 @@ const FormDialog: React.FC<FormDialogProps> = ({
         recorrencia: form.recorrencia,
         status: "pendente",
         data_pagamento: null,
+        valor_pago: null,
         valor: r.valor,
         data_vencimento: r.data_vencimento,
       }));
@@ -367,14 +374,13 @@ const FormDialog: React.FC<FormDialogProps> = ({
             {form.tipo === "despesa" ? (
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Prioridade</Label>
-                <Select value={form.prioridade} onValueChange={(v) => set("prioridade", v as PrioridadeType)}>
+                <Select value={form.prioridade} onValueChange={(v) => set("prioridade", v)}>
                   <SelectTrigger className="rounded-xl h-10 text-sm"><SelectValue placeholder="Não classificada" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value={NONE}>Não classificada</SelectItem>
-                    <SelectItem value="g1">G1 · Essencial</SelectItem>
-                    <SelectItem value="g2">G2 · Importante</SelectItem>
-                    <SelectItem value="g3">G3 · Contornável</SelectItem>
-                    <SelectItem value="esperar">Esperar</SelectItem>
+                    {gruposPrioridade.map((g) => (
+                      <SelectItem key={g.id} value={g.id}>{g.label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -402,12 +408,27 @@ const FormDialog: React.FC<FormDialogProps> = ({
                 <SelectContent>
                   <SelectItem value="pendente">Pendente</SelectItem>
                   <SelectItem value="pago">Pago</SelectItem>
+                  <SelectItem value="parcial">Parcial</SelectItem>
                   <SelectItem value="vencido">Vencido</SelectItem>
                   <SelectItem value="cancelado">Cancelado</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
+
+          {/* Valor pago (só quando status = parcial) */}
+          {form.status === "parcial" && (
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Valor já pago</Label>
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-black text-muted-foreground">R$</span>
+                <Input type="number" min="0" max={form.valor || undefined} step="0.01" value={form.valor_pago}
+                  onChange={(e) => set("valor_pago", e.target.value)}
+                  className="rounded-xl h-10 pl-9 text-sm font-bold tabular-nums text-sky-500"
+                  placeholder="0,00" />
+              </div>
+            </div>
+          )}
 
           {/* Cliente + Processo */}
           <div className="space-y-3">
