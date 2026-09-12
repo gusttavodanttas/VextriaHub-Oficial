@@ -126,14 +126,19 @@ const Financeiro = () => {
         && !isAfter(parseISO(i.data_vencimento), mesEnd))
       .reduce((acc, i) => acc + i.valor, 0);
 
-    // "A receber"/"A pagar" contam o saldo ainda em aberto — para um lançamento
-    // "parcial" isso é o restante, não o valor total original.
+    // "A receber"/"A pagar" contam o saldo ainda em aberto DO MÊS em visualização
+    // (não o total histórico) — para um lançamento "parcial" isso é o restante,
+    // não o valor total original.
     const aReceber = items
-      .filter((i) => i.tipo === "receita" && (i.status === "pendente" || i.status === "vencido" || i.status === "parcial"))
+      .filter((i) => i.tipo === "receita" && (i.status === "pendente" || i.status === "vencido" || i.status === "parcial")
+        && !isBefore(parseISO(i.data_vencimento), mesStart)
+        && !isAfter(parseISO(i.data_vencimento), mesEnd))
       .reduce((acc, i) => acc + saldoRestante(i), 0);
 
     const aPagar = items
-      .filter((i) => i.tipo === "despesa" && (i.status === "pendente" || i.status === "vencido" || i.status === "parcial"))
+      .filter((i) => i.tipo === "despesa" && (i.status === "pendente" || i.status === "vencido" || i.status === "parcial")
+        && !isBefore(parseISO(i.data_vencimento), mesStart)
+        && !isAfter(parseISO(i.data_vencimento), mesEnd))
       .reduce((acc, i) => acc + saldoRestante(i), 0);
 
     // Movimentação de caixa do mês: valor efetivamente pago/recebido (não o valor
@@ -145,7 +150,7 @@ const Financeiro = () => {
       .reduce((acc, i) => acc + (i.tipo === "receita" ? valorPago(i) : -valorPago(i)), 0);
 
     return { receitaMes, aReceber, aPagar, saldo };
-  }, [items]);
+  }, [items, mesStart, mesEnd]);
 
   // Índice de mistura patrimonial: % das despesas (não canceladas) que são
   // pessoais (PF) — sinal de risco fiscal quando o caixa do escritório está
