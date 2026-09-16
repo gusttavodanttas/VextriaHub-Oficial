@@ -6,6 +6,8 @@ import { useOpenItemFromSearch } from "@/hooks/useOpenItemFromSearch";
 import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 import { useConsultivoCategorias, ConsultivoCategoria } from "@/hooks/useConsultivoCategorias";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
+import { PermissionGuard } from "@/components/Auth/PermissionGuard";
 import { Button } from "@/components/ui/button";
 import { ClientSelect } from "@/components/Clientes/ClientSelect";
 import { Input } from "@/components/ui/input";
@@ -361,6 +363,7 @@ export default function ConsultivoPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { canManageConsultivo } = usePermissions();
   const { data, loading, create, update, remove } = useConsultivos();
   const { users: officeUsers } = useOfficeUsers();
   const membros = useMemo(() => officeUsers.map(u => ({
@@ -458,7 +461,7 @@ export default function ConsultivoPage() {
   });
 
   const handleSave = async () => {
-    if (!form.titulo.trim()) return;
+    if (!canManageConsultivo || !form.titulo.trim()) return;
     setSaving(true);
     const payload = {
       titulo: form.titulo.trim(),
@@ -478,12 +481,14 @@ export default function ConsultivoPage() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!canManageConsultivo) return;
     await remove(id);
     setDialogOpen(false);
     setEditItem(null);
   };
 
   const handleQuickStatus = async (item: Consultivo, status: string) => {
+    if (!canManageConsultivo) return;
     await update(item.id, { status });
   };
 
@@ -518,13 +523,17 @@ export default function ConsultivoPage() {
                 <X className="h-3.5 w-3.5" />Limpar filtro
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={() => setCatMgrOpen(true)}
-              className="rounded-xl font-bold gap-1.5">
-              <Settings className="h-4 w-4" />Categorias
-            </Button>
-            <Button onClick={openCreate} className="rounded-xl font-black gap-2">
-              <Plus className="h-4 w-4" />Novo Consultivo
-            </Button>
+            <PermissionGuard permission="canManageConsultivo">
+              <Button variant="outline" size="sm" onClick={() => setCatMgrOpen(true)}
+                className="rounded-xl font-bold gap-1.5">
+                <Settings className="h-4 w-4" />Categorias
+              </Button>
+            </PermissionGuard>
+            <PermissionGuard permission="canManageConsultivo">
+              <Button onClick={openCreate} className="rounded-xl font-black gap-2">
+                <Plus className="h-4 w-4" />Novo Consultivo
+              </Button>
+            </PermissionGuard>
           </div>
         </div>
 
@@ -596,9 +605,11 @@ export default function ConsultivoPage() {
                   : `Clique em "Novo Consultivo" para começar.`}
               </p>
             </div>
-            <Button onClick={openCreate} className="rounded-xl font-black gap-2 mt-2">
-              <Plus className="h-4 w-4" />Novo Consultivo
-            </Button>
+            <PermissionGuard permission="canManageConsultivo">
+              <Button onClick={openCreate} className="rounded-xl font-black gap-2 mt-2">
+                <Plus className="h-4 w-4" />Novo Consultivo
+              </Button>
+            </PermissionGuard>
           </div>
         ) : (
           <div className="space-y-3">
@@ -680,20 +691,22 @@ export default function ConsultivoPage() {
                             <StIcon className="h-3 w-3" />{stCfg.label}
                           </Badge>
                         </div>
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          {item.status !== "concluido" && (
+                        <PermissionGuard permission="canManageConsultivo">
+                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {item.status !== "concluido" && (
+                              <Button size="sm" variant="ghost"
+                                className="h-7 px-2 text-[10px] font-black rounded-lg text-emerald-600 hover:bg-emerald-500/10"
+                                onClick={() => handleQuickStatus(item, "concluido")}>
+                                <CheckCircle2 className="h-3 w-3 mr-1" />Concluir
+                              </Button>
+                            )}
                             <Button size="sm" variant="ghost"
-                              className="h-7 px-2 text-[10px] font-black rounded-lg text-emerald-600 hover:bg-emerald-500/10"
-                              onClick={() => handleQuickStatus(item, "concluido")}>
-                              <CheckCircle2 className="h-3 w-3 mr-1" />Concluir
+                              className="h-7 px-2 text-[10px] font-black rounded-lg hover:bg-primary/10 hover:text-primary"
+                              onClick={() => openEdit(item)}>
+                              Editar<ChevronRight className="h-3 w-3 ml-0.5" />
                             </Button>
-                          )}
-                          <Button size="sm" variant="ghost"
-                            className="h-7 px-2 text-[10px] font-black rounded-lg hover:bg-primary/10 hover:text-primary"
-                            onClick={() => openEdit(item)}>
-                            Editar<ChevronRight className="h-3 w-3 ml-0.5" />
-                          </Button>
-                        </div>
+                          </div>
+                        </PermissionGuard>
                       </div>
                     </div>
                   </div>
@@ -824,7 +837,7 @@ export default function ConsultivoPage() {
           </div>
 
           <DialogFooter className="px-6 py-4 border-t border-border shrink-0 flex gap-2">
-            {editItem && (
+            {editItem && canManageConsultivo && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="ghost" size="sm" className="text-rose-500 hover:bg-rose-500/10 rounded-xl mr-auto">
@@ -847,9 +860,11 @@ export default function ConsultivoPage() {
             <Button variant="outline" onClick={() => setDialogOpen(false)} className="rounded-xl font-black" disabled={saving}>
               Cancelar
             </Button>
-            <Button onClick={handleSave} className="rounded-xl font-black" disabled={saving || !form.titulo.trim()}>
-              {saving ? "Salvando..." : editItem ? "Salvar" : "Criar"}
-            </Button>
+            {canManageConsultivo && (
+              <Button onClick={handleSave} className="rounded-xl font-black" disabled={saving || !form.titulo.trim()}>
+                {saving ? "Salvando..." : editItem ? "Salvar" : "Criar"}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
