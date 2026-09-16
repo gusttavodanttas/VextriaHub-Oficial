@@ -8,6 +8,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { PermissionGuard } from "@/components/Auth/PermissionGuard";
 import { useToast } from "@/hooks/use-toast";
 
 interface Props {
@@ -109,7 +110,8 @@ export function CrmLeadsList({ onBack, tipo, data = [], refresh }: Props) {
                       </Badge>
                       <div className="flex gap-2">
                         {lead.status !== "convertido" && (
-                          <Button 
+                          <PermissionGuard permission="canManageCRM">
+                          <Button
                             onClick={async () => {
                               try {
                                 if (!user?.office_id) throw new Error("Escritório não identificado");
@@ -144,6 +146,7 @@ export function CrmLeadsList({ onBack, tipo, data = [], refresh }: Props) {
                           >
                             Converter
                           </Button>
+                          </PermissionGuard>
                         )}
                         <Button variant="outline" size="sm" className="rounded-xl border-black/5 dark:border-border hover:bg-primary hover:text-foreground transition-all font-bold">
                           Gerenciar

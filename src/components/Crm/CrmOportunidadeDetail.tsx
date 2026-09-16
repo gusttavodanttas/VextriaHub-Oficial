@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { PermissionGuard } from "@/components/Auth/PermissionGuard";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -290,9 +291,11 @@ export function CrmOportunidadeDetail({ onBack, opportunity }: Props) {
                             <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => setEditingHistoryItem(item)} aria-label="Editar interação">
                               <Edit className="h-3.5 w-3.5" />
                             </Button>
-                            <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-rose-500 hover:bg-rose-500/10" onClick={() => handleDeleteHistoryItem(item.id)} aria-label="Excluir interação">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
+                            <PermissionGuard permission="canDeleteAtendimentos">
+                              <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-rose-500 hover:bg-rose-500/10" onClick={() => handleDeleteHistoryItem(item.id)} aria-label="Excluir interação">
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </PermissionGuard>
                           </div>
                         </div>
                         

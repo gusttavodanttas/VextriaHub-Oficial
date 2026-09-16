@@ -1,6 +1,8 @@
 ﻿import { useState, useMemo, useDeferredValue } from "react";
 import { UserCheck, Phone, Mail, Search, Plus, Target, TrendingUp, BarChart3, Loader2, MessageCircle, ChevronDown, LayoutList, Trello } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
+import { PermissionGuard } from "@/components/Auth/PermissionGuard";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { formatPhone } from "@/lib/phone";
@@ -45,6 +47,7 @@ const TEMPERATURAS = [
 export default function Crm() {
   const { data: allClientes = [], loading, refresh } = useClientes();
   const { user, profile } = useAuth();
+  const { canManageCRM } = usePermissions();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("leads");
   const [currentView, setCurrentView] = useState("main");
@@ -103,14 +106,14 @@ export default function Crm() {
 
   // Muda a temperatura/status do lead direto na tela (persiste)
   const updateLeadStatus = async (id: string, status: string) => {
-    if (!user?.office_id) return;
+    if (!canManageCRM || !user?.office_id) return;
     const { error } = await supabase.from("clientes").update({ status }).eq("id", id).eq("office_id", user.office_id);
     if (!error) refresh();
   };
 
   // Define a data do próximo contato (follow-up) do cliente.
   const setFollowup = async (id: string, date: string) => {
-    if (!user?.office_id) return;
+    if (!canManageCRM || !user?.office_id) return;
     const { error } = await supabase.from("clientes").update({ proximo_contato: date || null }).eq("id", id).eq("office_id", user.office_id);
     if (error) {
       toast({ title: "Não foi possível salvar o follow-up", description: error.message, variant: "destructive" });
@@ -172,16 +175,18 @@ export default function Crm() {
           </p>
         </div>
         
-        <div className="flex items-center gap-3 glass-morphism p-2 rounded-2xl shadow-premium">
-          <Button 
-            onClick={() => setShowNovoLeadDialog(true)}
-            size="lg"
-            className="rounded-xl h-12 shadow-premium bg-primary hover:bg-primary/90 font-bold px-8"
-          >
-            <Plus className="h-5 w-5 mr-2" />
-            Novo Lead
-          </Button>
-        </div>
+        <PermissionGuard permission="canManageCRM">
+          <div className="flex items-center gap-3 glass-morphism p-2 rounded-2xl shadow-premium">
+            <Button
+              onClick={() => setShowNovoLeadDialog(true)}
+              size="lg"
+              className="rounded-xl h-12 shadow-premium bg-primary hover:bg-primary/90 font-bold px-8"
+            >
+              <Plus className="h-5 w-5 mr-2" />
+              Novo Lead
+            </Button>
+          </div>
+        </PermissionGuard>
       </div>
 
       {/* Navigation Groups Premium */}
@@ -397,8 +402,9 @@ export default function Crm() {
                                   type="date"
                                   value={fu || ""}
                                   onChange={(e) => setFollowup(lead.id, e.target.value)}
+                                  disabled={!canManageCRM}
                                   title="Próximo contato (follow-up)"
-                                  className={cn("h-9 rounded-lg border bg-background text-[11px] px-2 font-bold", overdue ? "border-rose-500/50 text-rose-600 dark:text-rose-400" : "border-black/10 dark:border-border text-muted-foreground/70")}
+                                  className={cn("h-9 rounded-lg border bg-background text-[11px] px-2 font-bold disabled:opacity-60", overdue ? "border-rose-500/50 text-rose-600 dark:text-rose-400" : "border-black/10 dark:border-border text-muted-foreground/70")}
                                 />
                               );
                             })()}
@@ -407,6 +413,11 @@ export default function Crm() {
                                 <MessageCircle className="h-4 w-4" />
                               </a>
                             )}
+                            {!canManageCRM ? (
+                              <span className={cn("px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-lg border-2 inline-flex items-center", getStatusColor(lead.status || ''))}>
+                                {lead.status}
+                              </span>
+                            ) : (
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <button className={cn("px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-lg border-2 inline-flex items-center gap-1 hover:opacity-80 transition-opacity", getStatusColor(lead.status || ''))} title="Mudar temperatura">
@@ -421,6 +432,7 @@ export default function Crm() {
                                 ))}
                               </DropdownMenuContent>
                             </DropdownMenu>
+                            )}
                             <Button variant="ghost" size="sm" className="rounded-xl h-10 px-5 font-black text-xs uppercase tracking-widest hover:bg-primary/10 hover:text-primary transition-all" onClick={() => handleOpportunityClick(lead)}>
                               Detalhes
                             </Button>
@@ -441,14 +453,16 @@ export default function Crm() {
                       </p>
                     </div>
                     {!searchQuery && (
-                      <Button
-                        size="sm"
-                        className="rounded-xl font-bold mt-2"
-                        onClick={() => setShowNovoLeadDialog(true)}
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Adicionar Lead
-                      </Button>
+                      <PermissionGuard permission="canManageCRM">
+                        <Button
+                          size="sm"
+                          className="rounded-xl font-bold mt-2"
+                          onClick={() => setShowNovoLeadDialog(true)}
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Adicionar Lead
+                        </Button>
+                      </PermissionGuard>
                     )}
                   </div>
                 )}
