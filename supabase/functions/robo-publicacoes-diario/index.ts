@@ -12,6 +12,9 @@
 // processo, CPF/CNPJ ou uma OAB avulsa (ex.: a parte contrária) — sem precisar
 // que essa OAB pertença a um advogado do escritório. Usa o mesmo fetch-by-oab
 // (modo `termo`) e o mesmo pipeline de gravação/dedup/prazo das OABs monitoradas.
+// Além da publicação, processo ainda não cadastrado no escritório também cai na
+// caixa "Processos Encontrados" (mesma tabela/UX que a busca nacional por OAB
+// já usa) — é como o achado por termo vira sugestão de processo novo.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -135,6 +138,38 @@ serve(async (req) => {
     return novas;
   };
 
+  // Processos ainda não cadastrados no escritório (nem descartados antes) viram
+  // sugestão na caixa "Processos Encontrados" — mesma lógica do robo-oab-diario.
+  const gravarProcessosEncontrados = async (items, officeId: string) => {
+    const numeros = items.map((i) => onlyDigits(i.numeroProcesso)).filter(Boolean);
+    if (!numeros.length) return 0;
+
+    const [{ data: existentes }, { data: descartados }] = await Promise.all([
+      supa.from("processos").select("numero_processo").eq("office_id", officeId).in("numero_processo", numeros),
+      supa.from("processos_descartados").select("numero_processo").eq("office_id", officeId).in("numero_processo", numeros),
+    ]);
+    const ocultos = new Set([
+      ...(existentes || []).map((e) => e.numero_processo),
+      ...(descartados || []).map((d) => d.numero_processo),
+    ]);
+    const novos = items.filter((i) => !ocultos.has(onlyDigits(i.numeroProcesso)));
+    if (!novos.length) return 0;
+
+    const rows = novos.map((i) => ({
+      office_id: officeId,
+      numero_processo: onlyDigits(i.numeroProcesso),
+      titulo: i.titulo || null,
+      tribunal: i.tribunal || null,
+      autor: i.autor === "Não identificado" ? null : (i.autor || null),
+      reu: i.reu === "Não identificado" ? null : (i.reu || null),
+      fonte: i.fonte || "termo",
+      payload: i,
+    }));
+    // ignoreDuplicates → não re-adiciona o que já está na caixa
+    await supa.from("processos_encontrados").upsert(rows, { onConflict: "office_id,numero_processo", ignoreDuplicates: true });
+    return novos.length;
+  };
+
   try {
     const { data: offices } = await supa.from("offices").select("id, created_by, settings");
     let totalNovas = 0;
@@ -194,8 +229,9 @@ serve(async (req) => {
       if (!items.length) { detalhes.push({ termo, tipo, novas: 0 }); continue; }
 
       const novasTermo = await gravarPublicacoes(items, officeId, null, `termo:${tipo}`);
+      const encontradosTermo = await gravarProcessosEncontrados(items, officeId);
       totalNovas += novasTermo;
-      detalhes.push({ termo, tipo, novas: novasTermo });
+      detalhes.push({ termo, tipo, novas: novasTermo, processos_encontrados: encontradosTermo });
       await sleep(800); // gentileza com o PJE entre termos
     }
 
