@@ -6,6 +6,12 @@
 //   offices.settings.publicacoes_oabs_monitoradas : string[]  (user_ids escolhidos)
 //   offices.settings.publicacoes_oab_limite        : number    (teto do plano; padrão 1)
 // Se a lista estiver vazia, monitora por padrão a OAB do DONO do escritório (1).
+//
+// Termos livres monitorados (tabela `monitoramento_termos`, ativo=true): além das
+// OABs curadas acima, cada escritório pode monitorar nome de parte, número de
+// processo, CPF/CNPJ ou uma OAB avulsa (ex.: a parte contrária) — sem precisar
+// que essa OAB pertença a um advogado do escritório. Usa o mesmo fetch-by-oab
+// (modo `termo`) e o mesmo pipeline de gravação/dedup/prazo das OABs monitoradas.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -57,6 +63,78 @@ serve(async (req) => {
     return null;
   };
 
+  const fetchByTermo = async (termo: string, tipo: string, seccional: string | null) => {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const resp = await fetch(`${SUPABASE_URL}/functions/v1/fetch-by-oab`, {
+          method: "POST", headers: authHeaders, body: JSON.stringify({ termo, tipo, seccional, days: DAYS }),
+        });
+        if (resp.ok) return await resp.json();
+      } catch (_e) { /* rede/timeout — tenta de novo */ }
+      if (attempt < 3) await sleep(attempt * 1500);
+    }
+    return null;
+  };
+
+  // Grava os itens retornados pelo fetch-by-oab em `publicacoes` (dedup por
+  // office+numero+data) e dispara o cálculo de prazo. Compartilhado entre o
+  // fluxo de OABs monitoradas e o de termos livres.
+  const gravarPublicacoes = async (items, officeId: string, userId: string | null, tagExtra?: string) => {
+    const numeros = items.map((i: any) => onlyDigits(i.numeroProcesso)).filter(Boolean);
+    const procMap = new Map<string, string>();
+    if (numeros.length) {
+      const { data: procs } = await supa.from("processos").select("id, numero_processo").eq("office_id", officeId).in("numero_processo", numeros);
+      (procs || []).forEach((pr: any) => procMap.set(pr.numero_processo, pr.id));
+    }
+
+    let novas = 0;
+    for (const item of items) {
+      if (item.fonte === "datajud") continue; // andamentos, não publicações
+      const conteudo = item.conteudo || item.ultimoAndamento?.descricao || "";
+      if (!conteudo || conteudo.length < 10) continue;
+
+      const dataPub = toISODate(item.data_disponibilizacao) || toISODate(item.ultimoAndamento?.data) || new Date().toISOString().split("T")[0];
+      const numero = item.numeroProcesso;
+      const titulo = item.titulo && !String(item.titulo).startsWith("Publicação")
+        ? item.titulo : (item.tipo_documento || item.tipo_comunicacao || `Publicação ${numero}`);
+      const processoId = procMap.get(onlyDigits(numero)) || null;
+
+      const { data: existing } = await supa.from("publicacoes")
+        .select("id, conteudo, processo_id")
+        .eq("office_id", officeId).eq("numero_processo", numero).eq("data_publicacao", dataPub).maybeSingle();
+
+      if (existing) {
+        const patch: Record<string, any> = {};
+        if (conteudo.length > ((existing as any).conteudo?.length || 0)) { patch.conteudo = conteudo; patch.tipo_documento = item.tipo_documento || null; }
+        if (!(existing as any).processo_id && processoId) patch.processo_id = processoId;
+        if (Object.keys(patch).length) await supa.from("publicacoes").update(patch).eq("id", (existing as any).id);
+        continue;
+      }
+
+      const urgencia = deriveUrgencia(conteudo, item.tipo_documento || item.tipo_comunicacao);
+      const tags = [String(item.tribunal || "TRIBUNAL").toUpperCase(), "pje_comunica"];
+      if (tagExtra) tags.push(tagExtra);
+      const { data: novo } = await supa.from("publicacoes").insert({
+        office_id: officeId, user_id: userId,
+        titulo, conteudo, data_publicacao: dataPub, numero_processo: numero,
+        status: "nova", urgencia, tags,
+        tribunal: item.tribunal || null, comarca: item.comarca || null, vara: item.vara || null,
+        tipo_documento: item.tipo_documento || null, nome_orgao: item.nome_orgao || item.vara || null,
+        processo_id: processoId,
+      }).select("id").single();
+
+      if ((novo as any)?.id) {
+        novas++;
+        // Calcula e persiste o prazo (best-effort)
+        await fetch(`${SUPABASE_URL}/functions/v1/calculate-prazo`, {
+          method: "POST", headers: authHeaders,
+          body: JSON.stringify({ publicacao_id: (novo as any).id, data_disponibilizacao: dataPub, tipo_documento: item.tipo_documento || null, nome_orgao: item.nome_orgao || null, conteudo }),
+        }).catch(() => {});
+      }
+    }
+    return novas;
+  };
+
   try {
     const { data: offices } = await supa.from("offices").select("id, created_by, settings");
     let totalNovas = 0;
@@ -87,61 +165,38 @@ serve(async (req) => {
         const items = Array.isArray(data) ? data : (data?.items ?? []);
         if (!items.length) { detalhes.push({ oab, uf, novas: 0 }); continue; }
 
-        // Vínculo automático a processos já cadastrados
-        const numeros = items.map((i: any) => onlyDigits(i.numeroProcesso)).filter(Boolean);
-        const procMap = new Map<string, string>();
-        if (numeros.length) {
-          const { data: procs } = await supa.from("processos").select("id, numero_processo").eq("office_id", officeId).in("numero_processo", numeros);
-          (procs || []).forEach((pr: any) => procMap.set(pr.numero_processo, pr.id));
-        }
-
-        let novasOab = 0;
-        for (const item of items) {
-          if (item.fonte === "datajud") continue; // andamentos, não publicações
-          const conteudo = item.conteudo || item.ultimoAndamento?.descricao || "";
-          if (!conteudo || conteudo.length < 10) continue;
-
-          const dataPub = toISODate(item.data_disponibilizacao) || toISODate(item.ultimoAndamento?.data) || new Date().toISOString().split("T")[0];
-          const numero = item.numeroProcesso;
-          const titulo = item.titulo && !String(item.titulo).startsWith("Publicação")
-            ? item.titulo : (item.tipo_documento || item.tipo_comunicacao || `Publicação ${numero}`);
-          const processoId = procMap.get(onlyDigits(numero)) || null;
-
-          const { data: existing } = await supa.from("publicacoes")
-            .select("id, conteudo, processo_id")
-            .eq("office_id", officeId).eq("numero_processo", numero).eq("data_publicacao", dataPub).maybeSingle();
-
-          if (existing) {
-            const patch: Record<string, any> = {};
-            if (conteudo.length > ((existing as any).conteudo?.length || 0)) { patch.conteudo = conteudo; patch.tipo_documento = item.tipo_documento || null; }
-            if (!(existing as any).processo_id && processoId) patch.processo_id = processoId;
-            if (Object.keys(patch).length) await supa.from("publicacoes").update(patch).eq("id", (existing as any).id);
-            continue;
-          }
-
-          const urgencia = deriveUrgencia(conteudo, item.tipo_documento || item.tipo_comunicacao);
-          const { data: novo } = await supa.from("publicacoes").insert({
-            office_id: officeId, user_id: (p as any).user_id,
-            titulo, conteudo, data_publicacao: dataPub, numero_processo: numero,
-            status: "nova", urgencia,
-            tags: [String(item.tribunal || "TRIBUNAL").toUpperCase(), "pje_comunica"],
-            tribunal: item.tribunal || null, comarca: item.comarca || null, vara: item.vara || null,
-            tipo_documento: item.tipo_documento || null, nome_orgao: item.nome_orgao || item.vara || null,
-            processo_id: processoId,
-          }).select("id").single();
-
-          if ((novo as any)?.id) {
-            novasOab++; totalNovas++;
-            // Calcula e persiste o prazo (best-effort)
-            await fetch(`${SUPABASE_URL}/functions/v1/calculate-prazo`, {
-              method: "POST", headers: authHeaders,
-              body: JSON.stringify({ publicacao_id: (novo as any).id, data_disponibilizacao: dataPub, tipo_documento: item.tipo_documento || null, nome_orgao: item.nome_orgao || null, conteudo }),
-            }).catch(() => {});
-          }
-        }
+        const novasOab = await gravarPublicacoes(items, officeId, (p as any).user_id);
+        totalNovas += novasOab;
         detalhes.push({ oab, uf, novas: novasOab });
         await sleep(800); // gentileza com o PJE entre OABs
       }
+    }
+
+    // Termos livres monitorados (nome de parte, número de processo, CPF/CNPJ,
+    // OAB avulsa) — mesmo pipeline de gravação, sem vínculo a um advogado específico.
+    const { data: termos } = await supa
+      .from("monitoramento_termos")
+      .select("id, office_id, termo, tipo, seccional")
+      .eq("ativo", true);
+
+    for (const t of termos || []) {
+      const termoId = t.id;
+      const officeId = t.office_id;
+      const termo = t.termo;
+      const tipo = t.tipo || "nome";
+      const seccional = t.seccional || null;
+      if (!termo || !officeId) continue;
+
+      const data = await fetchByTermo(termo, tipo, seccional);
+      await supa.from("monitoramento_termos").update({ ultima_busca: new Date().toISOString() }).eq("id", termoId);
+      if (!data) { detalhes.push({ termo, tipo, erro: "sem_resposta" }); continue; }
+      const items = Array.isArray(data) ? data : (data?.items ?? []);
+      if (!items.length) { detalhes.push({ termo, tipo, novas: 0 }); continue; }
+
+      const novasTermo = await gravarPublicacoes(items, officeId, null, `termo:${tipo}`);
+      totalNovas += novasTermo;
+      detalhes.push({ termo, tipo, novas: novasTermo });
+      await sleep(800); // gentileza com o PJE entre termos
     }
 
     return new Response(JSON.stringify({ ok: true, totalNovas, detalhes }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });

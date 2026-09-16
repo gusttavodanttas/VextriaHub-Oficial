@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { cn } from "@/lib/utils";
 import {
   Settings, Sun, Moon, Palette, Monitor,
-  Users, FileText, Clock, Users2, Plug, Check, ChevronRight, Bell, Radar,
+  Users, FileText, Clock, Users2, Plug, Check, ChevronRight, Bell, Radar, SearchCheck,
 } from "lucide-react";
 
 import { TeamManagement } from "@/components/Settings/TeamManagement";
@@ -13,6 +13,7 @@ import { DeadlineConfig } from "@/components/Settings/DeadlineConfig";
 import { ClientOriginConfig } from "@/components/Settings/ClientOriginConfig";
 import { NotificationPrefs } from "@/components/Settings/NotificationPrefs";
 import { MonitoredOabs } from "@/components/Settings/MonitoredOabs";
+import { MonitoramentoTermos } from "@/components/Settings/MonitoramentoTermos";
 import { IntegrationsPanel } from "@/components/Integrations/IntegrationsPanel";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -43,6 +44,7 @@ const SECTIONS: Section[] = [
   { id: "processos", label: "Processos", desc: "Tipos de processo", icon: FileText, group: "Operação", adminOnly: true },
   { id: "prazos", label: "Prazos", desc: "Tipos de prazo e atos", icon: Clock, group: "Operação", adminOnly: true },
   { id: "oabs", label: "OABs monitoradas", desc: "Advogados que o robô acompanha", icon: Radar, group: "Operação", adminOnly: true },
+  { id: "termos", label: "Monitoramento por termo", desc: "Nome, processo, CPF/CNPJ ou OAB da parte contrária", icon: SearchCheck, group: "Operação", adminOnly: true },
   { id: "equipes", label: "Equipes", desc: "Times e membros", icon: Users2, group: "Operação", adminOnly: true },
   { id: "integracao", label: "Integração", desc: "Apps conectados", icon: Plug, group: "Integrações" },
 ];
@@ -72,6 +74,7 @@ const Configuracoes = () => {
       case "processos": return <ProcessTypeSimple />;
       case "prazos": return <DeadlineConfig />;
       case "oabs": return <MonitoredOabs />;
+      case "termos": return <MonitoramentoTermos />;
       case "equipes": return <TeamManagement />;
       case "notificacoes": return <NotificationPrefs />;
       case "integracao": return <IntegrationsPanel />;
