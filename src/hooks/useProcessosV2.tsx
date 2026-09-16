@@ -9,53 +9,54 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getErrorMessage } from '@/lib/errors';
 import { planQuotaMessage } from '@/lib/planQuotaError';
 
+// Map database row -> frontend Processo. Módulo-level (não recriada por render)
+// para poder ser reaproveitada por outros hooks de leitura (ex.: useProcessosLista).
+export const mapDatabaseToProcesso = (dbRecord: any): Processo => {
+  let inferredYear = '';
+  if (!dbRecord.data_inicio && dbRecord.numero_processo?.length === 20) {
+    inferredYear = dbRecord.numero_processo.substring(9, 13);
+  }
+
+  return {
+    id: dbRecord.id,
+    titulo: dbRecord.titulo,
+    cliente: dbRecord.cliente?.nome || 'Cliente não vinculado',
+    clienteId: dbRecord.cliente_id,
+    status: dbRecord.status === 'ativo' ? 'Em andamento' : dbRecord.status,
+    dataInicio: dbRecord.data_distribuicao || dbRecord.data_inicio || (inferredYear ? `${inferredYear}-01-01` : dbRecord.created_at?.split('T')[0]),
+    proximoPrazo: dbRecord.proximo_prazo,
+    descricao: dbRecord.observacoes,
+    valorCausa: dbRecord.valor_causa ? Number(dbRecord.valor_causa) : undefined,
+    numeroProcesso: dbRecord.numero_processo,
+    tipoProcesso: dbRecord.tipo_processo,
+    faseProcessual: (dbRecord.fase_processual && dbRecord.fase_processual !== 'Inicial') ? dbRecord.fase_processual : undefined,
+    classeJudicial: dbRecord.classe_judicial || undefined,
+    assuntoPrincipal: dbRecord.assunto_principal || undefined,
+    instancia: dbRecord.instancia || undefined,
+    responsavelId: dbRecord.user_id,
+    responsavelNome: undefined,
+    ultimaMovimentacao: dbRecord.data_ultima_atualizacao || dbRecord.updated_at?.split('T')[0],
+    tribunal: dbRecord.tribunal,
+    vara: dbRecord.vara,
+    comarca: dbRecord.comarca,
+    parteAutora: dbRecord.parte_autora || undefined,
+    requerido: dbRecord.requerido,
+    segredoJustica: dbRecord.segredo_justica || false,
+    justicaGratuita: dbRecord.justica_gratuita || false,
+    observacoes: dbRecord.observacoes,
+    fonteSincronizacao: dbRecord.fonte_sincronizacao || undefined,
+    sincronizadoEm: dbRecord.sincronizado_em || undefined,
+    team_id: dbRecord.team_id || null,
+    responsavel_id: dbRecord.responsavel_id || dbRecord.user_id || null,
+    resultado: dbRecord.resultado || null,
+    officeId: dbRecord.office_id || null,
+  };
+};
+
 export function useProcessosV2() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  // Helper: Map database row -> frontend Processo
-  const mapDatabaseToProcesso = (dbRecord: any): Processo => {
-    let inferredYear = '';
-    if (!dbRecord.data_inicio && dbRecord.numero_processo?.length === 20) {
-      inferredYear = dbRecord.numero_processo.substring(9, 13);
-    }
-
-    return {
-      id: dbRecord.id,
-      titulo: dbRecord.titulo,
-      cliente: dbRecord.cliente?.nome || 'Cliente não vinculado',
-      clienteId: dbRecord.cliente_id,
-      status: dbRecord.status === 'ativo' ? 'Em andamento' : dbRecord.status,
-      dataInicio: dbRecord.data_distribuicao || dbRecord.data_inicio || (inferredYear ? `${inferredYear}-01-01` : dbRecord.created_at?.split('T')[0]),
-      proximoPrazo: dbRecord.proximo_prazo,
-      descricao: dbRecord.observacoes,
-      valorCausa: dbRecord.valor_causa ? Number(dbRecord.valor_causa) : undefined,
-      numeroProcesso: dbRecord.numero_processo,
-      tipoProcesso: dbRecord.tipo_processo,
-      faseProcessual: (dbRecord.fase_processual && dbRecord.fase_processual !== 'Inicial') ? dbRecord.fase_processual : undefined,
-      classeJudicial: dbRecord.classe_judicial || undefined,
-      assuntoPrincipal: dbRecord.assunto_principal || undefined,
-      instancia: dbRecord.instancia || undefined,
-      responsavelId: dbRecord.user_id,
-      responsavelNome: undefined,
-      ultimaMovimentacao: dbRecord.data_ultima_atualizacao || dbRecord.updated_at?.split('T')[0],
-      tribunal: dbRecord.tribunal,
-      vara: dbRecord.vara,
-      comarca: dbRecord.comarca,
-      parteAutora: dbRecord.parte_autora || undefined,
-      requerido: dbRecord.requerido,
-      segredoJustica: dbRecord.segredo_justica || false,
-      justicaGratuita: dbRecord.justica_gratuita || false,
-      observacoes: dbRecord.observacoes,
-      fonteSincronizacao: dbRecord.fonte_sincronizacao || undefined,
-      sincronizadoEm: dbRecord.sincronizado_em || undefined,
-      team_id: dbRecord.team_id || null,
-      responsavel_id: dbRecord.responsavel_id || dbRecord.user_id || null,
-      resultado: dbRecord.resultado || null,
-      officeId: dbRecord.office_id || null,
-    };
-  };
 
   const { data = [], isLoading: loading, error, refetch: refresh } = useQuery({
     queryKey: ['processos', user?.id, user?.office_id],
