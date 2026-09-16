@@ -5,16 +5,15 @@ import { RefreshCw } from 'lucide-react';
 
 const SuperAdmin: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const isMainSuperAdmin = user?.email?.toLowerCase().trim() === 'contato@vextriahub.com.br';
+  const { isSuperAdmin } = useAuth();
 
   useEffect(() => {
-    if (isMainSuperAdmin) {
+    if (isSuperAdmin) {
       navigate('/admin?tab=dashboard', { replace: true });
     } else {
       navigate('/dashboard', { replace: true });
     }
-  }, [isMainSuperAdmin, navigate]);
+  }, [isSuperAdmin, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background/50 backdrop-blur-sm">
