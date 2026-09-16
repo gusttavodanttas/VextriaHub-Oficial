@@ -14,7 +14,6 @@ import { OfficeControlPanel } from "@/components/SuperAdmin/OfficeControlPanel";
 import CobrancaAsaas from "@/components/Admin/CobrancaAsaas";
 import { GlobalMetrics } from "@/components/Admin/GlobalMetrics";
 import { PlanManagement } from "@/components/Admin/PlanManagement";
-import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -53,9 +52,6 @@ const Admin = () => {
   const initialTab = searchParams.get('tab') || "dashboard";
   const [activeTab, setActiveTab] = useState(initialTab);
   const { canViewAdminFeatures, isSuperAdmin, isLoading: authLoading } = useUserRole();
-  const { user } = useAuth();
-  
-  const isMainSuperAdmin = user?.email?.toLowerCase().trim() === 'contato@vextriahub.com.br';
 
   // Sync activeTab when URL changes (from sidebar clicks)
   useEffect(() => {
@@ -133,7 +129,7 @@ const Admin = () => {
   return (
     <div className="flex-1 p-4 md:p-8 space-y-6 overflow-x-hidden entry-animate fade-in duration-700">
       <div className="w-full">
-        {isMainSuperAdmin ? (
+        {isSuperAdmin ? (
           <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
             {/* TabsList removido — navegação feita pelo sidebar */}
 

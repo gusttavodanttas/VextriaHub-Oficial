@@ -338,7 +338,7 @@ const AppWithRouter = () => {
         />
         {/* canManageOffice deixa o admin do escritório entrar SÓ nas Solicitações de
             Exclusão do próprio escritório (a página Admin trava as abas de plataforma
-            em isMainSuperAdmin; a RLS escopa por office_id). (v11) */}
+            em isSuperAdmin; a RLS escopa por office_id). (v11) */}
         <Route path="/admin" element={
           <PrivateRoute requireAnyPermissions={['canViewAdmin', 'canManageOffice']}>
             <AppLayout>
@@ -354,7 +354,7 @@ const AppWithRouter = () => {
           </PrivateRoute>
         } />
         <Route path="/lixeira" element={
-          <PrivateRoute requireRole="super_admin">
+          <PrivateRoute requireAnyPermissions={['canManageOffice', 'canViewAdmin']}>
             <AppLayout>
               <Lixeira />
             </AppLayout>

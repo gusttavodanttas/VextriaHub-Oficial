@@ -45,14 +45,11 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
   const [admins, setAdmins] = useState<AdminOffice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { isSuperAdmin, user } = useAuth();
+  const { isSuperAdmin } = useAuth();
   const { toast } = useToast();
 
   const fetchAdmins = useCallback(async () => {
-    const normalizedEmail = user?.email?.toLowerCase().trim();
-    const isMainSuperAdmin = normalizedEmail === 'contato@vextriahub.com.br';
-
-    if (!isSuperAdmin && !isMainSuperAdmin) {
+    if (!isSuperAdmin) {
       setError('Acesso negado.');
       setLoading(false);
       return;
@@ -164,7 +161,7 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
     } finally {
       setLoading(false);
     }
-  }, [isSuperAdmin, user]);
+  }, [isSuperAdmin]);
 
   const updateOfficeStatus = useCallback(async (officeId: string, active: boolean) => {
     try {

@@ -51,7 +51,7 @@ export function AppSidebar() {
   const { logout } = useAuth();
   const { toast } = useToast();
   const { canViewAdmin, canManageOffice, canViewGraficos, canViewFinanceiro, canViewMetas, canViewEquipe } = usePermissions();
-  const { isSuperAdmin, user } = useAuth();
+  const { isSuperAdmin } = useAuth();
 
   const filteredAdminItems = adminOnlyItems.filter(item => {
     switch (item.url) {
@@ -63,8 +63,6 @@ export function AppSidebar() {
     }
   });
 
-  const isMainSuperAdmin = user?.email?.toLowerCase().trim() === 'contato@vextriahub.com.br';
-
   const platformItems = [
     { title: "Métricas", url: "/admin?tab=dashboard", icon: BarChart3 },
     { title: "Escritórios", url: "/admin?tab=offices", icon: Building2 },
@@ -73,7 +71,7 @@ export function AppSidebar() {
     { title: "Lixeira", url: "/lixeira", icon: Trash2 },
   ];
 
-  const allMenuItems = isMainSuperAdmin ? platformItems : [...menuItems, ...filteredAdminItems];
+  const allMenuItems = isSuperAdmin ? platformItems : [...menuItems, ...filteredAdminItems];
 
   const handleLogout = () => {
     logout();
@@ -162,7 +160,7 @@ export function AppSidebar() {
 
             <Separator className="my-3 bg-black/5 dark:bg-muted/30" />
 
-            {(canViewAdmin || canManageOffice) && !isMainSuperAdmin && !isSuperAdmin && (
+            {(canViewAdmin || canManageOffice) && !isSuperAdmin && (
               <SidebarGroup>
                 {!collapsed && (
                   <SidebarGroupLabel className="text-[9px] font-black uppercase tracking-widest px-3 mb-1.5 text-muted-foreground/40">
@@ -213,16 +211,32 @@ export function AppSidebar() {
                         </SidebarMenuItem>
                       ));
                     })()}
+                    {/* Lixeira do próprio escritório — antes só o super-admin da
+                        plataforma conseguia acessar /lixeira; admin de escritório
+                        também precisa restaurar os próprios registros excluídos. */}
+                    {(canManageOffice || canViewAdmin) && !isSuperAdmin && (() => {
+                      const isActive = isLinkActive('/lixeira');
+                      return wrapTooltip('lixeira', 'Lixeira', (
+                        <SidebarMenuItem key="lixeira">
+                          <SidebarMenuButton asChild className="p-0" isActive={isActive}>
+                            <NavLink to="/lixeira" className={() => getNavClasses(isActive)}>
+                              <Trash2 className="h-4 w-4 shrink-0" />
+                              {!collapsed && <span className="truncate">Lixeira</span>}
+                            </NavLink>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      ));
+                    })()}
                   </SidebarMenu>
                 </SidebarGroupContent>
               </SidebarGroup>
             )}
 
-            {(canViewAdmin || canManageOffice) && !isMainSuperAdmin && !isSuperAdmin && (
+            {(canViewAdmin || canManageOffice) && !isSuperAdmin && (
               <Separator className="my-3 bg-black/5 dark:bg-muted/30" />
             )}
 
-            {!isMainSuperAdmin && !isSuperAdmin && (
+            {!isSuperAdmin && (
               <SidebarGroup>
                 {!collapsed && (
                   <SidebarGroupLabel className="text-[9px] font-black uppercase tracking-widest px-3 mb-1.5 text-muted-foreground/40">
