@@ -1,11 +1,15 @@
 ﻿import React, { useState, useEffect, useCallback, useMemo, useDeferredValue } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
-import { useProcessosV2 } from '@/hooks/useProcessosV2';
+import { useProcessosV2, mapDatabaseToProcesso } from '@/hooks/useProcessosV2';
+import { useProcessosLista, useProcessosStatusCounts } from '@/hooks/useProcessosLista';
+import { supabase } from '@/integrations/supabase/client';
 import { useProcessShares } from '@/hooks/useProcessShares';
-import { FileText, Loader2, RotateCw, Search, Plus, Database, Scale, CheckCircle2, PauseCircle, FolderOpen, Users, Inbox } from 'lucide-react';
+import { FileText, Loader2, RotateCw, Search, Plus, Database, Scale, CheckCircle2, PauseCircle, FolderOpen, Users, Inbox, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useMyTeams } from '@/hooks/useMyTeams';
+import { useClientes } from '@/hooks/useClientes';
 import { useProcessosEncontrados } from '@/hooks/useProcessosEncontrados';
 import { ProcessosEncontradosInbox } from '@/components/Processos/ProcessosEncontradosInbox';
 import { PermissionGuard } from '@/components/Auth/PermissionGuard';
@@ -80,20 +84,11 @@ const Processos = () => {
   const { teams: myTeams, isAnyCoordinator, coordinatedMemberIds } = useMyTeams();
   const { count: encontradosCount, refetch: refetchEncontrados } = useProcessosEncontrados();
 
-  const {
-    data: processosRaw,
-    loading,
-    refresh,
-    requestDelete,
-  } = useProcessosV2();
-
-  // Marca os processos que um escritório parceiro compartilhou comigo (badge + modo do drawer)
-  const { sharedInMap } = useProcessShares();
-  const processos = useMemo(() =>
-    processosRaw.map((p) => {
-      const s = sharedInMap.get(p.id);
-      return s ? { ...p, sharedFrom: s.ownerOfficeName, sharePermission: s.permission } : p;
-    }), [processosRaw, sharedInMap]);
+  const { requestDelete } = useProcessosV2();
+  const queryClient = useQueryClient();
+  const refresh = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['processos'] });
+  }, [queryClient]);
 
   // equipe selecionada para filtro (null = todos)
   const [teamFilter, setTeamFilter] = useState<string | null>(null);
@@ -108,6 +103,8 @@ const Processos = () => {
   const [processoToDelete, setProcessoToDelete] = useState<Processo | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [activeTab, setActiveTab] = useState('ativos');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 24;
 
   // Abre o modal quando sidebar "Importar / Novo" navega para ?tab=novo
   useEffect(() => {
@@ -118,17 +115,25 @@ const Processos = () => {
     }
   }, [location.search]);
 
-  // Abre o detalhe do processo quando a busca global navega para ?openId=...
+  // Abre o detalhe do processo quando a busca global navega para ?openId=... —
+  // busca direta por id (o processo pode não estar na página atualmente carregada).
   useEffect(() => {
     const openId = searchParams.get('openId');
-    if (!openId || !processos.length) return;
-    const proc = processos.find(p => String(p.id) === openId);
-    if (proc) {
-      setSelectedProcesso(proc);
-      setIsDetailsOpen(true);
-    }
+    if (!openId) return;
+    (async () => {
+      const { data: row } = await supabase
+        .from('processos')
+        .select('*, cliente:clientes!cliente_id(nome)')
+        .eq('id', openId)
+        .maybeSingle();
+      if (row) {
+        setSelectedProcesso(mapDatabaseToProcesso(row));
+        setIsDetailsOpen(true);
+      }
+    })();
     navigate('/processos', { replace: true });
-  }, [location.search, processos]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search]);
 
   const [filters, setFilters] = useState<IProcessoFilters>({
     search: '',
@@ -138,38 +143,44 @@ const Processos = () => {
     movimentacao: 'all',
   });
 
-  const tabCounts = useMemo(() => {
-    const result: Record<string, number> = {};
-    for (const tab of STATUS_TABS) {
-      result[tab.key] = processos.filter(tab.match).length;
-    }
-    return result;
-  }, [processos]);
+  const tabCounts = useProcessosStatusCounts();
 
-  // Busca adiada (input responsivo; filtragem/lista re-renderiza em baixa prioridade)
+  // Busca adiada (input responsivo; nova página só é buscada quando o usuário para de digitar)
   const dSearch = useDeferredValue(filters.search);
-  const filteredProcessos = useMemo(() => {
-    const tab = STATUS_TABS.find(t => t.key === activeTab);
-    const teamMemberIds = teamFilter
-      ? myTeams.find(t => t.id === teamFilter)?.memberIds ?? []
-      : null;
-    const q = dSearch.toLowerCase();
-    return processos.filter(p => {
-      const matchesSearch =
-        p.titulo.toLowerCase().includes(q) ||
-        p.cliente.toLowerCase().includes(q) ||
-        (p.numeroProcesso && p.numeroProcesso.includes(dSearch));
-      const matchesCliente = filters.cliente === 'all' || p.cliente === filters.cliente;
-      const matchesTab = tab ? tab.match(p) : true;
-      const matchesTeam = !teamMemberIds || teamMemberIds.includes(p.responsavelId ?? '');
-      return matchesSearch && matchesCliente && matchesTab && matchesTeam;
-    });
-  }, [processos, dSearch, filters.cliente, activeTab, teamFilter, myTeams]);
 
+  const teamMemberIds = useMemo(() => (
+    teamFilter ? (myTeams.find(t => t.id === teamFilter)?.memberIds ?? []) : null
+  ), [teamFilter, myTeams]);
+
+  // Muda de página 1 sempre que um filtro muda — senão o usuário pode ficar
+  // numa página que não existe mais para o novo recorte (ex.: era pág. 3, o
+  // filtro novo só tem 1 página).
+  useEffect(() => { setPage(1); }, [dSearch, filters.cliente, activeTab, teamFilter]);
+
+  const { data: processosRaw, total, loading } = useProcessosLista({
+    page,
+    pageSize: PAGE_SIZE,
+    statusTab: activeTab,
+    search: dSearch,
+    clienteNome: filters.cliente,
+    responsavelIds: teamMemberIds,
+  });
+
+  // Marca os processos que um escritório parceiro compartilhou comigo (badge + modo do drawer)
+  const { sharedInMap } = useProcessShares();
+  const processos = useMemo(() =>
+    processosRaw.map((p) => {
+      const s = sharedInMap.get(p.id);
+      return s ? { ...p, sharedFrom: s.ownerOfficeName, sharePermission: s.permission } : p;
+    }), [processosRaw, sharedInMap]);
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const { data: clientesTodos } = useClientes();
   const clientesDisponiveis = useMemo(() => {
-    const unique = new Set(processos.map(p => p.cliente));
+    const unique = new Set(clientesTodos.map(c => c.nome));
     return Array.from(unique).sort();
-  }, [processos]);
+  }, [clientesTodos]);
 
   const activeFiltersCount = useMemo(() => {
     let count = 0;
@@ -181,7 +192,7 @@ const Processos = () => {
     setFilters({ search: '', status: 'all', cliente: 'all', movimentacao: 'all', numeroProcesso: '' });
   }, []);
 
-  if (loading && processos.length === 0) {
+  if (loading && processos.length === 0 && page === 1 && !dSearch) {
     return (
       <div className="flex h-[400px] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -354,7 +365,7 @@ const Processos = () => {
               onChange={() => { refresh(); refetchEncontrados(); }}
               onBuscar={() => setIsSyncDialogOpen(true)}
             />
-          ) : filteredProcessos.length === 0 ? (
+          ) : !loading && processos.length === 0 ? (
             <EmptyState
               icon={FileText}
               title="Nenhum processo encontrado"
@@ -366,26 +377,59 @@ const Processos = () => {
               actionLabel={filters.search || activeFiltersCount > 0 ? 'Limpar filtros' : undefined}
               onAction={filters.search || activeFiltersCount > 0 ? handleClearFilters : undefined}
             />
-          ) : view === 'grid' ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {filteredProcessos.map((p) => (
-                <ProcessoCard
-                  key={p.id}
-                  processo={p}
-                  onEdit={(proc) => { setSelectedProcesso(proc); setIsDetailsOpen(true); }}
-                  onDelete={(proc) => { setProcessoToDelete(proc); setIsDeleteDialogOpen(true); }}
-                  onClienteClick={(clienteId) => navigate(`/clientes?id=${clienteId}`)}
-                  onClick={() => { setSelectedProcesso(p); setIsDetailsOpen(true); }}
-                />
-              ))}
-            </div>
           ) : (
-            <ProcessoTable
-              processos={filteredProcessos}
-              onEdit={(p) => { setSelectedProcesso(p); setIsDetailsOpen(true); }}
-              onDelete={(p) => { setProcessoToDelete(p); setIsDeleteDialogOpen(true); }}
-              onViewDetails={(p) => { setSelectedProcesso(p); setIsDetailsOpen(true); }}
-            />
+            <>
+              {view === 'grid' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {processos.map((p) => (
+                    <ProcessoCard
+                      key={p.id}
+                      processo={p}
+                      onEdit={(proc) => { setSelectedProcesso(proc); setIsDetailsOpen(true); }}
+                      onDelete={(proc) => { setProcessoToDelete(proc); setIsDeleteDialogOpen(true); }}
+                      onClienteClick={(clienteId) => navigate(`/clientes?id=${clienteId}`)}
+                      onClick={() => { setSelectedProcesso(p); setIsDetailsOpen(true); }}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <ProcessoTable
+                  processos={processos}
+                  onEdit={(p) => { setSelectedProcesso(p); setIsDetailsOpen(true); }}
+                  onDelete={(p) => { setProcessoToDelete(p); setIsDeleteDialogOpen(true); }}
+                  onViewDetails={(p) => { setSelectedProcesso(p); setIsDetailsOpen(true); }}
+                />
+              )}
+
+              {/* Paginação */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between gap-3 pt-5 mt-1 border-t border-black/5 dark:border-border">
+                  <p className="text-xs font-semibold text-muted-foreground">
+                    Página {page} de {totalPages} · {total} processo{total === 1 ? '' : 's'}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-3 rounded-lg text-xs font-bold gap-1"
+                      disabled={page <= 1 || loading}
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" /> Anterior
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-3 rounded-lg text-xs font-bold gap-1"
+                      disabled={page >= totalPages || loading}
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    >
+                      Próxima <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
