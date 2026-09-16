@@ -8,6 +8,7 @@ import { fmtSafe } from "@/lib/dates";
 import { normalizeAtendimentoStatus } from "@/lib/status";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PermissionGuard } from "@/components/Auth/PermissionGuard";
 import {
   Clock, User, Pencil, Trash2, CheckCircle2, Loader2, RotateCcw, Repeat,
   Plus, ChevronLeft, ChevronRight,
@@ -126,11 +127,13 @@ export const AtendimentoCard: React.FC<{
             onClick={() => onEdit(item)} title="Editar" aria-label="Editar atendimento">
             <Pencil className="h-3.5 w-3.5" />
           </Button>
-          <Button size="icon" variant="ghost"
-            className="h-7 w-7 rounded-lg hover:bg-red-500/10 hover:text-red-500"
-            onClick={() => onDelete(item.id)} title="Excluir" aria-label="Excluir atendimento">
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
+          <PermissionGuard permission="canDeleteAtendimentos">
+            <Button size="icon" variant="ghost"
+              className="h-7 w-7 rounded-lg hover:bg-red-500/10 hover:text-red-500"
+              onClick={() => onDelete(item.id)} title="Excluir" aria-label="Excluir atendimento">
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </PermissionGuard>
         </div>
       </div>
     </div>
