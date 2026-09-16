@@ -2,17 +2,20 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useUserRole } from '@/hooks/useUserRole';
 import { ExclusaoPendente } from '@/types/database';
 
 export const useExclusoesPendentes = () => {
   const [data, setData] = useState<ExclusaoPendente[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { user, isSuperAdmin, isOfficeAdmin } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   // Admin do escritório também gerencia as exclusões do PRÓPRIO escritório (a RLS
   // excl_*_office_admin garante o escopo por office_id); super_admin vê tudo. (v11)
-  const canManage = isSuperAdmin || isOfficeAdmin;
+  // Delegado para useUserRole().canManageOffice (mesma fonte usada pelo resto do
+  // app) em vez de recalcular isSuperAdmin/isOfficeAdmin aqui, para não divergir.
+  const { canManageOffice: canManage } = useUserRole();
 
   const fetchData = useCallback(async () => {
     if (!user || !canManage) {

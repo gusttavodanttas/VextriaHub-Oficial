@@ -23,11 +23,16 @@ export const useUserRole = () => {
       isNormalUser: user?.role === 'user' && !isOfficeAdmin,
       
       // Permissões específicas
+      // Alinhado com FeaturePermissions (usePermissions.tsx): as 3 tiers com
+      // direitos administrativos (super_admin, admin global, office_admin)
+      // sempre incluem isAdmin, senão um admin global (role='admin' sem
+      // office_role='admin'/'owner') perdia acesso a telas gated por
+      // canManageOffice que o restante do app já libera para ele.
       canViewAdminFeatures: isSuperAdmin || isAdmin,
-      canManageOffice: isOfficeAdmin || isSuperAdmin,
-      canManageUsers: isOfficeAdmin || isSuperAdmin,
+      canManageOffice: isSuperAdmin || isAdmin || isOfficeAdmin,
+      canManageUsers: isSuperAdmin || isAdmin || isOfficeAdmin,
       canManageSubscriptions: isSuperAdmin,
-      canInviteUsers: isOfficeAdmin || isSuperAdmin,
+      canInviteUsers: isSuperAdmin || isAdmin || isOfficeAdmin,
       canViewAllOffices: isSuperAdmin,
       canCreateOffices: isSuperAdmin,
       
