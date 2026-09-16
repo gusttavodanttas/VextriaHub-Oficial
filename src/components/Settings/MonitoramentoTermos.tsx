@@ -83,7 +83,7 @@ export function MonitoramentoTermos() {
         <div className="flex-1 min-w-0">
           <CardTitle className="text-lg font-black">Monitoramento por termo</CardTitle>
           <CardDescription className="text-xs font-medium">
-            Acompanhe intimações por nome de parte, número de processo, CPF/CNPJ ou OAB da parte contrária — além das suas OABs monitoradas. {termos.length} de {LIMITE_TERMOS} usados.
+            Acompanhe intimações por nome de parte, número de processo, CPF/CNPJ ou OAB da parte contrária — além das suas OABs monitoradas. Processo ainda não cadastrado cai em "Processos Encontrados". {termos.length} de {LIMITE_TERMOS} usados.
           </CardDescription>
         </div>
       </CardHeader>
