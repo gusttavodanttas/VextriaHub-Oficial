@@ -57,6 +57,7 @@ import { cn } from "@/lib/utils";
 import { deepCleanHTML } from "@/lib/cleanHtml";
 import { formatCNJ } from "@/utils/formatCNJ";
 import { useToast } from "@/hooks/use-toast";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface Publication {
   id: string;
@@ -99,6 +100,7 @@ export const PublicationTable = ({
   onToggleAll
 }: PublicationTableProps) => {
   const { toast } = useToast();
+  const { canManagePublicacoes } = usePermissions();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [page, setPage] = useState(0);
@@ -323,7 +325,7 @@ export const PublicationTable = ({
                             )}
 
                             {/* Inline quick actions */}
-                            {pub.status !== 'lida' && pub.status !== 'processada' && (
+                            {pub.status !== 'lida' && pub.status !== 'processada' && canManagePublicacoes && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <Button
@@ -375,15 +377,17 @@ export const PublicationTable = ({
                                   </>
                                 )}
 
-                                <DropdownMenuItem
-                                  onClick={() => onUpdateStatus(pub.id, pub.status === 'lida' || pub.status === 'processada' ? 'nova' : 'lida')}
-                                  className="rounded-xl cursor-pointer py-3 gap-3 focus:bg-primary/10"
-                                >
-                                  <CheckCircle className="h-4 w-4 text-emerald-500" />
-                                  <span className="font-bold text-xs uppercase tracking-wider">
-                                    {pub.status === 'lida' || pub.status === 'processada' ? 'Marcar como Nova' : 'Marcar como Tratada'}
-                                  </span>
-                                </DropdownMenuItem>
+                                {canManagePublicacoes && (
+                                  <DropdownMenuItem
+                                    onClick={() => onUpdateStatus(pub.id, pub.status === 'lida' || pub.status === 'processada' ? 'nova' : 'lida')}
+                                    className="rounded-xl cursor-pointer py-3 gap-3 focus:bg-primary/10"
+                                  >
+                                    <CheckCircle className="h-4 w-4 text-emerald-500" />
+                                    <span className="font-bold text-xs uppercase tracking-wider">
+                                      {pub.status === 'lida' || pub.status === 'processada' ? 'Marcar como Nova' : 'Marcar como Tratada'}
+                                    </span>
+                                  </DropdownMenuItem>
+                                )}
 
                                 {pub.conteudo && (
                                   <DropdownMenuItem onClick={() => handleCopy(pub.conteudo || '', pub.id)} className="rounded-xl cursor-pointer py-3 gap-3 focus:bg-primary/10">
@@ -394,14 +398,18 @@ export const PublicationTable = ({
                                   </DropdownMenuItem>
                                 )}
 
-                                <DropdownMenuSeparator className="bg-border/50 my-1" />
-                                <DropdownMenuItem
-                                  onClick={() => onDelete(pub.id)}
-                                  className="rounded-xl cursor-pointer py-3 gap-3 text-destructive focus:text-destructive focus:bg-destructive/10"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                  <span className="font-bold text-xs uppercase tracking-wider">Arquivar</span>
-                                </DropdownMenuItem>
+                                {canManagePublicacoes && (
+                                  <>
+                                    <DropdownMenuSeparator className="bg-border/50 my-1" />
+                                    <DropdownMenuItem
+                                      onClick={() => onDelete(pub.id)}
+                                      className="rounded-xl cursor-pointer py-3 gap-3 text-destructive focus:text-destructive focus:bg-destructive/10"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                      <span className="font-bold text-xs uppercase tracking-wider">Arquivar</span>
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
@@ -442,7 +450,7 @@ export const PublicationTable = ({
                                 </p>
                               </div>
                               <div className="flex items-center gap-2 pt-1">
-                                {pub.status !== 'lida' && pub.status !== 'processada' && (
+                                {pub.status !== 'lida' && pub.status !== 'processada' && canManagePublicacoes && (
                                   <Button
                                     size="sm"
                                     className="h-9 rounded-xl text-[10px] font-black uppercase tracking-widest gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-500/20"

@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/usePermissions";
+import { PermissionGuard } from "@/components/Auth/PermissionGuard";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -68,7 +69,7 @@ import { parseLocalDate as parseDataPub, fmtDataBR, localYmd } from "@/lib/dates
 
 export default function Publicacoes() {
   const { toast } = useToast();
-  const { canCreateProcesses } = usePermissions();
+  const { canCreateProcesses, canManagePublicacoes } = usePermissions();
   const { oabs: monitoredOabs } = useMonitoredOabs();
   const { user, profile } = useAuth();
   const { publications, loading, deletePublication, updateStatus, syncByOab, refresh, linkPublicacaoToProcesso, findProcessoIdByCnj } = usePublicacoes();
@@ -336,6 +337,7 @@ export default function Publicacoes() {
   };
 
   const handleBulkUpdateStatus = async (newStatus: string) => {
+    if (!canManagePublicacoes) return;
     const count = selectedIds.length;
     toast({ title: "Processando...", description: `Atualizando ${count} publicações...` });
 
@@ -354,6 +356,7 @@ export default function Publicacoes() {
   };
 
   const handleManualSync = async (days: number) => {
+    if (!canManagePublicacoes) return;
     // Sincroniza TODAS as OABs monitoradas do escritório (fallback: OAB do perfil, se ainda não houver lista).
     const alvos = monitoredOabs.length > 0
       ? monitoredOabs.map((m) => ({ oab: m.oab, uf: m.uf }))
@@ -494,9 +497,10 @@ export default function Publicacoes() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
+              <PermissionGuard permission="canManagePublicacoes">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button 
+                  <Button
                     disabled={isSyncing}
                     className="h-12 rounded-2xl px-6 font-black text-xs uppercase tracking-widest bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all duration-300 gap-2"
                   >
@@ -537,6 +541,7 @@ export default function Publicacoes() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              </PermissionGuard>
             </div>
           </div>
         </div>
@@ -551,22 +556,26 @@ export default function Publicacoes() {
                   <span className="text-sm font-black uppercase tracking-widest">{selectedIds.length} Selecionados</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Button 
-                    size="sm" 
+                  <PermissionGuard permission="canManagePublicacoes">
+                  <Button
+                    size="sm"
                     onClick={() => handleBulkUpdateStatus('lida')}
                     className="rounded-xl font-black text-[10px] uppercase tracking-widest h-10 px-6"
                   >
                     Marcar como Lida
                   </Button>
-                  <Button 
-                    size="sm" 
+                  </PermissionGuard>
+                  <PermissionGuard permission="canManagePublicacoes">
+                  <Button
+                    size="sm"
                     variant="outline"
                     onClick={() => handleBulkUpdateStatus('arquivada')}
                     className="rounded-xl border-border hover:bg-card font-black text-[10px] uppercase tracking-widest h-10 px-6"
                   >
                     Arquivar
                   </Button>
-                  <Button 
+                  </PermissionGuard>
+                  <Button
                     size="sm" 
                     variant="ghost" 
                     className="rounded-xl h-10 w-10 p-0 text-red-500 hover:bg-red-500/10"
@@ -684,10 +693,12 @@ export default function Publicacoes() {
                         </div>
                         <div className="flex items-center gap-1">
                           {!isTratada && (
-                            <Button size="sm" variant="ghost" className="h-8 rounded-xl text-[10px] font-bold gap-1 text-emerald-600 hover:bg-emerald-500/10"
-                              onClick={() => updateStatus(publication.id, 'lida')}>
-                              <CheckCircle className="h-3.5 w-3.5" /> Tratar
-                            </Button>
+                            <PermissionGuard permission="canManagePublicacoes">
+                              <Button size="sm" variant="ghost" className="h-8 rounded-xl text-[10px] font-bold gap-1 text-emerald-600 hover:bg-emerald-500/10"
+                                onClick={() => updateStatus(publication.id, 'lida')}>
+                                <CheckCircle className="h-3.5 w-3.5" /> Tratar
+                              </Button>
+                            </PermissionGuard>
                           )}
                           {canCreateProcesses && !publication.processo_id && (
                             <Button size="sm" variant="ghost" className="h-8 rounded-xl text-[10px] font-bold gap-1 text-violet-600 hover:bg-violet-500/10"
@@ -714,10 +725,12 @@ export default function Publicacoes() {
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-xl text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
-                            onClick={() => deletePublication(publication.id)}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                          <PermissionGuard permission="canManagePublicacoes">
+                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-xl text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
+                              onClick={() => deletePublication(publication.id)}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </PermissionGuard>
                         </div>
                       </div>
                     </div>

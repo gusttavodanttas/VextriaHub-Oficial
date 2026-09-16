@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatCNJ } from "@/utils/formatCNJ";
 import { useToast } from "@/hooks/use-toast";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface Publication {
   id: string;
@@ -92,6 +93,7 @@ export const PublicationDetailsDialog = ({
   onSchedule,
 }: PublicationDetailsDialogProps) => {
   const { toast } = useToast();
+  const { canManagePublicacoes } = usePermissions();
   const [internalOpen, setInternalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -278,25 +280,27 @@ export const PublicationDetailsDialog = ({
             )}
 
             {/* Marcar como tratada / nova */}
-            <Button
-              onClick={() => {
-                onProcess?.(publication.id);
-                handleClose();
-              }}
-              variant="outline"
-              className={cn(
-                "rounded-2xl border-border px-6 font-black text-[11px] uppercase tracking-widest gap-2 h-12 flex-1 md:flex-none transition-all",
-                isTratada
-                  ? "text-muted-foreground hover:bg-muted"
-                  : "text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/10"
-              )}
-            >
-              <CheckCircle className="h-4 w-4" />
-              {isTratada ? 'Marcar como Nova' : 'Marcar como Tratada'}
-            </Button>
+            {canManagePublicacoes && (
+              <Button
+                onClick={() => {
+                  onProcess?.(publication.id);
+                  handleClose();
+                }}
+                variant="outline"
+                className={cn(
+                  "rounded-2xl border-border px-6 font-black text-[11px] uppercase tracking-widest gap-2 h-12 flex-1 md:flex-none transition-all",
+                  isTratada
+                    ? "text-muted-foreground hover:bg-muted"
+                    : "text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/10"
+                )}
+              >
+                <CheckCircle className="h-4 w-4" />
+                {isTratada ? 'Marcar como Nova' : 'Marcar como Tratada'}
+              </Button>
+            )}
 
             {/* Arquivar — separado à direita */}
-            {onDelete && (
+            {onDelete && canManagePublicacoes && (
               <Button
                 onClick={() => { onDelete(publication.id); handleClose(); }}
                 variant="ghost"
