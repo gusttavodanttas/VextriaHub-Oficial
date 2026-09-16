@@ -294,7 +294,60 @@ serve(async (req) => {
     const robotSecret = req.headers.get("x-robot-secret");
     const isRobot = !!robotSecret && robotSecret === Deno.env.get("ROBOT_SECRET");
 
-    const { oab, uf, days, nacional } = await req.json();
+    const { oab, uf, days, nacional, termo, tipo, seccional } = await req.json();
+
+    // Busca por TERMO livre — monitoramento_termos (tipo: nome/processo/cpf_cnpj/oab
+    // avulso, fora das OABs curadas do escritório). Só o robô usa este modo (não há
+    // RPC de autorização/paywall para termo livre ainda), e é mais simples que o
+    // fluxo por OAB monitorada: só PJE-Comunica, sem DataJud (o índice do DataJud é
+    // por OAB do advogado, não aceita busca por nome/CPF/CNPJ).
+    if (termo) {
+      if (!isRobot) throw new Error("Busca por termo livre é exclusiva do robô de monitoramento.");
+      const searchDays = days || 7;
+      const intervalDate = new Date();
+      intervalDate.setDate(intervalDate.getDate() - searchDays);
+      const dateStart = intervalDate.toISOString().split("T")[0];
+
+      // Mapeia o `tipo` do termo monitorado para o parâmetro certo da API do PJE-Comunica.
+      const TERMO_PARAM: Record<string, string> = {
+        nome: "nomeParte",
+        processo: "numeroProcesso",
+        cpf_cnpj: "numeroDocumentoDestinatario",
+        oab: "numeroOab",
+      };
+      const paramName = TERMO_PARAM[String(tipo)] || "nomeParte";
+
+      const termoPromises = [0, 1].map(async (page) => {
+        try {
+          const params = new URLSearchParams({
+            [paramName]: String(termo),
+            itensPorPagina: "100",
+            pagina: String(page),
+            dataDisponibilizacaoInicio: dateStart,
+          });
+          if (paramName === "numeroOab" && seccional) params.set("ufOab", String(seccional).toUpperCase());
+          else if (seccional) params.set("siglaTribunal", String(seccional).toLowerCase());
+          const r = await fetch(`https://comunicaapi.pje.jus.br/api/v1/comunicacao?${params.toString()}`);
+          if (!r.ok) return [];
+          const data = await r.json();
+          const items = data.items || [];
+          console.log(`[TERMO] ${paramName}="${termo}" página ${page}: ${items.length} itens`);
+          return items.map((it) => mapPjeItem(it, String(seccional || ""))).filter(Boolean);
+        } catch (e) {
+          console.error(`[TERMO] erro página ${page}:`, e);
+          return [];
+        }
+      });
+      const termoBatches = await Promise.all(termoPromises);
+      const uniqueByNumero = new Map();
+      for (const batch of termoBatches) for (const p of batch) if (p) uniqueByNumero.set(p.numeroProcesso, p);
+
+      return new Response(JSON.stringify({ status: "ok", items: Array.from(uniqueByNumero.values()) }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
     if (!oab || !uf) throw new Error("OAB e UF são obrigatórios");
 
     if (!isRobot) {
