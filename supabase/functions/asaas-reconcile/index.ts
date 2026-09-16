@@ -12,6 +12,9 @@ const cors = {
 };
 const BASE = Deno.env.get("ASAAS_BASE_URL") || "https://api.asaas.com/v3";
 const KEY = Deno.env.get("ASAAS_API_KEY") || "";
+// Visível nos logs da function a cada cold start — sem isso, um ASAAS_BASE_URL
+// errado (ou removido) nos segredos do Supabase troca de ambiente em silêncio.
+console.log(`[ASAAS] asaas-reconcile em modo ${BASE.includes("sandbox") ? "SANDBOX (nenhuma cobrança é real)" : "PRODUÇÃO (cobranças reais)"}`);
 
 async function asaas(path: string) {
   const res = await fetch(BASE + path, { headers: { access_token: KEY, "Content-Type": "application/json" } });

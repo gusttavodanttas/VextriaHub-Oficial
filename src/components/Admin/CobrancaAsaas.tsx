@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import {
-  Loader2, RefreshCw, Search, CreditCard, Copy, Check, XCircle, RotateCw, ExternalLink, Gift, Users, TrendingUp, AlertTriangle, CheckCircle2,
+  Loader2, RefreshCw, Search, CreditCard, Copy, Check, XCircle, RotateCw, ExternalLink, Gift, Users, TrendingUp, AlertTriangle, CheckCircle2, FlaskConical,
 } from "lucide-react";
 import { formatCpfCnpj, onlyDigits, isValidCpfCnpj } from "@/lib/document";
 import { formatBRL } from "@/lib/currency";
@@ -55,6 +55,7 @@ export default function CobrancaAsaas() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [environment, setEnvironment] = useState<"sandbox" | "production" | null>(null);
 
   const [mode, setMode] = useState<"cobranca" | "cortesia">("cobranca");
   const [cpf, setCpf] = useState("");
@@ -79,6 +80,15 @@ export default function CobrancaAsaas() {
     setLoading(false);
   }, []);
   useEffect(() => { load(); }, [load]);
+
+  // Qual ambiente Asaas as ações desta tela vão atingir — sem isso, criar uma
+  // cobrança "de teste" aqui não tinha como saber se ela é real ou de mentira.
+  useEffect(() => {
+    supabase.functions.invoke("asaas-billing", { body: { action: "env" } }).then(({ data }) => {
+      const env = (data as { environment?: string } | null)?.environment;
+      if (env === "sandbox" || env === "production") setEnvironment(env);
+    });
+  }, []);
 
   const shown = useMemo(() => {
     const t = q.trim().toLowerCase();
@@ -132,6 +142,19 @@ export default function CobrancaAsaas() {
 
   return (
     <section className="space-y-6">
+      {environment === "sandbox" && (
+        <div className="flex items-center gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-2.5 text-sm text-blue-700">
+          <FlaskConical className="w-4 h-4 shrink-0" />
+          <span><strong>Modo sandbox.</strong> Nenhuma cobrança criada aqui é real.</span>
+        </div>
+      )}
+      {environment === "production" && (
+        <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm text-red-700">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span><strong>Modo produção.</strong> Cobranças criadas aqui são reais.</span>
+        </div>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Metric icon={Users} label="Escritórios" value={metrics.total} />
         <Metric icon={CheckCircle2} label="Ativos / cortesia" value={metrics.ativos} cls="text-emerald-600" />
