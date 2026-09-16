@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, Phone, MessageCircle, GripVertical } from "lucide-react";
 import { formatPhone } from "@/lib/phone";
@@ -27,6 +28,7 @@ interface Props {
 
 export function CrmKanban({ data, refresh, onCardClick }: Props) {
   const { user } = useAuth();
+  const { canManageCRM } = usePermissions();
   const { toast } = useToast();
   const [items, setItems] = useState<any[]>(data);
   const [dragId, setDragId] = useState<string | null>(null);
@@ -36,6 +38,7 @@ export function CrmKanban({ data, refresh, onCardClick }: Props) {
   useEffect(() => { setItems(data); }, [data]);
 
   const move = async (id: string, novoStatus: string) => {
+    if (!canManageCRM) return;
     const atual = items.find(i => i.id === id);
     if (!atual || (atual.status || "") === novoStatus) return;
     if (!user?.office_id) return;
@@ -79,12 +82,13 @@ export function CrmKanban({ data, refresh, onCardClick }: Props) {
               {cards.map(card => (
                 <div
                   key={card.id}
-                  draggable
-                  onDragStart={(e) => { e.dataTransfer.setData("text/plain", card.id); setDragId(card.id); }}
+                  draggable={canManageCRM}
+                  onDragStart={(e) => { if (!canManageCRM) return; e.dataTransfer.setData("text/plain", card.id); setDragId(card.id); }}
                   onDragEnd={() => { setDragId(null); setOverCol(null); }}
                   onClick={() => onCardClick?.(card)}
                   className={cn(
-                    "group rounded-xl border bg-card p-3 cursor-grab active:cursor-grabbing hover:border-primary/30 transition-all",
+                    "group rounded-xl border bg-card p-3 hover:border-primary/30 transition-all",
+                    canManageCRM ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
                     col.accent,
                     dragId === card.id && "opacity-40"
                   )}
