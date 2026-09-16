@@ -108,12 +108,12 @@ const Landing: React.FC = () => {
     {
       icon: Target,
       title: "Metas e Produtividade",
-      description: "Acompanhe seu desempenho e estabeleça objetivos (em breve no plano Premium)"
+      description: "Acompanhe seu desempenho e estabeleça objetivos (disponível no plano Premium)"
     },
     {
       icon: Zap,
       title: "Inteligência Artificial",
-      description: "Automações simples para otimizar sua rotina (funcionalidade futura)"
+      description: "Automações simples para otimizar sua rotina (disponível no plano Premium)"
     }
   ];
 
