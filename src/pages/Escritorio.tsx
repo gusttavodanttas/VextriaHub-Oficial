@@ -1,10 +1,9 @@
 import React from "react";
+import { Link } from "react-router-dom";
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PermissionGuard } from "@/components/Auth/PermissionGuard";
 import { OfficeSettings } from "@/components/Office/OfficeSettings";
-import { UserManagement } from "@/components/Office/UserManagement";
-import { Building2, Users, Settings, FileText, UserCheck, Clock, CalendarDays, DollarSign } from "lucide-react";
+import { Building2, Users, FileText, UserCheck, Clock, CalendarDays, DollarSign } from "lucide-react";
 import { useStats } from "@/hooks/useStats";
 import { cn } from "@/lib/utils";
 import { formatBRL } from "@/lib/currency";
@@ -32,7 +31,8 @@ const Escritorio = () => {
           <div>
             <h1 className="text-2xl md:text-4xl font-black tracking-tight">Meu Escritório</h1>
             <p className="text-xs md:text-sm text-muted-foreground font-medium">
-              Dados do escritório e controle de acesso da equipe
+              Dados do escritório. Para gerenciar usuários e equipes, acesse{" "}
+              <Link to="/equipe" className="text-primary hover:underline font-bold">Equipe</Link>.
             </p>
           </div>
         </div>
@@ -55,33 +55,7 @@ const Escritorio = () => {
           ))}
         </div>
 
-        {/* Tabs */}
-        <Tabs defaultValue="configuracoes" className="space-y-6">
-          <div className="glass-card p-1.5 rounded-2xl border border-black/5 dark:border-border w-fit shadow-premium">
-            <TabsList className="h-11 gap-1 bg-transparent border-none p-0">
-              <TabsTrigger
-                value="configuracoes"
-                className="rounded-xl px-5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-premium font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all"
-              >
-                <Settings className="h-3.5 w-3.5" /> Dados
-              </TabsTrigger>
-              <TabsTrigger
-                value="usuarios"
-                className="rounded-xl px-5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-premium font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all"
-              >
-                <Users className="h-3.5 w-3.5" /> Usuários
-              </TabsTrigger>
-            </TabsList>
-          </div>
-
-          <TabsContent value="configuracoes" className="space-y-6 mt-0">
-            <OfficeSettings />
-          </TabsContent>
-
-          <TabsContent value="usuarios" className="space-y-6 mt-0">
-            <UserManagement />
-          </TabsContent>
-        </Tabs>
+        <OfficeSettings />
       </div>
     </PermissionGuard>
   );
