@@ -11,6 +11,10 @@ const cors = {
 };
 const BASE = Deno.env.get("ASAAS_BASE_URL") || "https://api.asaas.com/v3";
 const KEY = Deno.env.get("ASAAS_API_KEY") || "";
+// Visível nos logs da function a cada cold start — sem isso, um ASAAS_BASE_URL
+// errado (ou removido) nos segredos do Supabase troca de ambiente em silêncio.
+const IS_SANDBOX = BASE.includes("sandbox");
+console.log(`[ASAAS] asaas-billing em modo ${IS_SANDBOX ? "SANDBOX (nenhuma cobrança é real)" : "PRODUÇÃO (cobranças reais)"}`);
 
 async function asaas(path: string, method = "GET", body?: unknown) {
   const res = await fetch(BASE + path, {
@@ -41,6 +45,11 @@ serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action || "");
+
+    // ENV — qual ambiente Asaas esta function está usando. Sem office_id de propósito:
+    // é o que a tela de cobrança consulta pra mostrar o aviso ANTES de qualquer ação.
+    if (action === "env") return json({ ok: true, environment: IS_SANDBOX ? "sandbox" : "production" });
+
     const officeId = String(body?.office_id || "");
     if (!officeId) return json({ error: "office_id-obrigatorio" }, 400);
 
