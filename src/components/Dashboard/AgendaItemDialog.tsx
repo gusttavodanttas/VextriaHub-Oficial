@@ -84,7 +84,10 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
     const now = new Date().toISOString();
     let error: any = null;
     if (item.type === "tarefa") {
-      ({ error } = await supabase.from("tarefas").update({ concluida: true, concluida_em: now, concluida_por: user?.id, recorrencia_restantes: 0 }).eq("id", item.id));
+      // status precisa ir junto de concluida (mesmo update de useTarefas.tsx) — senão
+      // a tarefa fica com concluida=true mas status='pendente', e qualquer relatório/
+      // kanban que filtre por status conta essa tarefa errado.
+      ({ error } = await supabase.from("tarefas").update({ concluida: true, status: "concluida", concluida_em: now, concluida_por: user?.id, recorrencia_restantes: 0 }).eq("id", item.id));
       if (error) ({ error } = await supabase.from("tarefas").update({ concluida: true }).eq("id", item.id));
       // recorrência encadeada: gera a próxima ocorrência
       if (!error && row?.recorrencia_regra && (row.recorrencia_restantes ?? 0) > 0 && row.data_vencimento) {
