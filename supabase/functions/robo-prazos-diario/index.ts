@@ -155,41 +155,58 @@ serve(async (req) => {
         supa.from("atendimentos").select("*, clientes(nome)").eq("office_id", officeId).eq("deletado", false).in("status", ["agendado", "pendente"]),
       ]);
 
-      const itens: Item[] = [];
+      // Itens são roteados por responsavel_id — cada advogado só recebe o QUE É
+      // DELE. Antes o digest juntava tudo num único itens[] do escritório e
+      // mandava a mesma lista pra todo mundo, vazando prazo/audiência/tarefa/
+      // atendimento de um colega pra todos os outros advogados. Item sem
+      // responsavel_id (não atribuído) ainda vai pro escritório inteiro — não há
+      // um destinatário mais específico e é melhor avisar todo mundo do que ninguém.
+      const itensPorUsuario = new Map<string, Item[]>();
+      const roteia = (responsavelId: string | null | undefined, item: Item) => {
+        const alvos = responsavelId ? [responsavelId] : profs.map((p) => (p as any).user_id);
+        for (const uid of alvos) {
+          if (!itensPorUsuario.has(uid)) itensPorUsuario.set(uid, []);
+          itensPorUsuario.get(uid)!.push(item);
+        }
+      };
+
       (prazos.data || []).forEach((p: any) => {
         if (p.titular === "contraria") return; // prazo da parte contrária: só monitoramento
         const fatal = dataFatalPrazo(p);
         if (!naJanela(p, fatal)) return;
-        itens.push({ emoji: "⚖️", tipo: "Prazo", titulo: p.publicacoes?.titulo || p.tipo_prazo || "Prazo", dias: diasAte(fatal!), data: fatal!, processo: p.numero_processo || undefined });
+        roteia(p.responsavel_id, { emoji: "⚖️", tipo: "Prazo", titulo: p.publicacoes?.titulo || p.tipo_prazo || "Prazo", dias: diasAte(fatal!), data: fatal!, processo: p.numero_processo || undefined });
       });
       (audiencias.data || []).forEach((a: any) => {
         if (!naJanela(a, a.data_audiencia)) return;
-        itens.push({ emoji: "📅", tipo: "Audiência", titulo: a.titulo || "Audiência", dias: diasAte(a.data_audiencia), data: a.data_audiencia, cliente: a.clientes?.nome || undefined, processo: a.numero_processo || undefined, hora: horaDe(a.data_audiencia) });
+        roteia(a.responsavel_id, { emoji: "📅", tipo: "Audiência", titulo: a.titulo || "Audiência", dias: diasAte(a.data_audiencia), data: a.data_audiencia, cliente: a.clientes?.nome || undefined, processo: a.numero_processo || undefined, hora: horaDe(a.data_audiencia) });
       });
       (tarefas.data || []).forEach((t: any) => {
         if (!naJanela(t, t.data_vencimento)) return;
-        itens.push({ emoji: "✓", tipo: "Tarefa", titulo: t.titulo || "Tarefa", dias: diasAte(t.data_vencimento), data: t.data_vencimento, processo: t.numero_processo || undefined });
+        roteia(t.responsavel_id, { emoji: "✓", tipo: "Tarefa", titulo: t.titulo || "Tarefa", dias: diasAte(t.data_vencimento), data: t.data_vencimento, processo: t.numero_processo || undefined });
       });
       (atendimentos.data || []).forEach((a: any) => {
         if (!naJanela(a, a.data_atendimento)) return;
-        itens.push({ emoji: "👤", tipo: "Atendimento", titulo: a.tipo_atendimento || "Atendimento", dias: diasAte(a.data_atendimento), data: a.data_atendimento, cliente: a.clientes?.nome || undefined, processo: a.numero_processo || undefined, hora: horaDe(a.data_atendimento) });
+        roteia(a.responsavel_id, { emoji: "👤", tipo: "Atendimento", titulo: a.tipo_atendimento || "Atendimento", dias: diasAte(a.data_atendimento), data: a.data_atendimento, cliente: a.clientes?.nome || undefined, processo: a.numero_processo || undefined, hora: horaDe(a.data_atendimento) });
       });
 
-      if (!itens.length) continue; // nada na janela hoje → escritório não recebe e-mail
-      itens.sort((x, y) => x.dias - y.dias); // mais urgente primeiro
-
-      const nPrazos = itens.filter((i) => i.tipo === "Prazo").length;
-      const outros = itens.length - nPrazos;
-      const subject = nPrazos > 0
-        ? (outros > 0
-            ? `⚖️ ${nPrazos} ${nPrazos === 1 ? "prazo" : "prazos"} e mais ${outros} ${outros === 1 ? "item" : "itens"} chegando`
-            : `⚖️ ${nPrazos} ${nPrazos === 1 ? "prazo" : "prazos"} chegando`)
-        : `Você tem ${itens.length} ${itens.length === 1 ? "compromisso" : "compromissos"} chegando`;
+      if (!itensPorUsuario.size) continue; // ninguém tem item na janela hoje → escritório não recebe e-mail
 
       for (const p of profs) {
         const uid = (p as any).user_id;
         const email = (p as any).email;
         if (!email) continue;
+
+        const itens = (itensPorUsuario.get(uid) || []).sort((x, y) => x.dias - y.dias); // mais urgente primeiro
+        if (!itens.length) continue; // nada pra este advogado hoje
+
+        const nPrazos = itens.filter((i) => i.tipo === "Prazo").length;
+        const outros = itens.length - nPrazos;
+        const subject = nPrazos > 0
+          ? (outros > 0
+              ? `⚖️ ${nPrazos} ${nPrazos === 1 ? "prazo" : "prazos"} e mais ${outros} ${outros === 1 ? "item" : "itens"} chegando`
+              : `⚖️ ${nPrazos} ${nPrazos === 1 ? "prazo" : "prazos"} chegando`)
+          : `Você tem ${itens.length} ${itens.length === 1 ? "compromisso" : "compromissos"} chegando`;
+
         const to = testEmail || email;
 
         // Idempotência: se já enviou hoje (log existe), pula. O log é gravado só
