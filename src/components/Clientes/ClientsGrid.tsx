@@ -11,6 +11,7 @@ interface ClientsGridProps {
   onViewProcesses: (clientId: string, clientName: string) => void;
   onViewAtendimentos: (clientId: string, clientName: string) => void;
   onViewConsultivo: (clientId: string, clientName: string) => void;
+  onDeleteClient?: (clientId: string) => void;
 }
 
 export const ClientsGrid: React.FC<ClientsGridProps> = ({
@@ -21,7 +22,8 @@ export const ClientsGrid: React.FC<ClientsGridProps> = ({
   onEditClient,
   onViewProcesses,
   onViewAtendimentos,
-  onViewConsultivo
+  onViewConsultivo,
+  onDeleteClient
 }) => {
   return (
     <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
@@ -36,6 +38,7 @@ export const ClientsGrid: React.FC<ClientsGridProps> = ({
           onViewProcesses={onViewProcesses}
           onViewAtendimentos={onViewAtendimentos}
           onViewConsultivo={onViewConsultivo}
+          onDeleteClient={onDeleteClient}
         />
       ))}
     </div>

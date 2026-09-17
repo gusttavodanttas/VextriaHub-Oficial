@@ -2,6 +2,7 @@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Trash2, X } from 'lucide-react';
+import { PermissionGuard } from '@/components/Auth/PermissionGuard';
 import { cn } from '@/lib/utils';
 
 interface ClientsSelectionControlsProps {
@@ -64,15 +65,17 @@ export const ClientsSelectionControls: React.FC<ClientsSelectionControlsProps> =
             <X className="h-4 w-4 mr-2" />
             Limpar
           </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={onDeleteSelected}
-            className="rounded-xl h-11 px-8 font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:scale-[1.02] transition-all"
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Excluir Seleção
-          </Button>
+          <PermissionGuard permission="canDeleteClients">
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={onDeleteSelected}
+              className="rounded-xl h-11 px-8 font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:scale-[1.02] transition-all"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Excluir Seleção
+            </Button>
+          </PermissionGuard>
         </div>
       )}
     </div>

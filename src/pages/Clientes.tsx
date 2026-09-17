@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
+import { PermissionGuard } from "@/components/Auth/PermissionGuard";
 import { useMultiSelect } from "@/hooks/useMultiSelect";
 import { Client } from "@/types/client";
 import { useClientes } from "@/hooks/useClientes";
@@ -285,10 +286,12 @@ const Clientes = () => {
             </p>
           </div>
         </div>
-        <Button size="lg" onClick={() => setNovoClienteDialogOpen(true)}
-          className="rounded-xl h-11 px-6 font-black uppercase text-xs tracking-widest shadow-premium">
-          <Plus className="mr-2 h-4 w-4" />Novo Cliente
-        </Button>
+        <PermissionGuard permission="canCreateClients">
+          <Button size="lg" onClick={() => setNovoClienteDialogOpen(true)}
+            className="rounded-xl h-11 px-6 font-black uppercase text-xs tracking-widest shadow-premium">
+            <Plus className="mr-2 h-4 w-4" />Novo Cliente
+          </Button>
+        </PermissionGuard>
       </div>
 
       {/* Stats */}
@@ -437,6 +440,7 @@ const Clientes = () => {
               onViewProcesses={handleViewProcesses}
               onViewAtendimentos={handleViewAtendimentos}
               onViewConsultivo={handleViewConsultivo}
+              onDeleteClient={handleDeleteSingleClient}
             />
           ) : (
             <ClientsTable
