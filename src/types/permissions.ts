@@ -53,8 +53,7 @@ export interface FeaturePermissions {
   
   // Analytics & Reports
   canViewGraficos: boolean;
-  canViewAdvancedAnalytics: boolean;
-  
+
   // Financial
   canViewFinanceiro: boolean;
   canManageFinanceiro: boolean;

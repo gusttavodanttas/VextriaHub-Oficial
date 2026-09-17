@@ -93,7 +93,6 @@ const PERMISSION_GROUPS: PermGroup[] = [
   ]},
   { label: "Relatórios", perms: [
     { key: "canViewGraficos",          label: "Ver gráficos",        defaultUser: true  },
-    { key: "canViewAdvancedAnalytics", label: "Analytics avançados", defaultUser: false },
   ]},
   { label: "Metas", perms: [
     { key: "canViewMetas",   label: "Visualizar", defaultUser: true  },
