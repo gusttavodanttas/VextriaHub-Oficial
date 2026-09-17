@@ -9,29 +9,60 @@ import { continueOccurrences, type RecRule } from "@/lib/recorrencia";
 import type { Atendimento } from "@/components/Atendimentos/shared";
 import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/rows";
 
+// Filtra soft-deletados em JS (não `.eq('deletado', false)` na query — linhas
+// antigas podem ter a coluna null, e isso as excluiria indevidamente).
+const naoDeletado = (rows: any[] | null) => (rows ?? []).filter((i: any) => !i.deletado) as unknown as Atendimento[];
+
 export const useAtendimentos = (officeId: string | null | undefined) => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const query = useQuery({
-    queryKey: ["atendimentos", officeId],
+  // Split ativos/histórico (mesmo padrão de usePrazosData): "ativos"
+  // (agendado/pendente) é o conjunto de trabalho normal, naturalmente limitado
+  // pelo volume atual de agenda — busca sem cap. "histórico" (realizado/
+  // cancelado) só cresce, nunca sai — busca com cap de segurança, mais
+  // recentes primeiro. Substitui o fetch-all com .limit(1000) que, ordenado
+  // por data DESCENDENTE, cortava justamente os atendimentos mais ANTIGOS (ou
+  // pior, se houvesse muita recorrência futura agendada, podia cortar até os
+  // de hoje) — bug que a divisão abaixo elimina de vez para o lado "ativos".
+  const ativos = useQuery({
+    queryKey: ["atendimentos", officeId, "ativos"],
     enabled: !!officeId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("atendimentos")
         .select("*, clientes(nome)")
         .eq("office_id", officeId!)
-        // Cap de segurança: sem paginação real ainda, evita carregar a tabela
-        // inteira pro navegador num escritório com histórico grande.
+        .in("status", ["agendado", "pendente"])
+        .order("data_atendimento", { ascending: true });
+      if (error) throw error;
+      return naoDeletado(data);
+    },
+  });
+
+  const historico = useQuery({
+    queryKey: ["atendimentos", officeId, "historico"],
+    enabled: !!officeId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("atendimentos")
+        .select("*, clientes(nome)")
+        .eq("office_id", officeId!)
+        .in("status", ["realizado", "cancelado"])
         .order("data_atendimento", { ascending: false })
         .limit(1000);
       if (error) throw error;
-      // A Row real de atendimentos não expõe processo_id (a coluna não existe na
-      // tabela) e status é string|null, então o shape do banco não sobrepõe o tipo
-      // Atendimento; double-assert via unknown (recomendado pelo próprio TS).
-      return (data ?? []).filter((i: any) => !i.deletado) as unknown as Atendimento[];
+      return naoDeletado(data);
     },
   });
+
+  const query = {
+    data: [...(ativos.data ?? []), ...(historico.data ?? [])],
+    isLoading: ativos.isLoading || historico.isLoading,
+    isError: ativos.isError || historico.isError,
+    error: ativos.error ?? historico.error,
+    refetch: () => { ativos.refetch(); historico.refetch(); },
+  };
 
   const invalidate = useCallback(() =>
     queryClient.invalidateQueries({ queryKey: ["atendimentos", officeId] }),
