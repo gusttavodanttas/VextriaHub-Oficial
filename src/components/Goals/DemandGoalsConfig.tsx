@@ -3,11 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PermissionGuard } from "@/components/Auth/PermissionGuard";
 import { Target, Plus, Trash2, Save, TrendingUp } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { usePermissions } from "@/hooks/usePermissions";
 import { formatBRL } from "@/lib/currency";
 
 type MetaDemanda = {
@@ -25,6 +27,7 @@ const cores = ["bg-blue-500", "bg-green-500", "bg-purple-500", "bg-orange-500", 
 export function DemandGoalsConfig() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { canManageMetas } = usePermissions();
   const [metasDemanda, setMetasDemanda] = useState<MetaDemanda[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -58,7 +61,7 @@ export function DemandGoalsConfig() {
   }, [user?.office_id, contarProcessos]);
 
   const persist = async (lista: MetaDemanda[]) => {
-    if (!user?.office_id) return false;
+    if (!user?.office_id || !canManageMetas) return false;
     setSaving(true);
     const { data: cur } = await supabase.from("offices").select("settings").eq("id", user.office_id).maybeSingle();
     // Salva sem o campo calculado (processosAtuais é derivado)
@@ -75,7 +78,7 @@ export function DemandGoalsConfig() {
   };
 
   const adicionarMeta = async () => {
-    if (!novaMeta.tipo.trim() || novaMeta.metaProcessos <= 0) return;
+    if (!canManageMetas || !novaMeta.tipo.trim() || novaMeta.metaProcessos <= 0) return;
     const counts = await contarProcessos([novaMeta.tipo]);
     const nova: MetaDemanda = {
       id: crypto.randomUUID(), ...novaMeta,
@@ -91,6 +94,7 @@ export function DemandGoalsConfig() {
   };
 
   const removerMeta = async (id: string) => {
+    if (!canManageMetas) return;
     const anterior = metasDemanda;
     const lista = metasDemanda.filter(m => m.id !== id);
     setMetasDemanda(lista);
@@ -98,6 +102,7 @@ export function DemandGoalsConfig() {
   };
 
   const atualizarMeta = (id: string, campo: keyof MetaDemanda, valor: any) => {
+    if (!canManageMetas) return;
     setMetasDemanda(prev => prev.map(m => m.id === id ? { ...m, [campo]: valor } : m));
   };
 
@@ -176,70 +181,72 @@ export function DemandGoalsConfig() {
       )}
 
       {/* Configuração */}
-      <Card className="border-black/5 dark:border-border bg-card/40 rounded-[2rem] overflow-hidden shadow-premium">
-        <CardHeader className="p-8 pb-4 flex flex-row items-center justify-between">
-          <CardTitle className="text-xl font-black tracking-tight">Configurar Metas por Demanda</CardTitle>
-          <Button onClick={() => persist(metasDemanda)} disabled={saving} className="rounded-xl gap-2 font-black uppercase text-[10px] tracking-widest">
-            <Save className="h-4 w-4" /> {saving ? "Salvando…" : "Salvar"}
-          </Button>
-        </CardHeader>
-        <CardContent className="p-8 pt-0 space-y-6">
-          {metasDemanda.map((meta) => (
-            <div key={meta.id} className="border border-black/5 dark:border-border rounded-[1.5rem] p-6 space-y-6 bg-black/[0.01] dark:bg-white/[0.01]">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className={`w-5 h-5 rounded-full ${meta.cor}`}></div>
-                  <h4 className="font-black text-lg tracking-tight">{meta.tipo}</h4>
-                  <span className="text-xs text-muted-foreground">· {meta.processosAtuais} processos ativos (auto)</span>
+      <PermissionGuard permission="canManageMetas">
+        <Card className="border-black/5 dark:border-border bg-card/40 rounded-[2rem] overflow-hidden shadow-premium">
+          <CardHeader className="p-8 pb-4 flex flex-row items-center justify-between">
+            <CardTitle className="text-xl font-black tracking-tight">Configurar Metas por Demanda</CardTitle>
+            <Button onClick={() => persist(metasDemanda)} disabled={saving} className="rounded-xl gap-2 font-black uppercase text-[10px] tracking-widest">
+              <Save className="h-4 w-4" /> {saving ? "Salvando…" : "Salvar"}
+            </Button>
+          </CardHeader>
+          <CardContent className="p-8 pt-0 space-y-6">
+            {metasDemanda.map((meta) => (
+              <div key={meta.id} className="border border-black/5 dark:border-border rounded-[1.5rem] p-6 space-y-6 bg-black/[0.01] dark:bg-white/[0.01]">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-5 h-5 rounded-full ${meta.cor}`}></div>
+                    <h4 className="font-black text-lg tracking-tight">{meta.tipo}</h4>
+                    <span className="text-xs text-muted-foreground">· {meta.processosAtuais} processos ativos (auto)</span>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => removerMeta(meta.id)} className="text-red-500 hover:bg-red-500/10 rounded-xl">
+                    <Trash2 className="h-4 w-4 mr-2" />Remover
+                  </Button>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => removerMeta(meta.id)} className="text-red-500 hover:bg-red-500/10 rounded-xl">
-                  <Trash2 className="h-4 w-4 mr-2" />Remover
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Meta de Processos</Label>
+                    <Input type="number" value={meta.metaProcessos} onChange={(e) => atualizarMeta(meta.id, 'metaProcessos', parseInt(e.target.value) || 0)} className="h-12 rounded-xl" onBlur={() => persist(metasDemanda)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Meta Faturamento (R$)</Label>
+                    <Input type="number" value={meta.metaFaturamento} onChange={(e) => atualizarMeta(meta.id, 'metaFaturamento', parseInt(e.target.value) || 0)} className="h-12 rounded-xl" onBlur={() => persist(metasDemanda)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Faturamento Atual (R$)</Label>
+                    <Input type="number" value={meta.faturamentoAtual} onChange={(e) => atualizarMeta(meta.id, 'faturamentoAtual', parseInt(e.target.value) || 0)} className="h-12 rounded-xl" onBlur={() => persist(metasDemanda)} />
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            <div className="border-t border-black/5 dark:border-border pt-8 mt-4">
+              <h5 className="font-black text-xs uppercase tracking-widest text-muted-foreground/60 mb-6 flex items-center gap-2">
+                <Plus className="h-4 w-4" />Adicionar Nova Meta
+              </h5>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Tipo de Demanda</Label>
+                  <Input value={novaMeta.tipo} onChange={(e) => setNovaMeta({ ...novaMeta, tipo: e.target.value })} placeholder="Ex: Pensão por Morte" className="h-12 rounded-xl" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Meta Processos</Label>
+                  <Input type="number" value={novaMeta.metaProcessos} onChange={(e) => setNovaMeta({ ...novaMeta, metaProcessos: parseInt(e.target.value) || 0 })} className="h-12 rounded-xl" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Meta Faturamento</Label>
+                  <Input type="number" value={novaMeta.metaFaturamento} onChange={(e) => setNovaMeta({ ...novaMeta, metaFaturamento: parseInt(e.target.value) || 0 })} className="h-12 rounded-xl" />
+                </div>
+                <Button onClick={adicionarMeta} className="h-12 rounded-xl font-black uppercase text-xs tracking-widest">
+                  <Plus className="h-4 w-4 mr-2" />Adicionar
                 </Button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Meta de Processos</Label>
-                  <Input type="number" value={meta.metaProcessos} onChange={(e) => atualizarMeta(meta.id, 'metaProcessos', parseInt(e.target.value) || 0)} className="h-12 rounded-xl" onBlur={() => persist(metasDemanda)} />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Meta Faturamento (R$)</Label>
-                  <Input type="number" value={meta.metaFaturamento} onChange={(e) => atualizarMeta(meta.id, 'metaFaturamento', parseInt(e.target.value) || 0)} className="h-12 rounded-xl" onBlur={() => persist(metasDemanda)} />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Faturamento Atual (R$)</Label>
-                  <Input type="number" value={meta.faturamentoAtual} onChange={(e) => atualizarMeta(meta.id, 'faturamentoAtual', parseInt(e.target.value) || 0)} className="h-12 rounded-xl" onBlur={() => persist(metasDemanda)} />
-                </div>
-              </div>
+              <p className="text-[10px] text-muted-foreground/60 mt-3">
+                O "Tipo de Demanda" deve bater com o <strong>tipo do processo</strong> para o progresso de processos ser contado automaticamente.
+              </p>
             </div>
-          ))}
-
-          <div className="border-t border-black/5 dark:border-border pt-8 mt-4">
-            <h5 className="font-black text-xs uppercase tracking-widest text-muted-foreground/60 mb-6 flex items-center gap-2">
-              <Plus className="h-4 w-4" />Adicionar Nova Meta
-            </h5>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Tipo de Demanda</Label>
-                <Input value={novaMeta.tipo} onChange={(e) => setNovaMeta({ ...novaMeta, tipo: e.target.value })} placeholder="Ex: Pensão por Morte" className="h-12 rounded-xl" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Meta Processos</Label>
-                <Input type="number" value={novaMeta.metaProcessos} onChange={(e) => setNovaMeta({ ...novaMeta, metaProcessos: parseInt(e.target.value) || 0 })} className="h-12 rounded-xl" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Meta Faturamento</Label>
-                <Input type="number" value={novaMeta.metaFaturamento} onChange={(e) => setNovaMeta({ ...novaMeta, metaFaturamento: parseInt(e.target.value) || 0 })} className="h-12 rounded-xl" />
-              </div>
-              <Button onClick={adicionarMeta} className="h-12 rounded-xl font-black uppercase text-xs tracking-widest">
-                <Plus className="h-4 w-4 mr-2" />Adicionar
-              </Button>
-            </div>
-            <p className="text-[10px] text-muted-foreground/60 mt-3">
-              O "Tipo de Demanda" deve bater com o <strong>tipo do processo</strong> para o progresso de processos ser contado automaticamente.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </PermissionGuard>
     </div>
   );
 }

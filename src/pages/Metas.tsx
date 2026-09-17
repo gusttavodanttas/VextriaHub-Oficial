@@ -10,6 +10,7 @@ import { DemandGoalsConfig } from "@/components/Goals/DemandGoalsConfig";
 import { CreateGoalDialog } from "@/components/Goals/CreateGoalDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PermissionGuard } from "@/components/Auth/PermissionGuard";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useMetas, type Meta } from "@/hooks/useMetas";
 import { useOfficeTeams } from "@/hooks/useOfficeTeams";
 import { Users } from "lucide-react";
@@ -92,10 +93,12 @@ function MetaCard({ meta, onEdit, onDelete }: { meta: Meta; onEdit: (m: Meta) =>
             )}
           </div>
         </div>
-        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-          <Button size="icon" variant="ghost" onClick={() => onEdit(meta)} className="h-8 w-8 rounded-lg hover:bg-primary/10" aria-label="Editar meta"><Edit className="h-4 w-4" /></Button>
-          <Button size="icon" variant="ghost" onClick={() => onDelete(meta.id)} className="h-8 w-8 rounded-lg hover:bg-red-500/10 hover:text-red-500" aria-label="Excluir meta"><Trash2 className="h-4 w-4" /></Button>
-        </div>
+        <PermissionGuard permission="canManageMetas">
+          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+            <Button size="icon" variant="ghost" onClick={() => onEdit(meta)} className="h-8 w-8 rounded-lg hover:bg-primary/10" aria-label="Editar meta"><Edit className="h-4 w-4" /></Button>
+            <Button size="icon" variant="ghost" onClick={() => onDelete(meta.id)} className="h-8 w-8 rounded-lg hover:bg-red-500/10 hover:text-red-500" aria-label="Excluir meta"><Trash2 className="h-4 w-4" /></Button>
+          </div>
+        </PermissionGuard>
       </div>
 
       <div className="flex items-center gap-5">
@@ -130,8 +133,10 @@ const Metas = () => {
   const [editGoal, setEditGoal] = useState<any | null>(null);
   const { metas, loading, create, update, remove } = useMetas();
   const { teams } = useOfficeTeams();
+  const { canManageMetas } = usePermissions();
 
   const handleSaveGoal = (m: any) => {
+    if (!canManageMetas) return;
     const payload = { titulo: m.titulo, tipo: m.tipo, periodo: m.periodo, valorMeta: m.valorMeta, dataInicio: m.dataInicio, dataFim: m.dataFim, teamId: m.teamId ?? null };
     if (editGoal?.id) update(editGoal.id, payload);
     else create(payload);
@@ -139,10 +144,14 @@ const Metas = () => {
   };
 
   const handleDeleteGoal = (goalId: string) => {
+    if (!canManageMetas) return;
     remove(goalId);
   };
 
-  const openEdit = (meta: any) => { setEditGoal(meta); setCreateGoalOpen(true); };
+  const openEdit = (meta: any) => {
+    if (!canManageMetas) return;
+    setEditGoal(meta); setCreateGoalOpen(true);
+  };
 
   // Consolidação por tipo (visão do escritório) — usa as metas reais (RLS define o escopo)
   const TIPO_LABEL: Record<string, string> = {
@@ -199,16 +208,18 @@ const Metas = () => {
           </p>
         </div>
         
-        <div className="flex items-center gap-3 glass-morphism p-2 rounded-2xl border border-black/5 dark:border-border bg-black/[0.02] dark:bg-muted/30 shadow-premium">
-          <Button 
-            onClick={() => { setEditGoal(null); setCreateGoalOpen(true); }}
-            size="lg"
-            className="rounded-xl h-12 shadow-premium bg-primary hover:bg-primary/90 font-black uppercase text-xs tracking-widest px-8"
-          >
-            <Plus className="h-5 w-5 mr-2" />
-            Nova Meta
-          </Button>
-        </div>
+        <PermissionGuard permission="canManageMetas">
+          <div className="flex items-center gap-3 glass-morphism p-2 rounded-2xl border border-black/5 dark:border-border bg-black/[0.02] dark:bg-muted/30 shadow-premium">
+            <Button
+              onClick={() => { setEditGoal(null); setCreateGoalOpen(true); }}
+              size="lg"
+              className="rounded-xl h-12 shadow-premium bg-primary hover:bg-primary/90 font-black uppercase text-xs tracking-widest px-8"
+            >
+              <Plus className="h-5 w-5 mr-2" />
+              Nova Meta
+            </Button>
+          </div>
+        </PermissionGuard>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
@@ -266,10 +277,12 @@ const Metas = () => {
                       Comece a transformar sua produtividade criando sua primeira meta estratégica hoje.
                     </p>
                   </div>
-                  <Button onClick={() => { setEditGoal(null); setCreateGoalOpen(true); }} size="lg" className="rounded-2xl h-14 px-10 font-bold shadow-premium">
-                    <Plus className="h-6 w-6 mr-2" />
-                    Criar Primeira Meta
-                  </Button>
+                  <PermissionGuard permission="canManageMetas">
+                    <Button onClick={() => { setEditGoal(null); setCreateGoalOpen(true); }} size="lg" className="rounded-2xl h-14 px-10 font-bold shadow-premium">
+                      <Plus className="h-6 w-6 mr-2" />
+                      Criar Primeira Meta
+                    </Button>
+                  </PermissionGuard>
                 </div>
               )}
             </div>

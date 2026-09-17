@@ -190,15 +190,17 @@ const FinanceiroRow: React.FC<{
       </div>
 
       {item.tipo === "despesa" && (
-        <Select value={item.prioridade ?? NONE} onValueChange={(v) => onPrioridadeChange(item.id, v === NONE ? null : v)}>
-          <SelectTrigger className="w-[132px] h-8 rounded-lg text-[10px] shrink-0"><SelectValue placeholder="Prioridade" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value={NONE}>Não classificada</SelectItem>
-            {gruposPrioridade.map((g) => (
-              <SelectItem key={g.id} value={g.id}>{g.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <PermissionGuard permission="canManageFinanceiro">
+          <Select value={item.prioridade ?? NONE} onValueChange={(v) => onPrioridadeChange(item.id, v === NONE ? null : v)}>
+            <SelectTrigger className="w-[132px] h-8 rounded-lg text-[10px] shrink-0"><SelectValue placeholder="Prioridade" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NONE}>Não classificada</SelectItem>
+              {gruposPrioridade.map((g) => (
+                <SelectItem key={g.id} value={g.id}>{g.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </PermissionGuard>
       )}
 
       <div className="flex items-center gap-3 sm:ml-auto shrink-0">
@@ -211,36 +213,38 @@ const FinanceiroRow: React.FC<{
           {cfg.label}
         </Badge>
 
-        <div className="flex gap-1">
-          {item.status !== "pago" && item.status !== "cancelado" && (
-            <RegistrarPagamentoPopover item={item} loading={loadingId === item.id}
-              onConfirm={(valor) => onRegistrarPagamento(item, valor)}>
+        <PermissionGuard permission="canManageFinanceiro">
+          <div className="flex gap-1">
+            {item.status !== "pago" && item.status !== "cancelado" && (
+              <RegistrarPagamentoPopover item={item} loading={loadingId === item.id}
+                onConfirm={(valor) => onRegistrarPagamento(item, valor)}>
+                <Button size="icon" variant="ghost"
+                  className="h-8 w-8 rounded-xl hover:bg-emerald-500/10 hover:text-emerald-500"
+                  disabled={loadingId === item.id} title={item.tipo === "receita" ? "Registrar recebimento" : "Registrar pagamento"}
+                  aria-label={item.tipo === "receita" ? "Registrar recebimento" : "Registrar pagamento"}>
+                  {loadingId === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                </Button>
+              </RegistrarPagamentoPopover>
+            )}
+            <Button size="icon" variant="ghost"
+              className="h-8 w-8 rounded-xl hover:bg-primary/10 hover:text-primary"
+              onClick={() => onEdit(item)} title="Editar" aria-label="Editar lançamento">
+              <Pencil className="h-4 w-4" />
+            </Button>
+            {item.grupo_id && item.status === "pendente" && (
               <Button size="icon" variant="ghost"
-                className="h-8 w-8 rounded-xl hover:bg-emerald-500/10 hover:text-emerald-500"
-                disabled={loadingId === item.id} title={item.tipo === "receita" ? "Registrar recebimento" : "Registrar pagamento"}
-                aria-label={item.tipo === "receita" ? "Registrar recebimento" : "Registrar pagamento"}>
-                {loadingId === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                className="h-8 w-8 rounded-xl hover:bg-red-500/10 hover:text-red-500"
+                onClick={() => onCancelarGrupo(item.grupo_id!)} title="Cancelar lançamentos futuros do grupo" aria-label="Cancelar lançamentos futuros do grupo">
+                <X className="h-4 w-4" />
               </Button>
-            </RegistrarPagamentoPopover>
-          )}
-          <Button size="icon" variant="ghost"
-            className="h-8 w-8 rounded-xl hover:bg-primary/10 hover:text-primary"
-            onClick={() => onEdit(item)} title="Editar" aria-label="Editar lançamento">
-            <Pencil className="h-4 w-4" />
-          </Button>
-          {item.grupo_id && item.status === "pendente" && (
+            )}
             <Button size="icon" variant="ghost"
               className="h-8 w-8 rounded-xl hover:bg-red-500/10 hover:text-red-500"
-              onClick={() => onCancelarGrupo(item.grupo_id!)} title="Cancelar lançamentos futuros do grupo" aria-label="Cancelar lançamentos futuros do grupo">
-              <X className="h-4 w-4" />
+              onClick={() => onDelete(item.id)} title="Excluir" aria-label="Excluir lançamento">
+              <Trash2 className="h-4 w-4" />
             </Button>
-          )}
-          <Button size="icon" variant="ghost"
-            className="h-8 w-8 rounded-xl hover:bg-red-500/10 hover:text-red-500"
-            onClick={() => onDelete(item.id)} title="Excluir" aria-label="Excluir lançamento">
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
+          </div>
+        </PermissionGuard>
       </div>
     </div>
   );
@@ -254,9 +258,11 @@ const EmptyState: React.FC<{ label: string; onNew: () => void }> = ({ label, onN
       <DollarSign className="h-8 w-8 text-muted-foreground/40" />
     </div>
     <p className="text-lg font-black text-muted-foreground/60">{label}</p>
-    <Button className="rounded-xl font-black uppercase text-[10px] tracking-widest shadow-premium" onClick={onNew}>
-      <Plus className="h-4 w-4 mr-2" />Criar primeiro registro
-    </Button>
+    <PermissionGuard permission="canManageFinanceiro">
+      <Button className="rounded-xl font-black uppercase text-[10px] tracking-widest shadow-premium" onClick={onNew}>
+        <Plus className="h-4 w-4 mr-2" />Criar primeiro registro
+      </Button>
+    </PermissionGuard>
   </div>
 );
 
