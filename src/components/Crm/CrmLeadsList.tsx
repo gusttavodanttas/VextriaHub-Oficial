@@ -16,9 +16,10 @@ interface Props {
   tipo: "todos" | "quentes";
   data?: ClienteComProcessos[];
   refresh?: () => Promise<void>;
+  onManage?: (lead: ClienteComProcessos) => void;
 }
 
-export function CrmLeadsList({ onBack, tipo, data = [], refresh }: Props) {
+export function CrmLeadsList({ onBack, tipo, data = [], refresh, onManage }: Props) {
   const isQuentes = tipo === "quentes";
   const { user } = useAuth();
   const { toast } = useToast();
@@ -148,7 +149,7 @@ export function CrmLeadsList({ onBack, tipo, data = [], refresh }: Props) {
                           </Button>
                           </PermissionGuard>
                         )}
-                        <Button variant="outline" size="sm" className="rounded-xl border-black/5 dark:border-border hover:bg-primary hover:text-foreground transition-all font-bold">
+                        <Button variant="outline" size="sm" onClick={() => onManage?.(lead)} className="rounded-xl border-black/5 dark:border-border hover:bg-primary hover:text-foreground transition-all font-bold">
                           Gerenciar
                         </Button>
                       </div>

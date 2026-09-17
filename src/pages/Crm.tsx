@@ -127,9 +127,9 @@ export default function Crm() {
   const renderSpecificView = () => {
     switch (currentView) {
       case "leads":
-        return <CrmLeadsList onBack={handleBackToMain} tipo="todos" data={leads} refresh={refresh} />;
+        return <CrmLeadsList onBack={handleBackToMain} tipo="todos" data={leads} refresh={refresh} onManage={handleOpportunityClick} />;
       case "leads-quentes":
-        return <CrmLeadsList onBack={handleBackToMain} tipo="quentes" data={leads.filter(l => l.status === "quente")} refresh={refresh} />;
+        return <CrmLeadsList onBack={handleBackToMain} tipo="quentes" data={leads.filter(l => l.status === "quente")} refresh={refresh} onManage={handleOpportunityClick} />;
       case "receita-potencial":
         return <CrmPipelineVendas onBack={handleBackToMain} data={allClientes} loading={loading} />;
       case "funil-vendas":

@@ -238,11 +238,15 @@ export function CrmOportunidadeDetail({ onBack, opportunity }: Props) {
               <div className="space-y-3">
                 <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground opacity-60">Ações Rápidas</h4>
                 <div className="grid grid-cols-2 gap-2">
-                  <Button variant="outline" className="rounded-xl font-bold h-11 text-xs gap-2">
-                    <Mail className="h-4 w-4" /> E-mail
+                  <Button asChild variant="outline" className={cn("rounded-xl font-bold h-11 text-xs gap-2", !opportunity?.email && "pointer-events-none opacity-50")}>
+                    <a href={opportunity?.email ? `mailto:${opportunity.email}` : undefined}>
+                      <Mail className="h-4 w-4" /> E-mail
+                    </a>
                   </Button>
-                  <Button variant="outline" className="rounded-xl font-bold h-11 text-xs gap-2">
-                    <Phone className="h-4 w-4" /> Ligar
+                  <Button asChild variant="outline" className={cn("rounded-xl font-bold h-11 text-xs gap-2", !opportunity?.telefone && "pointer-events-none opacity-50")}>
+                    <a href={opportunity?.telefone ? `tel:${opportunity.telefone}` : undefined}>
+                      <Phone className="h-4 w-4" /> Ligar
+                    </a>
                   </Button>
                 </div>
               </div>
