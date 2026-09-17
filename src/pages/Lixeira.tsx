@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { assertRowsAffected, getErrorMessage } from '@/lib/errors';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +23,9 @@ import {
   Clock,
   X,
   Building2,
+  UserCircle2,
+  Target,
+  Wallet,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatCNJ } from '@/utils/formatCNJ';
@@ -57,6 +61,12 @@ const TABELA_CONFIG: Record<string, { label: string; icon: any; color: string }>
   tarefas: { label: 'Tarefa', icon: ListTodo, color: 'text-emerald-600 bg-emerald-500/10 border-emerald-500/20' },
   timesheets: { label: 'Timesheet', icon: Timer, color: 'text-orange-600 bg-orange-500/10 border-orange-500/20' },
   processos_descartados: { label: 'Descartado (OAB)', icon: X, color: 'text-rose-600 bg-rose-500/10 border-rose-500/20' },
+  // Estas 3 também passam pela fila de exclusões pendentes (Admin > Solicitações),
+  // mas até aqui não tinham NENHUMA tela para restaurar/purgar depois de aprovadas
+  // — o registro ficava soft-deletado (deletado=true) pra sempre, sem volta.
+  clientes: { label: 'Cliente', icon: UserCircle2, color: 'text-teal-600 bg-teal-500/10 border-teal-500/20' },
+  metas: { label: 'Meta', icon: Target, color: 'text-fuchsia-600 bg-fuchsia-500/10 border-fuchsia-500/20' },
+  financeiro: { label: 'Financeiro', icon: Wallet, color: 'text-lime-600 bg-lime-500/10 border-lime-500/20' },
 };
 
 const fmtDate = (d: string) => new Date(d).toLocaleDateString('pt-BR');
@@ -158,6 +168,30 @@ export default function Lixeira() {
         excluido_em: t.updated_at || t.created_at || '', office_id: t.office_id, office_name: officeMap[t.office_id || ''] || '—', user_id: t.user_id, dados: t,
       }));
 
+      const { data: clis } = await applyTenantFilter(supabase.from('clientes').select('*').eq('deletado', true)).order('updated_at', { ascending: false });
+      (clis || []).forEach(c => results.push({
+        id: c.id, tabela: 'clientes',
+        titulo: c.nome,
+        descricao: c.email || c.telefone || '',
+        excluido_em: c.updated_at, office_id: c.office_id, office_name: officeMap[c.office_id] || '—', user_id: (c as any).user_id, dados: c,
+      }));
+
+      const { data: metasRows } = await applyTenantFilter(supabase.from('metas').select('*').eq('deletado', true)).order('updated_at', { ascending: false });
+      (metasRows || []).forEach(m => results.push({
+        id: m.id, tabela: 'metas',
+        titulo: m.titulo,
+        descricao: `Meta: R$ ${Number(m.valor_meta || 0).toFixed(2)}`,
+        excluido_em: m.updated_at, office_id: m.office_id, office_name: officeMap[m.office_id] || '—', user_id: m.user_id, dados: m,
+      }));
+
+      const { data: fin } = await applyTenantFilter(supabase.from('financeiro').select('*').eq('deletado', true)).order('updated_at', { ascending: false });
+      (fin || []).forEach(f => results.push({
+        id: f.id, tabela: 'financeiro',
+        titulo: f.descricao || (f.tipo === 'receita' ? 'Receita' : 'Despesa'),
+        descricao: `${f.tipo} · R$ ${Number(f.valor || 0).toFixed(2)}`,
+        excluido_em: f.updated_at, office_id: f.office_id, office_name: officeMap[f.office_id] || '—', user_id: f.user_id, dados: f,
+      }));
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tabela dinâmica: o genérico estoura o limite de instanciação do Supabase só aqui
       const { data: desc } = await applyTenantFilter<any>(supabase.from('processos_descartados').select('*')).order('created_at', { ascending: false });
       (desc || []).forEach((d: any) => results.push({
@@ -185,16 +219,17 @@ export default function Lixeira() {
     setRestoring(item.id);
     try {
       // Postgres/PostgREST NÃO lança erro quando a RLS bloqueia um UPDATE/DELETE — só
-      // casa 0 linhas e devolve sucesso. Sem checar `error` (e, no restore, a contagem
-      // de linhas), um restore/exclusão barrado pela RLS mostrava "sucesso" com a linha
-      // intocada no banco, reaparecendo só depois de um F5.
-      let error;
+      // casa 0 linhas e devolve sucesso. O comentário anterior já avisava disso, mas o
+      // código nunca chegou a encadear `.select('id')` pra conferir a contagem — um
+      // restore barrado pela RLS mostrava "sucesso" com a linha intocada no banco,
+      // reaparecendo só depois de um F5. assertRowsAffected fecha essa checagem de vez.
+      let data: { id: string }[] | null, error: unknown;
       if (item.tabela === 'processos') {
-        ({ error } = await tenantGuard(supabase.from('processos').update({ deletado: false, deletado_pendente: false }).eq('id', item.id), item));
+        ({ data, error } = await tenantGuard(supabase.from('processos').update({ deletado: false, deletado_pendente: false }).eq('id', item.id), item).select('id'));
       } else if (item.tabela === 'publicacoes') {
-        ({ error } = await tenantGuard(supabase.from('publicacoes').update({ status: 'lida' }).eq('id', item.id), item));
+        ({ data, error } = await tenantGuard(supabase.from('publicacoes').update({ status: 'lida' }).eq('id', item.id), item).select('id'));
       } else if (item.tabela === 'processos_descartados') {
-        ({ error } = await tenantGuard(supabase.from('processos_descartados').delete().eq('id', item.id), item));
+        ({ data, error } = await tenantGuard(supabase.from('processos_descartados').delete().eq('id', item.id), item).select('id'));
       } else {
         if (!TABELAS_PERMITIDAS.has(item.tabela)) throw new Error('Tabela não permitida');
         // prazos não tem a coluna deletado_pendente — enviar o campo faz o restore inteiro falhar (item fica preso na lixeira).
@@ -203,13 +238,13 @@ export default function Lixeira() {
         // item.tabela é dinâmico (guardado só em runtime por TABELAS_PERMITIDAS) --
         // não dá pra tipar estaticamente o shape exato do update pra uma tabela
         // que só se conhece em tempo de execução.
-        ({ error } = await tenantGuard(fromTabela(item.tabela).update(restorePatch as any).eq('id', item.id), item));
+        ({ data, error } = await tenantGuard(fromTabela(item.tabela).update(restorePatch as any).eq('id', item.id), item).select('id'));
       }
-      if (error) throw error;
+      assertRowsAffected(data, error, 1);
       toast({ title: 'Restaurado', description: `${TABELA_CONFIG[item.tabela]?.label || item.tabela} restaurado com sucesso.` });
       setItems(prev => prev.filter(i => i.id !== item.id));
     } catch (err: unknown) {
-      toast({ title: 'Erro ao restaurar', description: err instanceof Error ? err.message : 'Erro desconhecido', variant: 'destructive' });
+      toast({ title: 'Erro ao restaurar', description: getErrorMessage(err), variant: 'destructive' });
     } finally {
       setRestoring(null);
     }
@@ -220,12 +255,12 @@ export default function Lixeira() {
     setDeleting(true);
     try {
       if (!TABELAS_PERMITIDAS.has(confirmDelete.tabela)) throw new Error('Tabela não permitida');
-      const { error } = await tenantGuard(fromTabela(confirmDelete.tabela).delete().eq('id', confirmDelete.id), confirmDelete);
-      if (error) throw error;
+      const { data, error } = await tenantGuard(fromTabela(confirmDelete.tabela).delete().eq('id', confirmDelete.id), confirmDelete).select('id');
+      assertRowsAffected(data, error, 1);
       toast({ title: 'Excluído permanentemente' });
       setItems(prev => prev.filter(i => i.id !== confirmDelete.id));
     } catch (err: unknown) {
-      toast({ title: 'Erro', description: err instanceof Error ? err.message : 'Erro desconhecido', variant: 'destructive' });
+      toast({ title: 'Erro', description: getErrorMessage(err), variant: 'destructive' });
     } finally {
       setDeleting(false);
       setConfirmDelete(null);

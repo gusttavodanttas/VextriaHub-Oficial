@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useUserRole } from '@/hooks/useUserRole';
+import { assertRowsAffected } from '@/lib/errors';
 import { ExclusaoPendente } from '@/types/database';
 
 export const useExclusoesPendentes = () => {
@@ -71,16 +72,20 @@ export const useExclusoesPendentes = () => {
       const exclusao = data.find(e => e.id === exclusaoId);
       if (!exclusao) return false;
 
-      // Atualizar o registro original para deletado = true
-      const { error: deleteError } = await supabase
+      // Atualizar o registro original para deletado = true. Postgres/PostgREST NÃO
+      // lança erro quando a RLS bloqueia o UPDATE — só casa 0 linhas e devolve
+      // sucesso, então sem conferir a contagem via .select() a exclusão aparecia
+      // como "aprovada" mesmo com o registro intocado no banco.
+      const { data: updated, error: deleteError } = await supabase
         .from(exclusao.tabela as any)
-        .update({ 
-          deletado: true, 
-          deletado_pendente: false 
+        .update({
+          deletado: true,
+          deletado_pendente: false
         })
-        .eq('id', exclusao.registro_id);
+        .eq('id', exclusao.registro_id)
+        .select('id');
 
-      if (deleteError) throw deleteError;
+      assertRowsAffected(updated, deleteError, 1);
 
       // Atualizar status da exclusão pendente
       const { error: updateError } = await supabase
@@ -120,13 +125,15 @@ export const useExclusoesPendentes = () => {
       const exclusao = data.find(e => e.id === exclusaoId);
       if (!exclusao) return false;
 
-      // Reverter o registro original (tirar o deletado_pendente)
-      const { error: revertError } = await supabase
+      // Reverter o registro original (tirar o deletado_pendente) — mesma checagem
+      // de contagem que aprovarExclusao, pelo mesmo motivo (RLS bloqueia em silêncio).
+      const { data: updated, error: revertError } = await supabase
         .from(exclusao.tabela as any)
         .update({ deletado_pendente: false })
-        .eq('id', exclusao.registro_id);
+        .eq('id', exclusao.registro_id)
+        .select('id');
 
-      if (revertError) throw revertError;
+      assertRowsAffected(updated, revertError, 1);
 
       // Atualizar status da exclusão pendente
       const { error: updateError } = await supabase
@@ -167,19 +174,22 @@ export const useExclusoesPendentes = () => {
 
       // Aprovar cada exclusão, mas só marca como 'aprovado' quem o delete
       // realmente confirmou -- senão o log de auditoria mente sobre um
-      // registro que continua existindo no banco.
+      // registro que continua existindo no banco. O `.select('id')` é o que
+      // torna essa checagem real: sem ele, um update bloqueado pela RLS
+      // devolve 0 linhas sem erro nenhum e contava como sucesso.
       const succeededIds: string[] = [];
       const failedIds: string[] = [];
       for (const exclusao of exclusoes) {
-        const { error: deleteError } = await supabase
+        const { data: updated, error: deleteError } = await supabase
           .from(exclusao.tabela as any)
           .update({
             deletado: true,
             deletado_pendente: false
           })
-          .eq('id', exclusao.registro_id);
+          .eq('id', exclusao.registro_id)
+          .select('id');
 
-        if (deleteError) {
+        if (deleteError || !updated?.length) {
           failedIds.push(exclusao.id);
         } else {
           succeededIds.push(exclusao.id);
