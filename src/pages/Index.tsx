@@ -109,7 +109,7 @@ const Index = () => {
   const myStats = useMyStats();
   const { items: activity, loading: activityLoading } = useMyActivity(6);
   const { prefs, toggle, move } = useDashboardPrefs();
-  const { canViewMetas, canCreateProcesses } = usePermissions();
+  const { canViewMetas, canCreateProcesses, canViewFinanceiro } = usePermissions();
   const { create: createCliente } = useClientes();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -185,7 +185,14 @@ const Index = () => {
 
   // Blocos grandes (coluna principal) vs cards (lateral), na ordem do usuário.
   const MAIN_KEYS = ["agenda", "grafico", "prazos", "tarefas"];
-  const isVisible = (k: string) => prefs.widgets[k] && (k !== "metas" || canViewMetas);
+  // "financeiro" e "grafico" mostram receita/despesa do escritório (o segundo via
+  // MiniFinanceChart, que consulta a tabela financeiro direto) — sem esta checagem,
+  // um usuário sem canViewFinanceiro via os mesmos números que a tela /financeiro
+  // esconde dele.
+  const isVisible = (k: string) =>
+    prefs.widgets[k]
+    && (k !== "metas" || canViewMetas)
+    && ((k !== "financeiro" && k !== "grafico") || canViewFinanceiro);
   const mainBlocks = prefs.order.filter((k) => MAIN_KEYS.includes(k) && isVisible(k));
   const sideBlocks = prefs.order.filter((k) => !MAIN_KEYS.includes(k) && isVisible(k));
 
@@ -343,7 +350,7 @@ const Index = () => {
       </div>
 
       <QuickViewSheet view={sheetView} onClose={() => setSheetView(null)} />
-      <DashboardCustomize open={customizeOpen} onClose={() => setCustomizeOpen(false)} prefs={prefs} toggle={toggle} move={move} canViewMetas={canViewMetas} />
+      <DashboardCustomize open={customizeOpen} onClose={() => setCustomizeOpen(false)} prefs={prefs} toggle={toggle} move={move} canViewMetas={canViewMetas} canViewFinanceiro={canViewFinanceiro} />
 
       {/* Modais de criação rápida */}
       <NovoProcessoDialog open={openModal === "processo"} onOpenChange={(o) => !o && setOpenModal(null)} onSuccess={onModalSuccess} />
