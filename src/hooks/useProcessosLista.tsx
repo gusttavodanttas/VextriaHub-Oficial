@@ -32,6 +32,7 @@ export interface ProcessosListaResult {
   total: number;
   loading: boolean;
   error: string | null;
+  refetch: () => void;
 }
 
 /**
@@ -46,7 +47,7 @@ export function useProcessosLista(params: ProcessosListaParams): ProcessosListaR
   const q = (search || '').trim();
   const teamKey = (responsavelIds || []).join(',');
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['processos', 'lista', user?.id, user?.office_id, page, pageSize, dbStatus, q, clienteNome || 'all', teamKey],
     queryFn: async () => {
       if (!user?.id) return { rows: [] as Processo[], total: 0 };
@@ -103,6 +104,7 @@ export function useProcessosLista(params: ProcessosListaParams): ProcessosListaR
     total: data?.total ?? 0,
     loading: isLoading,
     error: error ? getErrorMessage(error) : null,
+    refetch: () => { refetch(); },
   };
 }
 

@@ -364,7 +364,7 @@ export default function ConsultivoPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { canManageConsultivo } = usePermissions();
-  const { data, loading, create, update, remove } = useConsultivos();
+  const { data, loading, error, create, update, remove, refetch } = useConsultivos();
   const { users: officeUsers } = useOfficeUsers();
   const membros = useMemo(() => officeUsers.map(u => ({
     id: u.user_id,
@@ -403,10 +403,28 @@ export default function ConsultivoPage() {
       .then(({ data: rows }) => setClientes(rows || []));
   }, [user?.office_id]);
 
-  // effective categories: DB ones if exist, otherwise defaults for UI
-  const effectiveCats = categorias.length > 0 ? categorias : DEFAULT_CATS.map((d, i) => ({
-    ...d, id: d.valor, office_id: null, ordem: i, created_at: "",
-  }));
+  // effective categories: DB ones if exist, otherwise defaults for UI. Quando o
+  // escritório já tem categorias reais, consultivos antigos gravados com uma
+  // categoria padrão (DEFAULT_CATS) que nunca foi migrada pro office ficam
+  // "órfãos": sem entrada em `categorias`, apareciam com o slug cru como rótulo
+  // e sem nenhum filtro que os alcançasse. Sintetiza uma entrada pra cada
+  // categoria órfã encontrada nos dados (usando o rótulo padrão quando bate com
+  // um slug conhecido) pra ela ganhar rótulo e filtro de volta.
+  const effectiveCats = useMemo(() => {
+    if (categorias.length === 0) {
+      return DEFAULT_CATS.map((d, i) => ({ ...d, id: d.valor, office_id: null, ordem: i, created_at: "" }));
+    }
+    const known = new Set(categorias.map((c) => c.valor));
+    const orfas = Array.from(new Set(data.map((c) => c.categoria).filter((v): v is string => !!v && !known.has(v))));
+    const orfasCfg = orfas.map((valor, i) => {
+      const padrao = DEFAULT_CATS.find((d) => d.valor === valor);
+      return {
+        valor, label: padrao?.label ?? valor, cor: padrao?.cor ?? "blue", icone: padrao?.icone ?? "FileText",
+        id: `orfa:${valor}`, office_id: null, ordem: categorias.length + i, created_at: "",
+      };
+    });
+    return [...categorias, ...orfasCfg];
+  }, [categorias, data]);
 
   function getCatCfg(valor: string) {
     const cat = effectiveCats.find(c => c.valor === valor);
@@ -591,6 +609,19 @@ export default function ConsultivoPage() {
         {loading ? (
           <div className="space-y-3">
             {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 w-full rounded-2xl" />)}
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+            <div className="p-5 rounded-2xl bg-destructive/10">
+              <AlertTriangle className="h-10 w-10 text-destructive/60" />
+            </div>
+            <div>
+              <p className="font-bold text-base">Não foi possível carregar os consultivos</p>
+              <p className="text-sm text-muted-foreground mt-1">{error}</p>
+            </div>
+            <Button variant="outline" onClick={refetch} className="rounded-xl font-black gap-2 mt-2">
+              Tentar novamente
+            </Button>
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">

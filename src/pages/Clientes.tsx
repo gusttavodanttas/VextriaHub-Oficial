@@ -9,7 +9,7 @@ import { Client } from "@/types/client";
 import { useClientes } from "@/hooks/useClientes";
 import { cn } from "@/lib/utils";
 
-import { Users, Plus, Search, LayoutGrid, List, UserCheck, UserX, Building2, User, Download, Cake, ArrowUpDown, MessageCircle } from "lucide-react";
+import { Users, Plus, Search, LayoutGrid, List, UserCheck, UserX, Building2, User, Download, Cake, ArrowUpDown, MessageCircle, AlertTriangle } from "lucide-react";
 import { useMyTeams } from "@/hooks/useMyTeams";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,7 @@ import { NovoClienteDialog } from "@/components/Clientes/NovoClienteDialog";
 import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
 import { ClientsSelectionControls } from "@/components/Clientes/ClientsSelectionControls";
 import { ClientsEmptyState } from "@/components/Clientes/ClientsEmptyState";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 
 // Stat card
@@ -49,6 +50,8 @@ const Clientes = () => {
   const {
     data: dbClientes,
     loading,
+    error: dbError,
+    refresh: refetchClientes,
     create,
     update,
     requestMultipleDelete,
@@ -368,6 +371,14 @@ const Clientes = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {[1, 2, 3, 4, 5, 6].map((i) => <Skeleton key={i} className="h-64 w-full rounded-2xl" />)}
         </div>
+      ) : dbError ? (
+        <EmptyState
+          icon={AlertTriangle}
+          title="Não foi possível carregar os clientes"
+          description={dbError}
+          actionLabel="Tentar novamente"
+          onAction={refetchClientes}
+        />
       ) : showEmptyState ? (
         <ClientsEmptyState onNewClient={() => setNovoClienteDialogOpen(true)} />
       ) : (
