@@ -24,9 +24,10 @@ interface Props {
   toggle: (group: "widgets" | "actions", k: string, v: boolean) => void;
   move: (k: string, dir: -1 | 1) => void;
   canViewMetas: boolean;
+  canViewFinanceiro: boolean;
 }
 
-export function DashboardCustomize({ open, onClose, prefs, toggle, move, canViewMetas }: Props) {
+export function DashboardCustomize({ open, onClose, prefs, toggle, move, canViewMetas, canViewFinanceiro }: Props) {
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="rounded-[2rem] max-h-[85vh] overflow-y-auto">
@@ -41,7 +42,7 @@ export function DashboardCustomize({ open, onClose, prefs, toggle, move, canView
             <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">Blocos (arraste a ordem com as setas)</p>
             <div className="grid gap-2">
               {prefs.order.map((k, idx) => {
-                const disabled = k === "metas" && !canViewMetas;
+                const disabled = (k === "metas" && !canViewMetas) || ((k === "financeiro" || k === "grafico") && !canViewFinanceiro);
                 const checked = !disabled && !!prefs.widgets[k];
                 return (
                   <div key={k} className={`flex items-center gap-2 p-2.5 rounded-xl border border-black/5 dark:border-border ${disabled ? "opacity-50" : ""}`}>
