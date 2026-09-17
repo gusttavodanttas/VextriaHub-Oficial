@@ -5,6 +5,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useProcessosV2 } from '@/hooks/useProcessosV2';
 import { useQueryClient } from '@tanstack/react-query';
 import { Processo } from '@/types/processo';
+import { usePermissions } from '@/hooks/usePermissions';
+import { getErrorMessage, assertRowsAffected } from '@/lib/errors';
 
 export interface Movimentacao {
   id: string;
@@ -26,8 +28,12 @@ interface AndamentoConfirmState { all: any[]; novos: any[]; meta: any; processoI
 export function useProcessoMovimentacoes(processo: Processo | null, open: boolean) {
   const { user, profile } = useAuth();
   const { persistAndamentos } = useProcessosV2();
+  const { canDeleteProcesses } = usePermissions();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  // Processo compartilhado (sharedFrom) nunca pode ter andamentos excluídos por quem
+  // recebeu o compartilhamento — só o escritório dono, e só com a permissão granular.
+  const canDeleteMovement = !processo?.sharedFrom && canDeleteProcesses;
 
   const [movements, setMovements] = useState<Movimentacao[]>([]);
   const [loadingMovements, setLoadingMovements] = useState(false);
@@ -51,14 +57,23 @@ export function useProcessoMovimentacoes(processo: Processo | null, open: boolea
 
   // Exclui um andamento (movimentação) específico — usado para remover andamentos errados
   const handleDeleteMovement = useCallback(async (id: string) => {
+    if (!canDeleteMovement) return;
     setDelMovLoading(true);
-    const { error } = await supabase.from('movimentacoes_processo').delete().eq('id', id);
-    setDelMovLoading(false);
-    if (error) { toast({ title: 'Erro ao excluir', description: error.message, variant: 'destructive' }); return; }
-    setMovements(prev => prev.filter(m => m.id !== id));
-    setConfirmDelMov(null);
-    toast({ title: 'Andamento excluído' });
-  }, [toast]);
+    try {
+      // A RLS não lança erro quando bloqueia o delete (ex.: processo de outro escritório
+      // com sharedFrom) — só casa 0 linhas e "sucede" em silêncio. Sem o .select() + a
+      // checagem abaixo, o toast dizia "excluído" com a linha intocada no banco.
+      const { data, error } = await supabase.from('movimentacoes_processo').delete().eq('id', id).select('id');
+      assertRowsAffected(data, error, 1);
+      setMovements(prev => prev.filter(m => m.id !== id));
+      setConfirmDelMov(null);
+      toast({ title: 'Andamento excluído' });
+    } catch (e: unknown) {
+      toast({ title: 'Erro ao excluir', description: getErrorMessage(e), variant: 'destructive' });
+    } finally {
+      setDelMovLoading(false);
+    }
+  }, [canDeleteMovement, toast]);
 
   const syncFromOrigin = useCallback(async () => {
     if (!processo?.id || !processo.numeroProcesso || syncing) return;
@@ -135,6 +150,6 @@ export function useProcessoMovimentacoes(processo: Processo | null, open: boolea
   return {
     movements, loadingMovements, confirmDelMov, setConfirmDelMov, delMovLoading,
     syncing, andamentoConfirm, setAndamentoConfirm, lastSyncedProcessoId, setLastSyncedProcessoId,
-    fetchMovements, handleDeleteMovement, syncFromOrigin, confirmAndamentos,
+    fetchMovements, handleDeleteMovement, syncFromOrigin, confirmAndamentos, canDeleteMovement,
   };
 }
