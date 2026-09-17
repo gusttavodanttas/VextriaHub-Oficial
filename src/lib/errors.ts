@@ -27,3 +27,16 @@ export function assertRowsAffected(data: unknown[] | null, error: unknown, expec
   if (error) throw error;
   if ((data?.length ?? 0) < expected) throw new Error(PERMISSAO_NEGADA);
 }
+
+// Algumas queries (ex.: tarefa_subtarefas, tarefa_comentarios) tratavam QUALQUER
+// erro como "tabela ainda não existe nesse ambiente" e devolviam [] silenciosamente
+// — o que escondia falhas reais de rede/RLS como se fosse "sem itens". Só a tabela
+// genuinamente ausente do schema cache do PostgREST (42P01 undefined_table,
+// PGRST205 quando a tabela não está exposta) deve ter esse fallback; qualquer outro
+// erro precisa subir e aparecer pro usuário.
+export function isMissingTableError(error: unknown): boolean {
+  const code = error && typeof error === "object" && "code" in error ? (error as { code?: unknown }).code : undefined;
+  if (code === "42P01" || code === "PGRST205") return true;
+  const msg = getErrorMessage(error, "").toLowerCase();
+  return msg.includes("does not exist") || msg.includes("schema cache");
+}

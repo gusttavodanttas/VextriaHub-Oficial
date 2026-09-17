@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { isMissingTableError } from "@/lib/errors";
 
 export interface TarefaComentario {
   id: string;
@@ -28,7 +29,10 @@ export function useTarefaComentarios(tarefaId: string | null | undefined) {
         .eq("tarefa_id", tarefaId!)
         .eq("deletado", false)
         .order("created_at", { ascending: true });
-      if (error) return []; // tabela ainda não criada → sem comentários
+      if (error) {
+        if (isMissingTableError(error)) return []; // tabela ainda não criada → sem comentários
+        throw error;
+      }
       return (data || []) as TarefaComentario[];
     },
   });
@@ -59,5 +63,13 @@ export function useTarefaComentarios(tarefaId: string | null | undefined) {
     onError: (e) => toast({ title: "Erro ao excluir", description: e.message, variant: "destructive" }),
   });
 
-  return { comentarios: query.data || [], isLoading: query.isLoading, add, remove };
+  return {
+    comentarios: query.data || [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+    add,
+    remove,
+  };
 }
