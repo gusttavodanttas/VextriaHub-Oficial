@@ -79,6 +79,7 @@ export default function Prazos() {
     aceitarMutation, concludeMutation, reopenMutation, deleteMutation,
     bulkConcludeMutation, bulkDeleteMutation, bulkAssignMutation,
   } = usePrazosData({
+    showConcluidos,
     onDeleted: () => setDeleteTarget(null),
     onBulkDone: () => multiSelect.clearSelection(),
     onBulkDeleted: () => { multiSelect.clearSelection(); setBulkDeleteOpen(false); },
