@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -28,10 +28,6 @@ import {
   Link2Off,
   Copy,
   Check,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -40,13 +36,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Tooltip,
   TooltipContent,
@@ -74,6 +63,8 @@ interface Publication {
 }
 
 interface PublicationTableProps {
+  // Já vem paginado pelo servidor (usePublicacoesLista, ver Publicacoes.tsx) — esta
+  // tabela renderiza a página inteira que recebe, sem paginar de novo por cima.
   publications: Publication[];
   onViewDetails: (pub: Publication) => void;
   onDelete: (id: string) => void;
@@ -84,9 +75,6 @@ interface PublicationTableProps {
   onToggleSelection: (id: string) => void;
   onToggleAll: () => void;
 }
-
-const PAGE_SIZE_OPTIONS = [10, 25, 50];
-
 
 export const PublicationTable = ({
   publications,
@@ -103,8 +91,6 @@ export const PublicationTable = ({
   const { canManagePublicacoes } = usePermissions();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(25);
 
   // Esconde a coluna "Tribunal" (menos essencial) quando o espaço aperta —
   // ex.: menu lateral expandido — para Status e Ações continuarem visíveis.
@@ -120,14 +106,6 @@ export const PublicationTable = ({
     return () => ro.disconnect();
   }, []);
   const colCount = narrow ? 7 : 8;
-
-  const totalPages = Math.ceil(publications.length / pageSize);
-  const paginated = useMemo(() => publications.slice(page * pageSize, (page + 1) * pageSize), [publications, page, pageSize]);
-
-  const handlePageSizeChange = (val: string) => {
-    setPageSize(Number(val));
-    setPage(0);
-  };
 
   const handleCopy = (text: string, id: string) => {
     const clean = deepCleanHTML(text);
@@ -165,7 +143,7 @@ export const PublicationTable = ({
                 <TableRow className="border-border hover:bg-transparent">
                   <TableHead className="w-12 py-5 pl-4">
                     <Checkbox
-                      checked={paginated.length > 0 && selectedIds.length === publications.length}
+                      checked={publications.length > 0 && selectedIds.length === publications.length}
                       onCheckedChange={onToggleAll}
                       className="rounded-lg border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                     />
@@ -196,7 +174,7 @@ export const PublicationTable = ({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginated.map((pub) => {
+                {publications.map((pub) => {
                   const statusCfg = getStatusConfig(pub.status);
                   const urgCfg = getUrgencyConfig(pub.urgencia);
                   const isExpanded = expandedId === pub.id;
@@ -509,70 +487,6 @@ export const PublicationTable = ({
             </Table>
           </div>
         </div>
-
-        {/* Pagination */}
-        {publications.length > PAGE_SIZE_OPTIONS[0] && (
-          <div className="flex items-center justify-between px-4">
-            <div className="flex items-center gap-3">
-              <span className="text-[10px] uppercase font-black tracking-widest text-muted-foreground/50">Exibindo</span>
-              <Select value={String(pageSize)} onValueChange={handlePageSizeChange}>
-                <SelectTrigger className="w-[72px] h-8 rounded-xl text-xs font-bold border-border bg-card/50">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl bg-background border-border">
-                  {PAGE_SIZE_OPTIONS.map(n => (
-                    <SelectItem key={n} value={String(n)}>{n}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <span className="text-[10px] uppercase font-black tracking-widest text-muted-foreground/50">
-                de {publications.length}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 w-8 p-0 rounded-xl border-border"
-                disabled={page === 0}
-                onClick={() => setPage(0)}
-              >
-                <ChevronsLeft className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 w-8 p-0 rounded-xl border-border"
-                disabled={page === 0}
-                onClick={() => setPage(p => p - 1)}
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-              </Button>
-              <span className="text-xs font-black text-muted-foreground px-3">
-                {page + 1} / {totalPages || 1}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 w-8 p-0 rounded-xl border-border"
-                disabled={page >= totalPages - 1}
-                onClick={() => setPage(p => p + 1)}
-              >
-                <ChevronRight className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 w-8 p-0 rounded-xl border-border"
-                disabled={page >= totalPages - 1}
-                onClick={() => setPage(totalPages - 1)}
-              >
-                <ChevronsRight className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
     </TooltipProvider>
   );
