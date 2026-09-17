@@ -51,6 +51,7 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
+  AlertTriangle,
   Mail,
   MapPin,
   Settings2,
@@ -436,7 +437,7 @@ const Atendimentos = () => {
       </div>
 
       {/* Contagem */}
-      {!query.isLoading && view === "lista" && (
+      {!query.isLoading && !query.isError && view === "lista" && (
         <p className="text-xs text-muted-foreground/60 font-bold uppercase tracking-widest -mt-4">
           {filtered.length} atendimento{filtered.length !== 1 ? "s" : ""}
           {(filtroStatus !== "todos" || filtroTipo !== "todos" || filtroResp !== "todos" || filtroPeriodo !== "todos" || busca) ? " encontrado" + (filtered.length !== 1 ? "s" : "") : ""}
@@ -447,6 +448,21 @@ const Atendimentos = () => {
       {query.isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {[1,2,3,4,5,6].map((i) => <Skeleton key={i} className="h-44 w-full rounded-2xl" />)}
+        </div>
+      ) : query.isError ? (
+        <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
+          <div className="h-16 w-16 rounded-3xl bg-destructive/10 flex items-center justify-center">
+            <AlertTriangle className="h-8 w-8 text-destructive/60" />
+          </div>
+          <div>
+            <p className="text-lg font-black text-muted-foreground/60">Não foi possível carregar os atendimentos</p>
+            <p className="text-sm text-muted-foreground/40 mt-1">
+              {query.error instanceof Error ? query.error.message : "Tente novamente em instantes."}
+            </p>
+          </div>
+          <Button onClick={() => query.refetch()} variant="outline" className="rounded-xl font-black uppercase text-[10px] tracking-widest mt-2">
+            Tentar novamente
+          </Button>
         </div>
       ) : view === "semana" ? (
         <WeekView

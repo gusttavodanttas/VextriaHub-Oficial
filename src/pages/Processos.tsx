@@ -7,7 +7,7 @@ import { useProcessosV2, mapDatabaseToProcesso } from '@/hooks/useProcessosV2';
 import { useProcessosLista, useProcessosStatusCounts } from '@/hooks/useProcessosLista';
 import { supabase } from '@/integrations/supabase/client';
 import { useProcessShares } from '@/hooks/useProcessShares';
-import { FileText, Loader2, RotateCw, Search, Plus, Database, Scale, CheckCircle2, PauseCircle, FolderOpen, Users, Inbox, ChevronLeft, ChevronRight } from 'lucide-react';
+import { FileText, Loader2, RotateCw, Search, Plus, Database, Scale, CheckCircle2, PauseCircle, FolderOpen, Users, Inbox, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
 import { useMyTeams } from '@/hooks/useMyTeams';
 import { useClientes } from '@/hooks/useClientes';
 import { useProcessosEncontrados } from '@/hooks/useProcessosEncontrados';
@@ -157,7 +157,7 @@ const Processos = () => {
   // filtro novo só tem 1 página).
   useEffect(() => { setPage(1); }, [dSearch, filters.cliente, activeTab, teamFilter]);
 
-  const { data: processosRaw, total, loading } = useProcessosLista({
+  const { data: processosRaw, total, loading, error: processosError, refetch: refetchProcessos } = useProcessosLista({
     page,
     pageSize: PAGE_SIZE,
     statusTab: activeTab,
@@ -364,6 +364,14 @@ const Processos = () => {
             <ProcessosEncontradosInbox
               onChange={() => { refresh(); refetchEncontrados(); }}
               onBuscar={() => setIsSyncDialogOpen(true)}
+            />
+          ) : !loading && processosError ? (
+            <EmptyState
+              icon={AlertTriangle}
+              title="Não foi possível carregar os processos"
+              description={processosError}
+              actionLabel="Tentar novamente"
+              onAction={refetchProcessos}
             />
           ) : !loading && processos.length === 0 ? (
             <EmptyState

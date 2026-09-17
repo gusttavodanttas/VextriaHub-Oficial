@@ -12,6 +12,7 @@ export type Consultivo = Tables<"consultivos"> & {
 export function useConsultivos() {
   const [data, setData] = useState<Consultivo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -30,11 +31,13 @@ export function useConsultivos() {
         .limit(1000);
       if (error) throw error;
       setData((rows as Consultivo[]) || []);
+      setError(null);
     } catch (err) {
       // `catch {}` sem variável escondia a causa real (RLS, rede, payload
       // inválido) atrás da mesma mensagem genérica sempre — impossível diagnosticar
       // quando alguém reportasse "não consegui salvar/carregar".
       console.error("Erro ao carregar consultivos:", err);
+      setError(getErrorMessage(err));
       toast({ title: "Erro ao carregar consultivos", description: getErrorMessage(err), variant: "destructive" });
     } finally {
       setLoading(false);
@@ -91,5 +94,5 @@ export function useConsultivos() {
     }
   };
 
-  return { data, loading, create, update, remove, refetch: fetchData };
+  return { data, loading, error, create, update, remove, refetch: fetchData };
 }
