@@ -13,29 +13,31 @@ import {
 } from '@/components/Prazos/shared';
 
 interface UiCallbacks {
+  showConcluidos?: boolean;    // ver comentário na query de concluídos abaixo
   onDeleted?: () => void;      // ex.: fechar o confirm de exclusão
   onBulkDone?: () => void;     // ex.: limpar seleção múltipla
   onBulkDeleted?: () => void;  // ex.: limpar seleção + fechar confirm em massa
 }
 
 export function usePrazosData(ui: UiCallbacks = {}) {
+  const { showConcluidos = false } = ui;
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: prazos = [], isLoading } = useQuery<Prazo[]>({
-    queryKey: ['prazos', user?.office_id, user?.id],
+  // Prazos NÃO concluídos: o conjunto de trabalho normal, naturalmente limitado
+  // pelo volume atual de casos (some da lista assim que é concluído) — ao
+  // contrário da tabela inteira, não cresce sem parar com o robô diário.
+  const { data: prazosAtivos = [], isLoading: loadingAtivos } = useQuery<Prazo[]>({
+    queryKey: ['prazos', 'ativos', user?.office_id, user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
-      const query = supabase
+      let query = supabase
         .from('prazos')
         .select('*')
+        .or('status.is.null,status.neq.concluido')
         .order('data_fim_prazo', { ascending: true, nullsFirst: false });
-      if (user.office_id) {
-        query.eq('office_id', user.office_id);
-      } else {
-        query.eq('responsavel_id', user.id);
-      }
+      query = user.office_id ? query.eq('office_id', user.office_id) : query.eq('responsavel_id', user.id);
       const { data, error } = await query;
       if (error) throw error;
       // Filtra soft-deletados em JS (resiliente caso a coluna ainda não exista)
@@ -44,6 +46,33 @@ export function usePrazosData(ui: UiCallbacks = {}) {
     enabled: !!user?.id,
     refetchInterval: 60_000,
   });
+
+  // Prazos concluídos: histórico que só cresce, nunca sai — buscado sob demanda
+  // (só quando o toggle "mostrar concluídos" está ligado) e com cap de segurança,
+  // mais recentes primeiro.
+  const { data: prazosConcluidos = [], isLoading: loadingConcluidos } = useQuery<Prazo[]>({
+    queryKey: ['prazos', 'concluidos', user?.office_id, user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      let query = supabase
+        .from('prazos')
+        .select('*')
+        .eq('status', 'concluido')
+        .order('concluido_em', { ascending: false, nullsFirst: false })
+        .limit(500);
+      query = user.office_id ? query.eq('office_id', user.office_id) : query.eq('responsavel_id', user.id);
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data || []).filter((p: any) => !p.deletado) as Prazo[];
+    },
+    enabled: !!user?.id && showConcluidos,
+  });
+
+  const prazos = useMemo(
+    () => (showConcluidos ? [...prazosAtivos, ...prazosConcluidos] : prazosAtivos),
+    [prazosAtivos, prazosConcluidos, showConcluidos]
+  );
+  const isLoading = loadingAtivos || (showConcluidos && loadingConcluidos);
 
   // Teor dos prazos capturados pelo robô: vem da publicação que os originou
   const pubIds = useMemo(
@@ -107,7 +136,8 @@ export function usePrazosData(ui: UiCallbacks = {}) {
   useEffect(() => {
     if (!user?.office_id || !Object.keys(processoInfo.byNumero).length) return;
 
-    const alvos = prazos
+    // Só o conjunto ativo — sugestões do robô nunca nascem já concluídas.
+    const alvos = prazosAtivos
       .filter(p => !p.processo_id && p.numero_processo && !jaVinculados.current.has(p.id))
       .map(p => ({ id: p.id, procId: processoInfo.byNumero[onlyDigits(p.numero_processo)]?.id }))
       .filter((x): x is { id: string; procId: string } => !!x.procId);
@@ -129,7 +159,7 @@ export function usePrazosData(ui: UiCallbacks = {}) {
         toast({ title: 'Prazos vinculados', description: `${vinculados} prazo(s) do robô foram vinculados ao processo correspondente.` });
       }
     })();
-  }, [prazos, processoInfo, user?.office_id, queryClient, toast]);
+  }, [prazosAtivos, processoInfo, user?.office_id, queryClient, toast]);
 
   // Aceitar a sugestão do robô: o prazo deixa de ser sugestão e passa a ser acompanhado
   const aceitarMutation = useMutation({
