@@ -278,7 +278,7 @@ const AppWithRouter = () => {
         <Route
           path="/graficos"
           element={
-            <PrivateRoute>
+            <PrivateRoute requirePermission="canViewGraficos">
               <AppLayout>
                 <Graficos />
               </AppLayout>
