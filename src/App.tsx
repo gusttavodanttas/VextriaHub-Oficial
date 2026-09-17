@@ -289,7 +289,7 @@ const AppWithRouter = () => {
         <Route
           path="/financeiro"
           element={
-            <PrivateRoute>
+            <PrivateRoute requirePermission="canViewFinanceiro">
               <AppLayout>
                 <Financeiro />
               </AppLayout>
@@ -299,7 +299,7 @@ const AppWithRouter = () => {
         <Route
           path="/metas"
           element={
-            <PrivateRoute>
+            <PrivateRoute requirePermission="canViewMetas">
               <AppLayout>
                 <Metas />
               </AppLayout>
