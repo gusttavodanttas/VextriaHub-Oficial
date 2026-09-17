@@ -38,7 +38,6 @@ const Notificacoes = lazy(() => import("./pages/Notificacoes"));
 const Configuracoes = lazy(() => import("./pages/Configuracoes"));
 const Perfil = lazy(() => import("./pages/Perfil"));
 const Admin = lazy(() => import("./pages/Admin"));
-const SuperAdmin = lazy(() => import("./pages/SuperAdmin"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Audiencias = lazy(() => import("./pages/Audiencias"));
 const Equipe = lazy(() => import("./pages/Equipe"));
@@ -346,13 +345,8 @@ const AppWithRouter = () => {
             </AppLayout>
           </PrivateRoute>
         } />
-        <Route path="/super-admin" element={
-          <PrivateRoute requireRole="super_admin">
-            <AppLayout>
-              <SuperAdmin />
-            </AppLayout>
-          </PrivateRoute>
-        } />
+        {/* Link legado — o painel de super admin foi unificado em /admin. */}
+        <Route path="/super-admin" element={<Navigate to="/admin?tab=dashboard" replace />} />
         <Route path="/lixeira" element={
           <PrivateRoute requireAnyPermissions={['canManageOffice', 'canViewAdmin']}>
             <AppLayout>
