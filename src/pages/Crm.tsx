@@ -21,6 +21,7 @@ import {
 import { NovoLeadDialog } from "@/components/Crm/NovoLeadDialog";
 import { getStatusColor } from "@/components/Crm/CrmUtils";
 import { useClientes } from "@/hooks/useClientes";
+import type { ClienteComProcessos } from "@/types/database";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -51,7 +52,7 @@ export default function Crm() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("leads");
   const [currentView, setCurrentView] = useState("main");
-  const [selectedOpportunity, setSelectedOpportunity] = useState(null);
+  const [selectedOpportunity, setSelectedOpportunity] = useState<ClienteComProcessos | null>(null);
   const [showNovoLeadDialog, setShowNovoLeadDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const dSearch = useDeferredValue(searchQuery);
@@ -99,7 +100,7 @@ export default function Crm() {
     setActiveTab("leads");
   };
 
-  const handleOpportunityClick = (opportunity: any) => {
+  const handleOpportunityClick = (opportunity: ClienteComProcessos) => {
     setSelectedOpportunity(opportunity);
     setCurrentView("opportunity-detail");
   };

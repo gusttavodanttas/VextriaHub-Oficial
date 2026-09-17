@@ -11,7 +11,7 @@ import { formatBRL } from "@/lib/currency";
 
 interface Props {
   onBack: () => void;
-  onOpportunityClick: (opportunity: any) => void;
+  onOpportunityClick: (opportunity: ClienteComProcessos) => void;
   data?: ClienteComProcessos[];
 }
 
