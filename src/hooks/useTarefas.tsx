@@ -3,9 +3,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { continueOccurrences, RecRule } from "@/lib/recorrencia";
 import { planQuotaMessage } from "@/lib/planQuotaError";
 import { assertRowsAffected } from "@/lib/errors";
+import { concluirTarefaDb, gerarProximaOcorrenciaTarefa, tarefaConcluidaFields } from "@/lib/concluirItens";
 import type { TablesUpdate } from "@/integrations/supabase/rows";
 
 export interface Tarefa {
@@ -182,39 +182,24 @@ export function useTarefas() {
 
   // Gera a PRÓXIMA ocorrência de uma tarefa recorrente concluída (best-effort). Usado
   // tanto na conclusão individual quanto EM MASSA (antes o bulk encerrava a série).
+  // Lógica em si mora em lib/concluirItens.ts (compartilhada com AgendaItemDialog).
   const gerarProximaOcorrencia = async (tarefa: Tarefa) => {
-    if (!(tarefa.recorrencia_regra && (tarefa.recorrencia_restantes ?? 0) > 0 && tarefa.data_vencimento && officeId && user?.id)) return;
-    const base = new Date(`${tarefa.data_vencimento}T12:00:00`);
-    const next = continueOccurrences(base, tarefa.recorrencia_regra as RecRule, 1)[0];
-    const row: any = {
-      titulo: tarefa.titulo,
-      descricao: tarefa.descricao ?? null,
-      prioridade: tarefa.prioridade ?? "media",
-      cliente_id: tarefa.cliente_id ?? null,
-      processo_id: tarefa.processo_id ?? null,
-      atendimento_id: tarefa.atendimento_id ?? null,
-      responsavel_id: tarefa.responsavel_id ?? null,
-      recorrencia_grupo: tarefa.recorrencia_grupo ?? null,
-      recorrencia_regra: tarefa.recorrencia_regra,
-      recorrencia_restantes: (tarefa.recorrencia_restantes ?? 0) - 1,
-      data_vencimento: format(next, "yyyy-MM-dd"),
-      office_id: officeId, user_id: user.id, concluida: false, deletado: false,
-      ...(Array.isArray(tarefa.avisos_dias) ? { avisos_dias: tarefa.avisos_dias } : {}),
-    };
-    await supabase.from("tarefas").insert([row]);
+    if (!officeId || !user?.id) return;
+    await gerarProximaOcorrenciaTarefa(tarefa, officeId, user.id);
   };
 
   const toggle = useMutation({
     mutationFn: async ({ id, concluida, tarefa }: { id: string; concluida: boolean; tarefa?: Tarefa }) => {
-      const now = new Date().toISOString();
       // 1) marca concluída/reaberta com auditoria (data/autor); fallback se as colunas não existirem
       // Seta status junto de concluida — antes ficava 'pendente' com concluida=true,
       // e qualquer relatório que filtre por status contava errado. (v12)
-      const full: any = concluida
-        ? { concluida: true, status: 'concluida', concluida_em: now, concluida_por: user?.id, recorrencia_restantes: 0 }
-        : { concluida: false, status: 'pendente', concluida_em: null, concluida_por: null };
-      let { data, error } = await supabase.from("tarefas").update(full).eq("id", id).select("id");
-      if (error) ({ data, error } = await supabase.from("tarefas").update({ concluida }).eq("id", id).select("id"));
+      let data, error;
+      if (concluida) {
+        ({ data, error } = await concluirTarefaDb(id, user?.id));
+      } else {
+        ({ data, error } = await supabase.from("tarefas").update({ concluida: false, status: 'pendente', concluida_em: null, concluida_por: null }).eq("id", id).select("id"));
+        if (error) ({ data, error } = await supabase.from("tarefas").update({ concluida }).eq("id", id).select("id"));
+      }
       assertRowsAffected(data, error, 1);
 
       // 2) recorrência encadeada: ao concluir, gera a PRÓXIMA ocorrência
@@ -236,7 +221,6 @@ export function useTarefas() {
   // Ações em lote (concluir/reabrir, prioridade, responsável, prazo)
   const bulkPatch = useMutation({
     mutationFn: async ({ ids, patch, concluir }: { ids: string[]; patch?: Record<string, any>; concluir?: boolean }) => {
-      const now = new Date().toISOString();
       // Snapshot ANTES do update: captura as recorrentes com ocorrências restantes
       // (o update zera recorrencia_restantes, então precisa ser antes).
       let recorrentes: Tarefa[] = [];
@@ -245,7 +229,7 @@ export function useTarefas() {
         recorrentes = ((data || []) as Tarefa[]).filter((t) => t.recorrencia_regra && (t.recorrencia_restantes ?? 0) > 0 && t.data_vencimento);
       }
       const payload: Record<string, any> = { ...(patch || {}) };
-      if (concluir === true) Object.assign(payload, { concluida: true, status: 'concluida', concluida_em: now, concluida_por: user?.id ?? null, recorrencia_restantes: 0 });
+      if (concluir === true) Object.assign(payload, tarefaConcluidaFields(user?.id));
       if (concluir === false) Object.assign(payload, { concluida: false, status: 'pendente', concluida_em: null, concluida_por: null });
       const { data, error } = await supabase.from("tarefas").update(payload as TablesUpdate<"tarefas">).in("id", ids).select("id");
       assertRowsAffected(data, error, ids.length);
