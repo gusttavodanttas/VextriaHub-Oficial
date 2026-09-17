@@ -108,25 +108,31 @@ export const AtendimentoCard: React.FC<{
         </span>
         <div className="flex gap-1">
           {item.status === "agendado" && (
-            <Button size="icon" variant="ghost"
-              className="h-7 w-7 rounded-lg hover:bg-emerald-500/10 hover:text-emerald-500"
-              onClick={() => onMarkRealizado(item.id)} disabled={loadingId === item.id}
-              title="Marcar como realizado" aria-label="Marcar como realizado">
-              {loadingId === item.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-            </Button>
+            <PermissionGuard permission="canEditAtendimentos">
+              <Button size="icon" variant="ghost"
+                className="h-7 w-7 rounded-lg hover:bg-emerald-500/10 hover:text-emerald-500"
+                onClick={() => onMarkRealizado(item.id)} disabled={loadingId === item.id}
+                title="Marcar como realizado" aria-label="Marcar como realizado">
+                {loadingId === item.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+              </Button>
+            </PermissionGuard>
           )}
           {item.status === "cancelado" && (
-            <Button size="icon" variant="ghost"
-              className="h-7 w-7 rounded-lg hover:bg-blue-500/10 hover:text-blue-500"
-              onClick={() => onRemarcar(item)} title="Remarcar" aria-label="Remarcar">
-              <RotateCcw className="h-3.5 w-3.5" />
-            </Button>
+            <PermissionGuard permission="canEditAtendimentos">
+              <Button size="icon" variant="ghost"
+                className="h-7 w-7 rounded-lg hover:bg-blue-500/10 hover:text-blue-500"
+                onClick={() => onRemarcar(item)} title="Remarcar" aria-label="Remarcar">
+                <RotateCcw className="h-3.5 w-3.5" />
+              </Button>
+            </PermissionGuard>
           )}
-          <Button size="icon" variant="ghost"
-            className="h-7 w-7 rounded-lg hover:bg-primary/10 hover:text-primary"
-            onClick={() => onEdit(item)} title="Editar" aria-label="Editar atendimento">
-            <Pencil className="h-3.5 w-3.5" />
-          </Button>
+          <PermissionGuard permission="canEditAtendimentos">
+            <Button size="icon" variant="ghost"
+              className="h-7 w-7 rounded-lg hover:bg-primary/10 hover:text-primary"
+              onClick={() => onEdit(item)} title="Editar" aria-label="Editar atendimento">
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+          </PermissionGuard>
           <PermissionGuard permission="canDeleteAtendimentos">
             <Button size="icon" variant="ghost"
               className="h-7 w-7 rounded-lg hover:bg-red-500/10 hover:text-red-500"
@@ -202,11 +208,13 @@ export const WeekView: React.FC<{
                   </p>
                   <p className={cn("text-lg font-black leading-none", isHoje && "text-primary")}>{format(d, "dd")}</p>
                 </div>
-                <button onClick={() => onNovo(d)}
-                  className="h-6 w-6 rounded-lg hover:bg-primary/10 text-muted-foreground/40 hover:text-primary flex items-center justify-center transition-colors"
-                  title="Novo atendimento neste dia">
-                  <Plus className="h-3.5 w-3.5" />
-                </button>
+                <PermissionGuard permission="canCreateAtendimentos">
+                  <button onClick={() => onNovo(d)}
+                    className="h-6 w-6 rounded-lg hover:bg-primary/10 text-muted-foreground/40 hover:text-primary flex items-center justify-center transition-colors"
+                    title="Novo atendimento neste dia">
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                </PermissionGuard>
               </div>
               <div className="flex flex-col gap-1 overflow-y-auto">
                 {list.length === 0 ? (

@@ -11,6 +11,8 @@ import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 import { useOpenItemFromSearch } from "@/hooks/useOpenItemFromSearch";
 import { useTarefas } from "@/hooks/useTarefas";
 import { useToast } from "@/hooks/use-toast";
+import { usePermissions } from "@/hooks/usePermissions";
+import { PermissionGuard } from "@/components/Auth/PermissionGuard";
 import { Button } from "@/components/ui/button";
 import { ClientSelect } from "@/components/Clientes/ClientSelect";
 import { AvisoDiasSelect } from "@/components/Notifications/AvisoDiasSelect";
@@ -86,6 +88,7 @@ const Atendimentos = () => {
   const officeId = office?.id ?? user?.office_id ?? "";
 
   const { query, create, update, remove, markRealizado } = useAtendimentos(officeId);
+  const { canCreateAtendimentos, canEditAtendimentos } = usePermissions();
   const { extras, save: saveExtras } = useAtendimentoTipos(officeId);
   const { users: officeUsers } = useOfficeUsers();
   const membros = useMemo(() => officeUsers.map(u => ({
@@ -174,11 +177,12 @@ const Atendimentos = () => {
     return ORDEM_GRUPOS.map((k) => ({ key: k, label: LABEL_GRUPOS[k], items: map[k] })).filter((g) => g.items.length);
   }, [filtered]);
 
-  const openNew = () => { setPrefill(null); setEditItem(null); setDialogOpen(true); };
-  const openEdit = (item: Atendimento) => { setPrefill(null); setEditItem(item); setDialogOpen(true); };
+  const openNew = () => { if (!canCreateAtendimentos) return; setPrefill(null); setEditItem(null); setDialogOpen(true); };
+  const openEdit = (item: Atendimento) => { if (!canEditAtendimentos) return; setPrefill(null); setEditItem(item); setDialogOpen(true); };
 
   // Remarcar: reabre o atendimento em edição já com status "agendado"
   const openRemarcar = (item: Atendimento) => {
+    if (!canEditAtendimentos) return;
     setPrefill(null);
     setEditItem({ ...item, status: "agendado" });
     setDialogOpen(true);
@@ -186,6 +190,7 @@ const Atendimentos = () => {
 
   // Agendar próximo (vindo do follow-up): novo atendimento pré-preenchido
   const agendarProximo = (item: Atendimento) => {
+    if (!canCreateAtendimentos) return;
     setFollowUpItem(null);
     setEditItem(null);
     setPrefill({
@@ -207,16 +212,19 @@ const Atendimentos = () => {
   });
 
   const handleSave = (data: any) => {
+    if (!canCreateAtendimentos) return;
     create.mutate(data, { onSuccess: () => setDialogOpen(false) });
   };
 
   const handleUpdate = (data: any) => {
+    if (!canEditAtendimentos) return;
     update.mutate(data, { onSuccess: () => setDialogOpen(false) });
   };
 
   const handleDelete = (id: string) => setDeleteId(id);
 
   const handleMarkRealizado = (id: string) => {
+    if (!canEditAtendimentos) return;
     const it = items.find((x) => x.id === id);
     if (!it) return;
     setLoadingId(id);
@@ -230,12 +238,14 @@ const Atendimentos = () => {
 
   // Novo atendimento já com a data do dia clicado (visão semanal)
   const novoNoDia = (date: Date) => {
+    if (!canCreateAtendimentos) return;
     setEditItem(null);
     setPrefill({ data_atendimento: format(date, "yyyy-MM-dd") });
     setDialogOpen(true);
   };
 
   const handleMarkCancelado = (id: string) => {
+    if (!canEditAtendimentos) return;
     setLoadingId(id);
     update.mutate({ id, status: "cancelado" }, { onSettled: () => setLoadingId(null) });
   };
@@ -289,10 +299,12 @@ const Atendimentos = () => {
             className="h-11 w-11 rounded-xl shrink-0" title="Gerenciar tipos de atendimento" aria-label="Gerenciar tipos de atendimento">
             <Settings2 className="h-4 w-4" />
           </Button>
-          <Button size="lg" onClick={openNew}
-            className="flex-1 sm:flex-none rounded-xl h-11 px-3 sm:px-6 font-black uppercase text-xs tracking-widest shadow-premium">
-            <Plus className="mr-1.5 sm:mr-2 h-4 w-4" /><span className="sm:hidden">Novo</span><span className="hidden sm:inline">Novo Atendimento</span>
-          </Button>
+          <PermissionGuard permission="canCreateAtendimentos">
+            <Button size="lg" onClick={openNew}
+              className="flex-1 sm:flex-none rounded-xl h-11 px-3 sm:px-6 font-black uppercase text-xs tracking-widest shadow-premium">
+              <Plus className="mr-1.5 sm:mr-2 h-4 w-4" /><span className="sm:hidden">Novo</span><span className="hidden sm:inline">Novo Atendimento</span>
+            </Button>
+          </PermissionGuard>
         </div>
       </div>
 
@@ -330,21 +342,23 @@ const Atendimentos = () => {
                       {fmtSafe(item.data_atendimento, "dd/MM/yyyy 'às' HH:mm")}
                     </p>
                   </div>
-                  <Button size="sm" variant="ghost" disabled={loadingId === item.id}
-                    onClick={() => handleMarkRealizado(item.id)}
-                    className="h-7 rounded-lg px-2 text-[10px] font-black uppercase tracking-wide text-emerald-600 hover:bg-emerald-500/10">
-                    {loadingId === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <><CheckCircle2 className="h-3 w-3 mr-1" />Realizado</>}
-                  </Button>
-                  <Button size="sm" variant="ghost" disabled={loadingId === item.id}
-                    onClick={() => handleMarkCancelado(item.id)}
-                    className="h-7 rounded-lg px-2 text-[10px] font-black uppercase tracking-wide text-red-500 hover:bg-red-500/10">
-                    <XCircle className="h-3 w-3 mr-1" />Cancelar
-                  </Button>
-                  <Button size="sm" variant="ghost"
-                    onClick={() => openRemarcar(item)}
-                    className="h-7 rounded-lg px-2 text-[10px] font-black uppercase tracking-wide text-blue-500 hover:bg-blue-500/10">
-                    <RotateCcw className="h-3 w-3 mr-1" />Remarcar
-                  </Button>
+                  <PermissionGuard permission="canEditAtendimentos">
+                    <Button size="sm" variant="ghost" disabled={loadingId === item.id}
+                      onClick={() => handleMarkRealizado(item.id)}
+                      className="h-7 rounded-lg px-2 text-[10px] font-black uppercase tracking-wide text-emerald-600 hover:bg-emerald-500/10">
+                      {loadingId === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <><CheckCircle2 className="h-3 w-3 mr-1" />Realizado</>}
+                    </Button>
+                    <Button size="sm" variant="ghost" disabled={loadingId === item.id}
+                      onClick={() => handleMarkCancelado(item.id)}
+                      className="h-7 rounded-lg px-2 text-[10px] font-black uppercase tracking-wide text-red-500 hover:bg-red-500/10">
+                      <XCircle className="h-3 w-3 mr-1" />Cancelar
+                    </Button>
+                    <Button size="sm" variant="ghost"
+                      onClick={() => openRemarcar(item)}
+                      className="h-7 rounded-lg px-2 text-[10px] font-black uppercase tracking-wide text-blue-500 hover:bg-blue-500/10">
+                      <RotateCcw className="h-3 w-3 mr-1" />Remarcar
+                    </Button>
+                  </PermissionGuard>
                 </div>
               );
             })}
