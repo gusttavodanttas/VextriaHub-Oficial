@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { PermissionGuard } from "@/components/Auth/PermissionGuard";
+import { usePermissions } from "@/hooks/usePermissions";
 import { toNull } from "@/components/Financeiro/shared";
 import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/rows";
 import { Button } from "@/components/ui/button";
@@ -84,14 +85,20 @@ import { DiligenciasFinanceiroPanel } from "@/components/Correspondentes/Diligen
 const Financeiro = () => {
   const { user, office } = useAuth();
   const officeId = office?.id ?? user?.office_id ?? "";
+  const { canManageFinanceiro } = usePermissions();
 
   const { query, create, update, remove, registrarPagamento, cancelarGrupo } = useFinanceiro(officeId);
   const items = query.data ?? [];
 
   const { categoriasReceita, categoriasDespesa, save: saveCategorias } = useFinanceiroCategorias(officeId);
-  const { gruposPrioridade, save: saveGruposPrioridade } = useFinanceiroGruposPrioridade(officeId);
+  const { gruposPrioridade, save: saveGruposPrioridadeRaw } = useFinanceiroGruposPrioridade(officeId);
+  const saveGruposPrioridade = async (grupos: typeof gruposPrioridade) => {
+    if (!canManageFinanceiro) return false;
+    return saveGruposPrioridadeRaw(grupos);
+  };
 
   const handleSaveCategorias = async (receita: string[], despesa: string[]) => {
+    if (!canManageFinanceiro) return;
     await saveCategorias(receita, despesa);
   };
 
@@ -243,22 +250,26 @@ const Financeiro = () => {
   };
 
   const openNew = (tipo: TipoType) => {
+    if (!canManageFinanceiro) return;
     setEditItem(null);
     setDefaultTipo(tipo);
     setDialogOpen(true);
   };
 
   const openEdit = (item: FinanceiroItem) => {
+    if (!canManageFinanceiro) return;
     setEditItem(item);
     setDefaultTipo(item.tipo);
     setDialogOpen(true);
   };
 
   const handleSave = (data: any) => {
+    if (!canManageFinanceiro) return;
     create.mutate(data, { onSuccess: () => setDialogOpen(false) });
   };
 
   const handleUpdate = (data: any) => {
+    if (!canManageFinanceiro) return;
     update.mutate(data, { onSuccess: () => setDialogOpen(false) });
   };
 
@@ -268,21 +279,25 @@ const Financeiro = () => {
     updatePayload: TablesUpdate<"financeiro"> & { id: string },
     novasLinhas: TablesInsert<"financeiro">[],
   ) => {
+    if (!canManageFinanceiro) return;
     update.mutate(updatePayload, {
       onSuccess: () => create.mutate(novasLinhas, { onSuccess: () => setDialogOpen(false) }),
     });
   };
 
   const handleRegistrarPagamento = (item: FinanceiroItem, valor: number) => {
+    if (!canManageFinanceiro) return;
     setLoadingId(item.id);
     registrarPagamento.mutate({ item, valor }, { onSettled: () => setLoadingId(null) });
   };
 
   const handlePrioridadeChange = (id: string, prioridade: string | null) => {
+    if (!canManageFinanceiro) return;
     update.mutate({ id, prioridade });
   };
 
   const handleDelete = (id: string) => {
+    if (!canManageFinanceiro) return;
     if (!confirm("Confirmar exclusão?")) return;
     remove.mutate(id);
   };
@@ -308,6 +323,7 @@ const Financeiro = () => {
     : defaultForm(defaultTipo, isMesAtual ? new Date() : mesRef);
 
   const handleCancelarGrupo = (grupoId: string) => {
+    if (!canManageFinanceiro) return;
     if (!confirm("Cancelar todos os lançamentos futuros pendentes deste grupo?")) return;
     cancelarGrupo.mutate(grupoId);
   };
@@ -331,28 +347,32 @@ const Financeiro = () => {
           </div>
 
           <div className="flex items-center gap-2 glass-morphism p-2 rounded-2xl border border-black/5 dark:border-border bg-black/[0.02] dark:bg-muted/30 shadow-premium">
-            <Button size="icon" variant="ghost" className="h-11 w-11 rounded-xl" onClick={() => setCatDialogOpen(true)} title="Gerenciar categorias" aria-label="Gerenciar categorias">
-              <Settings2 className="h-5 w-5 text-muted-foreground" />
-            </Button>
-            <Button size="icon" variant="ghost" className="h-11 w-11 rounded-xl" onClick={() => setPrioridadeDialogOpen(true)} title="Gerenciar grupos de prioridade" aria-label="Gerenciar grupos de prioridade">
-              <ListOrdered className="h-5 w-5 text-muted-foreground" />
-            </Button>
-            <Button size="icon" variant="ghost" className="h-11 w-11 rounded-xl" onClick={() => setImportDialogOpen(true)} title="Importar planilha (Excel/CSV)" aria-label="Importar planilha">
-              <FileSpreadsheet className="h-5 w-5 text-muted-foreground" />
-            </Button>
+            <PermissionGuard permission="canManageFinanceiro">
+              <Button size="icon" variant="ghost" className="h-11 w-11 rounded-xl" onClick={() => setCatDialogOpen(true)} title="Gerenciar categorias" aria-label="Gerenciar categorias">
+                <Settings2 className="h-5 w-5 text-muted-foreground" />
+              </Button>
+              <Button size="icon" variant="ghost" className="h-11 w-11 rounded-xl" onClick={() => setPrioridadeDialogOpen(true)} title="Gerenciar grupos de prioridade" aria-label="Gerenciar grupos de prioridade">
+                <ListOrdered className="h-5 w-5 text-muted-foreground" />
+              </Button>
+              <Button size="icon" variant="ghost" className="h-11 w-11 rounded-xl" onClick={() => setImportDialogOpen(true)} title="Importar planilha (Excel/CSV)" aria-label="Importar planilha">
+                <FileSpreadsheet className="h-5 w-5 text-muted-foreground" />
+              </Button>
+            </PermissionGuard>
             <Button size="icon" variant="ghost" className="h-11 w-11 rounded-xl" onClick={exportCSV} disabled={filtered.length === 0} title="Exportar lançamentos (CSV)" aria-label="Exportar lançamentos">
               <Download className="h-5 w-5 text-muted-foreground" />
             </Button>
-            <Button size="lg"
-              className="rounded-xl h-11 px-5 font-black uppercase text-xs tracking-widest bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20"
-              onClick={() => openNew("despesa")}>
-              <TrendingDown className="mr-2 h-4 w-4" />Nova Despesa
-            </Button>
-            <Button size="lg"
-              className="rounded-xl h-11 px-7 font-black uppercase text-xs tracking-widest bg-primary hover:bg-primary/90 shadow-premium"
-              onClick={() => openNew("receita")}>
-              <Plus className="mr-2 h-5 w-5" />Nova Receita
-            </Button>
+            <PermissionGuard permission="canManageFinanceiro">
+              <Button size="lg"
+                className="rounded-xl h-11 px-5 font-black uppercase text-xs tracking-widest bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20"
+                onClick={() => openNew("despesa")}>
+                <TrendingDown className="mr-2 h-4 w-4" />Nova Despesa
+              </Button>
+              <Button size="lg"
+                className="rounded-xl h-11 px-7 font-black uppercase text-xs tracking-widest bg-primary hover:bg-primary/90 shadow-premium"
+                onClick={() => openNew("receita")}>
+                <Plus className="mr-2 h-5 w-5" />Nova Receita
+              </Button>
+            </PermissionGuard>
           </div>
         </div>
 
@@ -538,22 +558,24 @@ const Financeiro = () => {
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
                                 <span className="font-black tabular-nums text-orange-500">{fmt(saldoRestante(item))}</span>
-                                <Select value={item.prioridade ?? NONE} onValueChange={(v) => handlePrioridadeChange(item.id, v === NONE ? null : v)}>
-                                  <SelectTrigger className="w-[132px] h-8 rounded-lg text-[10px]"><SelectValue /></SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value={NONE}>Não classificada</SelectItem>
-                                    {gruposPrioridade.map((g) => (
-                                      <SelectItem key={g.id} value={g.id}>{g.label}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                <RegistrarPagamentoPopover item={item} loading={loadingId === item.id}
-                                  onConfirm={(valor) => handleRegistrarPagamento(item, valor)}>
-                                  <Button size="sm" className="h-8 rounded-lg text-[10px] font-black uppercase tracking-wide bg-emerald-500 hover:bg-emerald-600 text-white"
-                                    disabled={loadingId === item.id}>
-                                    {loadingId === item.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Pagar</>}
-                                  </Button>
-                                </RegistrarPagamentoPopover>
+                                <PermissionGuard permission="canManageFinanceiro">
+                                  <Select value={item.prioridade ?? NONE} onValueChange={(v) => handlePrioridadeChange(item.id, v === NONE ? null : v)}>
+                                    <SelectTrigger className="w-[132px] h-8 rounded-lg text-[10px]"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value={NONE}>Não classificada</SelectItem>
+                                      {gruposPrioridade.map((g) => (
+                                        <SelectItem key={g.id} value={g.id}>{g.label}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <RegistrarPagamentoPopover item={item} loading={loadingId === item.id}
+                                    onConfirm={(valor) => handleRegistrarPagamento(item, valor)}>
+                                    <Button size="sm" className="h-8 rounded-lg text-[10px] font-black uppercase tracking-wide bg-emerald-500 hover:bg-emerald-600 text-white"
+                                      disabled={loadingId === item.id}>
+                                      {loadingId === item.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Pagar</>}
+                                    </Button>
+                                  </RegistrarPagamentoPopover>
+                                </PermissionGuard>
                               </div>
                             </div>
                           );
@@ -613,7 +635,7 @@ const Financeiro = () => {
           categoriasReceita={categoriasReceita}
           categoriasDespesa={categoriasDespesa}
           importing={create.isPending}
-          onImport={(rows) => create.mutate(rows, { onSuccess: () => setImportDialogOpen(false) })}
+          onImport={(rows) => { if (!canManageFinanceiro) return; create.mutate(rows, { onSuccess: () => setImportDialogOpen(false) }); }}
         />
       </div>
     </PermissionGuard>
