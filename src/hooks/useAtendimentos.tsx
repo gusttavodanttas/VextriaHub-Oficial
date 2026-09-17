@@ -21,7 +21,10 @@ export const useAtendimentos = (officeId: string | null | undefined) => {
         .from("atendimentos")
         .select("*, clientes(nome)")
         .eq("office_id", officeId!)
-        .order("data_atendimento", { ascending: false });
+        // Cap de segurança: sem paginação real ainda, evita carregar a tabela
+        // inteira pro navegador num escritório com histórico grande.
+        .order("data_atendimento", { ascending: false })
+        .limit(1000);
       if (error) throw error;
       // A Row real de atendimentos não expõe processo_id (a coluna não existe na
       // tabela) e status é string|null, então o shape do banco não sobrepõe o tipo

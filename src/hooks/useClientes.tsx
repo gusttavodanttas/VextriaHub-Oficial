@@ -35,7 +35,10 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
         // NÃO filtrar 'lead' aqui: este hook é COMPARTILHADO com o CRM (Crm.tsx),
         // que PRECISA dos leads pro funil. Filtrar aqui zerava o funil (regressão v11).
         // A exclusão de lead é só na PÁGINA de Clientes (Clientes.tsx). (v12)
-        .order('created_at', { ascending: false });
+        // Cap de segurança: sem paginação real ainda, mas sem isto um escritório
+        // com base grande carregaria a tabela inteira pro navegador de uma vez.
+        .order('created_at', { ascending: false })
+        .limit(1000);
 
       if (error) throw error;
       

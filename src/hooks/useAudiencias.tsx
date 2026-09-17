@@ -47,7 +47,10 @@ export function useAudiencias() {
         .select("*, clientes!cliente_id(nome)")
         .eq("office_id", officeId)
         .eq("deletado", false)
-        .order("data_audiencia", { ascending: true });
+        // Cap de segurança: sem paginação real ainda, evita carregar a tabela
+        // inteira pro navegador num escritório com histórico grande.
+        .order("data_audiencia", { ascending: true })
+        .limit(1000);
       if (error) throw error;
       return (data || []).map((a: any) => ({
         id: a.id,
