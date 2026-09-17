@@ -622,10 +622,9 @@ export default function Publicacoes() {
                           <Badge className={cn(
                             "px-3 py-1 rounded-full font-black text-[9px] uppercase tracking-widest",
                             isTratada ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20" :
-                            publication.status === 'pendente' ? "bg-sky-500/10 text-sky-600 border border-sky-500/20" :
                             "bg-amber-500/10 text-amber-600 border border-amber-500/20"
                           )}>
-                            {isTratada ? 'Tratada' : publication.status === 'pendente' ? 'Pendente' : 'Nova'}
+                            {isTratada ? 'Tratada' : 'Nova'}
                           </Badge>
                           {publication.urgencia === 'alta' && (
                             <Badge variant="outline" className="px-2 py-0.5 text-[9px] font-black uppercase tracking-widest bg-red-500/10 text-red-600 border-red-500/20">
