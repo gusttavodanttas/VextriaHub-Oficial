@@ -127,7 +127,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
   const queryClient = useQueryClient();
   const { teams: officeTeams } = useOfficeTeams();
   const { users: officeUsers } = useOfficeUsers();
-  const { canManageOffice } = usePermissions();
+  const { canManageOffice, canEditProcesses } = usePermissions();
 
   // ── Contexto de compartilhamento entre escritórios ──
   // Se o processo veio COMPARTILHADO por um parceiro (sharedFrom preenchido pela página),
@@ -137,6 +137,10 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
   const isMine = !isSharedIn;
   const canWrite = isMine || canEditShared;           // registrar andamento
   const canManageShares = isMine && canManageOffice;  // dono admin gerencia parceiros
+  // Editar capa do processo (título, número, partes...) exige ser dono E ter a permissão
+  // granular — antes só checava isMine, então qualquer membro do escritório conseguia
+  // editar qualquer processo, mesmo sem canEditProcesses.
+  const canEditHeader = isMine && canEditProcesses;
 
   // Conselheiro IA (resumo do processo) — premium, só no processo próprio (a função escopa por office)
   const { hasIAModule } = usePlanFeatures();
@@ -169,7 +173,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
   const {
     movements, loadingMovements, confirmDelMov, setConfirmDelMov, delMovLoading,
     syncing, andamentoConfirm, setAndamentoConfirm, lastSyncedProcessoId, setLastSyncedProcessoId,
-    fetchMovements, handleDeleteMovement, syncFromOrigin, confirmAndamentos,
+    fetchMovements, handleDeleteMovement, syncFromOrigin, confirmAndamentos, canDeleteMovement,
   } = useProcessoMovimentacoes(processo, open);
 
   // Add forms
@@ -234,7 +238,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
   }, [processo?.id, open]);
 
   const handleSave = async () => {
-    if (!processo?.id) return;
+    if (!processo?.id || !canEditHeader) return;
     if (!editData.titulo.trim()) {
       toast({ title: 'Título obrigatório', description: 'O processo precisa ter um título.', variant: 'destructive' });
       return;
@@ -492,11 +496,13 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                   />
                 ) : processo.numeroProcesso ? (
                   <span className="font-mono text-sm font-bold text-primary tracking-tight">{formatCNJ(processo.numeroProcesso)}</span>
-                ) : (
+                ) : canEditHeader ? (
                   <button type="button" onClick={() => setEditing(true)}
                     className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline">
                     <Edit className="h-3.5 w-3.5" /> Sem número — adicionar o número do processo
                   </button>
+                ) : (
+                  <span className="text-xs font-bold text-muted-foreground/50">Sem número</span>
                 )}
               </div>
             </div>
@@ -507,7 +513,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                   <Button variant="ghost" size="sm" onClick={() => setEditing(false)} className="h-9 rounded-xl text-xs gap-1.5"><X className="h-3.5 w-3.5" /> Cancelar</Button>
                   <Button size="sm" onClick={handleSave} disabled={saving} className="h-9 rounded-xl text-xs gap-1.5 shadow-md"><Save className="h-3.5 w-3.5" /> {saving ? 'Salvando...' : 'Salvar'}</Button>
                 </>
-              ) : isMine ? (
+              ) : canEditHeader ? (
                 <div className="flex gap-2">
                   {processo.numeroProcesso && (
                     <Button variant="outline" size="sm" onClick={() => setCompletarOpen(true)} className="h-9 rounded-xl text-xs gap-1.5 border-border" title="Buscar dados no tribunal e completar os campos vazios">
@@ -516,7 +522,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                   )}
                   <Button variant="outline" size="sm" onClick={() => setEditing(true)} className="h-9 rounded-xl text-xs gap-1.5 border-border"><Edit className="h-3.5 w-3.5" /> Editar</Button>
                 </div>
-              ) : (
+              ) : isMine ? null : (
                 <Badge variant="outline" className={cn("h-9 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest gap-1.5 flex items-center", canEditShared ? "border-amber-500/30 text-amber-600 bg-amber-500/10" : "border-sky-500/30 text-sky-600 bg-sky-500/10")}>
                   {canEditShared ? <PencilLine className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                   {canEditShared ? 'Compartilhado · pode editar' : 'Compartilhado · leitura'}
@@ -806,7 +812,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                             <span className="text-[10px] font-black text-primary/80 bg-primary/5 px-2.5 py-0.5 rounded-lg">{fmtDate(mov.data)}</span>
                             <div className="flex items-center gap-2">
                               <span className="text-[9px] uppercase tracking-widest text-muted-foreground/40 font-bold">{mov.tipo || 'Andamento'}</span>
-                              {confirmDelMov === (mov as any).id ? (
+                              {canDeleteMovement && (confirmDelMov === (mov as any).id ? (
                                 <span className="flex items-center gap-1">
                                   <button onClick={() => handleDeleteMovement((mov as any).id)} disabled={delMovLoading}
                                     className="text-[9px] font-black uppercase tracking-widest text-rose-600 hover:text-rose-700 disabled:opacity-40">
@@ -823,7 +829,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
                                   className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground/40 hover:text-rose-500">
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </button>
-                              )}
+                              ))}
                             </div>
                           </div>
                           <p className="text-sm font-semibold text-foreground/85 leading-relaxed">{mov.texto}</p>
