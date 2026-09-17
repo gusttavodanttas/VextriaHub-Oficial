@@ -38,7 +38,7 @@ export function useAudiencias() {
   const queryClient = useQueryClient();
   const officeId = user?.office_id;
 
-  const { data: audiencias = [], isLoading } = useQuery<Audiencia[]>({
+  const { data: audiencias = [], isLoading, isError, error, refetch } = useQuery<Audiencia[]>({
     queryKey: ["audiencias", officeId],
     queryFn: async () => {
       if (!officeId) return [];
@@ -128,5 +128,5 @@ export function useAudiencias() {
     onError: (e: unknown) => toast({ title: "Erro ao excluir", description: getErrorMessage(e), variant: "destructive" }),
   });
 
-  return { audiencias, isLoading, create, update, updateStatus, remove };
+  return { audiencias, isLoading, isError, error, refetch, create, update, updateStatus, remove };
 }

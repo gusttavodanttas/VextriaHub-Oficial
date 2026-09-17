@@ -52,7 +52,7 @@ function StatCard({ icon: Icon, label, value, color, bg }: { icon: React.Element
 }
 
 const Audiencias = () => {
-  const { audiencias, isLoading, create, update, updateStatus, remove } = useAudiencias();
+  const { audiencias, isLoading, isError, error, refetch, create, update, updateStatus, remove } = useAudiencias();
   const { data: clientesData } = useClientes();
   const { data: processosData } = useProcessosV2();
   const { tipos: tiposCadastrados } = useAudienciaTipos();
@@ -375,6 +375,15 @@ const Audiencias = () => {
         <TabsContent value="lista" className="space-y-5">
           {isLoading ? (
             <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-24 rounded-2xl bg-black/[0.03] dark:bg-muted/20 animate-pulse" />)}</div>
+          ) : isError ? (
+            <div className="flex flex-col items-center justify-center text-center py-20 gap-4">
+              <div className="p-5 rounded-full bg-destructive/10 text-destructive"><AlertTriangle className="h-10 w-10 opacity-70" /></div>
+              <div>
+                <p className="font-black text-lg">Não foi possível carregar as audiências</p>
+                <p className="text-sm text-muted-foreground mt-1">{error instanceof Error ? error.message : "Tente novamente em instantes."}</p>
+              </div>
+              <Button variant="outline" onClick={() => refetch()} className="rounded-xl gap-2 font-bold">Tentar novamente</Button>
+            </div>
           ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center text-center py-20 gap-4">
               <div className="p-5 rounded-full bg-orange-500/10 text-orange-500"><Calendar className="h-10 w-10 opacity-70" /></div>

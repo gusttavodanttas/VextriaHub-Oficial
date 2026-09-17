@@ -28,7 +28,10 @@ export function usePrazosData(ui: UiCallbacks = {}) {
   // Prazos NÃO concluídos: o conjunto de trabalho normal, naturalmente limitado
   // pelo volume atual de casos (some da lista assim que é concluído) — ao
   // contrário da tabela inteira, não cresce sem parar com o robô diário.
-  const { data: prazosAtivos = [], isLoading: loadingAtivos } = useQuery<Prazo[]>({
+  const {
+    data: prazosAtivos = [], isLoading: loadingAtivos,
+    isError: erroAtivos, error: errorAtivos, refetch: refetchAtivos,
+  } = useQuery<Prazo[]>({
     queryKey: ['prazos', 'ativos', user?.office_id, user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -50,7 +53,10 @@ export function usePrazosData(ui: UiCallbacks = {}) {
   // Prazos concluídos: histórico que só cresce, nunca sai — buscado sob demanda
   // (só quando o toggle "mostrar concluídos" está ligado) e com cap de segurança,
   // mais recentes primeiro.
-  const { data: prazosConcluidos = [], isLoading: loadingConcluidos } = useQuery<Prazo[]>({
+  const {
+    data: prazosConcluidos = [], isLoading: loadingConcluidos,
+    isError: erroConcluidos, error: errorConcluidos, refetch: refetchConcluidos,
+  } = useQuery<Prazo[]>({
     queryKey: ['prazos', 'concluidos', user?.office_id, user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -73,6 +79,9 @@ export function usePrazosData(ui: UiCallbacks = {}) {
     [prazosAtivos, prazosConcluidos, showConcluidos]
   );
   const isLoading = loadingAtivos || (showConcluidos && loadingConcluidos);
+  const isError = erroAtivos || (showConcluidos && erroConcluidos);
+  const error = erroAtivos ? errorAtivos : (showConcluidos ? errorConcluidos : null);
+  const refetch = () => { refetchAtivos(); if (showConcluidos) refetchConcluidos(); };
 
   // Teor dos prazos capturados pelo robô: vem da publicação que os originou
   const pubIds = useMemo(
@@ -262,7 +271,7 @@ export function usePrazosData(ui: UiCallbacks = {}) {
   });
 
   return {
-    prazos, isLoading,
+    prazos, isLoading, isError, error, refetch,
     pubInfo, teorMap, processoInfo,
     procDoPrazo, clienteDoPrazo, clienteNomeDoPrazo,
     aceitarMutation, concludeMutation, reopenMutation, deleteMutation,
