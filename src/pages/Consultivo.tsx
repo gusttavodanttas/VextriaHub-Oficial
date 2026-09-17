@@ -1,8 +1,7 @@
 import { useState, useEffect, useMemo, useDeferredValue } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useConsultivos, Consultivo } from "@/hooks/useConsultivos";
-import { useOpenItemFromSearch } from "@/hooks/useOpenItemFromSearch";
+import { useConsultivos, useConsultivosLista, useConsultivosStatusCounts, useConsultivoCategoriaValoresEmUso, Consultivo } from "@/hooks/useConsultivos";
 import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 import { useConsultivoCategorias, ConsultivoCategoria } from "@/hooks/useConsultivoCategorias";
 import { useAuth } from "@/contexts/AuthContext";
@@ -30,7 +29,7 @@ import {
   MessageSquareText, Plus, Search, Filter, X, ArrowLeft,
   FileText, Scale, Briefcase, Users, Tag, Calendar,
   TrendingUp, Clock, CheckCircle2, AlertTriangle, Trash2,
-  ChevronRight, User, Settings, Pencil, GripVertical,
+  ChevronLeft, ChevronRight, User, Settings, Pencil, GripVertical,
   BookOpen, Star, Landmark, Shield, Gavel, CalendarClock,
 } from "lucide-react";
 import { prazoStatus } from "@/lib/prazo";
@@ -359,12 +358,15 @@ const BLANK_FORM = {
   status: "pendente", tags: "", observacoes: "", cliente_id: "", responsavel_id: "", prazo: "",
 };
 
+const PAGE_SIZE = 24;
+
 export default function ConsultivoPage() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const { canManageConsultivo } = usePermissions();
-  const { data, loading, error, create, update, remove, refetch } = useConsultivos();
+  const { create, update, remove } = useConsultivos();
   const { users: officeUsers } = useOfficeUsers();
   const membros = useMemo(() => officeUsers.map(u => ({
     id: u.user_id,
@@ -374,6 +376,8 @@ export default function ConsultivoPage() {
     data: categorias, loading: catLoading,
     create: createCat, update: updateCat, remove: removeCat,
   } = useConsultivoCategorias();
+  const categoriaValoresEmUso = useConsultivoCategoriaValoresEmUso();
+  const statusCounts = useConsultivosStatusCounts();
 
   const [filtroClienteNome, setFiltroClienteNome] = useState<string | null>(null);
   const [filtroClienteId, setFiltroClienteId] = useState<string | null>(null);
@@ -382,6 +386,7 @@ export default function ConsultivoPage() {
   const [filterCat, setFilterCat] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterPri, setFilterPri] = useState("all");
+  const [page, setPage] = useState(1);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [catMgrOpen, setCatMgrOpen] = useState(false);
@@ -403,19 +408,31 @@ export default function ConsultivoPage() {
       .then(({ data: rows }) => setClientes(rows || []));
   }, [user?.office_id]);
 
+  // Volta pra página 1 sempre que um filtro muda — senão o usuário pode ficar
+  // numa página que não existe mais para o novo recorte.
+  useEffect(() => { setPage(1); }, [dSearch, filterCat, filterStatus, filterPri, filtroClienteId]);
+
+  const { data, total, loading, error, refetch } = useConsultivosLista({
+    page, pageSize: PAGE_SIZE,
+    status: filterStatus, categoria: filterCat, prioridade: filterPri,
+    clienteId: filtroClienteId, search: dSearch,
+  });
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
   // effective categories: DB ones if exist, otherwise defaults for UI. Quando o
   // escritório já tem categorias reais, consultivos antigos gravados com uma
   // categoria padrão (DEFAULT_CATS) que nunca foi migrada pro office ficam
   // "órfãos": sem entrada em `categorias`, apareciam com o slug cru como rótulo
   // e sem nenhum filtro que os alcançasse. Sintetiza uma entrada pra cada
-  // categoria órfã encontrada nos dados (usando o rótulo padrão quando bate com
-  // um slug conhecido) pra ela ganhar rótulo e filtro de volta.
+  // categoria órfã em uso no escritório (não só na página atual — vem de
+  // categoriaValoresEmUso, uma busca leve e não paginada) usando o rótulo
+  // padrão quando bate com um slug conhecido.
   const effectiveCats = useMemo(() => {
     if (categorias.length === 0) {
       return DEFAULT_CATS.map((d, i) => ({ ...d, id: d.valor, office_id: null, ordem: i, created_at: "" }));
     }
     const known = new Set(categorias.map((c) => c.valor));
-    const orfas = Array.from(new Set(data.map((c) => c.categoria).filter((v): v is string => !!v && !known.has(v))));
+    const orfas = categoriaValoresEmUso.filter((v) => !known.has(v));
     const orfasCfg = orfas.map((valor, i) => {
       const padrao = DEFAULT_CATS.find((d) => d.valor === valor);
       return {
@@ -424,7 +441,7 @@ export default function ConsultivoPage() {
       };
     });
     return [...categorias, ...orfasCfg];
-  }, [categorias, data]);
+  }, [categorias, categoriaValoresEmUso]);
 
   function getCatCfg(valor: string) {
     const cat = effectiveCats.find(c => c.valor === valor);
@@ -432,19 +449,14 @@ export default function ConsultivoPage() {
     return cat;
   }
 
-  const total      = data.length;
-  const pendentes  = data.filter(c => c.status === "pendente").length;
-  const andamento  = data.filter(c => c.status === "em_andamento").length;
-  const concluidos = data.filter(c => c.status === "concluido").length;
+  const totalGeral = statusCounts.total;
+  const pendentes  = statusCounts.pendente;
+  const andamento  = statusCounts.em_andamento;
+  const concluidos = statusCounts.concluido;
 
-  const filtered = useMemo(() => data.filter(c => {
-    const matchSearch  = !dSearch || c.titulo.toLowerCase().includes(dSearch.toLowerCase()) || (c.descricao || "").toLowerCase().includes(dSearch.toLowerCase());
-    const matchCat     = filterCat === "all" || c.categoria === filterCat;
-    const matchStatus  = filterStatus === "all" || c.status === filterStatus;
-    const matchPri     = filterPri === "all" || c.prioridade === filterPri;
-    const matchClient  = !filtroClienteId || c.cliente_id === filtroClienteId;
-    return matchSearch && matchCat && matchStatus && matchPri && matchClient;
-  }), [data, dSearch, filterCat, filterStatus, filterPri, filtroClienteId]);
+  // Filtro (busca/categoria/status/prioridade/cliente) já roda no servidor via
+  // useConsultivosLista — `data` já vem filtrada e paginada.
+  const filtered = data;
 
   const defaultCatVal = effectiveCats[0]?.valor ?? "";
 
@@ -471,12 +483,23 @@ export default function ConsultivoPage() {
     setDialogOpen(true);
   };
 
-  // Abre o consultivo específico vindo de ?openId= (ex.: painel da equipe)
-  useOpenItemFromSearch("/consultivo", !loading && data.length > 0, (openId) => {
-    const it = data.find(x => String(x.id) === openId);
-    if (it) { openEdit(it); return true; }
-    return false;
-  });
+  // Abre o consultivo específico vindo de ?openId= (ex.: painel da equipe) —
+  // busca direta por id (o item pode não estar na página atualmente carregada,
+  // já que a lista agora é paginada).
+  useEffect(() => {
+    const openId = searchParams.get("openId");
+    if (!openId) return;
+    (async () => {
+      const { data: row } = await supabase
+        .from("consultivos")
+        .select("*, clientes(nome)")
+        .eq("id", openId)
+        .maybeSingle();
+      if (row) openEdit(row as Consultivo);
+    })();
+    navigate("/consultivo", { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search]);
 
   const handleSave = async () => {
     if (!canManageConsultivo || !form.titulo.trim()) return;
@@ -569,7 +592,7 @@ export default function ConsultivoPage() {
 
         {/* stat cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <StatCard label="Total"        value={total}      Icon={FileText}     color="text-primary"     bg="bg-primary/10" />
+          <StatCard label="Total"        value={totalGeral} Icon={FileText}     color="text-primary"     bg="bg-primary/10" />
           <StatCard label="Pendentes"    value={pendentes}  Icon={Clock}        color="text-amber-500"   bg="bg-amber-500/10" />
           <StatCard label="Em Andamento" value={andamento}  Icon={TrendingUp}   color="text-blue-500"    bg="bg-blue-500/10" />
           <StatCard label="Concluídos"   value={concluidos} Icon={CheckCircle2} color="text-emerald-500" bg="bg-emerald-500/10" />
@@ -744,6 +767,35 @@ export default function ConsultivoPage() {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* Paginação */}
+        {!loading && !error && totalPages > 1 && (
+          <div className="flex items-center justify-between gap-3 pt-2">
+            <p className="text-xs font-semibold text-muted-foreground">
+              Página {page} de {totalPages} · {total} consultivo{total === 1 ? "" : "s"}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 px-3 rounded-lg text-xs font-bold gap-1"
+                disabled={page <= 1 || loading}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeft className="h-3.5 w-3.5" /> Anterior
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 px-3 rounded-lg text-xs font-bold gap-1"
+                disabled={page >= totalPages || loading}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Próxima <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
         )}
       </div>
