@@ -81,7 +81,9 @@ export function useCorrespondentes() {
       // QUALQUER escritório em que o usuário seja membro ativo, não só "o atual".
       // Usuário em 2+ escritórios via correspondentes/diligências dos dois
       // misturados, sem indicação visual (diferente de todo outro hook do app).
-      const { data, error } = await sb.from('correspondentes').select('*').eq('office_id', officeId).order('nome', { ascending: true });
+      // Cap de segurança: sem paginação real ainda, evita carregar a tabela
+      // inteira pro navegador num escritório com base grande.
+      const { data, error } = await sb.from('correspondentes').select('*').eq('office_id', officeId).order('nome', { ascending: true }).limit(1000);
       if (error) throw error;
       return (data || []) as Correspondente[];
     },
@@ -92,7 +94,10 @@ export function useCorrespondentes() {
   const { data: diligencias = [], isLoading: loadingDil } = useQuery({
     queryKey: ['diligencias', officeId],
     queryFn: async (): Promise<Diligencia[]> => {
-      const { data, error } = await sb.from('diligencias').select('*').eq('office_id', officeId).order('created_at', { ascending: false });
+      // Cap de segurança: sem paginação real ainda, evita carregar a tabela
+      // inteira pro navegador num escritório com histórico grande. Também
+      // limita o universo usado no cálculo de statsByCorrespondente abaixo.
+      const { data, error } = await sb.from('diligencias').select('*').eq('office_id', officeId).order('created_at', { ascending: false }).limit(1000);
       if (error) throw error;
       return (data || []) as Diligencia[];
     },

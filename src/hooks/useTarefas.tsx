@@ -86,7 +86,10 @@ export function useTarefas() {
         .select("*, clientes!cliente_id(nome)")
         .eq("office_id", officeId)
         .eq("deletado", false)
-        .order("data_vencimento", { ascending: true, nullsFirst: false });
+        // Cap de segurança: sem paginação real ainda, evita carregar a tabela
+        // inteira pro navegador num escritório com histórico grande.
+        .order("data_vencimento", { ascending: true, nullsFirst: false })
+        .limit(1000);
       if (error) throw error;
       return (data || []).map((t: any) => ({
         id: t.id,

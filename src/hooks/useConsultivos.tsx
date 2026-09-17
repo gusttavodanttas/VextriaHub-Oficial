@@ -24,7 +24,10 @@ export function useConsultivos() {
         .select("*, clientes(nome)")
         .eq("office_id", user.office_id)
         .eq("deletado", false)
-        .order("created_at", { ascending: false });
+        // Cap de segurança: sem paginação real ainda, evita carregar a tabela
+        // inteira pro navegador num escritório com histórico grande.
+        .order("created_at", { ascending: false })
+        .limit(1000);
       if (error) throw error;
       setData((rows as Consultivo[]) || []);
     } catch (err) {
