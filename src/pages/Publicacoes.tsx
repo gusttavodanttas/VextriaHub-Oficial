@@ -1,5 +1,5 @@
 ﻿
-import { useState, useMemo, useDeferredValue } from "react";
+import { useState, useMemo, useEffect, useDeferredValue } from "react";
 import { formatCNJ } from "@/utils/formatCNJ";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -54,25 +54,29 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { ChevronDown, FileSpreadsheet, FileText as FileTextIcon } from "lucide-react";
 
-import { usePublicacoes } from "@/hooks/usePublicacoes";
+import { usePublicacoes, usePublicacoesLista, usePublicacoesStats, fetchAllPublicacoesForExport } from "@/hooks/usePublicacoes";
 import { useMonitoredOabs } from "@/hooks/useMonitoredOabs";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { NovoProcessoDialog } from "@/components/Processos/NovoProcessoDialog";
 import { AgendarPublicacaoDialog, AcaoTipo } from "@/components/Processos/AgendarPublicacaoDialog";
-import { supabase } from "@/integrations/supabase/client";
 
 // Datas centralizadas em @/lib/dates (fuso local, parse defensivo)
-import { parseLocalDate as parseDataPub, fmtDataBR, localYmd } from "@/lib/dates";
+import { fmtDataBR } from "@/lib/dates";
 
 export default function Publicacoes() {
   const { toast } = useToast();
   const { canCreateProcesses, canManagePublicacoes } = usePermissions();
   const { oabs: monitoredOabs } = useMonitoredOabs();
   const { user, profile } = useAuth();
-  const { publications, loading, deletePublication, updateStatus, syncByOab, refresh, linkPublicacaoToProcesso, findProcessoIdByCnj } = usePublicacoes();
+  const { deletePublication, updateStatus, syncByOab, refresh, linkPublicacaoToProcesso, findProcessoIdByCnj } = usePublicacoes();
+  const { stats, loading: statsLoading } = usePublicacoesStats();
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 24;
   const [view, setView] = useState<'grid' | 'table'>('table');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -210,84 +214,24 @@ export default function Publicacoes() {
     dateRange: { from: undefined as Date | undefined, to: undefined as Date | undefined }
   });
 
-  // Cálculo de Estatísticas
-  const stats = useMemo(() => {
-    const tratadas = publications.filter(p => p.status === 'lida' || p.status === 'processada').length;
-    return {
-      prazosSemana: publications.filter(p => p.urgencia === 'alta').length,
-      naoTratadas: publications.filter(p => p.status === 'nova').length,
-      semVinculo: publications.filter(p => !p.processo_id).length,
-      comVinculo: publications.filter(p => !!p.processo_id).length,
-      novosAndamentos: publications.filter(p => {
-        try {
-          const d = parseDataPub(p.data_publicacao);
-          return d ? localYmd(d) === localYmd(new Date()) : false;
-        } catch (e) {
-          return false;
-        }
-      }).length,
-      tratadas,
-      total: publications.length,
-    };
-  }, [publications]);
-
-  // Filtragem (busca adiada para não travar a digitação)
+  // Busca adiada para não travar a digitação
   const dSearch = useDeferredValue(filters.search);
-  const filteredPublications = useMemo(() => {
-    // 1. De-duplicação por CNJ + Conteúdo (primeiros 50 chars) + Data
-    const uniqueMap = new Map();
-    publications.forEach(pub => {
-      const key = `${pub.numero_processo}-${pub.data_publicacao}-${(pub.conteudo || '').substring(0, 50)}`;
-      if (!uniqueMap.has(key)) {
-        uniqueMap.set(key, pub);
-      }
-    });
-    
-    const uniquePublicacoes = Array.from(uniqueMap.values());
 
-    // 2. Filtros
-    return uniquePublicacoes.filter(pub => {
-      const searchTerm = dSearch.toLowerCase();
-      const matchesSearch = (pub.titulo || '').toLowerCase().includes(searchTerm) ||
-                           (pub.numero_processo || '').includes(dSearch) ||
-                           (pub.conteudo || '').toLowerCase().includes(searchTerm);
-      
-      // 'all' exclui arquivadas — arquivadas só aparecem quando filtro = 'arquivada'
-      // "Tratadas" (value 'lida') = lida OU processada (o marcar-tratada grava 'lida', o vincular grava
-      // 'processada') — senão o card "Tratadas" mostra 11 e ZERA a lista ao clicar.
-      const matchesStatus = filters.status === 'all'
-        ? pub.status !== 'arquivada'
-        : filters.status === 'lida'
-          ? (pub.status === 'lida' || pub.status === 'processada')
-          : pub.status === filters.status;
-      const matchesUrgencia = filters.urgencia === 'all' || pub.urgencia === filters.urgencia;
-      const matchesVinculo = filters.vinculo === 'all'
-        || (filters.vinculo === 'sem' ? !pub.processo_id : !!pub.processo_id);
+  // Volta pra página 1 sempre que um filtro muda (senão o usuário podia ficar
+  // preso numa página 4 vazia depois de estreitar os filtros).
+  useEffect(() => { setPage(1); }, [dSearch, filters.status, filters.urgencia, filters.vinculo, filters.dateRange]);
 
-      let matchesDate = true;
-      if (filters.dateRange.from) {
-        try {
-          if (!pub.data_publicacao) {
-            matchesDate = false;
-          } else {
-            const pubDateStr = new Date(pub.data_publicacao).toISOString().split('T')[0];
-            const fromDateStr = filters.dateRange.from.toISOString().split('T')[0];
-            
-            if (filters.dateRange.to) {
-              const toDateStr = filters.dateRange.to.toISOString().split('T')[0];
-              matchesDate = pubDateStr >= fromDateStr && pubDateStr <= toDateStr;
-            } else {
-              matchesDate = pubDateStr >= fromDateStr;
-            }
-          }
-        } catch (e) {
-          matchesDate = true;
-        }
-      }
-      
-      return matchesSearch && matchesStatus && matchesUrgencia && matchesVinculo && matchesDate;
-    });
-  }, [publications, dSearch, filters.status, filters.urgencia, filters.vinculo, filters.dateRange]);
+  const { data: filteredPublications, total: totalFiltered, loading } = usePublicacoesLista({
+    page,
+    pageSize: PAGE_SIZE,
+    status: filters.status,
+    urgencia: filters.urgencia,
+    vinculo: filters.vinculo,
+    search: dSearch,
+    dateFrom: filters.dateRange.from,
+    dateTo: filters.dateRange.to,
+  });
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
 
   const activeFiltersCount = useMemo(() => {
     return [
@@ -299,10 +243,28 @@ export default function Publicacoes() {
     ].filter(Boolean).length;
   }, [filters]);
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
+    if (!user?.id) return;
+    // Exporta TODAS as publicações que casam com o filtro ativo, não só a
+    // página atual — com paginação, filteredPublications é só a página visível.
+    let toExport;
+    try {
+      toExport = await fetchAllPublicacoesForExport(user, {
+        status: filters.status,
+        urgencia: filters.urgencia,
+        vinculo: filters.vinculo,
+        search: dSearch,
+        dateFrom: filters.dateRange.from,
+        dateTo: filters.dateRange.to,
+      });
+    } catch {
+      toast({ title: 'Erro ao exportar', description: 'Não foi possível buscar as publicações.', variant: 'destructive' });
+      return;
+    }
+
     const rows = [
       ['Título', 'Processo', 'Tribunal', 'Comarca', 'Data', 'Status', 'Urgência'],
-      ...filteredPublications.map(p => [
+      ...toExport.map(p => [
         `"${(p.titulo || '').replace(/"/g, '""')}"`,
         p.numero_processo,
         p.tribunal || '',
@@ -320,7 +282,7 @@ export default function Publicacoes() {
     a.download = `publicacoes_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    toast({ title: 'Exportado', description: `${filteredPublications.length} publicações exportadas.` });
+    toast({ title: 'Exportado', description: `${toExport.length} publicações exportadas.` });
   };
 
   // Handlers
@@ -447,14 +409,14 @@ export default function Publicacoes() {
         </div>
       </div>
 
-      <PublicationSummary stats={stats} loading={loading} onCardClick={handleCardClick} />
+      <PublicationSummary stats={stats} loading={statsLoading} onCardClick={handleCardClick} />
 
       <div className="space-y-6">
         <div className="flex flex-col gap-4">
           <div className="flex justify-between items-end px-4 mt-4">
              <h3 className="text-2xl font-black tracking-tight text-foreground">Lista de Publicações</h3>
              <Badge variant="secondary" className="rounded-lg h-7 font-black tracking-[0.1em] text-[10px] uppercase shadow-sm">
-               {filteredPublications.length} Itens Encontrados
+               {totalFiltered} Itens Encontrados
              </Badge>
           </div>
           
@@ -491,7 +453,7 @@ export default function Publicacoes() {
                     </div>
                     <div className="flex flex-col">
                       <span className="font-bold text-xs uppercase tracking-tight">CSV / Excel</span>
-                      <span className="text-[10px] text-muted-foreground/60 italic">{filteredPublications.length} publicações</span>
+                      <span className="text-[10px] text-muted-foreground/60 italic">{totalFiltered} publicações</span>
                     </div>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -660,10 +622,9 @@ export default function Publicacoes() {
                           <Badge className={cn(
                             "px-3 py-1 rounded-full font-black text-[9px] uppercase tracking-widest",
                             isTratada ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20" :
-                            publication.status === 'pendente' ? "bg-sky-500/10 text-sky-600 border border-sky-500/20" :
                             "bg-amber-500/10 text-amber-600 border border-amber-500/20"
                           )}>
-                            {isTratada ? 'Tratada' : publication.status === 'pendente' ? 'Pendente' : 'Nova'}
+                            {isTratada ? 'Tratada' : 'Nova'}
                           </Badge>
                           {publication.urgencia === 'alta' && (
                             <Badge variant="outline" className="px-2 py-0.5 text-[9px] font-black uppercase tracking-widest bg-red-500/10 text-red-600 border-red-500/20">
@@ -739,6 +700,34 @@ export default function Publicacoes() {
               })}
             </div>
           )}
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between gap-3 pt-5 mt-1 border-t border-black/5 dark:border-border">
+              <p className="text-xs font-semibold text-muted-foreground">
+                Página {page} de {totalPages} · {totalFiltered} publicaç{totalFiltered === 1 ? 'ão' : 'ões'}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-3 rounded-lg text-xs font-bold gap-1"
+                  disabled={page <= 1 || loading}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" /> Anterior
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-3 rounded-lg text-xs font-bold gap-1"
+                  disabled={page >= totalPages || loading}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Próxima <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -749,8 +738,7 @@ export default function Publicacoes() {
           onOpenChange={setDetailDialogOpen}
           onDelete={deletePublication}
           onProcess={(id) => {
-            const pub = publications.find(p => p.id === id);
-            const isTratada = pub?.status === 'lida' || pub?.status === 'processada';
+            const isTratada = selectedPub?.status === 'lida' || selectedPub?.status === 'processada';
             updateStatus(id, isTratada ? 'nova' : 'processada');
           }}
           onRegister={canCreateProcesses ? handleRegister : undefined}
