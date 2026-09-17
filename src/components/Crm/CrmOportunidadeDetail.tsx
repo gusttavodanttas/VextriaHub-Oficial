@@ -18,20 +18,22 @@ import {
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { PermissionGuard } from "@/components/Auth/PermissionGuard";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Atendimento } from "@/types/database";
+import { Atendimento, ClienteComProcessos } from "@/types/database";
 import { cn } from "@/lib/utils";
 
 interface Props {
   onBack: () => void;
-  opportunity: any;
+  opportunity: ClienteComProcessos | null;
 }
 
 export function CrmOportunidadeDetail({ onBack, opportunity }: Props) {
   const { user } = useAuth();
+  const { canEditAtendimentos } = usePermissions();
   const { toast } = useToast();
   const [historyItems, setHistoryItems] = useState<Atendimento[]>([]);
   const [loading, setLoading] = useState(true);
@@ -116,7 +118,7 @@ export function CrmOportunidadeDetail({ onBack, opportunity }: Props) {
   };
 
   const handleSaveHistoryEdit = async () => {
-    if (!editingHistoryItem) return;
+    if (!editingHistoryItem || !canEditAtendimentos) return;
 
     try {
       const { error } = await supabase
@@ -292,9 +294,11 @@ export function CrmOportunidadeDetail({ onBack, opportunity }: Props) {
                           </div>
                           
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => setEditingHistoryItem(item)} aria-label="Editar interação">
-                              <Edit className="h-3.5 w-3.5" />
-                            </Button>
+                            <PermissionGuard permission="canEditAtendimentos">
+                              <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => setEditingHistoryItem(item)} aria-label="Editar interação">
+                                <Edit className="h-3.5 w-3.5" />
+                              </Button>
+                            </PermissionGuard>
                             <PermissionGuard permission="canDeleteAtendimentos">
                               <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-rose-500 hover:bg-rose-500/10" onClick={() => handleDeleteHistoryItem(item.id)} aria-label="Excluir interação">
                                 <Trash2 className="h-3.5 w-3.5" />

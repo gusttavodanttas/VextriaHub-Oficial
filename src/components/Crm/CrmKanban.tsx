@@ -23,7 +23,7 @@ const brl = (v: number) => formatBRL(v, { decimals: 0 });
 interface Props {
   data: ClienteComProcessos[];
   refresh?: () => void;
-  onCardClick?: (lead: any) => void;
+  onCardClick?: (lead: ClienteComProcessos) => void;
 }
 
 export function CrmKanban({ data, refresh, onCardClick }: Props) {
