@@ -71,9 +71,7 @@ function applyPlanRestrictions(permissions: FeaturePermissions, plan: any): Feat
     
     // IA é tratada separadamente como hasIAModule
     canViewCRM: permissions.canViewCRM && true, // CRM básico em todos os planos
-    
-    canViewAdvancedAnalytics: permissions.canViewAdvancedAnalytics && plan.hasAdvancedReports,
-    
+
     // Suporte prioritário e outros recursos podem ser checados diretamente nos componentes
   };
 }
@@ -130,8 +128,7 @@ function createEmptyPermissions(): FeaturePermissions {
     
     // Analytics & Reports
     canViewGraficos: false,
-    canViewAdvancedAnalytics: false,
-    
+
     // Financial
     canViewFinanceiro: false,
     canManageFinanceiro: false,
@@ -223,8 +220,7 @@ function createSuperAdminPermissions(): FeaturePermissions {
     
     // Analytics & Reports
     canViewGraficos: true,
-    canViewAdvancedAnalytics: true,
-    
+
     // Financial
     canViewFinanceiro: true,
     canManageFinanceiro: true,
@@ -316,8 +312,7 @@ function createAdminPermissions(): FeaturePermissions {
     
     // Analytics & Reports
     canViewGraficos: true,
-    canViewAdvancedAnalytics: true,
-    
+
     // Financial
     canViewFinanceiro: true,
     canManageFinanceiro: true,
@@ -409,8 +404,7 @@ function createOfficeAdminPermissions(): FeaturePermissions {
     
     // Analytics & Reports
     canViewGraficos: true,
-    canViewAdvancedAnalytics: true,
-    
+
     // Financial
     canViewFinanceiro: true,
     canManageFinanceiro: true,
@@ -502,8 +496,7 @@ function createUserPermissions(): FeaturePermissions {
     
     // Analytics & Reports
     canViewGraficos: true,
-    canViewAdvancedAnalytics: false, // Restrito para usuário comum
-    
+
     // Financial
     canViewFinanceiro: true,
     canManageFinanceiro: false, // Restrito
