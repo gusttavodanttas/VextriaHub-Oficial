@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MoreHorizontal, Edit, Scale, Activity, FileText, Trash2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { PermissionGuard } from "@/components/Auth/PermissionGuard";
 import { cn } from "@/lib/utils";
 import { formatCpfCnpj } from "@/lib/document";
 import { formatPhone } from "@/lib/phone";
@@ -137,15 +138,15 @@ export const ClientsTable: React.FC<ClientsTableProps> = ({
                         <FileText className="h-4 w-4 mr-3 opacity-60" /> Acessar Consultivo
                       </DropdownMenuItem>
                       {onDeleteClient && (
-                        <>
+                        <PermissionGuard permission="canDeleteClients">
                           <DropdownMenuSeparator className="my-1 bg-black/5 dark:bg-muted/30" />
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             onClick={(e) => { e.stopPropagation(); onDeleteClient(client.id); }}
                             className="rounded-xl p-3 font-bold text-sm cursor-pointer text-rose-500 hover:bg-rose-500/10 transition-colors"
                           >
                             <Trash2 className="h-4 w-4 mr-3 opacity-60" /> Excluir Cliente
                           </DropdownMenuItem>
-                        </>
+                        </PermissionGuard>
                       )}
                     </DropdownMenuContent>
                   </DropdownMenu>

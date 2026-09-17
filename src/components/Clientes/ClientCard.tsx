@@ -87,7 +87,7 @@ export const ClientCard: React.FC<ClientCardProps> = ({
       {/* Delete */}
       {onDeleteClient && (
         <div className="absolute top-3.5 right-3.5 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-          <PermissionGuard permission="canEditClients">
+          <PermissionGuard permission="canDeleteClients">
             <Button
               variant="ghost"
               size="icon"

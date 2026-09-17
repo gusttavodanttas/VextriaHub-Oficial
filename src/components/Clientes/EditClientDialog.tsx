@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { PermissionGuard } from "@/components/Auth/PermissionGuard";
 import { useToast } from "@/hooks/use-toast";
 import { useOfficeSettingList } from "@/hooks/useOfficeSettingList";
 import { formatCpfCnpj, isValidCpfCnpj, onlyDigits } from "@/lib/document";
@@ -161,9 +162,11 @@ export const EditClientDialog = ({ client, open, onOpenChange, onSave, onDelete 
 
         <DialogFooter className="px-6 md:px-7 pb-6 flex sm:justify-between items-center w-full">
           {onDelete && client ? (
-            <Button variant="ghost" size="sm" onClick={() => { onOpenChange(false); onDelete(client.id); }} className="rounded-xl gap-2 text-destructive hover:bg-destructive/10">
-              <Trash2 className="h-4 w-4" /> Excluir
-            </Button>
+            <PermissionGuard permission="canDeleteClients" fallback={<div />}>
+              <Button variant="ghost" size="sm" onClick={() => { onOpenChange(false); onDelete(client.id); }} className="rounded-xl gap-2 text-destructive hover:bg-destructive/10">
+                <Trash2 className="h-4 w-4" /> Excluir
+              </Button>
+            </PermissionGuard>
           ) : <div />}
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">Cancelar</Button>

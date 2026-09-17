@@ -140,7 +140,11 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
   };
 
   const requestDelete = async (id: string, motivo?: string): Promise<boolean> => {
-    if (!user?.office_id) return false;
+    // canDeleteClients cobre tanto a exclusão direta (admin) quanto a solicitação
+    // pendente (usuário comum) — sem essa checagem, qualquer usuário sempre
+    // conseguia pelo menos abrir uma solicitação de exclusão, mesmo com a
+    // permissão desligada.
+    if (!user?.office_id || !permissions.canDeleteClients) return false;
     const officeId = user.office_id;
 
     try {
@@ -213,7 +217,7 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
   };
 
   const requestMultipleDelete = async (ids: string[], motivo?: string): Promise<boolean> => {
-    if (!user?.office_id) return false;
+    if (!user?.office_id || !permissions.canDeleteClients) return false;
     const officeId = user.office_id;
 
     try {
