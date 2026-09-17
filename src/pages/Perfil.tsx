@@ -68,7 +68,6 @@ const Perfil = () => {
     email: "Carregando...",
     telefone: "",
     endereco: "",
-    cargo: "Não informado",
     oab: "",
     oab_uf: "DF",
     cpf_cnpj: "",
@@ -94,16 +93,12 @@ const Perfil = () => {
         email: profile?.email || user?.email || "email@exemplo.com",
         telefone: profile?.phone ? formatPhone(profile.phone) : prev.telefone,
         endereco: profile?.address || prev.endereco,
-        cargo: (user as any)?.office_role === 'owner' ? 'Proprietário'
-               : ((user as any)?.office_role === 'admin' || profile?.role === 'admin') ? 'Administrador'
-               : ((user as any)?.office_role === 'super_admin' || profile?.role === 'super_admin') ? 'Super Admin'
-               : isTeamCoordinator ? 'Coordenador' : 'Membro',
         oab: profile?.oab || prev.oab,
         oab_uf: profile?.oab_uf || prev.oab_uf,
         cpf_cnpj: (profile as any)?.cpf_cnpj || prev.cpf_cnpj,
       }));
     }
-  }, [user, profile, isTeamCoordinator]);
+  }, [user, profile]);
 
   const myStats = useMyStats();
 
