@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { getErrorMessage } from "@/lib/errors";
 
 export type ChartsPeriod = 6 | 12;
 
@@ -54,6 +55,8 @@ export const PONTOS_DEFAULT: PontosConfig = {
 
 export interface ChartsData {
   loading: boolean;
+  isError: boolean;
+  error: string | null;
   totals: { processos: number; clientes: number; atendimentos: number; receita: number; despesa: number };
   processosPorMes: { mes: string; novos: number; encerrados: number }[];
   statusProcessos: { name: string; value: number; fill: string }[];
@@ -95,6 +98,8 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
   const refetch = () => setReload(r => r + 1);
   const [data, setData] = useState<ChartsData>({
     loading: true,
+    isError: false,
+    error: null,
     totals: { processos: 0, clientes: 0, atendimentos: 0, receita: 0, despesa: 0 },
     processosPorMes: [], statusProcessos: [], clientesPorTipo: [],
     novosClientesPorMes: [], atendimentosPorMes: [], financeiroPorMes: [],
@@ -156,6 +161,16 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
       ]);
 
       if (cancel) return;
+
+      // Nenhuma das 8 queries paralelas tinha o erro checado — uma falha de RLS/rede
+      // em qualquer uma delas virava "sem dados no período", indistinguível de um
+      // escritório genuinamente vazio.
+      const firstError = [proc, prz, cli, at, fin, cons, ts, off].find((r) => r.error)?.error;
+      if (firstError) {
+        console.error("useChartsData:", firstError);
+        setData((prev) => ({ ...prev, loading: false, isError: true, error: getErrorMessage(firstError, "Não foi possível carregar os gráficos.") }));
+        return;
+      }
 
       const procRows = proc.data || [];
       const przRows = prz.data || [];
@@ -243,6 +258,13 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
           : supabase.from("audiencias").select("responsavel_id, user_id, status, data_audiencia, tipo").eq("office_id", officeId).eq("deletado", false),
       ]);
       if (cancel) return;
+
+      const secondError = tarRes.error || audRes.error;
+      if (secondError) {
+        console.error("useChartsData (tarefas/audiencias):", secondError);
+        setData((prev) => ({ ...prev, loading: false, isError: true, error: getErrorMessage(secondError, "Não foi possível carregar os gráficos.") }));
+        return;
+      }
 
       const todayStr = new Date().toISOString().split("T")[0];
       const nowIso = new Date().toISOString();
@@ -402,7 +424,7 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
 
       if (cancel) return;
       setData({
-        loading: false, totals, processosPorMes, statusProcessos, clientesPorTipo,
+        loading: false, isError: false, error: null, totals, processosPorMes, statusProcessos, clientesPorTipo,
         novosClientesPorMes, atendimentosPorMes, financeiroPorMes, honorariosPorCategoria, processosPorArea,
         duracaoMediaDias, duracaoPorTipo, resultadoProcessos,
         prazosPorMes, prazosPorStatus, tarefasPorMes, audienciasPorMes, audienciasPorStatus,
