@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Shield, Check, X, Clock, User, FileText, AlertCircle, TrendingUp, Activity } from "lucide-react";
+import { Shield, Check, X, Clock, User, FileText, AlertCircle, TrendingUp, Activity, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { ExclusaoPendente } from "@/types/database";
@@ -53,6 +53,9 @@ interface ExclusoesPendentesSectionProps {
   exclusoesPendentes: ExclusaoPendente[];
   requestsLoading: boolean;
   isEmpty: boolean;
+  /** Falha na busca das solicitações — sem isto, um erro de rede/RLS virava silenciosamente "nenhuma solicitação pendente". */
+  error?: string | null;
+  onRetry?: () => void;
   multiSelect: ReturnType<typeof useMultiSelect<ExclusaoPendente>>;
   processando: string | null;
   onAprovar: (id: string) => void;
@@ -68,6 +71,8 @@ export function ExclusoesPendentesSection({
   exclusoesPendentes,
   requestsLoading,
   isEmpty,
+  error,
+  onRetry,
   multiSelect,
   processando,
   onAprovar,
@@ -147,6 +152,18 @@ export function ExclusoesPendentesSection({
         </div>
       )}
 
+      {error && (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+            <p className="text-xs font-bold text-destructive truncate">{error}</p>
+          </div>
+          {onRetry && (
+            <Button variant="outline" size="sm" onClick={onRetry} className="rounded-xl font-bold shrink-0">Tentar novamente</Button>
+          )}
+        </div>
+      )}
+
       {requestsLoading && (
         <Card>
           <CardContent className="text-center py-12">
@@ -156,7 +173,7 @@ export function ExclusoesPendentesSection({
         </Card>
       )}
 
-      {isEmpty && !requestsLoading && (
+      {isEmpty && !requestsLoading && !error && (
         <Card>
           <CardContent className="text-center py-12">
             <Shield className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />

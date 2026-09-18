@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Loader2, Plus, Megaphone } from "lucide-react";
+import { Trash2, Loader2, Plus, Megaphone, AlertTriangle } from "lucide-react";
 import { useOfficeSettingList } from "@/hooks/useOfficeSettingList";
 
 const ORIGENS_DEFAULT = [
@@ -18,7 +18,7 @@ const ORIGENS_DEFAULT = [
 ];
 
 export const ClientOriginConfig = () => {
-  const { items: origensCliente, loading, saving, persist } = useOfficeSettingList<string>("origens_cliente", ORIGENS_DEFAULT);
+  const { items: origensCliente, loading, saving, error, refetch, persist } = useOfficeSettingList<string>("origens_cliente", ORIGENS_DEFAULT);
   const [novaOrigem, setNovaOrigem] = useState("");
 
   const jaExiste = origensCliente.some((o) => o.toLowerCase() === novaOrigem.trim().toLowerCase());
@@ -51,8 +51,17 @@ export const ClientOriginConfig = () => {
       </CardHeader>
 
       <CardContent className="p-5 md:p-6 space-y-5">
+        {error && (
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+              <p className="text-xs font-bold text-destructive truncate">{error}</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={refetch} className="rounded-xl font-bold shrink-0">Tentar novamente</Button>
+          </div>
+        )}
         <div className="grid gap-2.5">
-          {!loading && origensCliente.length === 0 && (
+          {!loading && !error && origensCliente.length === 0 && (
             <div className="text-center py-10 text-sm text-muted-foreground font-medium">
               Nenhuma origem cadastrada. Adicione a primeira abaixo.
             </div>
@@ -70,7 +79,7 @@ export const ClientOriginConfig = () => {
                 variant="ghost"
                 size="icon"
                 onClick={() => removerOrigem(origem)}
-                disabled={saving}
+                disabled={saving || !!error}
                 aria-label={`Remover ${origem}`}
                 className="h-8 w-8 shrink-0 rounded-xl text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-all"
               >
@@ -94,7 +103,7 @@ export const ClientOriginConfig = () => {
             <Button
               type="button"
               onClick={adicionarNovaOrigem}
-              disabled={saving || !novaOrigem.trim() || jaExiste}
+              disabled={saving || !!error || !novaOrigem.trim() || jaExiste}
               className="h-11 rounded-xl font-bold px-5"
             >
               <Plus className="h-4 w-4 mr-1.5" /> Adicionar

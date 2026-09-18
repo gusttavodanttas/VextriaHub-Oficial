@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { SearchCheck, Plus, Trash2, Loader2, ShieldAlert } from 'lucide-react';
+import { SearchCheck, Plus, Trash2, Loader2, ShieldAlert, AlertTriangle } from 'lucide-react';
 
 const TIPO_LABEL: Record<TermoTipo, string> = {
   nome: 'Nome da parte',
@@ -36,7 +36,7 @@ export function MonitoramentoTermos() {
   const { user } = useAuth();
   const { canManageOffice } = useUserRole();
   const { toast } = useToast();
-  const { termos, loading, refresh } = useMonitoramentoTermos();
+  const { termos, loading, error, refresh } = useMonitoramentoTermos();
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<{ termo: string; tipo: TermoTipo; seccional: string }>({ termo: '', tipo: 'nome', seccional: '' });
 
@@ -123,7 +123,18 @@ export function MonitoramentoTermos() {
               </div>
             )}
 
+            {error && (
+              <div className="flex items-center justify-between gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+                  <p className="text-xs font-bold text-destructive truncate">{error}</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={refresh} className="rounded-xl font-bold shrink-0">Tentar novamente</Button>
+              </div>
+            )}
+
             {loading ? <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary/40" /></div>
+              : error ? null
               : termos.length === 0 ? <p className="text-center py-8 text-sm text-muted-foreground">Nenhum termo monitorado ainda. Adicione um acima para o robô começar a acompanhar.</p>
               : (
                 <div className="space-y-2">

@@ -37,6 +37,8 @@ const Admin = () => {
   const {
     data: exclusoesPendentes,
     loading: requestsLoading,
+    error: requestsError,
+    refresh: refreshRequests,
     aprovarExclusao,
     rejeitarExclusao,
     aprovarMultiplasExclusoes,
@@ -117,6 +119,8 @@ const Admin = () => {
               <ExclusoesPendentesSection
                 exclusoesPendentes={exclusoesPendentes}
                 requestsLoading={requestsLoading}
+                error={requestsError}
+                onRetry={refreshRequests}
                 isEmpty={isEmpty}
                 multiSelect={multiSelect}
                 processando={processando}
@@ -133,6 +137,8 @@ const Admin = () => {
             <ExclusoesPendentesSection
               exclusoesPendentes={exclusoesPendentes}
               requestsLoading={requestsLoading}
+              error={requestsError}
+              onRetry={refreshRequests}
               isEmpty={isEmpty}
               multiSelect={multiSelect}
               processando={processando}

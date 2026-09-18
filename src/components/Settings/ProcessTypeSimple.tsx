@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, FileText, Loader2 } from "lucide-react";
+import { Trash2, Plus, FileText, Loader2, AlertTriangle } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useOfficeSettingList } from "@/hooks/useOfficeSettingList";
@@ -32,7 +32,7 @@ const areaColor = (area: string) => {
 };
 
 export function ProcessTypeSimple() {
-  const { items: tiposProcesso, loading, saving, persist } = useOfficeSettingList<TipoProcesso>("tipos_processo", TIPOS_PROCESSO_DEFAULT);
+  const { items: tiposProcesso, loading, saving, error, refetch, persist } = useOfficeSettingList<TipoProcesso>("tipos_processo", TIPOS_PROCESSO_DEFAULT);
   const { items: areas, persist: persistAreas } = useOfficeSettingList<string>("areas_processo", AREAS_DEFAULT);
   const [novoTipo, setNovoTipo] = useState({ nome: "", descricao: "", area: "Previdenciário" });
 
@@ -63,8 +63,17 @@ export function ProcessTypeSimple() {
       </CardHeader>
 
       <CardContent className="p-5 md:p-6 space-y-5">
+        {error && (
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+              <p className="text-xs font-bold text-destructive truncate">{error}</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={refetch} className="rounded-xl font-bold shrink-0">Tentar novamente</Button>
+          </div>
+        )}
         <div className="grid gap-2.5">
-          {!loading && tiposProcesso.length === 0 && (
+          {!loading && !error && tiposProcesso.length === 0 && (
             <div className="text-center py-10 text-sm text-muted-foreground font-medium">
               Nenhum tipo cadastrado. Adicione o primeiro abaixo.
             </div>
@@ -87,7 +96,7 @@ export function ProcessTypeSimple() {
                 variant="ghost"
                 size="icon"
                 onClick={() => removerTipo(tipo.id)}
-                disabled={saving}
+                disabled={saving || !!error}
                 aria-label={`Remover ${tipo.nome}`}
                 className="h-8 w-8 shrink-0 rounded-xl text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-all"
               >
@@ -134,7 +143,7 @@ export function ProcessTypeSimple() {
               className="rounded-xl resize-none"
             />
           </div>
-          <Button onClick={adicionarTipo} disabled={saving || !novoTipo.nome.trim()} className="w-full rounded-xl font-bold">
+          <Button onClick={adicionarTipo} disabled={saving || !!error || !novoTipo.nome.trim()} className="w-full rounded-xl font-bold">
             <Plus className="h-4 w-4 mr-2" /> Adicionar Tipo
           </Button>
         </div>
