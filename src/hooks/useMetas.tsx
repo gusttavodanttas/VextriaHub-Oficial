@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { assertRowsAffected } from "@/lib/errors";
+import { assertRowsAffected, getErrorMessage } from "@/lib/errors";
 
 export interface Meta {
   id: string;
@@ -60,11 +60,16 @@ export function useMetas() {
   const { toast } = useToast();
   const [metas, setMetas] = useState<Meta[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Calcula o valor atingido de uma meta com base em dados reais.
   // Se memberIds for informado (meta de equipe), restringe aos membros.
-  const computeAtual = useCallback(async (tipo: string, inicio: string, fim: string, fallback: number, memberIds?: string[] | null): Promise<number> => {
-    if (!user?.office_id) return fallback;
+  // Devolve ok:false quando a query falhou de verdade (RLS/rede) — antes o catch
+  // engolia qualquer erro e devolvia o fallback (valor já salvo) como se nada
+  // tivesse acontecido, sem indicar ao usuário que o progresso pode estar
+  // desatualizado.
+  const computeAtual = useCallback(async (tipo: string, inicio: string, fim: string, fallback: number, memberIds?: string[] | null): Promise<{ value: number; ok: boolean }> => {
+    if (!user?.office_id) return { value: fallback, ok: true };
     const office = user.office_id;
     const startIso = `${inicio}T00:00:00`;
     const endIso = `${fim}T23:59:59`;
@@ -75,58 +80,73 @@ export function useMetas() {
           // Só receita EFETIVAMENTE recebida (data_pagamento preenchida), no período em
           // que foi paga — antes somava receita pendente/cancelada por created_at e
           // superestimava o caixa.
-          const { data } = await scope(supabase.from("financeiro").select("valor")
+          const { data, error: qError } = await scope(supabase.from("financeiro").select("valor")
             .eq("office_id", office).eq("deletado", false).eq("tipo", "receita")
             .not("data_pagamento", "is", null)
             .gte("data_pagamento", inicio).lte("data_pagamento", fim), "user_id");
-          return (data || []).reduce((s: number, r: any) => s + (Number(r.valor) || 0), 0);
+          if (qError) throw qError;
+          return { value: (data || []).reduce((s: number, r: any) => s + (Number(r.valor) || 0), 0), ok: true };
         }
         case "clientes": {
-          const { count } = await scope(supabase.from("clientes").select("id", { count: "exact", head: true })
+          const { count, error: qError } = await scope(supabase.from("clientes").select("id", { count: "exact", head: true })
             // case-insensitive: pega "ativo" e legado "Ativo"/"Convertido" (v11)
             .eq("office_id", office).eq("deletado", false).or("status.ilike.ativo,status.ilike.convertido")
             .gte("created_at", startIso).lte("created_at", endIso), "user_id");
-          return count || 0;
+          if (qError) throw qError;
+          return { value: count || 0, ok: true };
         }
         case "processos": {
-          const { count } = await scope(supabase.from("processos").select("id", { count: "exact", head: true })
+          const { count, error: qError } = await scope(supabase.from("processos").select("id", { count: "exact", head: true })
             .eq("office_id", office).eq("deletado", false).eq("status", "encerrado")
             .gte("updated_at", startIso).lte("updated_at", endIso), "responsavel_id");
-          return count || 0;
+          if (qError) throw qError;
+          return { value: count || 0, ok: true };
         }
         case "audiencias": {
-          const { count } = await scope(supabase.from("audiencias").select("id", { count: "exact", head: true })
+          const { count, error: qError } = await scope(supabase.from("audiencias").select("id", { count: "exact", head: true })
             .eq("office_id", office).eq("deletado", false).eq("status", "realizada")
             .gte("data_audiencia", startIso).lte("data_audiencia", endIso), "responsavel_id");
-          return count || 0;
+          if (qError) throw qError;
+          return { value: count || 0, ok: true };
         }
         case "atendimentos": {
-          const { count } = await scope(supabase.from("atendimentos").select("id", { count: "exact", head: true })
+          const { count, error: qError } = await scope(supabase.from("atendimentos").select("id", { count: "exact", head: true })
             .eq("office_id", office).eq("deletado", false)
             .gte("created_at", startIso).lte("created_at", endIso), "responsavel_id");
-          return count || 0;
+          if (qError) throw qError;
+          return { value: count || 0, ok: true };
         }
         case "prazos": {
-          const { count } = await scope(supabase.from("prazos").select("id", { count: "exact", head: true })
+          const { count, error: qError } = await scope(supabase.from("prazos").select("id", { count: "exact", head: true })
             .eq("office_id", office).eq("status", "concluido")
             .gte("data_fim_prazo", inicio).lte("data_fim_prazo", fim), "responsavel_id");
-          return count || 0;
+          if (qError) throw qError;
+          return { value: count || 0, ok: true };
         }
         default:
-          return fallback;
+          return { value: fallback, ok: true };
       }
-    } catch {
-      return fallback;
+    } catch (e) {
+      console.error(`computeAtual (${tipo}):`, e);
+      return { value: fallback, ok: false };
     }
   }, [user?.office_id]);
 
   const fetch = useCallback(async () => {
-    if (!user?.office_id) { setMetas([]); setLoading(false); return; }
+    if (!user?.office_id) { setMetas([]); setLoading(false); setError(null); return; }
     setLoading(true);
-    const [{ data }, teamsRes] = await Promise.all([
+    setError(null);
+    const [{ data, error: fetchError }, teamsRes] = await Promise.all([
       supabase.from("metas").select("*").eq("deletado", false).order("created_at", { ascending: false }),
       supabase.from("office_teams").select("id, name").eq("office_id", user.office_id),
     ]);
+    if (fetchError) {
+      console.error("Erro ao buscar metas:", fetchError);
+      setError(getErrorMessage(fetchError, "Não foi possível carregar as metas."));
+      setMetas([]);
+      setLoading(false);
+      return;
+    }
     const teamName: Record<string, string> = {};
     (teamsRes.data || []).forEach((t: any) => { teamName[t.id] = t.name; });
 
@@ -141,9 +161,11 @@ export function useMetas() {
     };
 
     const rows = data || [];
+    let progressoComErro = false;
     const withProgress = await Promise.all(rows.map(async (r: any) => {
       const memberIds = r.team_id ? await getTeamMembers(r.team_id) : null;
-      const valorAtual = await computeAtual(r.tipo, r.data_inicio, r.data_fim, Number(r.valor_atual) || 0, memberIds);
+      const { value: valorAtual, ok } = await computeAtual(r.tipo, r.data_inicio, r.data_fim, Number(r.valor_atual) || 0, memberIds);
+      if (!ok) progressoComErro = true;
       return {
         id: r.id, titulo: r.titulo, tipo: r.tipo, periodo: r.periodo,
         valorMeta: Number(r.valor_meta) || 0, valorAtual, status: r.status || "ativa",
@@ -152,6 +174,9 @@ export function useMetas() {
       } as Meta;
     }));
     setMetas(withProgress);
+    if (progressoComErro) {
+      setError("Não foi possível recalcular o progresso de uma ou mais metas agora. Os valores exibidos podem estar desatualizados.");
+    }
     setLoading(false);
   }, [user?.office_id, computeAtual]);
 
@@ -203,5 +228,5 @@ export function useMetas() {
     return true;
   };
 
-  return { metas, loading, create, update, remove, refetch: fetch };
+  return { metas, loading, error, create, update, remove, refetch: fetch };
 }

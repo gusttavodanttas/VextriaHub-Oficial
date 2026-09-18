@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PermissionGuard } from "@/components/Auth/PermissionGuard";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useMetas, type Meta } from "@/hooks/useMetas";
+import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
 import { useOfficeTeams } from "@/hooks/useOfficeTeams";
 import { Users } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -131,9 +132,12 @@ const Metas = () => {
   const [activeTab, setActiveTab] = useState("individuais");
   const [createGoalOpen, setCreateGoalOpen] = useState(false);
   const [editGoal, setEditGoal] = useState<any | null>(null);
-  const { metas, loading, create, update, remove } = useMetas();
+  const { metas, loading, error, create, update, remove } = useMetas();
   const { teams } = useOfficeTeams();
   const { canManageMetas } = usePermissions();
+  // Excluir meta não tinha NENHUMA confirmação — achado do relatório.
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const handleSaveGoal = (m: any) => {
     if (!canManageMetas) return;
@@ -145,7 +149,15 @@ const Metas = () => {
 
   const handleDeleteGoal = (goalId: string) => {
     if (!canManageMetas) return;
-    remove(goalId);
+    setConfirmDeleteId(goalId);
+  };
+
+  const confirmDeleteGoal = async () => {
+    if (!confirmDeleteId) return;
+    setDeleting(true);
+    await remove(confirmDeleteId);
+    setDeleting(false);
+    setConfirmDeleteId(null);
   };
 
   const openEdit = (meta: any) => {
@@ -221,6 +233,13 @@ const Metas = () => {
           </div>
         </PermissionGuard>
       </div>
+
+      {error && (
+        <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-medium">
+          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+          <span>{error}</span>
+        </div>
+      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
         <div className="glass-card p-2 rounded-3xl inline-flex w-full md:w-auto h-auto border border-black/5 dark:border-border bg-black/[0.02] dark:bg-muted/30 shadow-inner">
@@ -339,6 +358,15 @@ const Metas = () => {
           onSave={handleSaveGoal}
           initial={editGoal}
           teams={teams.map(t => ({ id: t.id, name: t.name }))}
+        />
+
+        <DeleteConfirmDialog
+          open={!!confirmDeleteId}
+          onOpenChange={(open) => !open && setConfirmDeleteId(null)}
+          onConfirm={confirmDeleteGoal}
+          title="Excluir meta?"
+          description="Esta ação move a meta para a lixeira. Você pode restaurá-la depois, se precisar."
+          isLoading={deleting}
         />
       </div>
     </PermissionGuard>
