@@ -74,7 +74,7 @@ export default function Prazos() {
 
   // Dados + mutações extraídos para hooks/usePrazosData (efeitos de UI via callbacks)
   const {
-    prazos, isLoading, pubInfo, teorMap, processoInfo,
+    prazos, isLoading, isError, error, refetch, pubInfo, teorMap, processoInfo,
     procDoPrazo, clienteDoPrazo, clienteNomeDoPrazo,
     aceitarMutation, concludeMutation, reopenMutation, deleteMutation,
     bulkConcludeMutation, bulkDeleteMutation, bulkAssignMutation,
@@ -343,8 +343,20 @@ export default function Prazos() {
         </div>
       )}
 
+      {/* Erro */}
+      {!isLoading && isError && (
+        <div className="py-20 flex flex-col items-center justify-center text-center space-y-4">
+          <div className="p-5 rounded-full bg-destructive/10 text-destructive"><AlertTriangle className="h-10 w-10 opacity-70" /></div>
+          <div>
+            <p className="font-black text-lg">Não foi possível carregar os prazos</p>
+            <p className="text-sm text-muted-foreground mt-1">{error instanceof Error ? error.message : "Tente novamente em instantes."}</p>
+          </div>
+          <Button variant="outline" onClick={() => refetch()} className="rounded-xl gap-2 font-bold">Tentar novamente</Button>
+        </div>
+      )}
+
       {/* Calendário mensal */}
-      {!isLoading && view === 'calendario' && (
+      {!isLoading && !isError && view === 'calendario' && (
         <MonthView
           items={filtered}
           refDate={mesRef}
@@ -356,7 +368,7 @@ export default function Prazos() {
       )}
 
       {/* Empty */}
-      {!isLoading && view === 'lista' && filtered.length === 0 && (
+      {!isLoading && !isError && view === 'lista' && filtered.length === 0 && (
         <div className="py-20 flex flex-col items-center justify-center text-center space-y-3 opacity-30">
           <Inbox className="h-14 w-14" />
           <p className="font-black uppercase tracking-widest text-sm">Nenhum prazo encontrado</p>
@@ -365,7 +377,7 @@ export default function Prazos() {
       )}
 
       {/* Sections */}
-      {!isLoading && view === 'lista' && SECTION_ORDER.map(urgency => {
+      {!isLoading && !isError && view === 'lista' && SECTION_ORDER.map(urgency => {
         const items = grouped[urgency];
         if (items.length === 0) return null;
         const cfg = URGENCY_CONFIG[urgency];
