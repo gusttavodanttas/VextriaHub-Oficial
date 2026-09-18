@@ -134,24 +134,32 @@ export function useTeamMembers(teamId: string | null) {
     return true;
   };
 
+  // Mesmo padrão do `remove` de equipe acima: RLS bloqueada em UPDATE/DELETE não
+  // gera erro, só casa 0 linhas — sem o .select("id"), a UI dizia "sucesso" com a
+  // linha intocada no banco (ex.: coordenador de outro time mexendo numa equipe
+  // que não é a dele).
   const setMemberRole = async (userId: string, role: "coordinator" | "member") => {
     if (!teamId) return false;
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("office_team_members")
       .update({ role })
       .eq("team_id", teamId)
-      .eq("user_id", userId);
-    if (!error) setMembers(prev => prev.map(m => m.user_id === userId ? { ...m, role } : m));
-    return !error;
+      .eq("user_id", userId)
+      .select("id");
+    const ok = !error && (data?.length ?? 0) > 0;
+    if (ok) setMembers(prev => prev.map(m => m.user_id === userId ? { ...m, role } : m));
+    return ok;
   };
 
   const removeMember = async (userId: string) => {
     if (!teamId) return false;
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("office_team_members")
-      .delete().eq("team_id", teamId).eq("user_id", userId);
-    if (!error) setMembers(prev => prev.filter(m => m.user_id !== userId));
-    return !error;
+      .delete().eq("team_id", teamId).eq("user_id", userId)
+      .select("id");
+    const ok = !error && (data?.length ?? 0) > 0;
+    if (ok) setMembers(prev => prev.filter(m => m.user_id !== userId));
+    return ok;
   };
 
   return { members, loading, addMember, removeMember, setMemberRole, refetch: fetch };

@@ -26,7 +26,7 @@ import {
   Users, Plus, Search, Mail, Clock, ShieldCheck, User,
   Trash2, Send, RefreshCw, XCircle, CheckCircle2, Crown,
   Settings2, RotateCcw, KeyRound, Eye, EyeOff, Copy, ChevronRight, ChevronLeft,
-  FolderOpen, Pencil, UserPlus, UserMinus, BarChart2,
+  FolderOpen, Pencil, UserPlus, UserMinus, BarChart2, AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -80,8 +80,8 @@ export default function Equipe() {
   const canInvite = isOfficeAdmin || canInviteUsers;
   const canManageTeamsRls = isOfficeAdmin || canManageEquipe;
   const { toast } = useToast();
-  const { users, loading: usersLoading, removeUser, updateUser, refresh: refreshUsers } = useOfficeUsers();
-  const { invitations, loading: invLoading, createInvitation, resendInvitation, cancelInvitation, pendingInvitations } = useInvitations();
+  const { users, loading: usersLoading, error: usersError, removeUser, updateUser, refresh: refreshUsers } = useOfficeUsers();
+  const { invitations, loading: invLoading, error: invError, createInvitation, resendInvitation, cancelInvitation, refresh: refreshInvitations, pendingInvitations } = useInvitations();
   const { teams, loading: teamsLoading, create: createTeam, update: updateTeam, remove: removeTeam } = useOfficeTeams();
 
   const [search, setSearch] = useState("");
@@ -155,9 +155,13 @@ export default function Equipe() {
 
   const handleRoleSave = async () => {
     if (!roleTarget) return;
-    await updateUser(roleTarget.id, { role: newRole });
-    toast({ title: "Função atualizada" });
-    setRoleDialogOpen(false);
+    const result = await updateUser(roleTarget.id, { role: newRole });
+    if (result) {
+      toast({ title: "Função atualizada" });
+      setRoleDialogOpen(false);
+    } else {
+      toast({ title: "Não foi possível atualizar a função", description: "Você não tem permissão para esta ação.", variant: "destructive" });
+    }
   };
 
   return (
@@ -226,7 +230,14 @@ export default function Equipe() {
 
           {/* ── membros ── */}
           <TabsContent value="membros" className="mt-4">
-            {usersLoading ? (
+            {usersError ? (
+              <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+                <div className="p-4 rounded-2xl bg-destructive/10"><AlertTriangle className="h-8 w-8 text-destructive/60" /></div>
+                <p className="font-bold">Não foi possível carregar os membros</p>
+                <p className="text-sm text-muted-foreground">{usersError}</p>
+                <Button variant="outline" onClick={refreshUsers} className="rounded-xl font-bold mt-1">Tentar novamente</Button>
+              </div>
+            ) : usersLoading ? (
               <div className="space-y-3">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-2xl" />)}</div>
             ) : filteredUsers.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
@@ -291,7 +302,12 @@ export default function Equipe() {
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel className="rounded-xl">Cancelar</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => { removeUser(u.id); toast({ title: "Membro removido" }); }}
+                                <AlertDialogAction onClick={async () => {
+                                  const ok = await removeUser(u.id);
+                                  toast(ok
+                                    ? { title: "Membro removido" }
+                                    : { title: "Não foi possível remover", description: "Você não tem permissão para esta ação.", variant: "destructive" });
+                                }}
                                   className="rounded-xl bg-destructive hover:bg-destructive/90">Remover</AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
@@ -307,7 +323,14 @@ export default function Equipe() {
 
           {/* ── convites ── */}
           <TabsContent value="convites" className="mt-4">
-            {invLoading ? (
+            {invError ? (
+              <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+                <div className="p-4 rounded-2xl bg-destructive/10"><AlertTriangle className="h-8 w-8 text-destructive/60" /></div>
+                <p className="font-bold">Não foi possível carregar os convites</p>
+                <p className="text-sm text-muted-foreground">{invError}</p>
+                <Button variant="outline" onClick={refreshInvitations} className="rounded-xl font-bold mt-1">Tentar novamente</Button>
+              </div>
+            ) : invLoading ? (
               <div className="space-y-3">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-2xl" />)}</div>
             ) : filteredInv.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
@@ -356,7 +379,12 @@ export default function Equipe() {
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel className="rounded-xl">Cancelar</AlertDialogCancel>
-                              <AlertDialogAction onClick={async () => { await cancelInvitation(inv.id); toast({ title: "Convite excluído" }); }}
+                              <AlertDialogAction onClick={async () => {
+                                const ok = await cancelInvitation(inv.id);
+                                toast(ok
+                                  ? { title: "Convite excluído" }
+                                  : { title: "Não foi possível excluir", description: "Você não tem permissão para esta ação.", variant: "destructive" });
+                              }}
                                 className="rounded-xl bg-destructive hover:bg-destructive/90">Excluir</AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>

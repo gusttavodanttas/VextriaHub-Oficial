@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Invitation, NovaInvitation } from '@/types/database';
 import { useAuth } from '@/contexts/AuthContext';
-import { getErrorMessage } from '@/lib/errors';
+import { getErrorMessage, assertRowsAffected } from '@/lib/errors';
 
 // Postgres não lança um erro "amigável" quando a policy RLS bloqueia o INSERT —
 // vem como 42501 (insufficient_privilege) ou mensagem citando "row-level security".
@@ -136,22 +136,25 @@ export const useInvitations = () => {
     }
   };
 
-  const cancelInvitation = async (invitationId: string) => {
+  const cancelInvitation = async (invitationId: string): Promise<boolean> => {
     try {
       setError(null);
-      const { error: updateError } = await supabase
+      // RLS bloqueada em DELETE não gera erro, só casa 0 linhas — sem o
+      // .select('id'), a UI dizia "convite excluído" com o registro intocado.
+      const { data, error: deleteError } = await supabase
         .from('invitations')
         .delete()
-        .eq('id', invitationId);
+        .eq('id', invitationId)
+        .select('id');
 
-      if (updateError) throw updateError;
+      assertRowsAffected(data, deleteError, 1);
 
       setInvitations(prev => prev.filter(i => i.id !== invitationId));
       return true;
     } catch (err) {
       console.error('Error canceling invitation:', err);
-      setError('Erro ao cancelar convite');
-      return null;
+      setError(getErrorMessage(err, 'Erro ao cancelar convite'));
+      return false;
     }
   };
 

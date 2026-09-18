@@ -15,6 +15,8 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { getErrorMessage, assertRowsAffected } from "@/lib/errors";
+import { useToast } from "@/hooks/use-toast";
 
 // ─── Drill-down ─────────────────────────────────────────────────────────────
 type DetailType = "processos" | "tarefas" | "audiencias" | "prazos" | "atendimentos" | "consultivos";
@@ -407,6 +409,7 @@ function AssignProcessosDialog({
   const [loading, setLoading] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [justSaved, setJustSaved] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const ids = members.length ? members.map(m => m.user_id) : ["00000000-0000-0000-0000-000000000000"];
 
@@ -455,13 +458,20 @@ function AssignProcessosDialog({
 
   const assign = async (itemId: string, userId: string) => {
     setSavingId(itemId);
-    const { error } = await supabase.from(kind).update({ responsavel_id: userId }).eq("id", itemId);
-    setSavingId(null);
-    if (!error) {
+    try {
+      // RLS bloqueada em UPDATE não gera erro, só casa 0 linhas — sem o
+      // .select('id'), o diálogo mostrava "salvo" (check verde) mesmo sem
+      // gravar (ex.: coordenador atribuindo item fora da própria equipe).
+      const { data, error } = await supabase.from(kind).update({ responsavel_id: userId }).eq("id", itemId).select("id");
+      assertRowsAffected(data, error, 1);
       setItems(prev => prev.map(p => p.id === itemId ? { ...p, responsavel_id: userId } : p));
       setJustSaved(itemId);
       setTimeout(() => setJustSaved(s => s === itemId ? null : s), 1500);
       onChanged();
+    } catch (e) {
+      toast({ title: "Não foi possível atribuir", description: getErrorMessage(e), variant: "destructive" });
+    } finally {
+      setSavingId(null);
     }
   };
 
@@ -563,6 +573,7 @@ export default function EquipeDetalhe() {
     audiencias: 0, prazos: 0, atendimentos: 0, consultivos: 0, horasTimesheet: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<Period>("month");
   const [sortKey, setSortKey] = useState<SortKey>("processos");
   const [memberIds, setMemberIds] = useState<string[]>([]);
@@ -573,7 +584,9 @@ export default function EquipeDetalhe() {
   const fetchData = useCallback(async () => {
     if (!teamId || !user?.office_id) return;
     setLoading(true);
+    setError(null);
 
+    try {
     const { start, end, startDate, endDate } = getPeriodDates(period);
     const now = new Date();
     const in7days = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -581,12 +594,13 @@ export default function EquipeDetalhe() {
     const today = now.toISOString().split("T")[0];
 
     // 1. Buscar membros da equipe com perfis
-    const { data: membersData } = await supabase
+    const { data: membersData, error: membersError } = await supabase
       .from("office_team_members")
       .select("user_id, role")
       .eq("team_id", teamId);
 
-    if (!membersData?.length) { setLoading(false); return; }
+    if (membersError) throw membersError;
+    if (!membersData?.length) { return; }
 
     const userIds = membersData.map(m => m.user_id);
     setMemberIds(userIds);
@@ -699,8 +713,12 @@ export default function EquipeDetalhe() {
       consultivos: memberStats.reduce((s, m) => s + m.consultivos, 0),
       horasTimesheet: memberStats.reduce((s, m) => s + m.horasTimesheet, 0),
     });
-
-    setLoading(false);
+    } catch (e) {
+      console.error("Erro ao carregar produtividade da equipe:", e);
+      setError(getErrorMessage(e, "Não foi possível carregar os dados da equipe."));
+    } finally {
+      setLoading(false);
+    }
   }, [teamId, user?.office_id, period]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -764,7 +782,14 @@ export default function EquipeDetalhe() {
         )}
       </div>
 
-      {loading ? (
+      {error ? (
+        <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
+          <AlertCircle className="h-12 w-12 text-destructive/60" />
+          <p className="font-bold">Não foi possível carregar a equipe</p>
+          <p className="text-sm text-muted-foreground max-w-sm">{error}</p>
+          <Button variant="outline" onClick={fetchData} className="mt-2">Tentar novamente</Button>
+        </div>
+      ) : loading ? (
         <div className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[...Array(8)].map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
