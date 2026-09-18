@@ -38,11 +38,14 @@ import { StatCard, TimesheetSettingsDialog } from "@/components/Timesheet/Settin
 import { useTimesheetManualEntry } from "@/hooks/useTimesheetManualEntry";
 import { useTimesheetFilters } from "@/hooks/useTimesheetFilters";
 import { useTimesheetTimer } from "@/hooks/useTimesheetTimer";
+import { usePermissions } from "@/hooks/usePermissions";
+import { PermissionGuard } from "@/components/Auth/PermissionGuard";
 
 export default function Timesheet() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { canManageTimesheet } = usePermissions();
   const {
     data: timesheets, loading, error: timesheetsError, fetchData: refetchTimesheets, activeTimer,
     periodDays, setPeriodDays, scope, setScope,
@@ -187,6 +190,7 @@ export default function Timesheet() {
   // Lançamento manual: state + openManual/openEdit/saveManual foram para useTimesheetManualEntry.
 
   return (
+    <PermissionGuard permission="canViewTimesheet" showDeniedMessage>
     <div className="flex-1 p-4 md:p-8 space-y-6 md:space-y-8 overflow-x-hidden entry-animate">
 
       {/* Header */}
@@ -205,14 +209,18 @@ export default function Timesheet() {
             className="rounded-xl h-11 w-11 shrink-0" title="Configurações de faturamento" aria-label="Configurações de faturamento">
             <Settings2 className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="lg" onClick={openManual}
-            className="flex-1 sm:flex-none rounded-xl h-11 px-3 sm:px-5 font-black uppercase text-xs tracking-widest">
-            <PenLine className="mr-1.5 sm:mr-2 h-4 w-4" />Manual
-          </Button>
-          <Button size="lg" onClick={openTimer} disabled={!!activeTimer}
-            className="flex-1 sm:flex-none rounded-xl h-11 px-3 sm:px-6 font-black uppercase text-xs tracking-widest shadow-premium">
-            <Plus className="mr-1.5 sm:mr-2 h-4 w-4" />Novo Timer
-          </Button>
+          {canManageTimesheet && (
+            <>
+              <Button variant="outline" size="lg" onClick={openManual}
+                className="flex-1 sm:flex-none rounded-xl h-11 px-3 sm:px-5 font-black uppercase text-xs tracking-widest">
+                <PenLine className="mr-1.5 sm:mr-2 h-4 w-4" />Manual
+              </Button>
+              <Button size="lg" onClick={openTimer} disabled={!!activeTimer}
+                className="flex-1 sm:flex-none rounded-xl h-11 px-3 sm:px-6 font-black uppercase text-xs tracking-widest shadow-premium">
+                <Plus className="mr-1.5 sm:mr-2 h-4 w-4" />Novo Timer
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -490,7 +498,7 @@ export default function Timesheet() {
                         : <p className="text-[10px] text-muted-foreground/50 mt-0.5">{new Date(t.data_inicio).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>}
                     </div>
 
-                    {mine && (
+                    {mine && canManageTimesheet && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg shrink-0" aria-label="Mais opções do registro"><MoreVertical className="h-4 w-4" /></Button>
@@ -797,5 +805,6 @@ export default function Timesheet() {
         description="Esta ação não pode ser desfeita. O registro de tempo será removido."
       />
     </div>
+    </PermissionGuard>
   );
 }

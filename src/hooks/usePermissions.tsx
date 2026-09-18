@@ -132,7 +132,11 @@ function createEmptyPermissions(): FeaturePermissions {
     // Financial
     canViewFinanceiro: false,
     canManageFinanceiro: false,
-    
+
+    // Timesheet
+    canViewTimesheet: false,
+    canManageTimesheet: false,
+
     // Goals & Targets
     canViewMetas: false,
     canManageMetas: false,
@@ -179,52 +183,56 @@ function createSuperAdminPermissions(): FeaturePermissions {
     canCreateClients: true,
     canEditClients: true,
     canDeleteClients: true,
-    
+
     // Process Management
     canViewProcesses: true,
     canCreateProcesses: true,
     canEditProcesses: true,
     canDeleteProcesses: true,
-    
+
     // Attendance/Service Management
     canViewAtendimentos: true,
     canCreateAtendimentos: true,
     canEditAtendimentos: true,
     canDeleteAtendimentos: true,
-    
+
     // CRM Features
     canViewCRM: true,
     canManageCRM: true,
-    
+
     // Calendar & Scheduling
     canViewAgenda: true,
     canManageAgenda: true,
     canViewAudiencias: true,
     canManageAudiencias: true,
-    
+
     // Team Management
     canViewEquipe: true,
     canManageEquipe: true,
-    
+
     // Tasks & Deadlines
     canViewTarefas: true,
     canManageTarefas: true,
     canViewPrazos: true,
     canManagePrazos: true,
-    
+
     // Publications & Legal Research
     canViewPublicacoes: true,
     canManagePublicacoes: true,
     canViewConsultivo: true,
     canManageConsultivo: true,
-    
+
     // Analytics & Reports
     canViewGraficos: true,
 
     // Financial
     canViewFinanceiro: true,
     canManageFinanceiro: true,
-    
+
+    // Timesheet
+    canViewTimesheet: true,
+    canManageTimesheet: true,
+
     // Goals & Targets
     canViewMetas: true,
     canManageMetas: true,
@@ -316,7 +324,11 @@ function createAdminPermissions(): FeaturePermissions {
     // Financial
     canViewFinanceiro: true,
     canManageFinanceiro: true,
-    
+
+    // Timesheet
+    canViewTimesheet: true,
+    canManageTimesheet: true,
+
     // Goals & Targets
     canViewMetas: true,
     canManageMetas: true,
@@ -408,7 +420,11 @@ function createOfficeAdminPermissions(): FeaturePermissions {
     // Financial
     canViewFinanceiro: true,
     canManageFinanceiro: true,
-    
+
+    // Timesheet
+    canViewTimesheet: true,
+    canManageTimesheet: true,
+
     // Goals & Targets
     canViewMetas: true,
     canManageMetas: true,
@@ -500,7 +516,11 @@ function createUserPermissions(): FeaturePermissions {
     // Financial
     canViewFinanceiro: true,
     canManageFinanceiro: false, // Restrito
-    
+
+    // Timesheet — cada membro lança/gerencia o próprio tempo por padrão
+    canViewTimesheet: true,
+    canManageTimesheet: true,
+
     // Goals & Targets
     canViewMetas: true,
     canManageMetas: false, // Restrito

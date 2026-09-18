@@ -57,7 +57,11 @@ export interface FeaturePermissions {
   // Financial
   canViewFinanceiro: boolean;
   canManageFinanceiro: boolean;
-  
+
+  // Timesheet
+  canViewTimesheet: boolean;
+  canManageTimesheet: boolean;
+
   // Goals & Targets
   canViewMetas: boolean;
   canManageMetas: boolean;
