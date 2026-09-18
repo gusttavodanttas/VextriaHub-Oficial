@@ -2245,3 +2245,61 @@ impedisse a mesma classe de bug de reaparecer em código não tocado por
 aquela rodada. CRM e EquipeDetalhe são os pontos mais fracos da
 plataforma hoje; Login/Cadastro/Pagamento/IA (bloco E) é de longe o mais
 sólido.
+
+## Parte 24 — fechamento dos 5 achados sistêmicos da Parte 23
+
+Os 5 achados sistêmicos listados na Parte 23 foram corrigidos em rodadas
+sucessivas, uma PR por achado/frente:
+
+| # | Achado | PRs |
+| --- | --- | --- |
+| 1 | Mutação sem checar linhas afetadas (RLS bloqueia em silêncio, UI mostra "sucesso") | #82 (CRM), #83 (Equipe/EquipeDetalhe), #84 (resto) |
+| 2 | Erro de busca virando "vazio" em vez de aviso | #85 (Agenda/Tarefas), #88 (Configurações/Escritório/Admin) |
+| 3 | Toast de sucesso sem checar o retorno real da mutação | #83 (Equipe) |
+| 4 | Gate de permissão ausente na UI apesar de existir no RLS | #85 (Agenda/Prazos/Audiências/Tarefas), #86 (Timesheet — permissão criada do zero) |
+| 5 | Catch mostrando toast genérico em vez do erro real capturado | #87 |
+
+O achado 2 (Configurações/Escritório/Admin, PR #88) revelou algo mais
+sério que exibição: os hooks que leem `offices.settings`, mesclam em
+memória e regravam (`useOfficeSettingList`/`useOfficeSettingValue`) não
+checavam erro no **fetch inicial** — só no save, que já era o padrão de
+referência desde a Parte 16. Numa falha de rede/RLS na leitura, a lista
+caía pros valores default como se fossem os reais; como o `persist`/`save`
+faz sua própria leitura fresca de `offices.settings` pra montar o merge,
+salvar logo em seguida **gravava os defaults por cima da configuração
+real** — perda de dado silenciosa, não só um bug de exibição.
+
+### Varredura complementar: o mesmo padrão nos outros hooks de `offices.settings`
+
+A Parte 16 tinha auditado o *save* de ~10 hooks nesse formato e corrigido
+os que não checavam erro ali. Como o achado acima é no *load* — um ângulo
+diferente —, os mesmos ~10 hooks foram reconferidos por esse ângulo.
+Quatro tinham o mesmo gap (`queryFn`/fetch do TanStack Query ou `useState`
+descartando o `error` do Supabase):
+
+- `useAtendimentoTipos` (`useAtendimentos.tsx`)
+- `useFinanceiroCategorias` e `useFinanceiroGruposPrioridade` (`useFinanceiro.tsx`)
+- `useTimesheetConfig`
+- `GerenciarTiposModal.fetchFeriados` (`NovoPrazoStandaloneDialog.tsx`, não é hook mas o mesmo formato local `useState`)
+
+Corrigidos no mesmo molde: `queryFn` propaga o erro (`throw`) em vez de
+descartá-lo, o hook expõe `isError`/`error`, e `save`/`saveFeriados`
+recusa gravar (toast + `return false`) enquanto o load não tiver sucesso
+— bloqueio que já vale independente de qualquer banner na tela. Os
+diálogos que consomem esses hooks (`GerenciarTiposDialog` de Atendimentos,
+`GerenciarCategoriasDialog` e `GerenciarPrioridadesDialog` do Financeiro,
+`TimesheetSettingsDialog`, e a seção de feriados do `GerenciarTiposModal`
+de Prazos) ganharam aviso inline e desabilitam edição nesse estado.
+
+`fetchTipos` do mesmo `GerenciarTiposModal` também descartava erro (achado
+2 puro, sem risco de sobrescrita — os tipos são editados por id, não por
+merge-and-replace) e ganhou toast de erro.
+
+### Verificação
+
+| Verificação | Resultado |
+| --- | --- |
+| `tsc -p tsconfig.app.json` | limpo |
+| ESLint | 0 erros · 682 avisos |
+| Vitest | 227/227 |
+| `vite build` | ok |

@@ -41,6 +41,7 @@ import {
   X,
   Repeat,
   Layers,
+  AlertTriangle,
 } from "lucide-react";
 import {
   format,
@@ -61,11 +62,12 @@ interface GerenciarCategoriasProps {
   onClose: () => void;
   categoriasReceita: string[];
   categoriasDespesa: string[];
+  error?: string | null;
   onSave: (receita: string[], despesa: string[]) => void;
 }
 
 const GerenciarCategoriasDialog: React.FC<GerenciarCategoriasProps> = ({
-  open, onClose, categoriasReceita, categoriasDespesa, onSave,
+  open, onClose, categoriasReceita, categoriasDespesa, error, onSave,
 }) => {
   const [receita, setReceita] = useState<string[]>([]);
   const [despesa, setDespesa] = useState<string[]>([]);
@@ -101,6 +103,12 @@ const GerenciarCategoriasDialog: React.FC<GerenciarCategoriasProps> = ({
         </DialogHeader>
 
         <div className="space-y-6 mt-2">
+          {error && (
+            <div className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2">
+              <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+              <p className="text-xs font-bold text-destructive">{error} Feche e reabra pra tentar de novo.</p>
+            </div>
+          )}
           {/* Receitas */}
           <div className="space-y-3">
             <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500">Categorias de Receita</p>
@@ -118,11 +126,12 @@ const GerenciarCategoriasDialog: React.FC<GerenciarCategoriasProps> = ({
               <Input
                 placeholder="Nova categoria..."
                 value={novaReceita}
+                disabled={!!error}
                 onChange={(e) => setNovaReceita(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addReceita())}
                 className="rounded-xl text-sm h-9"
               />
-              <Button size="sm" onClick={addReceita} className="rounded-xl h-9 px-3">
+              <Button size="sm" onClick={addReceita} disabled={!!error} className="rounded-xl h-9 px-3">
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
@@ -145,11 +154,12 @@ const GerenciarCategoriasDialog: React.FC<GerenciarCategoriasProps> = ({
               <Input
                 placeholder="Nova categoria..."
                 value={novaDespesa}
+                disabled={!!error}
                 onChange={(e) => setNovaDespesa(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addDespesa())}
                 className="rounded-xl text-sm h-9"
               />
-              <Button size="sm" onClick={addDespesa} className="rounded-xl h-9 px-3">
+              <Button size="sm" onClick={addDespesa} disabled={!!error} className="rounded-xl h-9 px-3">
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
@@ -159,7 +169,7 @@ const GerenciarCategoriasDialog: React.FC<GerenciarCategoriasProps> = ({
             <Button variant="outline" onClick={onClose} className="flex-1 rounded-xl font-black uppercase text-[10px] tracking-widest">
               Cancelar
             </Button>
-            <Button onClick={() => { onSave(receita, despesa); onClose(); }} className="flex-1 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-premium">
+            <Button onClick={() => { onSave(receita, despesa); onClose(); }} disabled={!!error} className="flex-1 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-premium">
               Salvar
             </Button>
           </div>

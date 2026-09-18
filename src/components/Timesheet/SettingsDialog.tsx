@@ -51,8 +51,9 @@ const NONE = "__none__";
 const TimesheetSettingsDialog: React.FC<{
   open: boolean; onClose: () => void;
   config: TimesheetConfig; clientes: { id: string; nome: string }[];
+  error?: string | null;
   onSave: (cfg: Partial<TimesheetConfig>) => Promise<boolean>;
-}> = ({ open, onClose, config, clientes, onSave }) => {
+}> = ({ open, onClose, config, clientes, error, onSave }) => {
   const [padrao, setPadrao] = useState("");
   const [arred, setArred] = useState<Arredondamento>("nenhum");
   const [mapa, setMapa] = useState<Record<string, number>>({});
@@ -94,6 +95,12 @@ const TimesheetSettingsDialog: React.FC<{
         </div>
 
         <div className="px-5 py-4 space-y-4 overflow-y-auto flex-1">
+          {error && (
+            <div className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2">
+              <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+              <p className="text-xs font-bold text-destructive">{error} Feche e reabra pra tentar de novo.</p>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Valor/hora padrão</Label>
@@ -137,7 +144,7 @@ const TimesheetSettingsDialog: React.FC<{
 
         <div className="px-5 pb-5 flex gap-2 justify-end border-t border-black/5 dark:border-border pt-3 shrink-0">
           <Button variant="ghost" onClick={onClose} className="rounded-xl">Cancelar</Button>
-          <Button onClick={salvar} disabled={saving} className="rounded-xl font-black px-6">{saving ? "Salvando..." : "Salvar"}</Button>
+          <Button onClick={salvar} disabled={saving || !!error} className="rounded-xl font-black px-6">{saving ? "Salvando..." : "Salvar"}</Button>
         </div>
       </DialogContent>
     </Dialog>

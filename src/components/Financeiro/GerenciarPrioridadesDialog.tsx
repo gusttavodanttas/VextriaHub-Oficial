@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ListOrdered, Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
+import { ListOrdered, Plus, Trash2, ChevronUp, ChevronDown, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { prioridadeBadgeClassName, type PrioridadeGrupo } from "./shared";
 
@@ -18,11 +18,12 @@ interface GerenciarPrioridadesProps {
   open: boolean;
   onClose: () => void;
   grupos: PrioridadeGrupo[];
+  error?: string | null;
   onSave: (grupos: PrioridadeGrupo[]) => void;
 }
 
 const GerenciarPrioridadesDialog: React.FC<GerenciarPrioridadesProps> = ({
-  open, onClose, grupos, onSave,
+  open, onClose, grupos, error, onSave,
 }) => {
   const [lista, setLista] = useState<PrioridadeGrupo[]>([]);
 
@@ -69,8 +70,15 @@ const GerenciarPrioridadesDialog: React.FC<GerenciarPrioridadesProps> = ({
             Usados para classificar despesas por urgência de pagamento. A ordem abaixo define a ordem de exibição na aba Priorização.
           </p>
 
+          {error && (
+            <div className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2">
+              <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+              <p className="text-xs font-bold text-destructive">{error} Feche e reabra pra tentar de novo.</p>
+            </div>
+          )}
+
           <div className="space-y-2">
-            {lista.length === 0 && (
+            {!error && lista.length === 0 && (
               <p className="text-xs text-muted-foreground/60 py-2">Nenhum grupo configurado.</p>
             )}
             {lista.map((g, i) => (
@@ -100,7 +108,7 @@ const GerenciarPrioridadesDialog: React.FC<GerenciarPrioridadesProps> = ({
             ))}
           </div>
 
-          <Button type="button" variant="outline" size="sm" onClick={adicionar} className="rounded-xl h-9 w-full text-xs font-black uppercase tracking-widest">
+          <Button type="button" variant="outline" size="sm" onClick={adicionar} disabled={!!error} className="rounded-xl h-9 w-full text-xs font-black uppercase tracking-widest">
             <Plus className="h-4 w-4 mr-1.5" />Adicionar grupo
           </Button>
 
@@ -108,7 +116,7 @@ const GerenciarPrioridadesDialog: React.FC<GerenciarPrioridadesProps> = ({
             <Button variant="outline" onClick={onClose} className="flex-1 rounded-xl font-black uppercase text-[10px] tracking-widest">
               Cancelar
             </Button>
-            <Button onClick={salvar} className="flex-1 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-premium">
+            <Button onClick={salvar} disabled={!!error} className="flex-1 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-premium">
               Salvar
             </Button>
           </div>

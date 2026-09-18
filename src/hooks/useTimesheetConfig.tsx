@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/lib/errors";
 
 export type Arredondamento = "nenhum" | "6" | "15";
 
@@ -17,11 +18,16 @@ export function useTimesheetConfig(officeId: string) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data } = useQuery<TimesheetConfig>({
+  const { data, isError, error, refetch } = useQuery<TimesheetConfig>({
     queryKey: ["ts-config", officeId],
     enabled: !!officeId,
     queryFn: async () => {
-      const { data } = await supabase.from("offices").select("settings").eq("id", officeId).maybeSingle();
+      const { data, error } = await supabase.from("offices").select("settings").eq("id", officeId).maybeSingle();
+      // Sem propagar o erro, a query "tinha sucesso" com EMPTY — e o dialog de
+      // configurações reabre pré-preenchido com os defaults; salvar dali grava
+      // valorClientes: {} por cima dos valores por cliente já configurados
+      // (mesmo risco de perda de dados corrigido em useOfficeSettingList).
+      if (error) throw error;
       const s = (data?.settings as any) ?? {};
       return {
         valorPadrao: s.ts_valor_hora_padrao ?? null,
@@ -32,6 +38,10 @@ export function useTimesheetConfig(officeId: string) {
   });
 
   const save = useCallback(async (cfg: Partial<TimesheetConfig>) => {
+    if (isError) {
+      toast({ title: "Não foi possível salvar", description: "A configuração não carregou — recarregue antes de editar.", variant: "destructive" });
+      return false;
+    }
     const { data: cur } = await supabase.from("offices").select("settings").eq("id", officeId).maybeSingle();
     const merged: any = { ...((cur?.settings as any) ?? {}) };
     if (cfg.valorPadrao !== undefined) merged.ts_valor_hora_padrao = cfg.valorPadrao;
@@ -48,9 +58,15 @@ export function useTimesheetConfig(officeId: string) {
     }
     queryClient.invalidateQueries({ queryKey: ["ts-config", officeId] });
     return true;
-  }, [officeId, queryClient, toast]);
+  }, [officeId, queryClient, toast, isError]);
 
-  return { config: data ?? EMPTY, save };
+  return {
+    config: data ?? EMPTY,
+    isError,
+    error: isError ? getErrorMessage(error, "Não foi possível carregar a configuração.") : null,
+    refetch,
+    save,
+  };
 }
 
 /** Minutos arredondados para o incremento de faturamento. */

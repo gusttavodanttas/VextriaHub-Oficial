@@ -16,11 +16,12 @@ import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/rows";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   CalendarClock, Newspaper, Shield, AlertOctagon, Search, X,
-  Zap, CalendarIcon, Pencil, Trash2, Plus, Check,
+  Zap, CalendarIcon, Pencil, Trash2, Plus, Check, AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { prazoFormSchema, firstZodError } from "@/lib/validation";
 import { planQuotaMessage } from "@/lib/planQuotaError";
+import { getErrorMessage } from "@/lib/errors";
 import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 
 // ─────────────────────────────────────────────
@@ -257,14 +258,27 @@ export function GerenciarTiposModal({ open, onClose, officeId }: GerenciarTiposP
   const [draft, setDraft] = useState<Omit<TipoAto,'id'>>({ value: '', label: '', diasUteis: 15, corridos: false, margem: 3, ordem: 0 });
   const [adding, setAdding] = useState(false);
   const [feriados, setFeriados] = useState<string[]>([]);
+  const [feriadosError, setFeriadosError] = useState<string | null>(null);
   const [novoFeriado, setNovoFeriado] = useState('');
   const [feriadoAnual, setFeriadoAnual] = useState(false);
 
   const fetchFeriados = async () => {
-    const { data } = await supabase.from('offices').select('settings').eq('id', officeId).maybeSingle();
+    const { data, error } = await supabase.from('offices').select('settings').eq('id', officeId).maybeSingle();
+    // Sem checar o erro, uma falha de busca cai como "nenhum feriado" — e salvar
+    // dali (addFeriado/removeFeriado grava a lista inteira de novo) apagaria os
+    // feriados reais já cadastrados (mesmo risco de useOfficeSettingList).
+    if (error) {
+      setFeriadosError(getErrorMessage(error, "Não foi possível carregar os feriados."));
+      return;
+    }
+    setFeriadosError(null);
     setFeriados(((data?.settings as any)?.prazo_feriados as string[]) ?? []);
   };
   const saveFeriados = async (arr: string[]) => {
+    if (feriadosError) {
+      toast({ title: 'Não foi possível salvar', description: 'Os feriados não carregaram — recarregue antes de editar.', variant: 'destructive' });
+      return;
+    }
     const previous = feriados;
     setFeriados(arr); // otimista
     const { data: cur } = await supabase.from('offices').select('settings').eq('id', officeId).maybeSingle();
@@ -290,11 +304,16 @@ export function GerenciarTiposModal({ open, onClose, officeId }: GerenciarTiposP
 
   const fetchTipos = async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('tipos_ato_prazo')
       .select('*')
       .eq('office_id', officeId)
       .order('ordem', { ascending: true });
+    if (error) {
+      toast({ title: 'Erro ao carregar tipos de prazo', description: getErrorMessage(error), variant: 'destructive' });
+      setLoading(false);
+      return;
+    }
     setTipos((data || []).map(dbToTipoAto));
     setLoading(false);
   };
@@ -418,8 +437,16 @@ export function GerenciarTiposModal({ open, onClose, officeId }: GerenciarTiposP
               <CalendarClock className="h-3 w-3" /> Feriados do escritório
             </p>
             <p className="text-[10px] text-muted-foreground/50 leading-tight">Feriados estaduais/municipais ou suspensões — entram no cálculo de dias úteis.</p>
+            {feriadosError && (
+              <div className="flex items-center justify-between gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-2.5 py-1.5">
+                <span className="flex items-center gap-1.5 text-[11px] font-bold text-destructive truncate">
+                  <AlertTriangle className="h-3 w-3 shrink-0" /> {feriadosError}
+                </span>
+                <button type="button" onClick={fetchFeriados} className="text-[10px] font-black uppercase text-destructive underline underline-offset-2 shrink-0">Tentar de novo</button>
+              </div>
+            )}
             <div className="flex flex-wrap gap-1.5">
-              {feriados.length === 0 && <span className="text-[11px] text-muted-foreground/40 italic">Nenhum feriado adicionado.</span>}
+              {!feriadosError && feriados.length === 0 && <span className="text-[11px] text-muted-foreground/40 italic">Nenhum feriado adicionado.</span>}
               {feriados.map(f => (
                 <span key={f} className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-muted/40 text-[11px] font-bold">
                   {f.length === 5 ? `${f.slice(3)}/${f.slice(0, 2)} · todo ano` : f.split('-').reverse().join('/')}
@@ -433,7 +460,7 @@ export function GerenciarTiposModal({ open, onClose, officeId }: GerenciarTiposP
               <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer whitespace-nowrap">
                 <input type="checkbox" checked={feriadoAnual} onChange={e => setFeriadoAnual(e.target.checked)} className="accent-primary" /> todo ano
               </label>
-              <Button type="button" size="sm" onClick={addFeriado} disabled={!novoFeriado} className="h-8 rounded-lg px-3"><Plus className="h-4 w-4" /></Button>
+              <Button type="button" size="sm" onClick={addFeriado} disabled={!novoFeriado || !!feriadosError} className="h-8 rounded-lg px-3"><Plus className="h-4 w-4" /></Button>
             </div>
           </div>
         </div>

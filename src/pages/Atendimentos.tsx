@@ -90,7 +90,7 @@ const Atendimentos = () => {
 
   const { query, create, update, remove, markRealizado } = useAtendimentos(officeId);
   const { canCreateAtendimentos, canEditAtendimentos } = usePermissions();
-  const { extras, save: saveExtras } = useAtendimentoTipos(officeId);
+  const { extras, error: extrasError, save: saveExtras } = useAtendimentoTipos(officeId);
   const { users: officeUsers } = useOfficeUsers();
   const membros = useMemo(() => officeUsers.map(u => ({
     id: u.user_id,
@@ -551,6 +551,7 @@ const Atendimentos = () => {
         open={tiposDialogOpen}
         onClose={() => setTiposDialogOpen(false)}
         extras={extras}
+        error={extrasError}
         onSave={saveExtras}
       />
 

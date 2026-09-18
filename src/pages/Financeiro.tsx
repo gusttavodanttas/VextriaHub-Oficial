@@ -91,8 +91,8 @@ const Financeiro = () => {
   const { query, create, update, remove, registrarPagamento, cancelarGrupo } = useFinanceiro(officeId);
   const items = query.data ?? [];
 
-  const { categoriasReceita, categoriasDespesa, save: saveCategorias } = useFinanceiroCategorias(officeId);
-  const { gruposPrioridade, save: saveGruposPrioridadeRaw } = useFinanceiroGruposPrioridade(officeId);
+  const { categoriasReceita, categoriasDespesa, error: categoriasError, save: saveCategorias } = useFinanceiroCategorias(officeId);
+  const { gruposPrioridade, error: gruposPrioridadeError, save: saveGruposPrioridadeRaw } = useFinanceiroGruposPrioridade(officeId);
   const saveGruposPrioridade = async (grupos: typeof gruposPrioridade) => {
     if (!canManageFinanceiro) return false;
     return saveGruposPrioridadeRaw(grupos);
@@ -643,6 +643,7 @@ const Financeiro = () => {
           onClose={() => setCatDialogOpen(false)}
           categoriasReceita={categoriasReceita}
           categoriasDespesa={categoriasDespesa}
+          error={categoriasError}
           onSave={handleSaveCategorias}
         />
 
@@ -651,6 +652,7 @@ const Financeiro = () => {
           open={prioridadeDialogOpen}
           onClose={() => setPrioridadeDialogOpen(false)}
           grupos={gruposPrioridade}
+          error={gruposPrioridadeError}
           onSave={saveGruposPrioridade}
         />
 

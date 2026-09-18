@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { assertRowsAffected } from "@/lib/errors";
+import { assertRowsAffected, getErrorMessage } from "@/lib/errors";
 import { continueOccurrences, type RecRule } from "@/lib/recorrencia";
 import type { Atendimento } from "@/components/Atendimentos/shared";
 import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/rows";
@@ -139,16 +139,24 @@ export const useAtendimentoTipos = (officeId: string) => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: extras = [] } = useQuery<string[]>({
+  const { data: extras = [], isError, error, refetch } = useQuery<string[]>({
     queryKey: ["office-settings-at", officeId],
     enabled: !!officeId,
     queryFn: async () => {
-      const { data } = await supabase.from("offices").select("settings").eq("id", officeId).maybeSingle();
+      const { data, error } = await supabase.from("offices").select("settings").eq("id", officeId).maybeSingle();
+      // Sem propagar o erro, a query "tinha sucesso" com lista vazia — e um save()
+      // em seguida gravava essa lista vazia por cima dos tipos extras reais
+      // (mesmo risco de perda de dados corrigido em useOfficeSettingList).
+      if (error) throw error;
       return ((data?.settings as any)?.at_tipos_extras as string[]) ?? [];
     },
   });
 
   const save = useCallback(async (tipos: string[]) => {
+    if (isError) {
+      toast({ title: "Não foi possível salvar", description: "Os tipos extras não carregaram — recarregue antes de editar.", variant: "destructive" });
+      return false;
+    }
     const { data: cur } = await supabase.from("offices").select("settings").eq("id", officeId).maybeSingle();
     const merged = { ...(cur?.settings as any ?? {}), at_tipos_extras: tipos };
     const { data: updated, error } = await supabase.from("offices").update({ settings: merged }).eq("id", officeId).select("id");
@@ -160,7 +168,7 @@ export const useAtendimentoTipos = (officeId: string) => {
     }
     queryClient.invalidateQueries({ queryKey: ["office-settings-at", officeId] });
     return true;
-  }, [officeId, queryClient, toast]);
+  }, [officeId, queryClient, toast, isError]);
 
-  return { extras, save };
+  return { extras, isError, error: isError ? getErrorMessage(error, "Não foi possível carregar os tipos extras.") : null, refetch, save };
 };
