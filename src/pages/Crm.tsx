@@ -1,5 +1,5 @@
 ﻿import { useState, useMemo, useDeferredValue } from "react";
-import { UserCheck, Phone, Mail, Search, Plus, Target, TrendingUp, BarChart3, Loader2, MessageCircle, ChevronDown, LayoutList, Trello } from "lucide-react";
+import { UserCheck, Phone, Mail, Search, Plus, Target, TrendingUp, BarChart3, Loader2, MessageCircle, ChevronDown, LayoutList, Trello, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { PermissionGuard } from "@/components/Auth/PermissionGuard";
@@ -36,6 +36,7 @@ import { CrmOportunidades } from "@/components/Crm/CrmOportunidades";
 import { CrmOportunidadeDetail } from "@/components/Crm/CrmOportunidadeDetail";
 import { CrmRelatorios, CrmMetas } from "@/components/Crm/CrmDashboards";
 import { formatBRL } from "@/lib/currency";
+import { assertRowsAffected, getErrorMessage } from "@/lib/errors";
 
 const TEMPERATURAS = [
   { v: "lead", label: "Novo" },
@@ -46,7 +47,7 @@ const TEMPERATURAS = [
 ];
 
 export default function Crm() {
-  const { data: allClientes = [], loading, refresh } = useClientes();
+  const { data: allClientes = [], loading, error, refresh } = useClientes();
   const { user, profile } = useAuth();
   const { canManageCRM } = usePermissions();
   const { toast } = useToast();
@@ -105,22 +106,30 @@ export default function Crm() {
     setCurrentView("opportunity-detail");
   };
 
-  // Muda a temperatura/status do lead direto na tela (persiste)
+  // Muda a temperatura/status do lead direto na tela (persiste). Encadeia
+  // .select('id') porque a RLS pode bloquear o UPDATE sem lançar erro (só
+  // casa 0 linhas) — sem checar, a UI ficaria "muda" quando isso acontece.
   const updateLeadStatus = async (id: string, status: string) => {
     if (!canManageCRM || !user?.office_id) return;
-    const { error } = await supabase.from("clientes").update({ status }).eq("id", id).eq("office_id", user.office_id);
-    if (!error) refresh();
+    try {
+      const { data, error } = await supabase.from("clientes").update({ status }).eq("id", id).eq("office_id", user.office_id).select("id");
+      assertRowsAffected(data, error, 1);
+      refresh();
+    } catch (e) {
+      toast({ title: "Não foi possível mudar a temperatura", description: getErrorMessage(e), variant: "destructive" });
+    }
   };
 
   // Define a data do próximo contato (follow-up) do cliente.
   const setFollowup = async (id: string, date: string) => {
     if (!canManageCRM || !user?.office_id) return;
-    const { error } = await supabase.from("clientes").update({ proximo_contato: date || null }).eq("id", id).eq("office_id", user.office_id);
-    if (error) {
-      toast({ title: "Não foi possível salvar o follow-up", description: error.message, variant: "destructive" });
-      return;
+    try {
+      const { data, error } = await supabase.from("clientes").update({ proximo_contato: date || null }).eq("id", id).eq("office_id", user.office_id).select("id");
+      assertRowsAffected(data, error, 1);
+      refresh();
+    } catch (e) {
+      toast({ title: "Não foi possível salvar o follow-up", description: getErrorMessage(e), variant: "destructive" });
     }
-    refresh();
   };
 
   const hojeStr = new Date().toISOString().slice(0, 10);
@@ -150,15 +159,18 @@ export default function Crm() {
 
   if (currentView !== "main") {
     return (
-      <div className="p-4 md:p-6">
-        <div className="max-w-7xl mx-auto">
-          {renderSpecificView()}
+      <PermissionGuard permission="canViewCRM" showDeniedMessage>
+        <div className="p-4 md:p-6">
+          <div className="max-w-7xl mx-auto">
+            {renderSpecificView()}
+          </div>
         </div>
-      </div>
+      </PermissionGuard>
     );
   }
 
   return (
+    <PermissionGuard permission="canViewCRM" showDeniedMessage>
     <div className="flex-1 p-4 md:p-8 space-y-8 md:space-y-12 overflow-x-hidden entry-animate">
       {/* Page Header Moderno */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -250,6 +262,21 @@ export default function Crm() {
           </Button>
         </div>
       </div>
+
+      {error && (
+        <div className="flex flex-col items-center justify-center py-10 gap-3 text-center glass-card rounded-[2rem] border-black/5 dark:border-border">
+          <div className="p-4 rounded-full bg-destructive/10">
+            <AlertTriangle className="h-8 w-8 text-destructive/60" />
+          </div>
+          <div>
+            <p className="font-bold text-foreground">Não foi possível carregar a base de leads/clientes</p>
+            <p className="text-sm text-muted-foreground mt-1">{error}</p>
+          </div>
+          <Button variant="outline" onClick={refresh} className="rounded-xl font-black">
+            Tentar novamente
+          </Button>
+        </div>
+      )}
 
       {/* Stats Premium Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -567,5 +594,6 @@ export default function Crm() {
         }}
       />
     </div>
+    </PermissionGuard>
   );
 }
