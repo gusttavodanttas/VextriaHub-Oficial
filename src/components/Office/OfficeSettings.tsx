@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { getErrorMessage } from '@/lib/errors';
+import { getErrorMessage, assertRowsAffected } from '@/lib/errors';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -85,8 +85,8 @@ export const OfficeSettings: React.FC = () => {
     try {
       setUploadingLogo(true);
       const url = await uploadPublicImage("logos", file, office.id);
-      const { error } = await supabase.from("offices").update({ logo_url: url }).eq("id", office.id);
-      if (error) throw error;
+      const { data, error } = await supabase.from("offices").update({ logo_url: url }).eq("id", office.id).select("id");
+      assertRowsAffected(data, error, 1);
       setLogoUrl(url);
       toast({ title: "Logo atualizada", description: "A logo do escritório foi alterada." });
     } catch (err: unknown) {

@@ -45,6 +45,7 @@ import {
 } from '@/components/Prazos/shared';
 import { MonthView } from '@/components/Prazos/MonthView';
 import { usePrazosData } from '@/hooks/usePrazosData';
+import { assertRowsAffected, getErrorMessage } from '@/lib/errors';
 
 export default function Prazos() {
   const { toast } = useToast();
@@ -725,10 +726,22 @@ export default function Prazos() {
             // Revisar e salvar uma sugestão do robô equivale a aceitá-la
             if (ehSugestaoRobo(editTarget)) {
               const agora = new Date().toISOString();
-              const { error } = await supabase.from('prazos')
-                .update({ confirmado_em: agora, confirmado_por: user?.id })
-                .eq('id', editTarget.id);
-              if (error) await supabase.from('prazos').update({ confirmado_em: agora }).eq('id', editTarget.id);
+              try {
+                const { data, error } = await supabase.from('prazos')
+                  .update({ confirmado_em: agora, confirmado_por: user?.id })
+                  .eq('id', editTarget.id)
+                  .select('id');
+                if (error) {
+                  const retry = await supabase.from('prazos').update({ confirmado_em: agora }).eq('id', editTarget.id).select('id');
+                  assertRowsAffected(retry.data, retry.error, 1);
+                } else {
+                  assertRowsAffected(data, error, 1);
+                }
+              } catch (e) {
+                // RLS bloqueada em silêncio (0 linhas, sem erro do Postgres) não deve
+                // passar por "confirmado" sem avisar.
+                toast({ title: "Não foi possível confirmar a sugestão", description: getErrorMessage(e), variant: "destructive" });
+              }
             }
             queryClient.invalidateQueries({ queryKey: ['prazos'] });
             setEditTarget(null);

@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Tables } from "@/integrations/supabase/types";
+import { assertRowsAffected } from "@/lib/errors";
 
 export type ConsultivoCategoria = Tables<"consultivo_categorias">;
 
@@ -42,16 +43,29 @@ export function useConsultivoCategorias() {
 
   const update = async (id: string, label: string, cor: string, icone: string): Promise<boolean> => {
     const valor = label.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
-    const { error } = await supabase.from("consultivo_categorias").update({ label, valor, cor, icone }).eq("id", id);
-    if (error) { toast({ title: "Erro ao atualizar", variant: "destructive" }); return false; }
+    // RLS bloqueada em UPDATE não gera erro, só casa 0 linhas — sem o
+    // .select('id'), a UI dizia "atualizada" com o registro intocado.
+    const { data: rows, error } = await supabase.from("consultivo_categorias").update({ label, valor, cor, icone }).eq("id", id).select("id");
+    try {
+      assertRowsAffected(rows, error, 1);
+    } catch {
+      toast({ title: "Erro ao atualizar", variant: "destructive" });
+      return false;
+    }
     await fetch();
     toast({ title: "Categoria atualizada" });
     return true;
   };
 
   const remove = async (id: string): Promise<boolean> => {
-    const { error } = await supabase.from("consultivo_categorias").delete().eq("id", id);
-    if (error) { toast({ title: "Erro ao excluir", variant: "destructive" }); return false; }
+    // Mesmo padrão do update acima — RLS bloqueada em DELETE não gera erro.
+    const { data: rows, error } = await supabase.from("consultivo_categorias").delete().eq("id", id).select("id");
+    try {
+      assertRowsAffected(rows, error, 1);
+    } catch {
+      toast({ title: "Erro ao excluir", variant: "destructive" });
+      return false;
+    }
     setData(prev => prev.filter(c => c.id !== id));
     toast({ title: "Categoria removida" });
     return true;

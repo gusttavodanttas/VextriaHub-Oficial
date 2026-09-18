@@ -83,14 +83,20 @@ export const useNotifications = () => {
 
   const markAllAsRead = async () => {
     if (!user) return;
+    // Conta as não lidas localmente ANTES do update — se a RLS bloquear parte
+    // delas (0 linhas casadas por essas, sem erro do Postgres), a contagem
+    // real virá menor que o esperado e assertRowsAffected detecta.
+    const unreadCount = notifications.filter(n => !n.read).length;
+    if (unreadCount === 0) return;
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('notifications')
         .update({ read: true })
         .eq('user_id', user.id)
-        .eq('read', false);
+        .eq('read', false)
+        .select('id');
 
-      if (error) throw error;
+      assertRowsAffected(data, error, unreadCount);
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     } catch (err) {
       console.error('Erro ao marcar todas como lidas:', err);
@@ -116,13 +122,16 @@ export const useNotifications = () => {
 
   const clearAll = async () => {
     if (!user) return;
+    const expectedCount = notifications.length;
+    if (expectedCount === 0) return;
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('notifications')
         .delete()
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .select('id');
 
-      if (error) throw error;
+      assertRowsAffected(data, error, expectedCount);
       setNotifications([]);
     } catch (err) {
       console.error('Erro ao limpar notificações:', err);

@@ -250,6 +250,9 @@ export default function Lixeira() {
       );
     } catch (err) {
       console.error('Erro ao buscar lixeira:', err);
+      // Sem isto, uma falha de rede/RLS ficava indistinguível de "lixeira
+      // realmente vazia" — o usuário só via a lista vazia, sem aviso nenhum.
+      toast({ title: 'Erro ao carregar a lixeira', description: getErrorMessage(err), variant: 'destructive' });
     } finally {
       setLoading(false);
     }

@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
+import { assertRowsAffected } from '@/lib/errors';
 
 export type Timesheet = Tables<'timesheets'> & {
   valor_hora?: number | null;
@@ -76,13 +77,16 @@ export const timesheetService = {
 
   /** Soft delete. */
   async remove(id: string, userId: string) {
-    const { error } = await supabase
+    // RLS bloqueada em UPDATE não gera erro, só casa 0 linhas — sem o
+    // .select('id'), o chamador via "removido" com o registro intocado.
+    const { data, error } = await supabase
       .from('timesheets')
       .update({ deletado: true, updated_at: new Date().toISOString() })
       .eq('id', id)
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .select('id');
 
-    if (error) throw error;
+    assertRowsAffected(data, error, 1);
     return true;
   },
 
