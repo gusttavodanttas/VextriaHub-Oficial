@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Tables } from "@/integrations/supabase/types";
-import { assertRowsAffected } from "@/lib/errors";
+import { assertRowsAffected, getErrorMessage } from "@/lib/errors";
 
 export type ConsultivoCategoria = Tables<"consultivo_categorias">;
 
@@ -35,7 +35,7 @@ export function useConsultivoCategorias() {
       office_id: user.office_id, label, valor, cor, icone,
       ordem: data.length,
     });
-    if (error) { toast({ title: "Erro ao criar categoria", variant: "destructive" }); return false; }
+    if (error) { toast({ title: "Erro ao criar categoria", description: getErrorMessage(error), variant: "destructive" }); return false; }
     await fetch();
     toast({ title: "Categoria criada" });
     return true;
@@ -48,8 +48,8 @@ export function useConsultivoCategorias() {
     const { data: rows, error } = await supabase.from("consultivo_categorias").update({ label, valor, cor, icone }).eq("id", id).select("id");
     try {
       assertRowsAffected(rows, error, 1);
-    } catch {
-      toast({ title: "Erro ao atualizar", variant: "destructive" });
+    } catch (e) {
+      toast({ title: "Erro ao atualizar", description: getErrorMessage(e), variant: "destructive" });
       return false;
     }
     await fetch();
@@ -62,8 +62,8 @@ export function useConsultivoCategorias() {
     const { data: rows, error } = await supabase.from("consultivo_categorias").delete().eq("id", id).select("id");
     try {
       assertRowsAffected(rows, error, 1);
-    } catch {
-      toast({ title: "Erro ao excluir", variant: "destructive" });
+    } catch (e) {
+      toast({ title: "Erro ao excluir", description: getErrorMessage(e), variant: "destructive" });
       return false;
     }
     setData(prev => prev.filter(c => c.id !== id));

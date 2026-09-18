@@ -135,7 +135,7 @@ export const OfficeSettings: React.FC = () => {
         toast({ title: "Escritório atualizado", description: "As informações foram salvas com sucesso." });
       }
     } catch (error) {
-      toast({ title: "Erro ao atualizar", description: "Não foi possível salvar as alterações.", variant: "destructive" });
+      toast({ title: "Erro ao atualizar", description: getErrorMessage(error, "Não foi possível salvar as alterações."), variant: "destructive" });
     } finally {
       setIsLoading(false);
     }

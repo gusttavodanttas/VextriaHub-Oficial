@@ -5,7 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { timesheetService, Timesheet } from '@/services/timesheetService';
 import { TimesheetCategoria } from '@/types/timesheet';
-import { assertRowsAffected } from '@/lib/errors';
+import { assertRowsAffected, getErrorMessage } from '@/lib/errors';
 
 export type TimesheetScope = 'me' | 'office';
 
@@ -92,8 +92,8 @@ export function useTimesheet() {
       invalidate();
       toast({ title: 'Timer iniciado', description: `Iniciado para: ${tarefa_descricao}` });
       return result;
-    } catch {
-      toast({ title: 'Erro ao iniciar', description: 'Não foi possível iniciar o timer.', variant: 'destructive' });
+    } catch (e) {
+      toast({ title: 'Erro ao iniciar', description: getErrorMessage(e, 'Não foi possível iniciar o timer.'), variant: 'destructive' });
       return null;
     }
   };
@@ -106,8 +106,8 @@ export function useTimesheet() {
       invalidate();
       toast({ title: 'Timer pausado' });
       return true;
-    } catch {
-      toast({ title: 'Erro ao pausar', variant: 'destructive' });
+    } catch (e) {
+      toast({ title: 'Erro ao pausar', description: getErrorMessage(e), variant: 'destructive' });
       return false;
     }
   };
@@ -122,8 +122,8 @@ export function useTimesheet() {
       invalidate();
       toast({ title: 'Timer retomado' });
       return true;
-    } catch {
-      toast({ title: 'Erro ao retomar', variant: 'destructive' });
+    } catch (e) {
+      toast({ title: 'Erro ao retomar', description: getErrorMessage(e), variant: 'destructive' });
       return false;
     }
   };
@@ -137,8 +137,8 @@ export function useTimesheet() {
       invalidate();
       toast({ title: 'Timer finalizado', description: `Duração: ${Math.floor(duracaoMinutos / 60)}h ${duracaoMinutos % 60}m` });
       return true;
-    } catch {
-      toast({ title: 'Erro ao parar timer', variant: 'destructive' });
+    } catch (e) {
+      toast({ title: 'Erro ao parar timer', description: getErrorMessage(e), variant: 'destructive' });
       return false;
     }
   };
@@ -161,8 +161,8 @@ export function useTimesheet() {
       invalidate();
       toast({ title: 'Lançamento registrado' });
       return true;
-    } catch {
-      toast({ title: 'Erro ao lançar', variant: 'destructive' });
+    } catch (e) {
+      toast({ title: 'Erro ao lançar', description: getErrorMessage(e), variant: 'destructive' });
       return false;
     }
   };
@@ -179,8 +179,8 @@ export function useTimesheet() {
       assertRowsAffected(data, error, ids.length);
       invalidate();
       return true;
-    } catch {
-      toast({ title: 'Erro ao atualizar faturamento', variant: 'destructive' });
+    } catch (e) {
+      toast({ title: 'Erro ao atualizar faturamento', description: getErrorMessage(e), variant: 'destructive' });
       return false;
     }
   };
@@ -210,8 +210,8 @@ export function useTimesheet() {
       queryClient.invalidateQueries({ queryKey: ['financeiro'] });
       toast({ title: 'Cobrança estornada', description: 'Receita removida e registros reabertos.' });
       return true;
-    } catch {
-      toast({ title: 'Erro ao estornar', variant: 'destructive' });
+    } catch (e) {
+      toast({ title: 'Erro ao estornar', description: getErrorMessage(e), variant: 'destructive' });
       return false;
     }
   };
@@ -223,8 +223,8 @@ export function useTimesheet() {
       invalidate();
       toast({ title: 'Registro atualizado' });
       return true;
-    } catch {
-      toast({ title: 'Erro ao atualizar', variant: 'destructive' });
+    } catch (e) {
+      toast({ title: 'Erro ao atualizar', description: getErrorMessage(e), variant: 'destructive' });
       return false;
     }
   };
@@ -236,8 +236,8 @@ export function useTimesheet() {
       invalidate();
       toast({ title: 'Registro removido' });
       return true;
-    } catch {
-      toast({ title: 'Erro ao remover', variant: 'destructive' });
+    } catch (e) {
+      toast({ title: 'Erro ao remover', description: getErrorMessage(e), variant: 'destructive' });
       return false;
     }
   };
