@@ -21,6 +21,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { PermissionGuard } from "@/components/Auth/PermissionGuard";
 import { useToast } from "@/hooks/use-toast";
+import { assertRowsAffected, getErrorMessage } from "@/lib/errors";
+import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Atendimento, ClienteComProcessos } from "@/types/database";
@@ -40,6 +42,8 @@ export function CrmOportunidadeDetail({ onBack, opportunity }: Props) {
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<Atendimento | null>(null);
   const [editingHistoryItem, setEditingHistoryItem] = useState<Atendimento | null>(null);
   const [showNewHistoryDialog, setShowNewHistoryDialog] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [newHistoryForm, setNewHistoryForm] = useState({
     title: '',
     date: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
@@ -121,7 +125,7 @@ export function CrmOportunidadeDetail({ onBack, opportunity }: Props) {
     if (!editingHistoryItem || !canEditAtendimentos) return;
 
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('atendimentos')
         .update({
           tipo_atendimento: editingHistoryItem.tipo_atendimento,
@@ -129,9 +133,10 @@ export function CrmOportunidadeDetail({ onBack, opportunity }: Props) {
           observacoes: editingHistoryItem.observacoes,
           status: editingHistoryItem.status
         })
-        .eq('id', editingHistoryItem.id);
+        .eq('id', editingHistoryItem.id)
+        .select('id');
 
-      if (error) throw error;
+      assertRowsAffected(data, error, 1);
 
       toast({
         title: "Interação atualizada",
@@ -152,23 +157,33 @@ export function CrmOportunidadeDetail({ onBack, opportunity }: Props) {
     }
   };
 
-  const handleDeleteHistoryItem = async (id: string) => {
+  const confirmDeleteHistoryItem = async () => {
+    if (!confirmDeleteId) return;
+    setDeleting(true);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('atendimentos')
         .update({ deletado: true })
-        .eq('id', id);
+        .eq('id', confirmDeleteId)
+        .select('id');
 
-      if (error) throw error;
+      assertRowsAffected(data, error, 1);
 
       toast({
         title: "Registro removido",
         description: "A interação foi excluída do histórico.",
       });
 
-      setHistoryItems(prev => prev.filter(item => item.id !== id));
+      setHistoryItems(prev => prev.filter(item => item.id !== confirmDeleteId));
+      setConfirmDeleteId(null);
     } catch (err) {
-      console.error('Erro ao excluir histórico:', err);
+      toast({
+        title: "Erro ao excluir",
+        description: getErrorMessage(err, "Não foi possível excluir a interação."),
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -300,7 +315,7 @@ export function CrmOportunidadeDetail({ onBack, opportunity }: Props) {
                               </Button>
                             </PermissionGuard>
                             <PermissionGuard permission="canDeleteAtendimentos">
-                              <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-rose-500 hover:bg-rose-500/10" onClick={() => handleDeleteHistoryItem(item.id)} aria-label="Excluir interação">
+                              <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-rose-500 hover:bg-rose-500/10" onClick={() => setConfirmDeleteId(item.id)} aria-label="Excluir interação">
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>
                             </PermissionGuard>
@@ -476,6 +491,15 @@ export function CrmOportunidadeDetail({ onBack, opportunity }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DeleteConfirmDialog
+        open={!!confirmDeleteId}
+        onOpenChange={(o) => !o && setConfirmDeleteId(null)}
+        onConfirm={confirmDeleteHistoryItem}
+        isLoading={deleting}
+        title="Excluir interação"
+        description="Essa interação será removida do histórico do lead. Essa ação não pode ser desfeita."
+      />
     </div>
   );
 }

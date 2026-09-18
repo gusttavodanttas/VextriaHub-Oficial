@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { assertRowsAffected, getErrorMessage } from "@/lib/errors";
 
 // Defaults (sobrescritos pelas configurações do escritório)
 const FOLLOWUP_DIAS_PADRAO = 3;   // ao auto-agendar, próximo contato em +N dias
@@ -28,6 +30,7 @@ export function useCrmRobot(
   opts?: { followupDias?: number; esfriandoDias?: number }
 ): CrmRoboResult {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [lastAtend, setLastAtend] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
@@ -110,8 +113,18 @@ export function useCrmRobot(
   const marcarContatado = async (id: string) => {
     if (!user?.office_id) return;
     const novaData = toStr(addDays(new Date(), followupDias));
-    await supabase.from("clientes").update({ proximo_contato: novaData }).eq("id", id).eq("office_id", user.office_id);
-    refresh?.();
+    try {
+      const { data, error } = await supabase
+        .from("clientes")
+        .update({ proximo_contato: novaData })
+        .eq("id", id)
+        .eq("office_id", user.office_id)
+        .select("id");
+      assertRowsAffected(data, error, 1);
+      refresh?.();
+    } catch (e) {
+      toast({ title: "Não foi possível marcar como contatado", description: getErrorMessage(e), variant: "destructive" });
+    }
   };
 
   return { contatosHoje, esfriando, loading, marcarContatado };
