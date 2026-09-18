@@ -2,6 +2,18 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Invitation, NovaInvitation } from '@/types/database';
 import { useAuth } from '@/contexts/AuthContext';
+import { getErrorMessage } from '@/lib/errors';
+
+// Postgres não lança um erro "amigável" quando a policy RLS bloqueia o INSERT —
+// vem como 42501 (insufficient_privilege) ou mensagem citando "row-level security".
+// Distinguir isso de qualquer outra falha evita mostrar sempre a mesma mensagem
+// genérica pra causas bem diferentes (permissão x erro de rede/validação).
+const isRlsBlocked = (err: unknown): boolean => {
+  const code = err && typeof err === 'object' && 'code' in err ? (err as { code?: unknown }).code : undefined;
+  if (code === '42501') return true;
+  const msg = getErrorMessage(err, '').toLowerCase();
+  return msg.includes('row-level security') || msg.includes('permission denied');
+};
 
 export const useInvitations = () => {
   const [invitations, setInvitations] = useState<Invitation[]>([]);
@@ -36,8 +48,10 @@ export const useInvitations = () => {
     }
   };
 
-  const createInvitation = async (invitationData: Pick<NovaInvitation, 'email' | 'role'> & Partial<NovaInvitation>) => {
-    if (!office?.id || !user?.id) return null;
+  const createInvitation = async (
+    invitationData: Pick<NovaInvitation, 'email' | 'role'> & Partial<NovaInvitation>
+  ): Promise<{ data: Invitation } | { error: string }> => {
+    if (!office?.id || !user?.id) return { error: 'Sem escritório ou usuário autenticado.' };
 
     try {
       setError(null);
@@ -57,11 +71,16 @@ export const useInvitations = () => {
       // Dispara o e-mail de convite via edge function (não bloqueia: se falhar, o convite já existe).
       supabase.functions.invoke('send-invite-email', { body: { invitation_id: data.id } })
         .catch((e) => console.error('send-invite-email:', e));
-      return data;
+      return { data };
     } catch (err) {
       console.error('Error creating invitation:', err);
-      setError('Erro ao criar convite');
-      return null;
+      // Antes sempre mostrava "Erro ao criar convite", sem distinguir bloqueio de
+      // permissão (RLS) de qualquer outra falha real — achado do relatório.
+      const message = isRlsBlocked(err)
+        ? 'Você não tem permissão para convidar membros neste escritório.'
+        : getErrorMessage(err, 'Erro ao criar convite.');
+      setError(message);
+      return { error: message };
     }
   };
 
