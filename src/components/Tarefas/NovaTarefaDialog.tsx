@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckSquare, Loader2, Repeat, MessageCircle, Trash2, ListChecks, Plus, Check } from "lucide-react";
+import { CheckSquare, Loader2, Repeat, MessageCircle, Trash2, ListChecks, Plus, Check, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
 import { RECORRENCIAS, generateOccurrences, type RecRule } from "@/lib/recorrencia";
@@ -14,6 +14,7 @@ import { useTarefaComentarios } from "@/hooks/useTarefaComentarios";
 import { useSubtarefas } from "@/hooks/useSubtarefas";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/errors";
 import { AvisoDiasSelect } from "@/components/Notifications/AvisoDiasSelect";
 
 interface Option { id: string; label: string; cliente_id?: string | null; }
@@ -43,7 +44,7 @@ const iniciaisDe = (nome: string) =>
   nome.split(" ").filter(Boolean).slice(0, 2).map((s) => s[0]).join("").toUpperCase() || "?";
 
 const TarefaSubtarefas = ({ tarefaId }: { tarefaId: string }) => {
-  const { subtarefas, isLoading, add, toggle, remove } = useSubtarefas(tarefaId);
+  const { subtarefas, isLoading, isError, error, refetch, add, toggle, remove } = useSubtarefas(tarefaId);
   const [titulo, setTitulo] = useState("");
   const total = subtarefas.length;
   const feitas = subtarefas.filter((s) => s.concluida).length;
@@ -69,6 +70,16 @@ const TarefaSubtarefas = ({ tarefaId }: { tarefaId: string }) => {
 
       {isLoading ? (
         <p className="text-xs text-muted-foreground/50">Carregando…</p>
+      ) : isError ? (
+        <div className="flex items-center justify-between gap-2 text-xs">
+          <span className="flex items-center gap-1.5 text-destructive">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            {getErrorMessage(error, "Não foi possível carregar as subtarefas.")}
+          </span>
+          <Button type="button" size="sm" variant="ghost" onClick={() => refetch()} className="h-7 rounded-lg text-[10px] font-bold">
+            Tentar novamente
+          </Button>
+        </div>
       ) : total === 0 ? (
         <p className="text-xs text-muted-foreground/40 italic">Nenhuma subtarefa ainda.</p>
       ) : (
@@ -106,7 +117,7 @@ const TarefaSubtarefas = ({ tarefaId }: { tarefaId: string }) => {
 
 const TarefaComentarios = ({ tarefaId, membros }: { tarefaId: string; membros: Option[] }) => {
   const { user } = useAuth();
-  const { comentarios, isLoading, add, remove } = useTarefaComentarios(tarefaId);
+  const { comentarios, isLoading, isError, error, refetch, add, remove } = useTarefaComentarios(tarefaId);
   const [texto, setTexto] = useState("");
   const nomeDe = (uid: string) => membros.find((m) => m.id === uid)?.label || "Membro";
 
@@ -124,6 +135,16 @@ const TarefaComentarios = ({ tarefaId, membros }: { tarefaId: string; membros: O
 
       {isLoading ? (
         <p className="text-xs text-muted-foreground/50">Carregando…</p>
+      ) : isError ? (
+        <div className="flex items-center justify-between gap-2 text-xs">
+          <span className="flex items-center gap-1.5 text-destructive">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            {getErrorMessage(error, "Não foi possível carregar os comentários.")}
+          </span>
+          <Button type="button" size="sm" variant="ghost" onClick={() => refetch()} className="h-7 rounded-lg text-[10px] font-bold">
+            Tentar novamente
+          </Button>
+        </div>
       ) : comentarios.length === 0 ? (
         <p className="text-xs text-muted-foreground/40 italic">Nenhum comentário ainda.</p>
       ) : (

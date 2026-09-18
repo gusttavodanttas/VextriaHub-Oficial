@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { isMissingTableError } from "@/lib/errors";
 
 export interface Subtarefa {
   id: string;
@@ -30,7 +31,10 @@ export function useSubtarefas(tarefaId: string | null | undefined) {
         .eq("deletado", false)
         .order("ordem", { ascending: true })
         .order("created_at", { ascending: true });
-      if (error) return []; // tabela ainda não criada
+      if (error) {
+        if (isMissingTableError(error)) return []; // tabela ainda não criada
+        throw error;
+      }
       return (data || []) as Subtarefa[];
     },
   });
@@ -71,5 +75,14 @@ export function useSubtarefas(tarefaId: string | null | undefined) {
     onError: (e) => toast({ title: "Erro ao excluir", description: e.message, variant: "destructive" }),
   });
 
-  return { subtarefas: query.data || [], isLoading: query.isLoading, add, toggle, remove };
+  return {
+    subtarefas: query.data || [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+    add,
+    toggle,
+    remove,
+  };
 }
