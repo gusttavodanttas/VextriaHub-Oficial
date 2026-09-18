@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { OfficeUser, NovoOfficeUser } from '@/types/database';
 import { useAuth } from '@/contexts/AuthContext';
+import { assertRowsAffected, getErrorMessage } from '@/lib/errors';
 
 interface Profile {
   user_id: string;
@@ -101,16 +102,19 @@ export const useOfficeUsers = () => {
   const removeUser = async (userId: string): Promise<boolean> => {
     try {
       setError(null);
-      const { error: removeError } = await supabase
+      // RLS bloqueada em UPDATE não gera erro, só casa 0 linhas — sem o
+      // .select('id'), a UI dizia "membro removido" com o registro intocado.
+      const { data, error: removeError } = await supabase
         .from('office_users')
         .update({ active: false })
-        .eq('id', userId);
-      if (removeError) throw removeError;
+        .eq('id', userId)
+        .select('id');
+      assertRowsAffected(data, removeError, 1);
       setUsers(prev => prev.filter(u => u.id !== userId));
       return true;
     } catch (err) {
       console.error('Error removing user:', err);
-      setError('Erro ao remover usuário');
+      setError(getErrorMessage(err, 'Erro ao remover usuário'));
       return false;
     }
   };
