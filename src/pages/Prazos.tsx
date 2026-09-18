@@ -46,9 +46,11 @@ import {
 import { MonthView } from '@/components/Prazos/MonthView';
 import { usePrazosData } from '@/hooks/usePrazosData';
 import { assertRowsAffected, getErrorMessage } from '@/lib/errors';
+import { usePermissions } from '@/hooks/usePermissions';
 
 export default function Prazos() {
   const { toast } = useToast();
+  const { canManagePrazos } = usePermissions();
   const { user } = useAuth();
   const { users: officeUsers } = useOfficeUsers();
   const membroMap = useMemo(() => Object.fromEntries((officeUsers || []).map((u: any) => [u.user_id, u.profile?.full_name || u.profile?.email || "—"])), [officeUsers]);
@@ -182,12 +184,14 @@ export default function Prazos() {
             <Button size="icon" variant={view === 'calendario' ? 'secondary' : 'ghost'}
               onClick={() => setView('calendario')} className="h-9 w-9 rounded-lg" title="Calendário" aria-label="Calendário"><CalendarDays className="h-4 w-4" /></Button>
           </div>
-          <Button
-            onClick={() => setDialogOpen(true)}
-            className="flex-1 sm:flex-none rounded-2xl h-11 gap-2 px-4 sm:px-6 font-black text-[11px] uppercase tracking-widest shadow-lg shadow-primary/20"
-          >
-            <Plus className="h-4 w-4" /> Novo Prazo
-          </Button>
+          {canManagePrazos && (
+            <Button
+              onClick={() => setDialogOpen(true)}
+              className="flex-1 sm:flex-none rounded-2xl h-11 gap-2 px-4 sm:px-6 font-black text-[11px] uppercase tracking-widest shadow-lg shadow-primary/20"
+            >
+              <Plus className="h-4 w-4" /> Novo Prazo
+            </Button>
+          )}
         </div>
       </div>
 
@@ -298,7 +302,7 @@ export default function Prazos() {
       </div>
 
       {/* Barra de ações em lote */}
-      {multiSelect.selectedCount > 0 && (
+      {canManagePrazos && multiSelect.selectedCount > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-primary/20 bg-primary/[0.04] px-3 py-2">
           <span className="text-[11px] font-black uppercase tracking-widest text-muted-foreground px-1">
             {multiSelect.selectedCount} selecionado{multiSelect.selectedCount !== 1 ? 's' : ''}
@@ -608,7 +612,7 @@ export default function Prazos() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="rounded-xl w-52">
-                          {ehSugestaoRobo(prazo) && (
+                          {canManagePrazos && ehSugestaoRobo(prazo) && (
                             <>
                               <DropdownMenuItem
                                 onClick={() => aceitarMutation.mutate(prazo.id)}
@@ -620,7 +624,7 @@ export default function Prazos() {
                               <DropdownMenuSeparator />
                             </>
                           )}
-                          {!isConcluido ? (
+                          {canManagePrazos && (!isConcluido ? (
                             <DropdownMenuItem
                               onClick={() => concludeMutation.mutate(prazo.id)}
                               className="rounded-lg cursor-pointer gap-2 text-emerald-600 focus:text-emerald-600"
@@ -634,14 +638,16 @@ export default function Prazos() {
                             >
                               <RotateCcw className="h-4 w-4" /> Reabrir
                             </DropdownMenuItem>
+                          ))}
+                          {canManagePrazos && (
+                            <DropdownMenuItem
+                              onClick={() => setEditTarget(prazo)}
+                              className="rounded-lg cursor-pointer gap-2"
+                            >
+                              <Pencil className="h-4 w-4" /> {ehSugestaoRobo(prazo) ? 'Revisar / alterar' : 'Editar'}
+                            </DropdownMenuItem>
                           )}
-                          <DropdownMenuItem
-                            onClick={() => setEditTarget(prazo)}
-                            className="rounded-lg cursor-pointer gap-2"
-                          >
-                            <Pencil className="h-4 w-4" /> {ehSugestaoRobo(prazo) ? 'Revisar / alterar' : 'Editar'}
-                          </DropdownMenuItem>
-                          {ehSugestaoRobo(prazo) && (
+                          {canManagePrazos && ehSugestaoRobo(prazo) && (
                             <>
                               <DropdownMenuItem
                                 onClick={() => { setAgendarTipo('audiencia'); setAgendarTarget(prazo); }}
@@ -665,13 +671,17 @@ export default function Prazos() {
                               <ChevronRight className="h-4 w-4" /> Ver processo
                             </DropdownMenuItem>
                           )}
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => setDeleteTarget(prazo)}
-                            className="rounded-lg cursor-pointer gap-2 text-red-600 focus:text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4" /> {ehSugestaoRobo(prazo) ? 'Descartar sugestão' : 'Excluir'}
-                          </DropdownMenuItem>
+                          {canManagePrazos && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => setDeleteTarget(prazo)}
+                                className="rounded-lg cursor-pointer gap-2 text-red-600 focus:text-red-600"
+                              >
+                                <Trash2 className="h-4 w-4" /> {ehSugestaoRobo(prazo) ? 'Descartar sugestão' : 'Excluir'}
+                              </DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>

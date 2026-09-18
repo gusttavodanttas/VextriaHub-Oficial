@@ -27,6 +27,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useClientes } from "@/hooks/useClientes";
 import { useProcessosV2 } from "@/hooks/useProcessosV2";
 import { useOfficeUsers } from "@/hooks/useOfficeUsers";
+import { usePermissions } from "@/hooks/usePermissions";
 import { cn } from "@/lib/utils";
 import { format, isToday, isTomorrow, isThisWeek, isPast, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -53,6 +54,7 @@ function StatCard({ icon: Icon, label, value, color, bg }: { icon: React.Element
 
 const Audiencias = () => {
   const { audiencias, isLoading, isError, error, refetch, create, update, updateStatus, remove } = useAudiencias();
+  const { canManageAudiencias } = usePermissions();
   const { data: clientesData } = useClientes();
   const { data: processosData } = useProcessosV2();
   const { tipos: tiposCadastrados } = useAudienciaTipos();
@@ -251,31 +253,41 @@ const Audiencias = () => {
               )}
             </div>
             <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Button variant="ghost" size="sm" className="h-8 px-2 rounded-lg gap-1 text-xs font-bold" onClick={() => openEdit(a)}>
-                <Pencil className="h-3.5 w-3.5" /> Editar
-              </Button>
+              {canManageAudiencias && (
+                <Button variant="ghost" size="sm" className="h-8 px-2 rounded-lg gap-1 text-xs font-bold" onClick={() => openEdit(a)}>
+                  <Pencil className="h-3.5 w-3.5" /> Editar
+                </Button>
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg"><MoreHorizontal className="h-4 w-4" /></Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="rounded-xl w-44">
-                  <DropdownMenuItem className="rounded-lg gap-2 text-emerald-600 focus:text-emerald-600" onClick={() => updateStatus.mutate({ id: a.id, status: "confirmada" })}>
-                    <CheckCircle2 className="h-4 w-4" /> Confirmar
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="rounded-lg gap-2" onClick={() => updateStatus.mutate({ id: a.id, status: "realizada" })}>
-                    <Gavel className="h-4 w-4" /> Marcar realizada
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="rounded-lg gap-2 text-rose-600 focus:text-rose-600" onClick={() => updateStatus.mutate({ id: a.id, status: "cancelada" })}>
-                    <XCircle className="h-4 w-4" /> Cancelar
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
+                  {canManageAudiencias && (
+                    <>
+                      <DropdownMenuItem className="rounded-lg gap-2 text-emerald-600 focus:text-emerald-600" onClick={() => updateStatus.mutate({ id: a.id, status: "confirmada" })}>
+                        <CheckCircle2 className="h-4 w-4" /> Confirmar
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="rounded-lg gap-2" onClick={() => updateStatus.mutate({ id: a.id, status: "realizada" })}>
+                        <Gavel className="h-4 w-4" /> Marcar realizada
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="rounded-lg gap-2 text-rose-600 focus:text-rose-600" onClick={() => updateStatus.mutate({ id: a.id, status: "cancelada" })}>
+                        <XCircle className="h-4 w-4" /> Cancelar
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
                   <DropdownMenuItem className="rounded-lg gap-2 text-sky-600 focus:text-sky-600" onClick={() => setDesignarTarget(a)}>
                     <Handshake className="h-4 w-4" /> Designar correspondente
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem className="rounded-lg gap-2 text-destructive focus:text-destructive" onClick={() => { multiSelect.clearSelection(); multiSelect.toggleItem(a.id); setDeleteDialogOpen(true); }}>
-                    <Trash2 className="h-4 w-4" /> Excluir
-                  </DropdownMenuItem>
+                  {canManageAudiencias && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className="rounded-lg gap-2 text-destructive focus:text-destructive" onClick={() => { multiSelect.clearSelection(); multiSelect.toggleItem(a.id); setDeleteDialogOpen(true); }}>
+                        <Trash2 className="h-4 w-4" /> Excluir
+                      </DropdownMenuItem>
+                    </>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -297,14 +309,16 @@ const Audiencias = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {!multiSelect.isNoneSelected && (
+          {canManageAudiencias && !multiSelect.isNoneSelected && (
             <Button variant="destructive" onClick={() => setDeleteDialogOpen(true)} className="rounded-xl h-10 gap-2 font-bold">
               <Trash2 className="h-4 w-4" /> Excluir ({multiSelect.selectedCount})
             </Button>
           )}
-          <Button onClick={openNew} className="rounded-xl h-10 gap-2 font-bold shadow-sm">
-            <Plus className="h-4 w-4" /> Nova Audiência
-          </Button>
+          {canManageAudiencias && (
+            <Button onClick={openNew} className="rounded-xl h-10 gap-2 font-bold shadow-sm">
+              <Plus className="h-4 w-4" /> Nova Audiência
+            </Button>
+          )}
         </div>
       </div>
 
@@ -391,7 +405,7 @@ const Audiencias = () => {
                 <p className="font-black text-lg">Nenhuma audiência {audiencias.length > 0 ? "encontrada" : "agendada"}</p>
                 <p className="text-sm text-muted-foreground mt-1">{audiencias.length > 0 ? "Ajuste os filtros de busca." : "Comece agendando sua primeira audiência."}</p>
               </div>
-              {audiencias.length === 0 && <Button onClick={openNew} className="rounded-xl gap-2 font-bold"><Plus className="h-4 w-4" /> Nova Audiência</Button>}
+              {audiencias.length === 0 && canManageAudiencias && <Button onClick={openNew} className="rounded-xl gap-2 font-bold"><Plus className="h-4 w-4" /> Nova Audiência</Button>}
             </div>
           ) : (
             <>

@@ -77,7 +77,7 @@ export function useTarefas() {
   const queryClient = useQueryClient();
   const officeId = user?.office_id;
 
-  const { data: tarefas = [], isLoading } = useQuery<Tarefa[]>({
+  const { data: tarefas = [], isLoading, isError, error, refetch } = useQuery<Tarefa[]>({
     queryKey: ["tarefas", officeId],
     queryFn: async () => {
       if (!officeId) return [];
@@ -240,5 +240,5 @@ export function useTarefas() {
     onError: (e) => toast({ title: "Erro ao atualizar", description: e.message, variant: "destructive" }),
   });
 
-  return { tarefas, isLoading, create, createMany, update, adiar, toggle, remove, bulkPatch };
+  return { tarefas, isLoading, isError, error, refetch, create, createMany, update, adiar, toggle, remove, bulkPatch };
 }

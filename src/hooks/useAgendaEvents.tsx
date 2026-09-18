@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { startOfMonth, endOfMonth, format, isSameDay } from "date-fns";
 import { localYmd } from "@/lib/dates";
+import { getErrorMessage } from "@/lib/errors";
 
 // Teto de itens atrasados carregados. Escritório com anos de pendência não
 // derruba a tela; os mais recentes (o que você deixou passar ontem, semana
@@ -113,6 +114,8 @@ export const useAgendaEvents = (targetDate: Date) => {
   const [events, setEvents] = useState<AgendaEvent[]>([]);
   const [atrasados, setAtrasados] = useState<AgendaEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [eventsError, setEventsError] = useState<string | null>(null);
+  const [atrasadosError, setAtrasadosError] = useState<string | null>(null);
 
   const fetchEvents = useCallback(async () => {
     if (!user?.office_id) {
@@ -174,9 +177,15 @@ export const useAgendaEvents = (targetDate: Date) => {
         .gte("prazo", praIni)
         .lte("prazo", praFim);
 
-      if (audError || praError || ateError || tarError || conError) {
+      const firstError = audError || praError || ateError || tarError || conError;
+      if (firstError) {
         console.error("Erro ao buscar eventos da agenda:", { audError, praError, ateError, tarError, conError });
+        // Sem isto, uma falha de rede/RLS numa dessas 5 queries fazia a agenda
+        // mostrar "Agenda livre" — indistinguível de não ter compromisso nenhum.
+        setEventsError(getErrorMessage(firstError, "Não foi possível carregar a agenda."));
+        return;
       }
+      setEventsError(null);
 
       const allEvents: AgendaEvent[] = [
         ...rows<AudienciaRow>(audiencias).map(toAudiencia),
@@ -189,6 +198,7 @@ export const useAgendaEvents = (targetDate: Date) => {
       setEvents(allEvents.sort(porData));
     } catch (err) {
       console.error("Erro fatal no useAgendaEvents:", err);
+      setEventsError(getErrorMessage(err, "Não foi possível carregar a agenda."));
     } finally {
       setLoading(false);
     }
@@ -237,9 +247,13 @@ export const useAgendaEvents = (targetDate: Date) => {
           .order("prazo", { ascending: false }).limit(LIMITE_ATRASADOS),
       ]);
 
-      if (aud.error || pra.error || ate.error || tar.error || con.error) {
+      const firstError = aud.error || pra.error || ate.error || tar.error || con.error;
+      if (firstError) {
         console.error("Erro ao buscar itens atrasados:", { aud: aud.error, pra: pra.error, ate: ate.error, tar: tar.error, con: con.error });
+        setAtrasadosError(getErrorMessage(firstError, "Não foi possível carregar os itens atrasados."));
+        return;
       }
+      setAtrasadosError(null);
 
       const lista: AgendaEvent[] = [
         ...rows<AudienciaRow>(aud.data).map(toAudiencia),
@@ -253,6 +267,7 @@ export const useAgendaEvents = (targetDate: Date) => {
       setAtrasados(lista.sort((a, b) => porData(b, a)).slice(0, LIMITE_ATRASADOS));
     } catch (err) {
       console.error("Erro fatal ao buscar atrasados:", err);
+      setAtrasadosError(getErrorMessage(err, "Não foi possível carregar os itens atrasados."));
     }
   }, [user]);
 
@@ -276,6 +291,8 @@ export const useAgendaEvents = (targetDate: Date) => {
     events,
     atrasados,
     loading,
+    error: eventsError || atrasadosError,
+    isError: !!(eventsError || atrasadosError),
     refresh,
     getEventsForDay
   };

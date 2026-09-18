@@ -21,6 +21,8 @@ import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 import { useClientes } from "@/hooks/useClientes";
 import { useProcessosV2 } from "@/hooks/useProcessosV2";
 import { useOpenItemFromSearch } from "@/hooks/useOpenItemFromSearch";
+import { usePermissions } from "@/hooks/usePermissions";
+import { getErrorMessage } from "@/lib/errors";
 import { continueOccurrences, recorrenciaLabel, type RecRule } from "@/lib/recorrencia";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -53,7 +55,8 @@ function StatCard({ icon: Icon, label, value, color, bg, active, onClick }: { ic
 
 const Tarefas = () => {
   const navigate = useNavigate();
-  const { tarefas, isLoading, create, createMany, update, adiar, toggle, remove, bulkPatch } = useTarefas();
+  const { tarefas, isLoading, isError, error, refetch, create, createMany, update, adiar, toggle, remove, bulkPatch } = useTarefas();
+  const { canManageTarefas } = usePermissions();
   const { data: clientesData } = useClientes();
   const { data: processosData } = useProcessosV2();
   const { users: officeUsers } = useOfficeUsers();
@@ -449,7 +452,7 @@ const Tarefas = () => {
 
         {/* Ações (sempre visíveis no mobile; hover no desktop) */}
         {/* Adiar 1 dia: SEMPRE visível (triagem rápida do dia, 1 clique, sem abrir o form) */}
-        {!t.concluida && (
+        {!t.concluida && canManageTarefas && (
           <Button variant="ghost" size="sm"
             className="h-8 shrink-0 px-2 gap-1.5 rounded-lg text-amber-600 hover:text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 border border-amber-500/20"
             onClick={(e) => { e.stopPropagation(); adiar.mutate(t); }}
@@ -459,23 +462,27 @@ const Tarefas = () => {
         )}
 
         <div onClick={(e) => e.stopPropagation()} className="flex items-center max-sm:opacity-100 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg" onClick={() => openEdit(t)}><Pencil className="h-3.5 w-3.5" /></Button>
+          {canManageTarefas && <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg" onClick={() => openEdit(t)}><Pencil className="h-3.5 w-3.5" /></Button>}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg"><MoreHorizontal className="h-4 w-4" /></Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="rounded-xl w-44">
-              {!t.concluida && (
+              {!t.concluida && canManageTarefas && (
                 <DropdownMenuItem className="rounded-lg gap-2" onClick={() => adiar.mutate(t)}>
                   <CalendarClock className="h-4 w-4" /> Adiar p/ o dia seguinte
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem className="rounded-lg gap-2" onClick={() => toggle.mutate({ id: t.id, concluida: !t.concluida, tarefa: t })}>
-                <CheckCircle2 className="h-4 w-4" /> {t.concluida ? "Reabrir" : "Concluir"}
-              </DropdownMenuItem>
-              <DropdownMenuItem className="rounded-lg gap-2 text-destructive focus:text-destructive" onClick={() => { multiSelect.clearSelection(); multiSelect.toggleItem(t.id); setDeleteDialogOpen(true); }}>
-                <Trash2 className="h-4 w-4" /> Excluir
-              </DropdownMenuItem>
+              {canManageTarefas && (
+                <DropdownMenuItem className="rounded-lg gap-2" onClick={() => toggle.mutate({ id: t.id, concluida: !t.concluida, tarefa: t })}>
+                  <CheckCircle2 className="h-4 w-4" /> {t.concluida ? "Reabrir" : "Concluir"}
+                </DropdownMenuItem>
+              )}
+              {canManageTarefas && (
+                <DropdownMenuItem className="rounded-lg gap-2 text-destructive focus:text-destructive" onClick={() => { multiSelect.clearSelection(); multiSelect.toggleItem(t.id); setDeleteDialogOpen(true); }}>
+                  <Trash2 className="h-4 w-4" /> Excluir
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -501,7 +508,7 @@ const Tarefas = () => {
           <p className={cn("flex-1 text-sm font-bold leading-snug", t.concluida && "line-through text-muted-foreground")}>{t.titulo}</p>
           {/* Adiar 1 dia direto no card do Kanban (stopPropagation p/ não abrir o form
               nem iniciar o arrasto) */}
-          {!t.concluida && (
+          {!t.concluida && canManageTarefas && (
             <button type="button" draggable={false}
               onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => { e.stopPropagation(); adiar.mutate(t); }}
@@ -533,7 +540,7 @@ const Tarefas = () => {
           </div>
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          {view === "lista" && !multiSelect.isNoneSelected && (
+          {canManageTarefas && view === "lista" && !multiSelect.isNoneSelected && (
             <Button variant="destructive" onClick={() => setDeleteDialogOpen(true)} className="rounded-xl h-10 gap-2 font-bold shrink-0">
               <Trash2 className="h-4 w-4" /> <span className="hidden sm:inline">Excluir </span>({multiSelect.selectedCount})
             </Button>
@@ -548,11 +555,24 @@ const Tarefas = () => {
               <Columns3 className="h-4 w-4" />
             </Button>
           </div>
-          <Button onClick={openNew} className="flex-1 sm:flex-none rounded-xl h-10 gap-2 font-bold shadow-sm">
-            <Plus className="h-4 w-4" /> Nova Tarefa
-          </Button>
+          {canManageTarefas && (
+            <Button onClick={openNew} className="flex-1 sm:flex-none rounded-xl h-10 gap-2 font-bold shadow-sm">
+              <Plus className="h-4 w-4" /> Nova Tarefa
+            </Button>
+          )}
         </div>
       </div>
+
+      {isError && (
+        <div className="flex items-center gap-3 p-4 rounded-2xl border border-destructive/20 bg-destructive/5">
+          <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-destructive">Não foi possível carregar as tarefas</p>
+            <p className="text-xs text-muted-foreground">{getErrorMessage(error)}</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => refetch()} className="rounded-xl font-bold shrink-0">Tentar novamente</Button>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
@@ -663,7 +683,7 @@ const Tarefas = () => {
       </div>
 
       {/* Lista */}
-      {isLoading ? (
+      {isError ? null : isLoading ? (
         <div className="space-y-2.5">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-16 rounded-2xl bg-black/[0.03] dark:bg-muted/20 animate-pulse" />)}</div>
       ) : view === "kanban" ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -699,15 +719,17 @@ const Tarefas = () => {
             <p className="font-black text-lg">Nenhuma tarefa {tarefas.length > 0 ? "encontrada" : "cadastrada"}</p>
             <p className="text-sm text-muted-foreground mt-1">{tarefas.length > 0 ? "Ajuste a busca ou os filtros." : "Comece criando sua primeira tarefa."}</p>
           </div>
-          {tarefas.length === 0 && <Button onClick={openNew} className="rounded-xl gap-2 font-bold"><Plus className="h-4 w-4" /> Nova Tarefa</Button>}
+          {tarefas.length === 0 && canManageTarefas && <Button onClick={openNew} className="rounded-xl gap-2 font-bold"><Plus className="h-4 w-4" /> Nova Tarefa</Button>}
         </div>
       ) : (
         <div className="space-y-5">
           <div className="flex flex-wrap items-center gap-2 px-1">
             {!selectMode ? (
-              <Button size="sm" variant="ghost" className="h-8 rounded-lg gap-1.5 font-bold text-muted-foreground" onClick={() => setSelectMode(true)}>
-                <CheckSquare className="h-3.5 w-3.5" /> Selecionar
-              </Button>
+              canManageTarefas && (
+                <Button size="sm" variant="ghost" className="h-8 rounded-lg gap-1.5 font-bold text-muted-foreground" onClick={() => setSelectMode(true)}>
+                  <CheckSquare className="h-3.5 w-3.5" /> Selecionar
+                </Button>
+              )
             ) : (
               <div className="flex items-center gap-3">
                 <Checkbox checked={multiSelect.isAllSelected} onCheckedChange={() => multiSelect.isAllSelected ? multiSelect.clearSelection() : multiSelect.selectAll()} className="rounded-md" />
