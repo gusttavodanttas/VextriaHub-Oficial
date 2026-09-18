@@ -41,6 +41,10 @@ import {
 import { PermissionsDialog } from "@/components/Equipe/PermissionsDialog";
 import { CreateMemberDialog } from "@/components/Equipe/CreateMemberDialog";
 import { TeamDialog, TeamDetailDialog } from "@/components/Equipe/TeamDialogs";
+// Validação de formato — o form não fica dentro de um <form>, então o
+// type="email" do Input não é aplicado pelo navegador ao confirmar (achado do relatório).
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 // ─── StatCard ────────────────────────────────────────────────────────────────
 
 function StatCard({ label, value, Icon, color, bg }: {
@@ -110,16 +114,36 @@ export default function Equipe() {
   const filteredInv = invitations.filter(i => !search || i.email.toLowerCase().includes(search.toLowerCase()));
 
   const handleInvite = async () => {
-    if (!inviteForm.email.trim()) return;
+    const email = inviteForm.email.trim();
+    if (!email) return;
+
+    if (!EMAIL_RE.test(email)) {
+      toast({ title: "E-mail inválido", description: "Verifique o formato do e-mail (ex: nome@escritorio.com.br).", variant: "destructive" });
+      return;
+    }
+
+    // Não há constraint única no banco para e-mail de convite — checa contra o que
+    // já está carregado antes de bater no servidor, pra dar uma mensagem específica
+    // em vez do genérico "erro ao criar convite" (achado do relatório).
+    const emailLower = email.toLowerCase();
+    if (invitations.some(i => i.status === "pending" && i.email.toLowerCase() === emailLower)) {
+      toast({ title: "Convite já existe", description: "Já há um convite pendente para este e-mail.", variant: "destructive" });
+      return;
+    }
+    if (users.some(u => (u.profile?.email || "").toLowerCase() === emailLower)) {
+      toast({ title: "Já é membro", description: "Este e-mail já pertence a um membro do escritório.", variant: "destructive" });
+      return;
+    }
+
     setSending(true);
-    const result = await createInvitation({ email: inviteForm.email.trim(), role: inviteForm.role });
+    const result = await createInvitation({ email, role: inviteForm.role });
     setSending(false);
-    if (result) {
-      toast({ title: "Convite enviado", description: `Enviamos um e-mail para ${inviteForm.email} com o link de cadastro — ao se cadastrar com esse e-mail, a pessoa entra direto no escritório.` });
+    if ("data" in result) {
+      toast({ title: "Convite enviado", description: `Enviamos um e-mail para ${email} com o link de cadastro — ao se cadastrar com esse e-mail, a pessoa entra direto no escritório.` });
       setInviteOpen(false);
       setInviteForm({ email: "", role: "user" });
     } else {
-      toast({ title: "Erro ao registrar convite", variant: "destructive" });
+      toast({ title: "Erro ao registrar convite", description: result.error, variant: "destructive" });
     }
   };
 
