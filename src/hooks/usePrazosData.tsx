@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { assertRowsAffected } from '@/lib/errors';
+import { concluirPrazoDb, concluirPrazosBulkDb } from '@/lib/concluirItens';
 import {
   type Prazo, type ProcInfo, type PubInfo,
   onlyDigits, teorPrazo,
@@ -198,10 +199,7 @@ export function usePrazosData(ui: UiCallbacks = {}) {
   const concludeMutation = useMutation({
     mutationFn: async (id: string) => {
       // tenta gravar auditoria (data/autor); se as colunas não existirem, grava só o status
-      let { data, error } = await supabase.from('prazos')
-        .update({ status: 'concluido', concluido_em: new Date().toISOString(), concluido_por: user?.id })
-        .eq('id', id).select('id');
-      if (error) ({ data, error } = await supabase.from('prazos').update({ status: 'concluido' }).eq('id', id).select('id'));
+      const { data, error } = await concluirPrazoDb(id, user?.id);
       assertRowsAffected(data, error, 1);
     },
     onSuccess: () => {
@@ -242,10 +240,7 @@ export function usePrazosData(ui: UiCallbacks = {}) {
 
   const bulkConcludeMutation = useMutation({
     mutationFn: async (ids: string[]) => {
-      let { data, error } = await supabase.from('prazos')
-        .update({ status: 'concluido', concluido_em: new Date().toISOString(), concluido_por: user?.id })
-        .in('id', ids).select('id');
-      if (error) ({ data, error } = await supabase.from('prazos').update({ status: 'concluido' }).in('id', ids).select('id'));
+      const { data, error } = await concluirPrazosBulkDb(ids, user?.id);
       assertRowsAffected(data, error, ids.length);
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['prazos'] }); ui.onBulkDone?.(); toast({ title: 'Prazos concluídos' }); },
