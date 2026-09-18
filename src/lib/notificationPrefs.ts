@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { captureError } from '@/lib/monitoring';
 
 // Preferências de notificação POR USUÁRIO. Fonte da verdade = tabela
 // user_notification_prefs (sincroniza entre dispositivos). O localStorage vira
@@ -58,7 +59,9 @@ export async function fetchNotificationPrefs(userId: string): Promise<NotifPrefs
         leadDias: Math.max(1, data.lead_dias || DEFAULT_LEAD_DIAS),
       };
     }
-  } catch { /* rede/RLS: cai pro localStorage abaixo */ }
+  } catch (e) {
+    captureError(e, { context: 'fetchNotificationPrefs: rede/RLS, caindo pro localStorage', userId });
+  }
   return readLocalPrefs(userId);
 }
 

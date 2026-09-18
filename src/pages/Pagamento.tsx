@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { captureError } from '@/lib/monitoring';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatCpfCnpj, onlyDigits, isValidCpfCnpj } from '@/lib/document';
 import { CreditCard, FileText, QrCode, Loader2, CheckCircle2, ExternalLink, Copy, Check, RefreshCw } from 'lucide-react';
@@ -92,7 +93,7 @@ function Pagamento() {
     });
     setSubmitting(false);
     let payload: { error?: string; invoice_url?: string } | null = data;
-    if (error) { try { payload = await (error as { context?: Response }).context?.json(); } catch { payload = null; } }
+    if (error) { try { payload = await (error as { context?: Response }).context?.json(); } catch (e) { captureError(e, { context: 'Pagamento.setup: parse error body' }); payload = null; } }
     if (payload?.error || error) {
       toast({ title: 'Não consegui criar a cobrança', description: mapErroCobranca(payload?.error), variant: 'destructive' });
       return;

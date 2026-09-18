@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Sparkles, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { captureError } from "@/lib/monitoring";
 import { getErrorMessage } from "@/lib/errors";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -57,7 +58,7 @@ export function CompletarDadosDialog({ open, onOpenChange, processoId, numeroPro
         // A FunctionsHttpError do supabase-js esconde o corpo (mostra só "non-2xx status
         // code"). Lê a mensagem REAL do edge (404 "não encontrado", 402 paywall, etc.). (v12)
         let msg = "Processo não localizado no tribunal.";
-        try { const body = await (error as any).context?.json?.(); if (body?.error) msg = String(body.error); } catch { /* usa o default */ }
+        try { const body = await (error as any).context?.json?.(); if (body?.error) msg = String(body.error); } catch (e) { captureError(e, { context: "CompletarDadosDialog.buscar: parse error body" }); }
         // Recém-protocolado costuma não estar no DataJud/PJe ainda → dica clara e acionável.
         if (/não encontrad|não localizad/i.test(msg)) {
           msg = "Processo não encontrado nos tribunais (DataJud/PJe). Se foi protocolado há pouco, pode levar alguns dias para ser indexado — o número já está salvo e você pode tentar de novo mais tarde.";

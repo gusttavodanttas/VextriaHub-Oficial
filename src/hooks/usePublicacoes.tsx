@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage, assertRowsAffected } from "@/lib/errors";
+import { captureError } from "@/lib/monitoring";
 import { localYmd } from "@/lib/dates";
 import type { TablesUpdate } from "@/integrations/supabase/rows";
 
@@ -368,8 +369,11 @@ export const usePublicacoes = () => {
           conteudo: pub.conteudo ?? null,
         },
       });
-    } catch {
-      // Falha silenciosa — prazo será recalculado na próxima sincronização
+    } catch (e) {
+      // Silencioso pro usuário — prazo será recalculado na próxima sincronização —
+      // mas reportado pro Sentry (cálculo de prazo processual é sensível o bastante
+      // pra valer rastrear falhas recorrentes).
+      captureError(e, { context: 'usePublicacoes.calcularEPersistirPrazo', publicacaoId });
     }
   };
 
@@ -405,7 +409,8 @@ export const usePublicacoes = () => {
       if (error) throw error;
       invalidate();
       return true;
-    } catch {
+    } catch (e) {
+      captureError(e, { context: 'usePublicacoes.linkPublicacaoToProcesso', publicacaoId, processoId });
       return false;
     }
   };
@@ -511,7 +516,8 @@ export const usePublicacoes = () => {
 
       invalidate();
       return newPub;
-    } catch {
+    } catch (e) {
+      captureError(e, { context: 'usePublicacoes.createPublication' });
       return null;
     }
   };
@@ -539,7 +545,8 @@ export const usePublicacoes = () => {
       if (profileError) return null;
 
       return ownerProfile;
-    } catch {
+    } catch (e) {
+      captureError(e, { context: 'usePublicacoes.getOfficeOwnerProfile' });
       return null;
     }
   };

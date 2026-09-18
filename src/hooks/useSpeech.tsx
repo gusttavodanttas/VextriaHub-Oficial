@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { captureError } from '@/lib/monitoring';
 
 // Voz nativa do navegador: reconhecimento (fala → texto) + síntese (texto → fala),
 // em pt-BR. Sem backend e sem custo. STT depende de suporte do navegador
@@ -67,8 +68,10 @@ export function useSpeech() {
       recognitionRef.current = rec;
       setListening(true);
       rec.start();
-    } catch {
+    } catch (e) {
+      captureError(e, { context: 'useSpeech.startListening' });
       setListening(false);
+      toast({ title: 'Não deu pra ouvir', description: 'Erro no reconhecimento de voz.', variant: 'destructive' });
     }
   }, [sttSupported, toast]);
 

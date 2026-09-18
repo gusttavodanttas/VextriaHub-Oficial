@@ -6,6 +6,7 @@ import { useAiAdvisor, AdvisorError, type ChatMessage } from '@/hooks/useAiAdvis
 import { useSpeech } from '@/hooks/useSpeech';
 import { Markdown } from '@/components/IA/Markdown';
 import { cn } from '@/lib/utils';
+import { captureError } from '@/lib/monitoring';
 import { Sparkles, X, Send, RotateCw, Crown, ArrowRight, Brain, Mic, Volume2, VolumeX } from 'lucide-react';
 
 const GREETING =
@@ -53,7 +54,7 @@ export const AiAssistantWidget: React.FC = () => {
         a.play().catch(() => speech.speak(text));
         return;
       }
-    } catch { /* usa fallback */ }
+    } catch (e) { captureError(e, { context: 'AiAssistantWidget.speakReply: TTS falhou, caindo pra voz do navegador' }); }
     speech.speak(text);
   };
 
@@ -89,6 +90,9 @@ export const AiAssistantWidget: React.FC = () => {
         : err.code === 'limite-ia-atingido'
         ? err.message
         : `Não consegui responder agora. ${err.message}`;
+      if (err.code !== 'openai-nao-configurada' && err.code !== 'limite-ia-atingido') {
+        captureError(e, { context: 'AiAssistantWidget.send' });
+      }
       setMessages([...next, { role: 'assistant', content: msg }]);
     } finally {
       setLoading(false);

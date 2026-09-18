@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { captureError } from "@/lib/monitoring";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -109,7 +110,7 @@ export default function CobrancaAsaas() {
     const { data, error } = await supabase.functions.invoke("asaas-billing", { body: { action, office_id, ...extra } });
     setBusy(null);
     let payload: { error?: string } | null = data;
-    if (error) { try { payload = await (error as { context?: Response }).context?.json() ?? null; } catch { payload = null; } }
+    if (error) { try { payload = await (error as { context?: Response }).context?.json() ?? null; } catch (e) { captureError(e, { context: 'CobrancaAsaas.call: parse error body' }); payload = null; } }
     if (payload?.error || error) {
       toast({ title: "Não consegui concluir", description: errMap[payload?.error || ""] || payload?.error || "Erro de conexão.", variant: "destructive" });
       return null;

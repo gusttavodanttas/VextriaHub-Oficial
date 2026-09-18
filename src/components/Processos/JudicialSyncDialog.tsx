@@ -1,5 +1,6 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { getErrorMessage } from '@/lib/errors';
+import { captureError } from '@/lib/monitoring';
 import { planQuotaMessage } from '@/lib/planQuotaError';
 import { formatCNJ } from '@/utils/formatCNJ';
 import {
@@ -301,7 +302,9 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
           setPreviewProc(curr => curr ? { ...curr, andamentos } : null);
         }
       } catch (e) {
-        // silencioso — exibe "nenhum andamento" normalmente
+        // Silencioso pro usuário (exibe "nenhum andamento" normalmente) — mas reportado
+        // pro Sentry, pra distinguir "sem andamentos mesmo" de falha real da integração.
+        captureError(e, { context: 'JudicialSyncDialog: buscar andamentos' });
       } finally {
         setLoadingAndamentos(false);
       }
