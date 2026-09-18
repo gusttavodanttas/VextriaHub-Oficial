@@ -44,7 +44,7 @@ export default function Timesheet() {
   const { user } = useAuth();
   const { toast } = useToast();
   const {
-    data: timesheets, loading, activeTimer,
+    data: timesheets, loading, error: timesheetsError, fetchData: refetchTimesheets, activeTimer,
     periodDays, setPeriodDays, scope, setScope,
     startTimer, pauseTimer, resumeTimer, stopTimer, addManual, update, remove, marcarFaturado, estornarCobranca,
     getTodayStats, getWeekStats,
@@ -216,8 +216,22 @@ export default function Timesheet() {
         </div>
       </div>
 
+      {/* Erro de busca — antes uma falha de rede/RLS virava estatística/lista vazia sem aviso */}
+      {timesheetsError && (
+        <div className="flex items-center gap-3 px-5 py-4 rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive">
+          <AlertTriangle className="h-5 w-5 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-bold">Não foi possível carregar os registros de timesheet</p>
+            <p className="text-xs opacity-80">{timesheetsError}</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => refetchTimesheets()} className="rounded-xl font-bold shrink-0">
+            Tentar novamente
+          </Button>
+        </div>
+      )}
+
       {/* Stats */}
-      {loading ? (
+      {timesheetsError ? null : loading ? (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {[1,2,3,4].map(i => <Skeleton key={i} className="h-20 rounded-2xl" />)}
         </div>
@@ -391,7 +405,7 @@ export default function Timesheet() {
       {/* Registros */}
       <div className="space-y-6">
         <h2 className="text-lg font-black tracking-tight">Registros recentes</h2>
-        {loading ? (
+        {timesheetsError ? null : loading ? (
           <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-16 rounded-xl" />)}</div>
         ) : grouped.length === 0 ? (
           <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-10 text-center">
