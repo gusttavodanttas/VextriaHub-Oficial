@@ -3,15 +3,16 @@ import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings2, X, Plus } from "lucide-react";
+import { Settings2, X, Plus, AlertTriangle } from "lucide-react";
 import { TIPOS_FIXOS } from "./shared";
 
 export const GerenciarTiposDialog: React.FC<{
   open: boolean;
   onClose: () => void;
   extras: string[];
+  error?: string | null;
   onSave: (tipos: string[]) => void;
-}> = ({ open, onClose, extras, onSave }) => {
+}> = ({ open, onClose, extras, error, onSave }) => {
   const [lista, setLista] = useState<string[]>([]);
   const [novo, setNovo] = useState("");
 
@@ -55,7 +56,12 @@ export const GerenciarTiposDialog: React.FC<{
           {/* Customizados */}
           <div className="space-y-2">
             <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">Personalizados</p>
-            {lista.length === 0 && (
+            {error && (
+              <p className="flex items-center gap-1.5 text-[11px] font-bold text-destructive">
+                <AlertTriangle className="h-3 w-3 shrink-0" /> {error} Feche e reabra pra tentar de novo.
+              </p>
+            )}
+            {!error && lista.length === 0 && (
               <p className="text-xs text-muted-foreground/40 italic">Nenhum tipo personalizado.</p>
             )}
             <div className="flex flex-wrap gap-1.5">
@@ -69,17 +75,17 @@ export const GerenciarTiposDialog: React.FC<{
               ))}
             </div>
             <div className="flex gap-2">
-              <Input placeholder="Novo tipo..." value={novo}
+              <Input placeholder="Novo tipo..." value={novo} disabled={!!error}
                 onChange={(e) => setNovo(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), add())}
                 className="rounded-xl h-9 text-sm" />
-              <Button size="sm" onClick={add} className="rounded-xl h-9 px-3"><Plus className="h-4 w-4" /></Button>
+              <Button size="sm" onClick={add} disabled={!!error} className="rounded-xl h-9 px-3"><Plus className="h-4 w-4" /></Button>
             </div>
           </div>
 
           <div className="flex gap-2 pt-1">
             <Button variant="outline" onClick={onClose} className="flex-1 rounded-xl h-9 font-black uppercase text-[10px] tracking-widest">Cancelar</Button>
-            <Button onClick={() => { onSave(lista); onClose(); }} className="flex-1 rounded-xl h-9 font-black uppercase text-[10px] tracking-widest shadow-premium">Salvar</Button>
+            <Button onClick={() => { onSave(lista); onClose(); }} disabled={!!error} className="flex-1 rounded-xl h-9 font-black uppercase text-[10px] tracking-widest shadow-premium">Salvar</Button>
           </div>
         </div>
       </DialogContent>

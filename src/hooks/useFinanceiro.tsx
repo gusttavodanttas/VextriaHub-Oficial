@@ -10,7 +10,7 @@ import {
   valorPago as calcValorPago,
   type FinanceiroItem, type PrioridadeGrupo,
 } from "@/components/Financeiro/shared";
-import { assertRowsAffected } from "@/lib/errors";
+import { assertRowsAffected, getErrorMessage } from "@/lib/errors";
 import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/rows";
 
 // ─── Hook financeiro ─────────────────────────────────────────────────────────
@@ -124,15 +124,19 @@ const useFinanceiroCategorias = (officeId: string) => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data } = useQuery({
+  const { data, isError, error, refetch } = useQuery({
     queryKey: ["office-settings", officeId],
     enabled: !!officeId,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("offices")
         .select("settings")
         .eq("id", officeId)
         .maybeSingle();
+      // Sem propagar o erro, a query "tinha sucesso" com os defaults — e um save()
+      // em seguida gravava esses defaults por cima das categorias reais (mesmo
+      // risco de perda de dados corrigido em useOfficeSettingList).
+      if (error) throw error;
       const s = (data?.settings as any) ?? {};
       return {
         receita: (s.fin_categorias_receita as string[]) ?? DEFAULT_CATEGORIAS_RECEITA,
@@ -142,6 +146,10 @@ const useFinanceiroCategorias = (officeId: string) => {
   });
 
   const save = useCallback(async (receita: string[], despesa: string[]) => {
+    if (isError) {
+      toast({ title: "Não foi possível salvar", description: "As categorias não carregaram — recarregue antes de editar.", variant: "destructive" });
+      return false;
+    }
     const { data: cur } = await supabase.from("offices").select("settings").eq("id", officeId).maybeSingle();
     const merged = { ...(cur?.settings as any ?? {}), fin_categorias_receita: receita, fin_categorias_despesa: despesa };
     const { data: updated, error } = await supabase.from("offices").update({ settings: merged }).eq("id", officeId).select("id");
@@ -153,11 +161,14 @@ const useFinanceiroCategorias = (officeId: string) => {
     }
     queryClient.invalidateQueries({ queryKey: ["office-settings", officeId] });
     return true;
-  }, [officeId, queryClient, toast]);
+  }, [officeId, queryClient, toast, isError]);
 
   return {
     categoriasReceita: data?.receita ?? DEFAULT_CATEGORIAS_RECEITA,
     categoriasDespesa: data?.despesa ?? DEFAULT_CATEGORIAS_DESPESA,
+    isError,
+    error: isError ? getErrorMessage(error, "Não foi possível carregar as categorias.") : null,
+    refetch,
     save,
   };
 };
@@ -169,21 +180,28 @@ const useFinanceiroGruposPrioridade = (officeId: string) => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data } = useQuery({
+  const { data, isError, error, refetch } = useQuery({
     queryKey: ["office-settings-prioridade", officeId],
     enabled: !!officeId,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("offices")
         .select("settings")
         .eq("id", officeId)
         .maybeSingle();
+      // Mesmo risco das outras configs em offices.settings: sem propagar o erro,
+      // um save() em seguida gravaria os defaults por cima dos grupos reais.
+      if (error) throw error;
       const s = (data?.settings as any) ?? {};
       return (s.fin_grupos_prioridade as PrioridadeGrupo[]) ?? DEFAULT_GRUPOS_PRIORIDADE;
     },
   });
 
   const save = useCallback(async (grupos: PrioridadeGrupo[]) => {
+    if (isError) {
+      toast({ title: "Não foi possível salvar", description: "Os grupos de prioridade não carregaram — recarregue antes de editar.", variant: "destructive" });
+      return false;
+    }
     const { data: cur } = await supabase.from("offices").select("settings").eq("id", officeId).maybeSingle();
     const merged = { ...(cur?.settings as any ?? {}), fin_grupos_prioridade: grupos };
     const { data: updated, error } = await supabase.from("offices").update({ settings: merged }).eq("id", officeId).select("id");
@@ -195,10 +213,13 @@ const useFinanceiroGruposPrioridade = (officeId: string) => {
     }
     queryClient.invalidateQueries({ queryKey: ["office-settings-prioridade", officeId] });
     return true;
-  }, [officeId, queryClient, toast]);
+  }, [officeId, queryClient, toast, isError]);
 
   return {
     gruposPrioridade: data ?? DEFAULT_GRUPOS_PRIORIDADE,
+    isError,
+    error: isError ? getErrorMessage(error, "Não foi possível carregar os grupos de prioridade.") : null,
+    refetch,
     save,
   };
 };

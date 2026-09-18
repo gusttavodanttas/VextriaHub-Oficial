@@ -54,7 +54,7 @@ export default function Timesheet() {
   } = useTimesheet();
 
   const officeId = user?.office_id ?? "";
-  const { config, save: saveConfig } = useTimesheetConfig(officeId);
+  const { config, error: configError, save: saveConfig } = useTimesheetConfig(officeId);
   const arred = config.arredondamento;
 
   const { users: officeUsers } = useOfficeUsers();
@@ -721,7 +721,7 @@ export default function Timesheet() {
       </Dialog>
 
       {/* Configurações de faturamento */}
-      <TimesheetSettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} config={config} clientes={clientes} onSave={saveConfig} />
+      <TimesheetSettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} config={config} clientes={clientes} error={configError} onSave={saveConfig} />
 
       {/* Confirmar geração de cobrança */}
       <Dialog open={cobrarOpen} onOpenChange={(o) => { if (!o && !cobrando) setCobrarOpen(false); }}>
