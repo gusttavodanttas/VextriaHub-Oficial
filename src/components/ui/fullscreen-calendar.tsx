@@ -118,10 +118,12 @@ export function FullScreenCalendar({
               <ChevronRightIcon className="h-4 w-4" />
             </Button>
           </div>
-          <Button className="h-9 gap-2 rounded-xl font-bold" onClick={() => onNewEvent?.(selectedDay)}>
-            <PlusCircleIcon className="h-4 w-4" />
-            <span className="hidden sm:inline">Novo</span>
-          </Button>
+          {onNewEvent && (
+            <Button className="h-9 gap-2 rounded-xl font-bold" onClick={() => onNewEvent(selectedDay)}>
+              <PlusCircleIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">Novo</span>
+            </Button>
+          )}
         </div>
       </div>
 

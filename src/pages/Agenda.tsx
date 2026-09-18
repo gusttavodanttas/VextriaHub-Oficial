@@ -14,6 +14,7 @@ import { ptBR } from "date-fns/locale";
 import { useAgendaEvents, AgendaEvent } from "@/hooks/useAgendaEvents";
 import { atrasoLabel } from "@/lib/atraso";
 import { AgendaItemDialog, AgendaType } from "@/components/Dashboard/AgendaItemDialog";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const typeMeta: Record<string, { label: string; icon: React.ElementType; color: string; bg: string }> = {
   audiencia:   { label: "Audiência", icon: Users, color: "text-orange-500", bg: "bg-orange-500/10" },
@@ -54,7 +55,8 @@ export default function Agenda() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const { events, atrasados, loading, getEventsForDay, refresh } = useAgendaEvents(currentViewMonth);
+  const { events, atrasados, loading, error, getEventsForDay, refresh } = useAgendaEvents(currentViewMonth);
+  const { canManageAgenda } = usePermissions();
 
   // Busca global: vai ao mês do evento (?date) e destaca (?openId)
   useEffect(() => {
@@ -208,10 +210,23 @@ export default function Agenda() {
             <p className="text-sm text-muted-foreground">Audiências, prazos, reuniões e tarefas em um só lugar.</p>
           </div>
         </div>
-        <Button onClick={() => handleNewEvent(new Date())} className="rounded-xl h-10 gap-2 font-bold shadow-sm">
-          <Plus className="h-4 w-4" /> Novo Compromisso
-        </Button>
+        {canManageAgenda && (
+          <Button onClick={() => handleNewEvent(new Date())} className="rounded-xl h-10 gap-2 font-bold shadow-sm">
+            <Plus className="h-4 w-4" /> Novo Compromisso
+          </Button>
+        )}
       </div>
+
+      {error && (
+        <div className="flex items-center gap-3 p-4 rounded-2xl border border-destructive/20 bg-destructive/5">
+          <AlertCircle className="h-5 w-5 text-destructive shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-destructive">Não foi possível carregar a agenda</p>
+            <p className="text-xs text-muted-foreground">{error}</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={refresh} className="rounded-xl font-bold shrink-0">Tentar novamente</Button>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5">
@@ -294,7 +309,9 @@ export default function Agenda() {
                 <p className="font-black text-lg">Agenda livre</p>
                 <p className="text-sm text-muted-foreground mt-1">Nenhum compromisso futuro {typeFilter !== "todos" ? "deste tipo " : ""}neste mês.</p>
               </div>
-              <Button onClick={() => handleNewEvent(new Date())} className="rounded-xl gap-2 font-bold"><Plus className="h-4 w-4" /> Novo Compromisso</Button>
+              {canManageAgenda && (
+                <Button onClick={() => handleNewEvent(new Date())} className="rounded-xl gap-2 font-bold"><Plus className="h-4 w-4" /> Novo Compromisso</Button>
+              )}
             </div>
             )
           ) : (
@@ -319,7 +336,7 @@ export default function Agenda() {
           <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 overflow-hidden">
             {/* AgendaEvent/monthData se adaptam ao tipo Event interno (não exportado) do calendário */}
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <FullScreenCalendar data={monthData as any} onEventClick={goToSource as any} onNewEvent={handleNewEvent} onMonthChange={handleMonthChange} onDayClick={setDayDetail} />
+            <FullScreenCalendar data={monthData as any} onEventClick={goToSource as any} onNewEvent={canManageAgenda ? handleNewEvent : undefined} onMonthChange={handleMonthChange} onDayClick={setDayDetail} />
           </div>
         </TabsContent>
       </Tabs>
@@ -347,18 +364,22 @@ export default function Agenda() {
                 <div className="flex flex-col items-center text-center py-8 gap-3">
                   <div className="p-4 rounded-full bg-primary/10 text-primary"><Calendar className="h-8 w-8 opacity-70" /></div>
                   <p className="text-sm text-muted-foreground font-semibold">Nenhum compromisso neste dia</p>
-                  <Button onClick={() => { handleNewEvent(dayDetail); setDayDetail(null); }} className="rounded-xl gap-2 font-bold">
-                    <Plus className="h-4 w-4" /> Novo Compromisso
-                  </Button>
+                  {canManageAgenda && (
+                    <Button onClick={() => { handleNewEvent(dayDetail); setDayDetail(null); }} className="rounded-xl gap-2 font-bold">
+                      <Plus className="h-4 w-4" /> Novo Compromisso
+                    </Button>
+                  )}
                 </div>
               );
             }
             return (
               <div className="space-y-2">
                 {dayEvents.map(e => <EventRow key={e.id} e={e} />)}
-                <Button variant="outline" onClick={() => { handleNewEvent(dayDetail); setDayDetail(null); }} className="w-full rounded-xl gap-2 font-bold mt-2">
-                  <Plus className="h-4 w-4" /> Adicionar neste dia
-                </Button>
+                {canManageAgenda && (
+                  <Button variant="outline" onClick={() => { handleNewEvent(dayDetail); setDayDetail(null); }} className="w-full rounded-xl gap-2 font-bold mt-2">
+                    <Plus className="h-4 w-4" /> Adicionar neste dia
+                  </Button>
+                )}
               </div>
             );
           })()}

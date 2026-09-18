@@ -28,9 +28,14 @@ export function useMultiSelect<T extends { id: string | number }>(items: T[]) {
     return selectedItems.has(id);
   }, [selectedItems]);
 
-  const isAllSelected = items.length > 0 && selectedItems.size === items.length;
-  const isNoneSelected = selectedItems.size === 0;
-  const selectedCount = selectedItems.size;
+  // selectedCount/isAllSelected/isNoneSelected precisam refletir a MESMA
+  // interseção com `items` que getSelectedItems() usa — senão o badge mostra
+  // uma contagem (baseada no histórico bruto de cliques) maior do que a ação
+  // em massa realmente processa (ex.: seleciona 3, muda o filtro, 1 item sai
+  // da lista — o badge continuava em "3" enquanto a ação só pegava 2).
+  const selectedCount = items.reduce((n, item) => n + (selectedItems.has(item.id) ? 1 : 0), 0);
+  const isAllSelected = items.length > 0 && selectedCount === items.length;
+  const isNoneSelected = selectedCount === 0;
 
   const getSelectedItems = useCallback(() => {
     return items.filter(item => selectedItems.has(item.id));
