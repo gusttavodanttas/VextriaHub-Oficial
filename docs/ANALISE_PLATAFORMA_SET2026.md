@@ -2103,3 +2103,145 @@ limpo, ESLint sem erros novos, 222/222 testes (Vitest), `vite build` ok
 `ai-advisor` (v9) já feito em produção. Teste end-to-end (upload real +
 chamada de IA) não foi possível nesta sessão pela mesma limitação de rede
 do sandbox já registrada — a confirmação final fica pro primeiro uso.
+
+## Parte 23 — auditoria quantificada completa: % por aba, frente e backend
+
+Sessão separada da Parte 22, depois de um bloco inteiro (Financeiro &
+Relatórios + Engenharia) já ter corrigido boa parte dos gaps de UX de
+erro/permissão do produto. Pedido do usuário: um raio-X completo e
+profundo da plataforma, com % por aba, cobrindo tanto a parte visível
+(front-end) quanto a não-visível (backend).
+
+### Método
+
+Nada nesta parte foi inferido de memória — cada bloco (A a F, mesmo
+recorte da Parte 4) foi relido por completo por uma revisão independente
+em paralelo, instruída a só reportar o que confirmasse lendo o código
+atual (arquivo:linha), nunca "poderia ser melhor". Eu não recomputei cada
+achado individualmente (ao contrário da Parte 4, que foi feita numa base
+de código bem menos auditada), mas apliquei uma grade de critérios fixa e
+transparente para transformar os achados em %, explicada abaixo — os
+números são reproduzíveis a partir dos achados citados, não uma nota de
+sensação.
+
+**Frente (visível ao usuário)** — 100% distribuídos em: loading state
+(10), estado de erro com retry visível (20 — é o item mais frequentemente
+ausente), estado vazio (10), ações destrutivas com confirmação em dialog
+em vez de `confirm()` nativo (15), gates de permissão aplicados na UI
+onde a permissão existe (15), paginação real ou cap justificado (10), e
+ausência de bug funcional confirmado por leitura de código (20).
+
+**Backend (não visível, mas quebra o produto se falhar)** — 100%
+distribuídos em: mutations que dependem de RLS pra bloquear checam
+quantas linhas foram afetadas antes de dizer "sucesso" — via
+`assertRowsAffected`/`.select().single()`/checagem explícita de contagem
+(35 — maior peso: é o padrão mais repetido nesta auditoria, inclusive
+fora dele), nenhum `catch` engolindo a causa real do erro (20),
+filtragem explícita de `office_id` onde relevante (10), e cobertura de
+teste automatizado do hook (15) — os 20% restantes ficam com a RLS da
+tabela em si, hoje 100% coberta em todas as 47 tabelas (ver seção
+"Panorama transversal" abaixo), então esse componente já soma cheio pra
+todas as áreas.
+
+Cada página abaixo recebeu uma nota 0-100 por critério, arredondada em
+faixas de 5, a partir dos achados citados — nunca um "chute geral".
+
+### Panorama transversal do backend (não é por página — é a plataforma toda)
+
+| Dimensão | Estado | Nota |
+| --- | --- | --- |
+| RLS | 47/47 tabelas com RLS ativa; ~150 policies, incluindo as 38 RESTRICTIVE + 4 PERMISSIVE de widen da Parte 6 (permissões por membro) | **100%** |
+| Edge functions | 24 funções; 10 das que recebem `office_id`/`user_id` do corpo e usam `service_role` já foram auditadas especificamente contra escalada de privilégio (Parte 2) — todas limpas. As 14 restantes (`ai-advisor`, `ai-voice`, `asaas-billing`, `asaas-reconcile`, `fetch-by-oab`, `fetch-processo`, `google-*`, `robo-*-diario`, `trial-reminder`, `send-member-welcome`) não tiveram essa auditoria dedicada nesta rodada — não é um achado, é uma lacuna de verificação | **85%** |
+| Dependências | `npm audit`: 13 avisos, mas 12 são só do toolchain de build (`vite`/`postcss`/`rollup`, `devDependencies` — nunca chegam ao navegador do usuário). Sobra 1 real em produção: `react-router-dom` moderado (open-redirect/injeção em SSR não usado aqui), só resolve migrando pra v7 (Parte 14) | **90%** |
+| Migrations/schema | 155 migrations, 100% versionadas, nenhuma editada direto no painel sem registro (convenção documentada em CLAUDE.md) | **100%** |
+| Testes automatizados | 227 testes, mas concentrados em funções puras de `src/lib` (cálculo de prazo, financeiro, validação). De 64 hooks de dados, só ~4 têm teste direto (`useTimesheet` parcial, `useProcessoSubData` parcial, mais os de componente `AuthContext`/`PermissionGuard`/`NovaAudienciaDialog`/`NovoClienteDialog`) — cobertura de hook é a lacuna mais consistente de toda a auditoria. Suíte pgTAP de RLS existe (`supabase/tests/rls-standalone/`) mas cobre só 1 cenário (isolamento por time, 13 asserções) das ~150 policies do banco | **45%** |
+
+### Achados sistêmicos (o valor real desta auditoria não são os bugs isolados — é o padrão que se repete)
+
+**Classe 1 — mutation sem checagem de linhas afetadas, de longe o padrão mais repetido.** Já era o achado central da Parte 6/8 (que corrigiu `tarefas`/`prazos`/`audiencias`/`atendimentos`/`financeiro`/`consultivos`/`metas`/`clientes`) e desta sessão (Financeiro, Metas, Correspondentes, Notificações — unitárias). Esta auditoria encontrou o MESMO padrão, não corrigido, em mais ~20 pontos de mutation espalhados pelo app — ou seja, é uma lacuna de **processo** (a correção nunca virou um lint/teste que pegasse recorrência), não um lote de bugs desconectados:
+
+- `src/hooks/usePublicacoes.tsx` — `updateStatus`, `deletePublication`, `linkPublicacaoToProcesso` (só `bulkUpdateStatus` foi corrigida)
+- `src/hooks/useNotifications.tsx` — `markAllAsRead`, `clearAll` (só `markAsRead`/`deleteNotification` foram corrigidas)
+- `src/hooks/useConsultivoCategorias.tsx:52-58` — `remove()`
+- `src/hooks/useOfficeUsers.tsx:101-116` — `removeUser`
+- `src/hooks/useOfficeTeams.tsx:124-155` — `addMember`/`removeMember`/`setMemberRole`
+- `src/hooks/useInvitations.tsx:139-156` — `cancelInvitation`
+- `src/pages/Perfil.tsx:130-172` — `handleAvatarChange`/`handleRemoveAvatar`
+- `src/pages/EquipeDetalhe.tsx:456-466` — `AssignProcessosDialog.assign`
+- `src/components/Configuracoes/OfficeSettings.tsx:80-98` — `handleLogoChange`
+- `src/pages/Crm.tsx:109-118` — `updateLeadStatus`, `setFollowup`; `CrmOportunidadeDetail.tsx:124-162` — editar/excluir histórico
+- `src/hooks/useCrmRobot.tsx:110-115` — `marcarContatado` (pior caso: nem erro é lido)
+- `src/services/timesheetService.ts:78-87` — `remove`; `src/hooks/useTimesheet.tsx:169-182` — `marcarFaturado`
+- `src/pages/Prazos.tsx:728-731` — update direto de "confirmar sugestão do robô", fora do hook
+
+**Classe 2 — falha de busca vira "vazio" em vez de erro visível.** `useAgendaEvents`, `useTarefas`, `useCorrespondentes`, `useMyStats` (nenhuma das 6 queries paralelas verificada) não expõem `error`/`isError` nenhum; `Crm.tsx`, `Publicacoes.tsx`, `Equipe.tsx`, `EquipeDetalhe.tsx`, `Admin.tsx`, `Lixeira.tsx` têm o campo `error` disponível no hook e simplesmente não o leem/exibem. `EquipeDetalhe.fetchData` é o pior caso — nem tem `try/catch`, uma exceção síncrona trava o loading pra sempre.
+
+**Classe 3 — toast de sucesso sem checar retorno.** `Equipe.tsx` remover membro (nem `await`), alterar função e excluir convite sempre mostram sucesso, mesmo se a função chamada retornar falha.
+
+**Classe 4 — gate de permissão ausente onde a permissão já existe no sistema.** Agenda/Prazos/Audiências/Tarefas não usam `usePermissions` (só Atendimentos, no mesmo bloco, usa corretamente); Timesheet não tem nenhum conceito de permissão de visualização; `canViewCRM` existe em `usePermissions.tsx` mas `Crm.tsx` nunca gatea a página com ele (só as ações de escrita).
+
+**Classe 5 — bug funcional confirmado (não é falta de tratamento, é lógica errada).** Contador de seleção múltipla (`useMultiSelect`) dessincroniza do filtro em Prazos/Audiências/Tarefas: selecionar itens, mudar o filtro, e uma ação em massa processa menos itens do que o badge mostra — mesma causa raiz (`useMultiSelect.tsx:35-37`) nos 3 lugares. Import individual de processo (preview do `JudicialSyncDialog`) não trata mensagem de cota de plano, diferente do import em lote no mesmo arquivo.
+
+### Tabela por página
+
+| Bloco | Página | Frente | Backend |
+| --- | --- | --- | --- |
+| A | Atendimentos | 95% | 82% |
+| A | Audiências | 80% | 82% |
+| A | Prazos | 80% | 72% |
+| A | Agenda | 65% | 55% |
+| A | Tarefas | 60% | 65% |
+| B | Financeiro | 95% | 85% |
+| B | Metas | 92% | 85% |
+| B | Timesheet | 70% | 58% |
+| B | CRM | 50% | 40% |
+| C | Clientes | 95% | 90% |
+| C | Processos | 88% | 78% |
+| C | Consultivo | 85% | 65% |
+| C | Correspondentes | 55% | 85% |
+| D | Configurações | 85% | n/a* |
+| D | Escritório | 78% | 70% |
+| D | Perfil | 78% | 62% |
+| D | Admin | 72% | 88% |
+| D | Equipe | 60% | 55% |
+| D | EquipeDetalhe | 45% | 40% |
+| E | Register | 95% | 90% |
+| E | Login | 90% | 88% |
+| E | RedefinirSenha | 90% | 88% |
+| E | Pagamento | 90% | 85% |
+| E | IA (widget + hooks) | 90% | 88% |
+| F | Gráficos | 93% | 88% |
+| F | Dashboard (Index) | 90% | 74% |
+| F | Notificações | 90% | 68% |
+| F | Lixeira | 72% | 90% |
+| F | Publicações | 65% | 55% |
+
+\* Configurações é uma página fina que delega a subcomponentes não lidos nesta rodada (fora do escopo pedido a cada bloco); o gate de permissão (`canManageOffice`) em si está correto e documentado como correção de um bug anterior.
+
+### Médias por bloco e da plataforma
+
+| Bloco | Frente | Backend |
+| --- | --- | --- |
+| A — Agenda/Prazos/Audiências/Tarefas/Atendimentos | 76% | 71% |
+| B — Financeiro/Timesheet/CRM/Metas | 77% | 67% |
+| C — Processos/Clientes/Consultivo/Correspondentes | 81% | 80% |
+| D — Equipe/Admin/Configurações/Perfil | 70% | 63% |
+| E — Login/Cadastro/Pagamento/IA | 91% | 88% |
+| F — Dashboard/Gráficos/Publicações/Notificações/Lixeira | 82% | 75% |
+| **Plataforma (média dos blocos)** | **80%** | **74%** |
+| Panorama transversal do backend (RLS/edge functions/deps/schema/testes) | — | **84%** |
+
+Leitura: a plataforma está em bom estado de fundação (RLS 100%, schema
+versionado, zero escalada de privilégio confirmada, dependências de
+produção praticamente limpas) mas tem uma lacuna consistente de **camada
+de aplicação** — o padrão certo (`assertRowsAffected`, erro visível com
+retry, gate de permissão) existe e está bem implementado em vários
+lugares (Clientes, Financeiro, Metas, Admin, o bloco E inteiro,
+Correspondentes no backend), mas não foi replicado de forma sistemática
+— cada correção anterior (Parte 6, Parte 8, e o bloco Financeiro &
+Relatórios desta sessão) fechou os pontos que motivaram aquela rodada
+específica, sem um mecanismo (lint, helper obrigatório, teste) que
+impedisse a mesma classe de bug de reaparecer em código não tocado por
+aquela rodada. CRM e EquipeDetalhe são os pontos mais fracos da
+plataforma hoje; Login/Cadastro/Pagamento/IA (bloco E) é de longe o mais
+sólido.
