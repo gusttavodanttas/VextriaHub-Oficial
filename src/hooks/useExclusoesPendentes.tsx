@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useUserRole } from '@/hooks/useUserRole';
-import { assertRowsAffected } from '@/lib/errors';
+import { assertRowsAffected, getErrorMessage } from '@/lib/errors';
 import { ExclusaoPendente } from '@/types/database';
 
 export const useExclusoesPendentes = () => {
@@ -111,7 +111,7 @@ export const useExclusoesPendentes = () => {
     } catch (err) {
       toast({
         title: 'Erro ao aprovar exclusão',
-        description: 'Não foi possível processar a aprovação.',
+        description: getErrorMessage(err, 'Não foi possível processar a aprovação.'),
         variant: 'destructive',
       });
       return false;
@@ -159,7 +159,7 @@ export const useExclusoesPendentes = () => {
     } catch (err) {
       toast({
         title: 'Erro ao rejeitar exclusão',
-        description: 'Não foi possível processar a rejeição.',
+        description: getErrorMessage(err, 'Não foi possível processar a rejeição.'),
         variant: 'destructive',
       });
       return false;
@@ -230,7 +230,7 @@ export const useExclusoesPendentes = () => {
     } catch (err) {
       toast({
         title: 'Erro ao aprovar exclusões',
-        description: 'Não foi possível processar as aprovações.',
+        description: getErrorMessage(err, 'Não foi possível processar as aprovações.'),
         variant: 'destructive',
       });
       return false;

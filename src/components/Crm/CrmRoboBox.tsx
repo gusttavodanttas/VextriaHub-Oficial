@@ -6,6 +6,7 @@ import { useOfficeSettingValue } from "@/hooks/useOfficeSettingValue";
 import { gerarMensagemContato, linkWhatsapp, linkEmail } from "@/lib/crmMessage";
 import { useToast } from "@/hooks/use-toast";
 import { formatBRL } from "@/lib/currency";
+import { getErrorMessage } from "@/lib/errors";
 
 const brl = (v: number) => formatBRL(v, { decimals: 0 });
 
@@ -21,7 +22,7 @@ function LeadRow({ lead, motivo, remetente, onContatado, onOpen }: { lead: any; 
   const msg = gerarMensagemContato(lead, remetente);
   const copiar = async () => {
     try { await navigator.clipboard.writeText(msg); toast({ title: "Mensagem copiada", description: "Cole no WhatsApp ou e-mail." }); }
-    catch { toast({ title: "Não foi possível copiar", variant: "destructive" }); }
+    catch (e) { toast({ title: "Não foi possível copiar", description: getErrorMessage(e), variant: "destructive" }); }
   };
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl border border-black/5 dark:border-border bg-card hover:border-primary/30 transition-all">

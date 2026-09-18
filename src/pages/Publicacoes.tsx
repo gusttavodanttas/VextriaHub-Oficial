@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/usePermissions";
+import { getErrorMessage } from "@/lib/errors";
 import { PermissionGuard } from "@/components/Auth/PermissionGuard";
 import {
   AlertDialog,
@@ -268,8 +269,8 @@ export default function Publicacoes() {
         dateFrom: filters.dateRange.from,
         dateTo: filters.dateRange.to,
       });
-    } catch {
-      toast({ title: 'Erro ao exportar', description: 'Não foi possível buscar as publicações.', variant: 'destructive' });
+    } catch (e) {
+      toast({ title: 'Erro ao exportar', description: getErrorMessage(e, 'Não foi possível buscar as publicações.'), variant: 'destructive' });
       return;
     }
 

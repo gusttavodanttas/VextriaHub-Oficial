@@ -11,6 +11,7 @@ import type { ClienteComProcessos } from "@/types/database";
 import { useClientes } from "@/hooks/useClientes";
 import { useClientesLista, useClientesStats, useClientesAniversariantesDoMes } from "@/hooks/useClientesLista";
 import { cn } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/errors";
 
 import { Users, Plus, Search, LayoutGrid, List, UserCheck, UserX, Building2, User, Download, Cake, ArrowUpDown, MessageCircle, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
 import { useMyTeams } from "@/hooks/useMyTeams";
@@ -261,8 +262,8 @@ const Clientes = () => {
       const ids = clientToDelete ? [clientToDelete] : multiSelect.getSelectedItems().map((c) => c.id);
       const success = await requestMultipleDelete(ids, "Exclusão solicitada pelo usuário");
       if (success && !clientToDelete) multiSelect.clearSelection();
-    } catch {
-      toast({ title: "Erro ao excluir", variant: "destructive" });
+    } catch (e) {
+      toast({ title: "Erro ao excluir", description: getErrorMessage(e), variant: "destructive" });
     } finally {
       setIsDeleting(false);
       setDeleteDialogOpen(false);
