@@ -41,13 +41,15 @@ const formatRelativeTime = (date: Date) => {
 };
 
 export const NotificationCenter: React.FC = () => {
-  const { 
-    notifications, 
-    loading, 
+  const {
+    notifications,
+    loading,
+    error,
     markAsRead,
     markAllAsRead,
     deleteNotification,
-    clearAll
+    clearAll,
+    refresh,
   } = useNotifications();
   
   const [isOpen, setIsOpen] = useState(false);
@@ -125,7 +127,16 @@ export const NotificationCenter: React.FC = () => {
         </div>
 
         <ScrollArea className="h-96">
-          {notifications.length === 0 ? (
+          {error ? (
+            <div className="p-6 text-center">
+              <AlertTriangle className="h-8 w-8 text-destructive mx-auto mb-2" />
+              <p className="text-sm font-medium">Não foi possível carregar</p>
+              <p className="text-xs text-muted-foreground mt-1">{error}</p>
+              <Button variant="outline" size="sm" onClick={() => refresh()} className="mt-3">
+                Tentar novamente
+              </Button>
+            </div>
+          ) : notifications.length === 0 ? (
             <div className="p-6 text-center">
               <Bell className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
               <p className="text-sm text-muted-foreground">

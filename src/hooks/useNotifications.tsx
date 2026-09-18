@@ -2,6 +2,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { assertRowsAffected, getErrorMessage } from '@/lib/errors';
 
 export type NotificationType = 'info' | 'success' | 'warning' | 'error';
 
@@ -18,23 +20,26 @@ export interface Notification {
 
 export const useNotifications = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
-    
+
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data, error: fetchError } = await supabase
         .from('notifications')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(50);
 
-      if (error) throw error;
+      if (fetchError) throw fetchError;
 
+      setError(null);
       setNotifications((data || []).map(n => {
         // A ação (link) fica no campo `data` (jsonb) — não há colunas action_url/action_label.
         const meta = (n.data ?? {}) as { action_url?: string | null; action_label?: string | null };
@@ -51,6 +56,7 @@ export const useNotifications = () => {
       }));
     } catch (err) {
       console.error('Erro ao buscar notificações:', err);
+      setError(getErrorMessage(err, 'Não foi possível carregar as notificações.'));
     } finally {
       setLoading(false);
     }
@@ -58,15 +64,20 @@ export const useNotifications = () => {
 
   const markAsRead = async (id: string) => {
     try {
-      const { error } = await supabase
+      // RLS bloqueando o update não lança erro — só casa 0 linhas e "sucede".
+      // Sem checar a contagem, um clique sem efeito nenhum no banco continuava
+      // mostrando a notificação como lida na tela (até o próximo fetch).
+      const { data, error } = await supabase
         .from('notifications')
         .update({ read: true })
-        .eq('id', id);
+        .eq('id', id)
+        .select('id');
 
-      if (error) throw error;
+      assertRowsAffected(data, error, 1);
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
     } catch (err) {
       console.error('Erro ao marcar como lida:', err);
+      toast({ title: 'Erro', description: getErrorMessage(err, 'Não foi possível marcar como lida.'), variant: 'destructive' });
     }
   };
 
@@ -83,20 +94,23 @@ export const useNotifications = () => {
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     } catch (err) {
       console.error('Erro ao marcar todas como lidas:', err);
+      toast({ title: 'Erro', description: getErrorMessage(err, 'Não foi possível marcar todas como lidas.'), variant: 'destructive' });
     }
   };
 
   const deleteNotification = async (id: string) => {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('notifications')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .select('id');
 
-      if (error) throw error;
+      assertRowsAffected(data, error, 1);
       setNotifications(prev => prev.filter(n => n.id !== id));
     } catch (err) {
       console.error('Erro ao excluir notificação:', err);
+      toast({ title: 'Erro', description: getErrorMessage(err, 'Não foi possível excluir a notificação.'), variant: 'destructive' });
     }
   };
 
@@ -112,6 +126,7 @@ export const useNotifications = () => {
       setNotifications([]);
     } catch (err) {
       console.error('Erro ao limpar notificações:', err);
+      toast({ title: 'Erro', description: getErrorMessage(err, 'Não foi possível limpar as notificações.'), variant: 'destructive' });
     }
   };
 
@@ -169,6 +184,7 @@ export const useNotifications = () => {
   return {
     notifications,
     loading,
+    error,
     markAsRead,
     markAllAsRead,
     deleteNotification,

@@ -41,7 +41,7 @@ const fmtTime = (d: Date) => {
 
 const Notificacoes = () => {
   const navigate = useNavigate();
-  const { notifications, loading, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
+  const { notifications, loading, error, markAsRead, markAllAsRead, deleteNotification, refresh } = useNotifications();
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -77,9 +77,23 @@ const Notificacoes = () => {
         )}
       </div>
 
+      {/* Erro de busca */}
+      {error && (
+        <div className="flex items-center gap-3 px-5 py-4 rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive">
+          <AlertTriangle className="h-5 w-5 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-bold">Não foi possível carregar as notificações</p>
+            <p className="text-xs opacity-80">{error}</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => refresh()} className="rounded-xl font-bold shrink-0">
+            Tentar novamente
+          </Button>
+        </div>
+      )}
+
       {/* Lista */}
       <div className="space-y-3">
-        {loading ? (
+        {error ? null : loading ? (
           [...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-2xl" />)
         ) : notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center space-y-6 glass-card rounded-[2.5rem] border-black/5 dark:border-border shadow-premium">
