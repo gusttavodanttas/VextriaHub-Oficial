@@ -75,6 +75,10 @@ const PERMISSION_GROUPS: PermGroup[] = [
     { key: "canViewFinanceiro",   label: "Visualizar", defaultUser: true  },
     { key: "canManageFinanceiro", label: "Gerenciar",  defaultUser: false },
   ]},
+  { label: "Timesheet", perms: [
+    { key: "canViewTimesheet",   label: "Visualizar", defaultUser: true },
+    { key: "canManageTimesheet", label: "Gerenciar",   defaultUser: true },
+  ]},
   { label: "Agenda & Audiências", perms: [
     { key: "canViewAgenda",       label: "Ver agenda",          defaultUser: true },
     { key: "canManageAgenda",     label: "Gerenciar agenda",    defaultUser: true },
