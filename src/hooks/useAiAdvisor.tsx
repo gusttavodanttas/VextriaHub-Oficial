@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { captureError } from '@/lib/monitoring';
 import type { AbaCelulas } from '@/lib/spreadsheetParser';
 
 export type AdvisorPeriod = 'hoje' | 'semana' | 'mes' | 'ano';
@@ -58,7 +59,7 @@ async function invoke<T>(fn: string, body: Record<string, unknown>): Promise<T> 
       if (j?.message) msg = j.message;
       else if (j?.error) msg = j.error;
       if (j?.error) code = j.error;
-    } catch { /* mantém a mensagem genérica */ }
+    } catch (e) { captureError(e, { context: `useAiAdvisor.invoke(${fn}): parse error body` }); }
     throw new AdvisorError(msg, code);
   }
   return data as T;

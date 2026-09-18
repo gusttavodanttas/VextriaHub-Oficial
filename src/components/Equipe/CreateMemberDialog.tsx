@@ -7,6 +7,7 @@ import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { useOfficeTeams, useTeamMembers, type OfficeTeam } from "@/hooks/useOfficeTeams";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { captureError } from "@/lib/monitoring";
 import { PERMISSION_GROUPS } from "./shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -89,8 +90,8 @@ function CreateMemberDialog({ open, onOpenChange, officeId, onSuccess }: {
         try {
           const body = await ctx.text();
           try { const j = JSON.parse(body); detail = j?.error || j?.message || body; }
-          catch { if (body) detail = body; }
-        } catch { /* ignora */ }
+          catch (e) { captureError(e, { context: "CreateMemberDialog: parse error body as JSON" }); if (body) detail = body; }
+        } catch (e) { captureError(e, { context: "CreateMemberDialog: read error body" }); }
       }
       toast({ title: "Erro ao criar membro", description: String(detail), variant: "destructive" });
       return;
