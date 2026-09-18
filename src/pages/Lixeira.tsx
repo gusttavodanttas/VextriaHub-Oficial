@@ -74,6 +74,13 @@ const fmtDateTime = (d: string) => new Date(d).toLocaleString('pt-BR', { day: '2
 
 const TABELAS_PERMITIDAS = new Set(Object.keys(TABELA_CONFIG));
 
+// Lixeira busca em 10 tabelas diferentes e mescla tudo no cliente — não existe uma
+// tabela única pra paginar de verdade sem uma RPC dedicada no backend (UNION ALL das
+// 10). Cap de segurança por tabela: evita fetch sem limite algum num escritório (ou
+// super-admin olhando todos) com volume real de exclusões, mesmo padrão já usado em
+// useAudiencias/useTarefas antes de pautas dedicadas de paginação existirem.
+const TRASH_TABLE_CAP = 500;
+
 function fromTabela(tabela: string) {
   if (!TABELAS_PERMITIDAS.has(tabela)) throw new Error(`Tabela não permitida: ${tabela}`);
   return supabase.from(tabela as 'processos');
@@ -91,6 +98,7 @@ export default function Lixeira() {
   const [restoring, setRestoring] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<LixeiraItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [cappedTabelas, setCappedTabelas] = useState<string[]>([]);
 
   const fetchAll = async () => {
     if (!officeId && !isSuperAdmin) return;
@@ -110,7 +118,7 @@ export default function Lixeira() {
 
       const results: LixeiraItem[] = [];
 
-      const { data: procs } = await applyTenantFilter(supabase.from('processos').select('*').eq('deletado', true)).order('updated_at', { ascending: false });
+      const { data: procs } = await applyTenantFilter(supabase.from('processos').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(TRASH_TABLE_CAP);
       (procs || []).forEach(p => results.push({
         id: p.id, tabela: 'processos',
         titulo: p.titulo || formatCNJ(p.numero_processo),
@@ -118,7 +126,7 @@ export default function Lixeira() {
         excluido_em: p.updated_at, office_id: p.office_id, office_name: officeMap[p.office_id] || '—', user_id: p.user_id, dados: p,
       }));
 
-      const { data: pubs } = await applyTenantFilter(supabase.from('publicacoes').select('*').eq('status', 'arquivada')).order('created_at', { ascending: false });
+      const { data: pubs } = await applyTenantFilter(supabase.from('publicacoes').select('*').eq('status', 'arquivada')).order('created_at', { ascending: false }).limit(TRASH_TABLE_CAP);
       (pubs || []).forEach(p => results.push({
         id: p.id, tabela: 'publicacoes',
         titulo: p.titulo,
@@ -126,7 +134,7 @@ export default function Lixeira() {
         excluido_em: p.created_at, office_id: p.office_id, office_name: officeMap[p.office_id] || '—', user_id: p.user_id ?? undefined, dados: p,
       }));
 
-      const { data: prazos } = await applyTenantFilter(supabase.from('prazos').select('*').eq('deletado', true)).order('created_at', { ascending: false });
+      const { data: prazos } = await applyTenantFilter(supabase.from('prazos').select('*').eq('deletado', true)).order('created_at', { ascending: false }).limit(TRASH_TABLE_CAP);
       (prazos || []).forEach(p => results.push({
         id: p.id, tabela: 'prazos',
         titulo: p.titulo ?? '',
@@ -134,7 +142,7 @@ export default function Lixeira() {
         excluido_em: p.created_at, office_id: p.office_id, office_name: officeMap[p.office_id] || '—', user_id: p.user_id ?? undefined, dados: p,
       }));
 
-      const { data: auds } = await applyTenantFilter(supabase.from('audiencias').select('*').eq('deletado', true)).order('updated_at', { ascending: false });
+      const { data: auds } = await applyTenantFilter(supabase.from('audiencias').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(TRASH_TABLE_CAP);
       (auds || []).forEach(a => results.push({
         id: a.id, tabela: 'audiencias',
         titulo: a.titulo,
@@ -142,7 +150,7 @@ export default function Lixeira() {
         excluido_em: a.updated_at, office_id: a.office_id, office_name: officeMap[a.office_id] || '—', user_id: a.user_id, dados: a,
       }));
 
-      const { data: atds } = await applyTenantFilter(supabase.from('atendimentos').select('*').eq('deletado', true)).order('updated_at', { ascending: false });
+      const { data: atds } = await applyTenantFilter(supabase.from('atendimentos').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(TRASH_TABLE_CAP);
       (atds || []).forEach(a => results.push({
         id: a.id, tabela: 'atendimentos',
         titulo: a.tipo_atendimento,
@@ -150,7 +158,7 @@ export default function Lixeira() {
         excluido_em: a.updated_at, office_id: a.office_id, office_name: officeMap[a.office_id] || '—', user_id: a.user_id, dados: a,
       }));
 
-      const { data: tarefas } = await applyTenantFilter(supabase.from('tarefas').select('*').eq('deletado', true)).order('updated_at', { ascending: false });
+      const { data: tarefas } = await applyTenantFilter(supabase.from('tarefas').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(TRASH_TABLE_CAP);
       (tarefas || []).forEach(t => results.push({
         id: t.id, tabela: 'tarefas',
         titulo: t.titulo,
@@ -160,7 +168,7 @@ export default function Lixeira() {
         excluido_em: t.updated_at, office_id: t.office_id, office_name: officeMap[t.office_id] || '—', user_id: t.user_id, dados: t,
       }));
 
-      const { data: tss } = await applyTenantFilter(supabase.from('timesheets').select('*').eq('deletado', true)).order('updated_at', { ascending: false });
+      const { data: tss } = await applyTenantFilter(supabase.from('timesheets').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(TRASH_TABLE_CAP);
       (tss || []).forEach(t => results.push({
         id: t.id, tabela: 'timesheets',
         titulo: t.tarefa_descricao,
@@ -168,7 +176,7 @@ export default function Lixeira() {
         excluido_em: t.updated_at || t.created_at || '', office_id: t.office_id, office_name: officeMap[t.office_id || ''] || '—', user_id: t.user_id, dados: t,
       }));
 
-      const { data: clis } = await applyTenantFilter(supabase.from('clientes').select('*').eq('deletado', true)).order('updated_at', { ascending: false });
+      const { data: clis } = await applyTenantFilter(supabase.from('clientes').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(TRASH_TABLE_CAP);
       (clis || []).forEach(c => results.push({
         id: c.id, tabela: 'clientes',
         titulo: c.nome,
@@ -176,7 +184,7 @@ export default function Lixeira() {
         excluido_em: c.updated_at, office_id: c.office_id, office_name: officeMap[c.office_id] || '—', user_id: (c as any).user_id, dados: c,
       }));
 
-      const { data: metasRows } = await applyTenantFilter(supabase.from('metas').select('*').eq('deletado', true)).order('updated_at', { ascending: false });
+      const { data: metasRows } = await applyTenantFilter(supabase.from('metas').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(TRASH_TABLE_CAP);
       (metasRows || []).forEach(m => results.push({
         id: m.id, tabela: 'metas',
         titulo: m.titulo,
@@ -184,7 +192,7 @@ export default function Lixeira() {
         excluido_em: m.updated_at, office_id: m.office_id, office_name: officeMap[m.office_id] || '—', user_id: m.user_id, dados: m,
       }));
 
-      const { data: fin } = await applyTenantFilter(supabase.from('financeiro').select('*').eq('deletado', true)).order('updated_at', { ascending: false });
+      const { data: fin } = await applyTenantFilter(supabase.from('financeiro').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(TRASH_TABLE_CAP);
       (fin || []).forEach(f => results.push({
         id: f.id, tabela: 'financeiro',
         titulo: f.descricao || (f.tipo === 'receita' ? 'Receita' : 'Despesa'),
@@ -193,7 +201,7 @@ export default function Lixeira() {
       }));
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tabela dinâmica: o genérico estoura o limite de instanciação do Supabase só aqui
-      const { data: desc } = await applyTenantFilter<any>(supabase.from('processos_descartados').select('*')).order('created_at', { ascending: false });
+      const { data: desc } = await applyTenantFilter<any>(supabase.from('processos_descartados').select('*')).order('created_at', { ascending: false }).limit(TRASH_TABLE_CAP);
       (desc || []).forEach((d: any) => results.push({
         id: d.id, tabela: 'processos_descartados',
         titulo: d.titulo || formatCNJ(d.numero_processo),
@@ -203,6 +211,17 @@ export default function Lixeira() {
 
       results.sort((a, b) => new Date(b.excluido_em).getTime() - new Date(a.excluido_em).getTime());
       setItems(results);
+
+      // Cada tabela é buscada com .limit(TRASH_TABLE_CAP) acima — se alguma bateu no
+      // teto, pode haver mais itens não exibidos nela (a lista deixa de ser exaustiva
+      // pra essa tabela). Avisa em vez de deixar parecer que "isso é tudo".
+      const countsPorTabela: Record<string, number> = {};
+      for (const r of results) countsPorTabela[r.tabela] = (countsPorTabela[r.tabela] || 0) + 1;
+      setCappedTabelas(
+        Object.entries(countsPorTabela)
+          .filter(([, count]) => count >= TRASH_TABLE_CAP)
+          .map(([tabela]) => TABELA_CONFIG[tabela]?.label || tabela)
+      );
     } catch (err) {
       console.error('Erro ao buscar lixeira:', err);
     } finally {
@@ -347,6 +366,16 @@ export default function Lixeira() {
               <Building2 className="h-3 w-3" /> {o.name}
             </button>
           ))}
+        </div>
+      )}
+
+      {/* Aviso de teto atingido */}
+      {cappedTabelas.length > 0 && (
+        <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-medium">
+          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+          <span>
+            Mostrando só os {TRASH_TABLE_CAP} itens mais recentes de: {cappedTabelas.join(', ')}. Pode haver mais itens excluídos nessas categorias não exibidos aqui.
+          </span>
         </div>
       )}
 
