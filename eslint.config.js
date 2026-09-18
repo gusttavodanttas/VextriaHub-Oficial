@@ -28,6 +28,10 @@ export default tseslint.config(
       // AVISO, não erro — visível e rastreável (`npm run lint`) sem travar o build.
       // Zerar aos poucos; muitos hoje são legítimos (JSONB do PJE, payloads dinâmicos).
       "@typescript-eslint/no-explicit-any": "warn",
+      // Trava novo `catch {}` vazio (achado da auditoria: erros engolidos sem
+      // rastro nenhum). allowEmptyCatch:false explícito — catches que só devem
+      // ignorar o erro precisam de um comentário dizendo por quê.
+      "no-empty": ["error", { allowEmptyCatch: false }],
     },
   }
 );
