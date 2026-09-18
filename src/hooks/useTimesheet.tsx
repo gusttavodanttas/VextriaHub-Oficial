@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { timesheetService, Timesheet } from '@/services/timesheetService';
 import { TimesheetCategoria } from '@/types/timesheet';
+import { assertRowsAffected } from '@/lib/errors';
 
 export type TimesheetScope = 'me' | 'office';
 
@@ -171,8 +172,11 @@ export function useTimesheet() {
     try {
       const patch: any = { faturado, faturado_em: faturado ? new Date().toISOString() : null, updated_at: new Date().toISOString() };
       if (financeiroId !== undefined) patch.financeiro_id = financeiroId;
-      const { error } = await supabase.from('timesheets').update(patch).in('id', ids);
-      if (error) throw error;
+      // RLS bloqueando parte dos ids em silêncio (0 linhas casadas por eles, sem
+      // erro do Postgres) não deve passar por "sucesso" — confere quantas das
+      // linhas pedidas realmente foram atualizadas.
+      const { data, error } = await supabase.from('timesheets').update(patch).in('id', ids).select('id');
+      assertRowsAffected(data, error, ids.length);
       invalidate();
       return true;
     } catch {

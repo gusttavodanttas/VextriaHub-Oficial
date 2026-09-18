@@ -1,7 +1,7 @@
 ﻿
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getErrorMessage } from "@/lib/errors";
+import { getErrorMessage, assertRowsAffected } from "@/lib/errors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -138,8 +138,8 @@ const Perfil = () => {
       try {
         setUploadingAvatar(true);
         const url = await uploadPublicImage("avatars", file, user?.id || "user");
-        const { error } = await supabase.from("profiles").update({ avatar_url: url }).eq(targetCol, targetId);
-        if (error) throw error;
+        const { data, error } = await supabase.from("profiles").update({ avatar_url: url }).eq(targetCol, targetId).select("id");
+        assertRowsAffected(data, error, 1);
         setAvatarUrl(url);
         if (refreshProfile) await refreshProfile();
         toast({ title: "Foto atualizada", description: "Sua foto de perfil foi alterada." });
@@ -159,8 +159,8 @@ const Perfil = () => {
     if (!targetId) return;
     try {
       setUploadingAvatar(true);
-      const { error } = await supabase.from("profiles").update({ avatar_url: null }).eq(targetCol, targetId);
-      if (error) throw error;
+      const { data, error } = await supabase.from("profiles").update({ avatar_url: null }).eq(targetCol, targetId).select("id");
+      assertRowsAffected(data, error, 1);
       setAvatarUrl("");
       if (refreshProfile) await refreshProfile();
       toast({ title: "Foto removida" });
@@ -360,7 +360,7 @@ const Perfil = () => {
                   </span>
                 )}
                 <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-                  <Award className="h-3.5 w-3.5 text-primary/70" /><span className="font-bold text-foreground/70">{myStats.loading ? "…" : `${myStats.pontos} pts`}</span>
+                  <Award className="h-3.5 w-3.5 text-primary/70" /><span className="font-bold text-foreground/70">{myStats.loading ? "…" : myStats.isError ? "—" : `${myStats.pontos} pts`}</span>
                 </span>
               </div>
             </div>
@@ -498,12 +498,12 @@ const Perfil = () => {
 
             <div className="grid grid-cols-1 gap-4">
               <div className="p-6 rounded-3xl bg-primary/5 border border-primary/10 hover:bg-primary/10 transition-all text-center shadow-inner">
-                <p className="text-4xl font-black text-primary mb-1">{myStats.loading ? "…" : myStats.pontos}</p>
+                <p className="text-4xl font-black text-primary mb-1">{myStats.loading ? "…" : myStats.isError ? "—" : myStats.pontos}</p>
                 <p className="text-[10px] font-black uppercase tracking-widest text-primary/60">Pontuação Meritocrática</p>
               </div>
 
               <div className="p-6 rounded-3xl bg-background/50 border border-border hover:bg-card transition-all text-center shadow-inner">
-                <p className="text-4xl font-black mb-1 text-foreground">{myStats.loading ? "…" : myStats.tarefasConcluidas}</p>
+                <p className="text-4xl font-black mb-1 text-foreground">{myStats.loading ? "…" : myStats.isError ? "—" : myStats.tarefasConcluidas}</p>
                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-60">Tarefas Concluídas</p>
               </div>
             </div>

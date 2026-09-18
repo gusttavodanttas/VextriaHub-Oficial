@@ -64,6 +64,7 @@ export interface PublicacoesListaResult {
   total: number;
   loading: boolean;
   error: string | null;
+  refetch: () => void;
 }
 
 type PublicacoesFilters = Omit<PublicacoesListaParams, 'page' | 'pageSize'>;
@@ -116,7 +117,7 @@ export function usePublicacoesLista(params: PublicacoesListaParams): Publicacoes
   const { page, pageSize, status, urgencia, vinculo, search, dateFrom, dateTo } = params;
   const q = (search || '').trim();
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: [
       'publicacoes', 'lista', user?.id, user?.office_id,
       page, pageSize, status, urgencia, vinculo, q,
@@ -158,6 +159,7 @@ export function usePublicacoesLista(params: PublicacoesListaParams): Publicacoes
     total: data?.total ?? 0,
     loading: isLoading,
     error: error ? getErrorMessage(error) : null,
+    refetch: () => { refetch(); },
   };
 }
 
@@ -402,11 +404,12 @@ export const usePublicacoes = () => {
   // Vincula uma publicação a um processo já existente (e marca como tratada)
   const linkPublicacaoToProcesso = async (publicacaoId: string, processoId: string) => {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('publicacoes')
         .update({ processo_id: processoId, status: 'processada' })
-        .eq('id', publicacaoId);
-      if (error) throw error;
+        .eq('id', publicacaoId)
+        .select('id');
+      assertRowsAffected(data, error, 1);
       invalidate();
       return true;
     } catch (e) {
@@ -431,18 +434,19 @@ export const usePublicacoes = () => {
 
   const updateStatus = async (id: string, status: string) => {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('publicacoes')
         .update({ status })
-        .eq('id', id);
+        .eq('id', id)
+        .select('id');
 
-      if (error) throw error;
+      assertRowsAffected(data, error, 1);
       invalidate();
       return true;
     } catch (error) {
       toast({
         title: "Erro ao atualizar status",
-        description: "Não foi possível atualizar a publicação.",
+        description: getErrorMessage(error, "Não foi possível atualizar a publicação."),
         variant: "destructive",
       });
       return false;
@@ -477,12 +481,13 @@ export const usePublicacoes = () => {
 
   const deletePublication = async (id: string) => {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('publicacoes')
         .update({ status: 'arquivada' })
-        .eq('id', id);
+        .eq('id', id)
+        .select('id');
 
-      if (error) throw error;
+      assertRowsAffected(data, error, 1);
 
       invalidate();
 
@@ -495,7 +500,7 @@ export const usePublicacoes = () => {
     } catch (error) {
       toast({
         title: "Erro ao arquivar",
-        description: "Não foi possível arquivar a publicação.",
+        description: getErrorMessage(error, "Não foi possível arquivar a publicação."),
         variant: "destructive",
       });
       return false;

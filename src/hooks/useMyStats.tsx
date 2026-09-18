@@ -9,6 +9,7 @@ export interface MyStats {
   tarefasConcluidas: number;
   pontos: number;
   loading: boolean;
+  isError: boolean;
 }
 
 // Pontuação meritocrática (mesma lógica do ranking de produtividade)
@@ -19,7 +20,7 @@ export function useMyStats(): MyStats {
   const { user } = useAuth();
   const [stats, setStats] = useState<MyStats>({
     processosAtivos: 0, processosFinalizados: 0, clientesAtendidos: 0,
-    tarefasConcluidas: 0, pontos: 0, loading: true,
+    tarefasConcluidas: 0, pontos: 0, loading: true, isError: false,
   });
 
   useEffect(() => {
@@ -40,6 +41,17 @@ export function useMyStats(): MyStats {
       ]);
 
       if (cancel) return;
+
+      // Sem checar `error` aqui, uma falha de rede/RLS em qualquer uma das 6
+      // queries produzia silenciosamente 0/pontuação 0 — indistinguível de
+      // "sem atividade real".
+      const firstError = [procAtivos, procEnc, clientes, tarefas, prazos, audiencias].find(r => r.error)?.error;
+      if (firstError) {
+        console.error('Erro ao buscar estatísticas pessoais:', firstError);
+        setStats(s => ({ ...s, loading: false, isError: true }));
+        return;
+      }
+
       const processosFinalizados = procEnc.count || 0;
       const tarefasConcluidas = tarefas.count || 0;
       const prazosConcluidos = prazos.count || 0;
@@ -54,6 +66,7 @@ export function useMyStats(): MyStats {
         tarefasConcluidas,
         pontos,
         loading: false,
+        isError: false,
       });
     })();
     return () => { cancel = true; };

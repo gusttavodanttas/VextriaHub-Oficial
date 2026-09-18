@@ -28,6 +28,7 @@ import {
   Link2,
   Link2Off,
   Gavel,
+  AlertTriangle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -231,7 +232,7 @@ export default function Publicacoes() {
   // preso numa página 4 vazia depois de estreitar os filtros).
   useEffect(() => { setPage(1); }, [dSearch, filters.status, filters.urgencia, filters.vinculo, filters.dateRange]);
 
-  const { data: filteredPublications, total: totalFiltered, loading } = usePublicacoesLista({
+  const { data: filteredPublications, total: totalFiltered, loading, error: listaError, refetch: refetchLista } = usePublicacoesLista({
     page,
     pageSize: PAGE_SIZE,
     status: filters.status,
@@ -555,7 +556,18 @@ export default function Publicacoes() {
             </div>
           )}
 
-          {filteredPublications.length === 0 ? (
+          {listaError ? (
+            <div className="py-24 text-center glass-card rounded-[3rem] bg-black/[0.02] dark:bg-card/30 space-y-6 border-black/5 dark:border-border shadow-inner">
+              <div className="p-8 bg-destructive/10 rounded-full inline-block border border-black/5 dark:border-border shadow-sm">
+                <AlertTriangle className="h-16 w-16 text-destructive/60" />
+              </div>
+              <div className="space-y-2">
+                <p className="text-xl font-black uppercase tracking-widest text-muted-foreground/40">Não foi possível carregar</p>
+                <p className="text-sm text-muted-foreground/60 font-medium">{listaError}</p>
+              </div>
+              <Button variant="outline" onClick={() => refetchLista()} className="rounded-xl font-bold">Tentar novamente</Button>
+            </div>
+          ) : filteredPublications.length === 0 ? (
             <div className="py-24 text-center glass-card rounded-[3rem] bg-black/[0.02] dark:bg-card/30 space-y-6 border-black/5 dark:border-border shadow-inner">
               <div className="p-8 bg-black/[0.03] dark:bg-background/50 rounded-full inline-block border border-black/5 dark:border-border shadow-sm">
                 <Inbox className="h-16 w-16 text-muted-foreground/20" />

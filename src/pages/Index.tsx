@@ -209,13 +209,13 @@ const Index = () => {
           <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 space-y-3 cursor-pointer hover:shadow-md transition-all h-full" onClick={() => navigate("/perfil")}>
             <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 flex items-center gap-1.5"><Award className="h-3 w-3" /> Sua Produtividade</p>
             <div className="flex items-end gap-2">
-              <p className="text-3xl font-black tracking-tight leading-none text-primary">{myStats.loading ? "…" : myStats.pontos}</p>
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 pb-1">pontos</p>
+              <p className="text-3xl font-black tracking-tight leading-none text-primary">{myStats.loading ? "…" : myStats.isError ? "—" : myStats.pontos}</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 pb-1">{myStats.isError ? "falha ao carregar" : "pontos"}</p>
             </div>
             <div className="grid grid-cols-3 gap-2 pt-2 border-t border-black/5 dark:border-border">
-              <div><p className="text-base font-black leading-none">{myStats.tarefasConcluidas}</p><p className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground/50 mt-1">Tarefas</p></div>
-              <div><p className="text-base font-black leading-none">{myStats.processosFinalizados}</p><p className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground/50 mt-1">Finalizados</p></div>
-              <div><p className="text-base font-black leading-none">{myStats.processosAtivos}</p><p className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground/50 mt-1">Ativos</p></div>
+              <div><p className="text-base font-black leading-none">{myStats.isError ? "—" : myStats.tarefasConcluidas}</p><p className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground/50 mt-1">Tarefas</p></div>
+              <div><p className="text-base font-black leading-none">{myStats.isError ? "—" : myStats.processosFinalizados}</p><p className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground/50 mt-1">Finalizados</p></div>
+              <div><p className="text-base font-black leading-none">{myStats.isError ? "—" : myStats.processosAtivos}</p><p className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground/50 mt-1">Ativos</p></div>
             </div>
           </div>
         );
