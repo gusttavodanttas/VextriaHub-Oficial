@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useChartsData, type ChartsPeriod } from "@/hooks/useChartsData";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useOfficeTeams } from "@/hooks/useOfficeTeams";
 import { useMyTeams } from "@/hooks/useMyTeams";
 import { ChartsConfigDialog } from "./ChartsConfigDialog";
@@ -15,7 +16,7 @@ import {
   PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, Legend,
 } from "recharts";
 import {
-  FileText, Users, MessageSquare, TrendingUp, TrendingDown, BarChart3, Trophy, Settings2, Clock,
+  FileText, Users, MessageSquare, TrendingUp, TrendingDown, BarChart3, Trophy, Settings2, Clock, AlertTriangle,
 } from "lucide-react";
 import { formatBRL } from "@/lib/currency";
 
@@ -87,6 +88,7 @@ export function ChartsTab() {
   const [teamId, setTeamId] = useState<string | null>(null);
   const [configOpen, setConfigOpen] = useState(false);
   const { isOfficeAdmin, user } = useAuth();
+  const { canViewFinanceiro, canViewEquipe } = usePermissions();
   const { teams: allTeams } = useOfficeTeams();
   const { teams: myTeams, isAnyCoordinator } = useMyTeams();
 
@@ -96,8 +98,13 @@ export function ChartsTab() {
     return myTeams.filter(t => t.myRole === "coordinator").map(t => ({ id: t.id, name: t.name }));
   }, [isOfficeAdmin, allTeams, myTeams]);
 
-  const canSeeTeams = isOfficeAdmin || isAnyCoordinator;
-  const canSeeFinanceiro = isOfficeAdmin;
+  // Antes gateadas só por papel (isOfficeAdmin/coordenador), num esquema paralelo
+  // ao resto do app — um office admin sem o módulo financeiro no plano (ou com
+  // canViewFinanceiro revogado por override) ainda via a aba "Financeiro" aqui.
+  // O escopo de QUAIS equipes aparecem continua por papel (só admin/coordenador
+  // comparam produtividade entre membros); a permissão granular decide SE a aba existe.
+  const canSeeTeams = (isOfficeAdmin || isAnyCoordinator) && canViewEquipe;
+  const canSeeFinanceiro = canViewFinanceiro;
   const d = useChartsData(period, teamId);
 
   if (d.loading) {
@@ -109,6 +116,19 @@ export function ChartsTab() {
         <div className="grid gap-4 md:grid-cols-2">
           {[...Array(2)].map((_, i) => <Skeleton key={i} className="h-80 rounded-2xl" />)}
         </div>
+      </div>
+    );
+  }
+
+  if (d.isError) {
+    return (
+      <div className="flex flex-col items-center justify-center text-center py-20 gap-4">
+        <div className="p-5 rounded-full bg-destructive/10 text-destructive"><AlertTriangle className="h-10 w-10 opacity-70" /></div>
+        <div>
+          <p className="font-black text-lg">Não foi possível carregar os gráficos</p>
+          <p className="text-sm text-muted-foreground mt-1">{d.error || "Tente novamente em instantes."}</p>
+        </div>
+        <Button variant="outline" onClick={() => d.refetch()} className="rounded-xl gap-2 font-bold">Tentar novamente</Button>
       </div>
     );
   }
