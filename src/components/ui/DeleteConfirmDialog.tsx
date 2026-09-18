@@ -28,6 +28,7 @@ export function DeleteConfirmDialog({
   title,
   description,
   isLoading = false,
+  confirmText = "Excluir",
 }: DeleteConfirmDialogProps) {
   // Workaround: o Radix AlertDialog ocasionalmente deixa
   // `body { pointer-events: none }` quando fechado após ação async,
@@ -57,7 +58,7 @@ export function DeleteConfirmDialog({
             disabled={isLoading}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
-            {isLoading ? "Excluindo..." : "Excluir"}
+            {isLoading ? "Excluindo..." : confirmText}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -80,6 +80,7 @@ import { FormDialog } from "@/components/Financeiro/FinanceiroFormDialog";
 import { FinanceiroRow, EmptyState, LoadingSkeleton, RegistrarPagamentoPopover } from "@/components/Financeiro/FinanceiroRow";
 import { ImportarPlanilhaDialog } from "@/components/Financeiro/ImportarPlanilhaDialog";
 import { DiligenciasFinanceiroPanel } from "@/components/Correspondentes/DiligenciasFinanceiroPanel";
+import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 const Financeiro = () => {
@@ -112,6 +113,9 @@ const Financeiro = () => {
   const [catDialogOpen, setCatDialogOpen] = useState(false);
   const [prioridadeDialogOpen, setPrioridadeDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  // Antes usava confirm() nativo em vez do DeleteConfirmDialog padrão do app.
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [confirmCancelarGrupoId, setConfirmCancelarGrupoId] = useState<string | null>(null);
   const [editItem, setEditItem] = useState<FinanceiroItem | null>(null);
   const [defaultTipo, setDefaultTipo] = useState<TipoType>("receita");
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -298,8 +302,13 @@ const Financeiro = () => {
 
   const handleDelete = (id: string) => {
     if (!canManageFinanceiro) return;
-    if (!confirm("Confirmar exclusão?")) return;
-    remove.mutate(id);
+    setConfirmDeleteId(id);
+  };
+
+  const confirmDeleteItem = () => {
+    if (!confirmDeleteId) return;
+    remove.mutate(confirmDeleteId);
+    setConfirmDeleteId(null);
   };
 
   const formInitial: FormState = editItem
@@ -324,8 +333,13 @@ const Financeiro = () => {
 
   const handleCancelarGrupo = (grupoId: string) => {
     if (!canManageFinanceiro) return;
-    if (!confirm("Cancelar todos os lançamentos futuros pendentes deste grupo?")) return;
-    cancelarGrupo.mutate(grupoId);
+    setConfirmCancelarGrupoId(grupoId);
+  };
+
+  const confirmCancelarGrupoAction = () => {
+    if (!confirmCancelarGrupoId) return;
+    cancelarGrupo.mutate(confirmCancelarGrupoId);
+    setConfirmCancelarGrupoId(null);
   };
 
   return (
@@ -392,8 +406,22 @@ const Financeiro = () => {
           )}
         </div>
 
+        {/* Erro de busca — antes uma falha de rede/RLS virava estatística zerada sem aviso */}
+        {query.isError && (
+          <div className="flex items-center gap-3 px-5 py-4 rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive">
+            <AlertTriangle className="h-5 w-5 shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-bold">Não foi possível carregar os lançamentos financeiros</p>
+              <p className="text-xs opacity-80">{query.error instanceof Error ? query.error.message : "Tente novamente em instantes."}</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => query.refetch()} className="rounded-xl font-bold shrink-0">
+              Tentar novamente
+            </Button>
+          </div>
+        )}
+
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {!query.isError && <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {([
             { label: "Receita do Mês", value: stats.receitaMes, Icon: TrendingUp, colorClass: "bg-emerald-500/10 text-emerald-500" },
             { label: "A Receber",      value: stats.aReceber,   Icon: CreditCard,  colorClass: "bg-primary/10 text-primary" },
@@ -413,10 +441,10 @@ const Financeiro = () => {
               }
             </div>
           ))}
-        </div>
+        </div>}
 
         {/* Índice de mistura patrimonial PJ/PF */}
-        {!query.isLoading && mixing.total > 0 && (
+        {!query.isError && !query.isLoading && mixing.total > 0 && (
           <div className="glass-card p-6 rounded-3xl shadow-premium border border-black/5 dark:border-border bg-card/40 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2">
@@ -500,7 +528,7 @@ const Financeiro = () => {
             { value: "todos",   data: filtered, emptyLabel: "Nenhum registro encontrado", tipo: "receita" as TipoType },
           ]).map(({ value, data, emptyLabel, tipo }) => (
             <TabsContent key={value} value={value} className="space-y-4 entry-animate">
-              {query.isLoading ? <LoadingSkeleton /> : data.length === 0
+              {query.isError ? null : query.isLoading ? <LoadingSkeleton /> : data.length === 0
                 ? <EmptyState label={emptyLabel} onNew={() => openNew(tipo)} />
                 : data.map((item) => (
                     <FinanceiroRow key={item.id} item={item}
@@ -515,7 +543,7 @@ const Financeiro = () => {
 
           {/* Priorização: despesas em aberto agrupadas pelos grupos configurados */}
           <TabsContent value="priorizacao" className="space-y-6 entry-animate">
-            {query.isLoading ? <LoadingSkeleton /> : pendentesPagar.length === 0 ? (
+            {query.isError ? null : query.isLoading ? <LoadingSkeleton /> : pendentesPagar.length === 0 ? (
               <EmptyState label="Nenhuma despesa pendente para priorizar" onNew={() => openNew("despesa")} />
             ) : (
               ([
@@ -636,6 +664,25 @@ const Financeiro = () => {
           categoriasDespesa={categoriasDespesa}
           importing={create.isPending}
           onImport={(rows) => { if (!canManageFinanceiro) return; create.mutate(rows, { onSuccess: () => setImportDialogOpen(false) }); }}
+        />
+
+        <DeleteConfirmDialog
+          open={!!confirmDeleteId}
+          onOpenChange={(open) => !open && setConfirmDeleteId(null)}
+          onConfirm={confirmDeleteItem}
+          title="Excluir lançamento?"
+          description="Esta ação move o lançamento para a lixeira. Você pode restaurá-lo depois, se precisar."
+          isLoading={remove.isPending}
+        />
+
+        <DeleteConfirmDialog
+          open={!!confirmCancelarGrupoId}
+          onOpenChange={(open) => !open && setConfirmCancelarGrupoId(null)}
+          onConfirm={confirmCancelarGrupoAction}
+          title="Cancelar lançamentos futuros?"
+          description="Todos os lançamentos futuros pendentes deste grupo recorrente serão cancelados."
+          confirmText="Cancelar lançamentos"
+          isLoading={cancelarGrupo.isPending}
         />
       </div>
     </PermissionGuard>
