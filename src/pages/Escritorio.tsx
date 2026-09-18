@@ -3,13 +3,14 @@ import { Link } from "react-router-dom";
 
 import { PermissionGuard } from "@/components/Auth/PermissionGuard";
 import { OfficeSettings } from "@/components/Office/OfficeSettings";
-import { Building2, Users, FileText, UserCheck, Clock, CalendarDays, DollarSign } from "lucide-react";
+import { Building2, Users, FileText, UserCheck, Clock, CalendarDays, DollarSign, AlertTriangle } from "lucide-react";
 import { useStats } from "@/hooks/useStats";
 import { cn } from "@/lib/utils";
 import { formatBRL } from "@/lib/currency";
+import { Button } from "@/components/ui/button";
 
 const Escritorio = () => {
-  const { stats, loading } = useStats();
+  const { stats, loading, isError, error, refresh } = useStats();
   const brl = (v: number) => formatBRL(v, { decimals: 0 });
   const kpis = [
     { label: "Colaboradores", value: stats.colaboradores, icon: Users, color: "text-primary", bg: "bg-primary/10" },
@@ -37,6 +38,16 @@ const Escritorio = () => {
           </div>
         </div>
 
+        {isError && (
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+              <p className="text-xs font-bold text-destructive truncate">{error}</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => refresh()} className="rounded-xl font-bold shrink-0">Tentar novamente</Button>
+          </div>
+        )}
+
         {/* KPIs */}
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
           {kpis.map((k) => (
@@ -49,7 +60,7 @@ const Escritorio = () => {
               </div>
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 truncate">{k.label}</p>
-                <p className="text-2xl md:text-3xl font-black tracking-tight leading-none mt-1 truncate">{loading ? "…" : k.value}</p>
+                <p className="text-2xl md:text-3xl font-black tracking-tight leading-none mt-1 truncate">{loading ? "…" : isError ? "—" : k.value}</p>
               </div>
             </div>
           ))}

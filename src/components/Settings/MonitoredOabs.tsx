@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Radar, Plus, Trash2, Loader2, ShieldAlert } from 'lucide-react';
+import { Radar, Plus, Trash2, Loader2, ShieldAlert, AlertTriangle } from 'lucide-react';
+import { getErrorMessage } from '@/lib/errors';
 
 interface MonitoredOab { id: string; oab: string; uf: string; label: string | null; }
 
@@ -23,14 +24,25 @@ export function MonitoredOabs() {
   const [quota, setQuota] = useState<{ used: number; limit: number }>({ used: 0, limit: 1 });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ oab: '', uf: '', label: '' });
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [{ data: list }, { data: q }] = await Promise.all([
+    const [{ data: list, error: listError }, { data: q, error: quotaError }] = await Promise.all([
       supabase.from('monitored_oabs').select('id, oab, uf, label').order('created_at'),
       supabase.rpc('my_oab_quota'),
     ]);
+    // Sem checar o erro, uma falha de busca caía como "Nenhuma OAB monitorada" —
+    // parecendo que o robô não tem nada pra acompanhar quando na verdade só o
+    // fetch falhou.
+    const fetchError = listError || quotaError;
+    if (fetchError) {
+      setError(getErrorMessage(fetchError, "Não foi possível carregar as OABs monitoradas."));
+      setLoading(false);
+      return;
+    }
+    setError(null);
     const listRows = (list as MonitoredOab[]) || [];
     setRows(listRows);
     const qq = (q ?? {}) as { used?: number; limit?: number };
@@ -119,7 +131,18 @@ export function MonitoredOabs() {
               </div>
             )}
 
+            {error && (
+              <div className="flex items-center justify-between gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+                  <p className="text-xs font-bold text-destructive truncate">{error}</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={load} className="rounded-xl font-bold shrink-0">Tentar novamente</Button>
+              </div>
+            )}
+
             {loading ? <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary/40" /></div>
+              : error ? null
               : rows.length === 0 ? <p className="text-center py-8 text-sm text-muted-foreground">Nenhuma OAB monitorada ainda. Adicione a sua acima para o robô começar a acompanhar.</p>
               : (
                 <div className="space-y-2">
