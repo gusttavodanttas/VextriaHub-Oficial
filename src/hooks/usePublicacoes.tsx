@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { getErrorMessage } from "@/lib/errors";
+import { getErrorMessage, assertRowsAffected } from "@/lib/errors";
 import { localYmd } from "@/lib/dates";
 import type { TablesUpdate } from "@/integrations/supabase/rows";
 
@@ -444,6 +444,32 @@ export const usePublicacoes = () => {
     }
   };
 
+  const bulkUpdateStatus = async (ids: string[], status: string) => {
+    if (ids.length === 0) return true;
+    try {
+      // Uma única query com .in() no lugar de um loop de updates individuais:
+      // atômico do ponto de vista de rede (uma falha não deixa parte já aplicada
+      // e o resto não) e assertRowsAffected detecta RLS bloqueando parte das
+      // linhas silenciosamente (Postgres não lança erro nesse caso).
+      const { data, error } = await supabase
+        .from('publicacoes')
+        .update({ status })
+        .in('id', ids)
+        .select('id');
+
+      assertRowsAffected(data, error, ids.length);
+      invalidate();
+      return true;
+    } catch (error) {
+      toast({
+        title: "Erro ao atualizar",
+        description: getErrorMessage(error, "Não foi possível atualizar as publicações selecionadas."),
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
   const deletePublication = async (id: string) => {
     try {
       const { error } = await supabase
@@ -586,6 +612,7 @@ export const usePublicacoes = () => {
   return {
     refresh: invalidate,
     updateStatus,
+    bulkUpdateStatus,
     deletePublication,
     createPublication,
     getOfficeOwnerProfile,

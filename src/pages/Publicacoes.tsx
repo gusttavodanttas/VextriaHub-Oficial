@@ -73,7 +73,7 @@ export default function Publicacoes() {
   const { canCreateProcesses, canManagePublicacoes } = usePermissions();
   const { oabs: monitoredOabs } = useMonitoredOabs();
   const { user, profile } = useAuth();
-  const { deletePublication, updateStatus, syncByOab, refresh, linkPublicacaoToProcesso, findProcessoIdByCnj } = usePublicacoes();
+  const { deletePublication, updateStatus, bulkUpdateStatus, syncByOab, refresh, linkPublicacaoToProcesso, findProcessoIdByCnj } = usePublicacoes();
   const { stats, loading: statsLoading } = usePublicacoesStats();
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 24;
@@ -87,7 +87,17 @@ export default function Publicacoes() {
   const [scheduleTipo, setScheduleTipo] = useState<AcaoTipo>('prazo');
   const [initialProcessData, setInitialProcessData] = useState<any>(null);
   const [registering, setRegistering] = useState(false);
-  
+  // Arquivar move a publicação pra fora das listas ativas e só o suporte
+  // restaura — misclique sem confirmação era um achado da auditoria.
+  const [confirmArchiveId, setConfirmArchiveId] = useState<string | null>(null);
+  const [confirmBulkArchive, setConfirmBulkArchive] = useState(false);
+  const requestArchive = (id: string) => setConfirmArchiveId(id);
+  const confirmArchive = async () => {
+    if (!confirmArchiveId) return;
+    await deletePublication(confirmArchiveId);
+    setConfirmArchiveId(null);
+  };
+
   const handleCardClick = (type: 'prazos' | 'novas' | 'sem_vinculo' | 'com_vinculo' | 'hoje' | 'tratadas') => {
     if (type === 'hoje') {
       const today = new Date();
@@ -303,18 +313,13 @@ export default function Publicacoes() {
     const count = selectedIds.length;
     toast({ title: "Processando...", description: `Atualizando ${count} publicações...` });
 
-    let erros = 0;
-    for (const id of selectedIds) {
-      const ok = await updateStatus(id, newStatus as any);
-      if (!ok) erros++;
-    }
+    const ok = await bulkUpdateStatus(selectedIds, newStatus);
 
     setSelectedIds([]);
-    if (erros > 0) {
-      toast({ title: "Parcialmente concluído", description: `${count - erros} atualizadas, ${erros} falharam.`, variant: "destructive" });
-    } else {
+    if (ok) {
       toast({ title: "Sucesso", description: `${count} publicações atualizadas.` });
     }
+    // erro já mostra seu próprio toast (bulkUpdateStatus)
   };
 
   const handleManualSync = async (days: number) => {
@@ -531,7 +536,7 @@ export default function Publicacoes() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => handleBulkUpdateStatus('arquivada')}
+                    onClick={() => setConfirmBulkArchive(true)}
                     className="rounded-xl border-border hover:bg-card font-black text-[10px] uppercase tracking-widest h-10 px-6"
                   >
                     Arquivar
@@ -570,7 +575,7 @@ export default function Publicacoes() {
                 setSelectedPub(pub);
                 setDetailDialogOpen(true);
               }}
-              onDelete={deletePublication}
+              onDelete={requestArchive}
               onUpdateStatus={updateStatus}
               onRegister={canCreateProcesses ? handleRegister : undefined}
               onSchedule={handleSchedule}
@@ -688,7 +693,7 @@ export default function Publicacoes() {
                           </DropdownMenu>
                           <PermissionGuard permission="canManagePublicacoes">
                             <Button size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-xl text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
-                              onClick={() => deletePublication(publication.id)}>
+                              onClick={() => requestArchive(publication.id)}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </PermissionGuard>
@@ -736,7 +741,7 @@ export default function Publicacoes() {
           publication={selectedPub}
           open={detailDialogOpen}
           onOpenChange={setDetailDialogOpen}
-          onDelete={deletePublication}
+          onDelete={requestArchive}
           onProcess={(id) => {
             const isTratada = selectedPub?.status === 'lida' || selectedPub?.status === 'processada';
             updateStatus(id, isTratada ? 'nova' : 'processada');
@@ -781,6 +786,45 @@ export default function Publicacoes() {
           refresh();
         }}
       />
+
+      {/* Confirmação de arquivar (item único) */}
+      <AlertDialog open={!!confirmArchiveId} onOpenChange={(open) => !open && setConfirmArchiveId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Arquivar publicação?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Ela sairá das listagens ativas. Só o suporte pode restaurá-la — não há desfazer automático.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmArchive}>Arquivar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmação de arquivar em lote */}
+      <AlertDialog open={confirmBulkArchive} onOpenChange={setConfirmBulkArchive}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Arquivar {selectedIds.length} publicações?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Elas sairão das listagens ativas. Só o suporte pode restaurá-las — não há desfazer automático.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirmBulkArchive(false);
+                handleBulkUpdateStatus('arquivada');
+              }}
+            >
+              Arquivar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
