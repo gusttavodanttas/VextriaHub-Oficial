@@ -26,6 +26,8 @@ import {
   UserCircle2,
   Target,
   Wallet,
+  Handshake,
+  Scale,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatCNJ } from '@/utils/formatCNJ';
@@ -67,6 +69,10 @@ const TABELA_CONFIG: Record<string, { label: string; icon: any; color: string }>
   clientes: { label: 'Cliente', icon: UserCircle2, color: 'text-teal-600 bg-teal-500/10 border-teal-500/20' },
   metas: { label: 'Meta', icon: Target, color: 'text-fuchsia-600 bg-fuchsia-500/10 border-fuchsia-500/20' },
   financeiro: { label: 'Financeiro', icon: Wallet, color: 'text-lime-600 bg-lime-500/10 border-lime-500/20' },
+  // Excluir aqui virou soft-delete nesta rodada (antes era DELETE físico, sem
+  // Lixeira nenhuma pra restaurar/purgar).
+  correspondentes: { label: 'Correspondente', icon: Handshake, color: 'text-cyan-600 bg-cyan-500/10 border-cyan-500/20' },
+  diligencias: { label: 'Diligência', icon: Scale, color: 'text-indigo-600 bg-indigo-500/10 border-indigo-500/20' },
 };
 
 const fmtDate = (d: string) => new Date(d).toLocaleDateString('pt-BR');
@@ -209,6 +215,26 @@ export default function Lixeira() {
         excluido_em: d.created_at, office_id: d.office_id, office_name: officeMap[d.office_id] || '—', user_id: d.user_id, dados: d,
       }));
 
+      // correspondentes/diligencias ainda não estão nos tipos gerados do Supabase
+      // (mesmo débito técnico documentado em useCorrespondentes.tsx) — acesso via `as any`.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: corrs } = await applyTenantFilter<any>((supabase as any).from('correspondentes').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(TRASH_TABLE_CAP);
+      (corrs || []).forEach((c: any) => results.push({
+        id: c.id, tabela: 'correspondentes',
+        titulo: c.nome,
+        descricao: c.oab ? `OAB ${c.oab}${c.uf ? '/' + c.uf : ''}` : (c.email || c.telefone || ''),
+        excluido_em: c.updated_at, office_id: c.office_id, office_name: officeMap[c.office_id] || '—', user_id: c.user_id, dados: c,
+      }));
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: dils } = await applyTenantFilter<any>((supabase as any).from('diligencias').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(TRASH_TABLE_CAP);
+      (dils || []).forEach((d: any) => results.push({
+        id: d.id, tabela: 'diligencias',
+        titulo: d.descricao || `Diligência (${d.tipo || 'outro'})`,
+        descricao: `${d.comarca || ''}${d.uf ? '/' + d.uf : ''} · R$ ${Number(d.valor || 0).toFixed(2)}`.trim(),
+        excluido_em: d.updated_at, office_id: d.office_id, office_name: officeMap[d.office_id] || '—', user_id: d.user_id, dados: d,
+      }));
+
       results.sort((a, b) => new Date(b.excluido_em).getTime() - new Date(a.excluido_em).getTime());
       setItems(results);
 
@@ -251,9 +277,10 @@ export default function Lixeira() {
         ({ data, error } = await tenantGuard(supabase.from('processos_descartados').delete().eq('id', item.id), item).select('id'));
       } else {
         if (!TABELAS_PERMITIDAS.has(item.tabela)) throw new Error('Tabela não permitida');
-        // prazos não tem a coluna deletado_pendente — enviar o campo faz o restore inteiro falhar (item fica preso na lixeira).
+        // prazos/correspondentes/diligencias não têm a coluna deletado_pendente —
+        // enviar o campo faz o restore inteiro falhar (item fica preso na lixeira).
         const restorePatch: Record<string, unknown> = { deletado: false };
-        if (item.tabela !== 'prazos') restorePatch.deletado_pendente = false;
+        if (!['prazos', 'correspondentes', 'diligencias'].includes(item.tabela)) restorePatch.deletado_pendente = false;
         // item.tabela é dinâmico (guardado só em runtime por TABELAS_PERMITIDAS) --
         // não dá pra tipar estaticamente o shape exato do update pra uma tabela
         // que só se conhece em tempo de execução.

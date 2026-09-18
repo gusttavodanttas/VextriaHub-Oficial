@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { getErrorMessage } from '@/lib/errors';
+import { getErrorMessage, assertRowsAffected } from '@/lib/errors';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 // correspondentes/diligencias ainda não estão no types.ts gerado (regen depende da
@@ -26,6 +26,7 @@ export interface Correspondente {
   valor_padrao: number | null;
   observacoes: string | null;
   ativo: boolean;
+  deletado: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -49,6 +50,7 @@ export interface Diligencia {
   comprovante_url: string | null;
   avaliacao: number | null;
   avaliacao_comentario: string | null;
+  deletado: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -83,7 +85,7 @@ export function useCorrespondentes() {
       // misturados, sem indicação visual (diferente de todo outro hook do app).
       // Cap de segurança: sem paginação real ainda, evita carregar a tabela
       // inteira pro navegador num escritório com base grande.
-      const { data, error } = await sb.from('correspondentes').select('*').eq('office_id', officeId).order('nome', { ascending: true }).limit(1000);
+      const { data, error } = await sb.from('correspondentes').select('*').eq('office_id', officeId).eq('deletado', false).order('nome', { ascending: true }).limit(1000);
       if (error) throw error;
       return (data || []) as Correspondente[];
     },
@@ -97,7 +99,7 @@ export function useCorrespondentes() {
       // Cap de segurança: sem paginação real ainda, evita carregar a tabela
       // inteira pro navegador num escritório com histórico grande. Também
       // limita o universo usado no cálculo de statsByCorrespondente abaixo.
-      const { data, error } = await sb.from('diligencias').select('*').eq('office_id', officeId).order('created_at', { ascending: false }).limit(1000);
+      const { data, error } = await sb.from('diligencias').select('*').eq('office_id', officeId).eq('deletado', false).order('created_at', { ascending: false }).limit(1000);
       if (error) throw error;
       return (data || []) as Diligencia[];
     },
@@ -141,8 +143,12 @@ export function useCorrespondentes() {
   const saveCorrespondente = useMutation({
     mutationFn: async ({ id, patch }: { id?: string; patch: Partial<Correspondente> }) => {
       if (id) {
-        const { error } = await sb.from('correspondentes').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id);
-        if (error) throw error;
+        // RLS bloqueando o update (ex.: office_id divergente) não lança erro — só
+        // casa 0 linhas e "sucede" — sem checar a contagem, a UI mostrava sucesso
+        // com a linha intocada no banco (mesma classe de bug já corrigida em outros
+        // hooks desta rodada, ex. Lixeira).
+        const { data, error } = await sb.from('correspondentes').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id).select('id');
+        assertRowsAffected(data, error, 1);
         return id;
       }
       const { data, error } = await sb.from('correspondentes').insert({ ...patch, office_id: officeId, user_id: user?.id }).select('id').single();
@@ -155,11 +161,17 @@ export function useCorrespondentes() {
 
   const deleteCorrespondente = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await sb.from('correspondentes').delete().eq('id', id);
-      if (error) throw error;
+      // Soft-delete (deletado:true) em vez de DELETE físico — vai para a Lixeira,
+      // recuperável, mesmo padrão do resto do app. A policy RESTRICTIVE
+      // correspondentes_soft_delete_admin_only só libera essa transição pra
+      // admin do escritório; um usuário comum cujo clique escapasse do gate de
+      // UI via canDeleteCorr recebia "removido" com a linha intocada no banco
+      // sem essa checagem de linhas afetadas.
+      const { data, error } = await sb.from('correspondentes').update({ deletado: true, updated_at: new Date().toISOString() }).eq('id', id).select('id');
+      assertRowsAffected(data, error, 1);
       return id;
     },
-    onSuccess: () => { invalidate(); toast({ title: 'Correspondente removido' }); },
+    onSuccess: () => { invalidate(); toast({ title: 'Correspondente removido', description: 'Movido para a lixeira.' }); },
     onError: (e) => toast({ title: 'Erro ao remover', description: getErrorMessage(e), variant: 'destructive' }),
   });
 
@@ -167,8 +179,8 @@ export function useCorrespondentes() {
   const saveDiligencia = useMutation({
     mutationFn: async ({ id, patch }: { id?: string; patch: Partial<Diligencia> }) => {
       if (id) {
-        const { error } = await sb.from('diligencias').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id);
-        if (error) throw error;
+        const { data, error } = await sb.from('diligencias').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id).select('id');
+        assertRowsAffected(data, error, 1);
         return id;
       }
       const { data, error } = await sb.from('diligencias').insert({ ...patch, office_id: officeId, user_id: user?.id }).select('id').single();
@@ -182,8 +194,8 @@ export function useCorrespondentes() {
   // Patch silencioso (status, pago, avaliação) — sem toast a cada clique.
   const patchDiligencia = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<Diligencia> }) => {
-      const { error } = await sb.from('diligencias').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id);
-      if (error) throw error;
+      const { data, error } = await sb.from('diligencias').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id).select('id');
+      assertRowsAffected(data, error, 1);
       return id;
     },
     onSuccess: () => invalidate(),
@@ -192,11 +204,13 @@ export function useCorrespondentes() {
 
   const deleteDiligencia = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await sb.from('diligencias').delete().eq('id', id);
-      if (error) throw error;
+      // Soft-delete — vai para a Lixeira, recuperável, mesmo padrão do resto do
+      // app (antes era DELETE físico e irreversível).
+      const { data, error } = await sb.from('diligencias').update({ deletado: true, updated_at: new Date().toISOString() }).eq('id', id).select('id');
+      assertRowsAffected(data, error, 1);
       return id;
     },
-    onSuccess: () => { invalidate(); toast({ title: 'Diligência removida' }); },
+    onSuccess: () => { invalidate(); toast({ title: 'Diligência removida', description: 'Movida para a lixeira.' }); },
     onError: (e) => toast({ title: 'Erro ao remover', description: getErrorMessage(e), variant: 'destructive' }),
   });
 
