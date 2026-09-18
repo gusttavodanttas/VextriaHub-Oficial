@@ -105,9 +105,9 @@ const Index = () => {
   const { isSuperAdmin, isOfficeAdmin, validatePayment } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { stats, loading: statsLoading, refresh } = useStats();
+  const { stats, loading: statsLoading, isError: statsError, error: statsErrorMsg, refresh } = useStats();
   const myStats = useMyStats();
-  const { items: activity, loading: activityLoading } = useMyActivity(6);
+  const { items: activity, loading: activityLoading, isError: activityError, error: activityErrorMsg, refetch: refetchActivity } = useMyActivity(6);
   const { prefs, toggle, move } = useDashboardPrefs();
   const { canViewMetas, canCreateProcesses, canViewFinanceiro } = usePermissions();
   const { create: createCliente } = useClientes();
@@ -245,7 +245,13 @@ const Index = () => {
         return (
           <div className="rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 space-y-2.5 h-full overflow-hidden">
             <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 flex items-center gap-1.5"><Activity className="h-3 w-3" /> Atividade Recente</p>
-            {activityLoading ? (
+            {activityError ? (
+              <div className="flex flex-col items-center gap-2 py-6 text-center">
+                <p className="text-xs text-destructive font-bold">Não foi possível carregar</p>
+                <p className="text-[10px] text-muted-foreground/60">{activityErrorMsg}</p>
+                <Button size="sm" variant="outline" onClick={() => refetchActivity()} className="h-7 rounded-lg text-[10px] font-bold">Tentar novamente</Button>
+              </div>
+            ) : activityLoading ? (
               <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-10 rounded-xl bg-black/[0.04] dark:bg-white/[0.04] animate-pulse" />)}</div>
             ) : activity.length === 0 ? (
               <p className="text-sm text-muted-foreground/60 font-medium py-6 text-center">Nenhuma atividade recente.</p>
@@ -301,6 +307,14 @@ const Index = () => {
             ))}
           </div>
         </div>
+
+        {statsError && (
+          <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-medium">
+            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+            <span className="flex-1">Não foi possível atualizar os números abaixo — podem estar desatualizados. {statsErrorMsg}</span>
+            <Button size="sm" variant="outline" onClick={() => refresh()} className="h-7 rounded-lg text-[10px] font-bold shrink-0">Tentar novamente</Button>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
           <KpiCard icon={AlertCircle} label="Prazos urgentes" value={stats.prazosVencendo}

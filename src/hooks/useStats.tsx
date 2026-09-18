@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { getErrorMessage } from '@/lib/errors';
 
 interface Stats {
   processosAtivos: number;
@@ -58,6 +59,14 @@ export function useStats() {
         supabase.from('office_users').select('id', { count: 'exact' }).eq('office_id', officeId).eq('active', true),
       ]);
 
+      // Nenhum dos 7 resultados tinha o erro checado — uma falha de RLS/rede em
+      // qualquer um deles virava contagem 0 (ou usava o cache velho do localStorage
+      // pra sempre), indistinguível de um escritório genuinamente vazio.
+      const firstError = [
+        processosResult, clientesResult, tarefasResult, audienciasResult, prazosResult, financeiroResult, colaboradoresResult,
+      ].find((r) => r.error)?.error;
+      if (firstError) throw firstError;
+
       const todasTarefas = tarefasResult.data || [];
       const receitas = financeiroResult.data?.filter((f) => f.tipo === 'receita') || [];
       const despesas = financeiroResult.data?.filter((f) => f.tipo === 'despesa') || [];
@@ -81,6 +90,12 @@ export function useStats() {
   return {
     stats: query.data ?? ZEROS,
     loading: query.isLoading,
+    // Checa query.error diretamente (não só isError): com initialData vindo do
+    // localStorage, o status da query fica "success" (há dado, mesmo que velho)
+    // mesmo quando o fetch mais recente falhou — isError sozinho não pegaria
+    // esse caso e o número desatualizado ficaria parecendo confiável pra sempre.
+    isError: !!query.error,
+    error: query.error ? getErrorMessage(query.error, 'Não foi possível carregar as estatísticas.') : null,
     refresh: query.refetch,
     isEmpty: !query.data || Object.values(query.data).every((v) => v === 0),
   };
