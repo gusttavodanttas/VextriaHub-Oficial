@@ -2303,3 +2303,242 @@ merge-and-replace) e ganhou toast de erro.
 | ESLint | 0 erros · 682 avisos |
 | Vitest | 227/227 |
 | `vite build` | ok |
+
+## Parte 25 — segunda auditoria quantificada completa: % por aba e o que falta pra 100%
+
+Pedido do usuário: repetir o raio-X da Parte 23 do zero, com o mesmo rigor
+de % por página, mas agora também listando **o que falta especificamente**
+pra cada área chegar a 100% — não só o diagnóstico. Diferença de método em
+relação à Parte 23: desta vez cada bloco (A-F, mesmo recorte de sempre) foi
+instruído a não parar nas páginas principais — reler também os dialogs,
+widgets e hooks secundários que elas delegam (o comentário da Parte 23 já
+avisava que Configurações tinha ficado de fora nesse nível; desta vez não
+ficou). Isso muda a leitura dos números: a queda de 80%/74% (Parte 23) pra
+77%/70% abaixo **não é regressão** — é a mesma plataforma sendo auditada
+com uma superfície de leitura maior (dialogs/widgets que a Parte 23 não
+tinha aberto), encontrando instâncias do mesmo padrão sistêmico em lugares
+que uma leitura só das páginas principais não alcançava. Nada foi herdado
+de memória: cada nota abaixo vem de um achado citado arquivo:linha na
+leitura desta rodada.
+
+Grade de avaliação idêntica à Parte 23 (reproduzida aqui por
+completude — **Frente**: loading 10, erro com retry real 20, vazio 10,
+destrutivo em dialog 15, gate de permissão aplicado 15, paginação/cap
+justificado 10, ausência de bug funcional 20; **Backend**: linhas afetadas
+checadas 35, catch não engole a causa 20, `office_id` explícito 10, teste
+automatizado do hook 15, RLS da tabela 20 — assumido 100% salvo achado
+específico).
+
+### Tabela por página
+
+| Bloco | Página | Frente | Backend |
+| --- | --- | --- | --- |
+| A | Agenda | 85% | 50% |
+| A | Prazos | 85% | 65% |
+| A | Audiências | 75% | 70% |
+| A | Tarefas | 85% | 75% |
+| A | Atendimentos | 80% | 75% |
+| B | Financeiro | 85% | 80% |
+| B | Timesheet | 80% | 75% |
+| B | CRM | 75% | 60% |
+| B | Metas | 70% | 60% |
+| C | Processos | 80% | 60% |
+| C | Clientes | 80% | 80% |
+| C | Consultivo | 90% | 75% |
+| C | Correspondentes | 55% | 85% |
+| D | Equipe | 90% | 75% |
+| D | EquipeDetalhe | 75% | 65% |
+| D | Admin | 75% | 55% |
+| D | Configurações (+ subcomponentes) | 75% | 70% |
+| D | Escritório | 80% | 60% |
+| D | Perfil | 80% | 80% |
+| E | Login | 85% | 80% |
+| E | Register (Cadastro) | 85% | 75% |
+| E | RedefinirSenha | 80% | 85% |
+| E | Pagamento | 65% | 75% |
+| E | IA (widget + hooks) | 85% | 85% |
+| F | Dashboard (Index) | 65% | 40% |
+| F | Gráficos | 75% | 50% |
+| F | Publicações | 65% | 70% |
+| F | Notificações | 70% | 80% |
+| F | Lixeira | 75% | 75% |
+
+### Médias por bloco e da plataforma
+
+| Bloco | Frente | Backend |
+| --- | --- | --- |
+| A — Agenda/Prazos/Audiências/Tarefas/Atendimentos | 82% | 67% |
+| B — Financeiro/Timesheet/CRM/Metas | 78% | 69% |
+| C — Processos/Clientes/Consultivo/Correspondentes | 76% | 75% |
+| D — Equipe/EquipeDetalhe/Admin/Configurações/Escritório/Perfil | 79% | 68% |
+| E — Login/Cadastro/Pagamento/IA | 80% | 80% |
+| F — Dashboard/Gráficos/Publicações/Notificações/Lixeira | 70% | 63% |
+| **Plataforma (média dos blocos)** | **77%** | **70%** |
+
+### Panorama transversal do backend (conferido diretamente, não por bloco)
+
+| Dimensão | Estado | Nota |
+| --- | --- | --- |
+| RLS | 48/48 tabelas com RLS ativa (subiu de 47 desde a Parte 23); 195 policies (126 PERMISSIVE + 69 RESTRICTIVE). 7 tabelas têm RLS ativa sem nenhuma policy (`confirm_invited_user_attempts`, `google_calendar_map`, `google_integrations`, `google_oauth_states`, `process_search_log`, `trial_reminder_log`, `zap_synced_leads`) — confirmado que nenhuma é lida do frontend (`grep` em `src/` sem ocorrência de `.from('<tabela>')`); RLS-sem-policy nelas é *deny-all* por padrão, o comportamento seguro para tabelas só tocadas por edge function com `service_role`, não um gap | **100%** |
+| Edge functions | 26 funções ativas no projeto Supabase; o diretório local (`supabase/functions/`) só tem 24 — 3 delas (`super-worker`, `regex-canary`, `asaas-sandbox-test`) existem no Supabase mas não no repo, e `criar-usuario-cortesia` existe no repo mas não está deployada. Divergência de higiene entre deploy e versionamento, não auditada em nível de conteúdo nesta rodada (mesma lacuna de verificação da Parte 23, que também não abriu as 14 funções não críticas) | **80%** |
+| Dependências | `npm audit`: 20 avisos, mas só `react-router-dom` (moderado) é dependência de produção de verdade — todo o resto (`vite`, `vitest`, `postcss`, `rollup`, `esbuild`/`browserslist`/`nanoid` transitivos) é `devDependency`, nunca chega ao navegador do usuário. Resolve só migrando pra v7 (mesmo achado da Parte 14/23) | **90%** |
+| Migrations/schema | 65 migrations, 100% versionadas, nomes com timestamp coerente, nenhuma edição direta fora do fluxo (convenção do CLAUDE.md respeitada) | **100%** |
+| Testes automatizados | 234 testes (227 + 7 desta sessão), mas a auditoria dos 6 blocos é unânime: **nenhum** dos ~55 hooks de dados lidos nesta rodada tem teste próprio, fora os 5 que ganharam nesta sessão (`useOfficeSettingList`, `useOfficeSettingValue`, `useTimesheetConfig`, e cobertura parcial de `useTimesheet`/`useProcessoSubData`). É a lacuna mais citada de toda a auditoria — todo bloco reportou "0 de 15" ou perto disso neste critério, em praticamente toda página | **40%** |
+
+### Achados sistêmicos (os mesmos 5 da Parte 23, mais um novo — nenhum foi eliminado por completo, todos migraram de superfície)
+
+As correções das PRs #82-#90 fecharam os pontos que motivaram aquelas
+rodadas específicas (páginas principais, hooks de primeira linha). Esta
+auditoria, por reler também dialogs/widgets/hooks secundários, encontrou
+os **mesmos 5 padrões da Parte 23** sobrevivendo numa camada abaixo — e um
+sexto, novo, específico do fix da Parte 24.
+
+**#1 — Mutação sem checar linhas afetadas.** Ainda o mais repetido.
+Amostra do que a auditoria achou fora do que #82-#84 tocaram:
+`AgendaItemDialog.tsx` (4 updates crus — é o que derruba a Agenda pra
+50% de backend), `NovoPrazoStandaloneDialog.tsx:661/664` (edição de
+prazo), `useAudienciaTipos.tsx` inteiro, `useFinanceiro.tsx:102`
+(contagem que alimenta o próprio `assertRowsAffected` não é checada),
+`useTimesheet.tsx:203-208` (estorno — risco de receita órfã + cobrança
+dupla), `CrmLeadsList.tsx:123`/`CrmKanban.tsx:47`/`useCrmRobot.tsx:86`,
+`DemandGoalsConfig.tsx:70` (Metas), `useMetas.tsx:140` (sem `office_id`),
+`ProcessoDetailsDrawer.tsx:309`, `useProcessosEncontrados.tsx`,
+`exclusoes_pendentes` (o update do *status da própria solicitação*, não
+do registro-alvo), `PlanManagement`/`MonitoredOabs`/`MonitoramentoTermos`,
+`ChartsConfigDialog.tsx:98`, `ListBlocks.tsx:69`/`QuickViewSheet.tsx:285`
+(dashboard), `usePublicacoes.tsx:339`.
+
+**#2 — Erro de busca virando "vazio"/zero silencioso.** De longe o mais
+disseminado nesta rodada — aparece em praticamente todo dialog e widget
+secundário lido: `AgendaItemDialog`, `useAudienciaTipos` (trata **qualquer**
+erro como "tabela não existe"), `useCrmRobot` (chega a inflar "leads
+esfriando" com a lista toda), `DemandGoalsConfig`, `useProcessosEncontrados`,
+`ClientSelect`, `useConsultivoCategorias.fetch`, **`useCorrespondentes` não
+expõe `error`/`isError` nenhum** apesar de a query já fazer `throw`,
+`EquipeDetalhe.fetchData` (9 de 10 queries paralelas sem checagem — o
+painel de produtividade mostra zero como se fosse dado real),
+`GlobalMetrics`/`PlanManagement`/`CobrancaAsaas`/`GoogleCalendarCard`,
+`src/lib/notificationPrefs.ts:50`, `OfficeSettings.tsx` (Escritório —
+dados fiscais/cor da marca), `MiniFinanceChart`/`CalendarWidget`/
+`ListBlocks`/as 5 views do `QuickViewSheet` (dashboard inteiro),
+`usePublicacoesStats` (7 contagens), `useMonitoredOabs`, as 14 leituras de
+`Lixeira.fetchAll` (o `catch` que deveria cobrir é letra morta pra erro
+do PostgREST, que não lança).
+
+**#3 — Toast de sucesso sem checar o retorno real.** Reaparece como
+consequência direta do #1 em quase todos os pontos acima (ex.: "Exclusão
+aprovada" em `exclusoes_pendentes` mesmo com o update de status bloqueado;
+"OAB removida" com a linha intocada).
+
+**#4 — Gate de permissão ausente onde a permissão já existe.** Achado
+mais grave desta rodada: **a rota `/pagamento` está fora do
+`PrivateRoute` e sem `PermissionGuard`** (`App.tsx:368`) — visitante
+anônimo abre a página de planos, e qualquer membro comum do escritório
+pode gerar cobrança de assinatura pra ele inteiro, apesar de
+`canManageOffice`/`canManageSubscriptions` já existirem. Mais achados do
+mesmo padrão: os `canView*` de Agenda/Prazos/Audiências/Tarefas existem
+mas nenhuma das 5 rotas usa (`App.tsx`, só `PrivateRoute` puro); ações
+"atalho" sem o gate que a ação principal já tem (botão-círculo de concluir
+e drag-and-drop do Kanban em Tarefas, concluir/reabrir inline em Prazos,
+botões de baixa em Audiências, `AgendaItemDialog` inteiro); `Timesheet`
+"Gerar cobrança" (maior impacto financeiro do módulo) sem
+`canManageTimesheet`; `canViewPublicacoes`/`canViewNotificacoes`/
+`canManageNotificacoes` existem em `types/permissions.ts` e **não são
+referenciados em nenhum outro arquivo do `src/`**; Dashboard usa
+`isOfficeAdmin` (papel) em vez de `canViewEquipe`/`canManageOfficeSettings`
+(permissão granular) em dois pontos.
+
+**#5 — Catch mostrando toast genérico em vez do erro real.** Ainda
+presente fora do escopo da PR #87: `NovoProcessoDialog.tsx` (criar
+processo e busca CNJ), `CrmLeadsList`/`NovoLeadDialog`/
+`CrmOportunidadeDetail`, `useClientes.tsx` (create/update — o catch que
+pegaria o `PGRST116` de 0 linhas por RLS), `ImportarPlanilhaDialog`
+(Financeiro), `GoogleCalendarCard`.
+
+**#6 — NOVO: o mecanismo de "load bloqueia save" da Parte 24 não foi
+replicado onde o mesmo padrão vive fora dos hooks corrigidos.** A Parte
+24 fechou o risco de sobrescrita silenciosa em `offices.settings` para
+`useOfficeSettingList`/`useOfficeSettingValue` e mais 4 hooks — mas o
+mesmíssimo padrão (ler `offices.settings`, mesclar em memória, regravar)
+sobrevive **sem a proteção** em pelo menos 4 lugares a mais, todos com o
+mesmo risco de apagar configuração real com um objeto vazio/parcial:
+`OfficeSettings.tsx:128-130` (Escritório — nem checa linhas afetadas, nem
+propaga erro da releitura); `DemandGoalsConfig.tsx:55/70` (Metas — o
+`persist` nem tem o guard `if (isError)` que os hooks corrigidos têm, e
+salva automaticamente no `onBlur` de cada campo); `ChartsConfigDialog.tsx:85/98`
+(Gráficos — pontuação do ranking); `src/lib/notificationPrefs.ts:50`
+(preferências de notificação — risco menor, é dado só do próprio usuário,
+mas mesma classe). Inclusive dentro dos dois hooks já corrigidos há um
+furo residual: a releitura que `persist`/`save` fazem pra montar o
+`merged` (`useOfficeSettingList.tsx:51`, `useOfficeSettingValue.tsx:45`)
+não checa o próprio erro — se ela falhar, `merged` parte de `{}` e o
+update apaga **todas** as outras chaves do jsonb, não só a que estava
+sendo editada.
+
+### Achados individuais de maior severidade (fora dos 6 padrões sistêmicos)
+
+- **`AuthContext.tsx:238-251`** — `apply_signup_plan` via `.rpc()` não tem
+  o `{ error }` checado; como `.rpc()` não lança em falha de aplicação, o
+  `localStorage.removeItem('pending_signup_plan')` roda mesmo quando o
+  RPC falha, perdendo definitivamente o **plano pago** escolhido no
+  cadastro. Comentário no próprio código (`:242-245`) afirma que isso é
+  evitado — não é.
+- **`Correspondentes.tsx:161-162`** — bug de fuso horário confirmado: ao
+  editar uma diligência sem tocar no horário, a data é lida crua e a hora
+  é lida em UTC; o resultado desloca a hora real a cada salvamento (~+3h
+  por edição em horário de Brasília).
+- **`useClientes.tsx`** — zero `invalidateQueries` com a chave
+  `"clientes"` em todo o `src/`; como a listagem roda em `useClientesLista`
+  (React Query) e as mutações vivem em `useClientes` (estado local),
+  criar/editar/excluir cliente mostra o toast de sucesso mas a lista, os
+  StatCards e os aniversariantes só atualizam num reload manual.
+- **`useAtendimentos.tsx:36,51`** — o split ativos/histórico filtra por
+  status canônico exato; linhas com status legado (variantes femininas,
+  "confirmado"/"confirmada") ou `NULL` não entram em nenhuma das duas
+  listas — somem da tela, das stats e do "aguardando baixa".
+- **`useTimesheet.tsx:203-208` + `Timesheet.tsx:165`** — o caminho de
+  estorno de cobrança e a compensação de falha ao gerar cobrança não
+  conferem linhas afetadas; um bloqueio de RLS nesses pontos específicos
+  pode gerar receita órfã ou cobrança em dobro — é dinheiro, não só UX.
+- **Dashboard (`Index.tsx`)** — divergências confirmadas entre o número
+  do KPI e a lista que abre ao clicar nele (Audiências, Processos,
+  Financeiro do mês/mini-gráfico somando lançamentos cancelados que a
+  tela Financeiro e os Gráficos excluem) — mina a confiança nos números
+  sem quebrar nada tecnicamente.
+
+### O que falta pra chegar a 100% — plano de ataque priorizado
+
+Como nas rodadas anteriores, o ganho não está em 30 correções isoladas —
+está em fechar os padrões sistêmicos de uma vez, com um mecanismo que
+impeça a recorrência (não só mais um PR pontual):
+
+1. **Padrão #2 (erro virando vazio) é o de maior ROI.** Um lint/codemod
+   que reconheça `const { data } = await supabase.from(...)` sem `error`
+   no mesmo destructuring pegaria a maioria dos ~25 pontos listados acima
+   de uma vez — é mecânico, não exige julgamento de produto.
+2. **Padrão #6 (offices.settings sem guard) é o de maior risco.**
+   `OfficeSettings.tsx`, `DemandGoalsConfig.tsx` e `ChartsConfigDialog.tsx`
+   devem replicar exatamente o contrato de `useOfficeSettingList`/
+   `useOfficeSettingValue` (propagar erro do load, bloquear save/persist
+   enquanto `error`, `.select('id')` + `assertRowsAffected` no write) — e
+   a releitura interna desses dois hooks precisa do mesmo tratamento.
+3. **`/pagamento` fora de `PrivateRoute`/sem gate é o achado de maior
+   risco de negócio** — deveria ser tratado como correção isolada e
+   imediata, não esperar um lote.
+4. **Padrão #1 (linhas afetadas) nos pontos financeiros** (`useTimesheet`
+   estorno/compensação, `useFinanceiro.cancelarGrupo`) tem prioridade
+   sobre o resto do padrão #1 por envolver dinheiro real.
+5. **Cobertura de teste** — pela primeira vez a auditoria tem uma medida
+   objetiva de "0 de 15" quase universal; qualquer PR que mexer num hook
+   de dados deveria sair com pelo menos 1 teste cobrindo o caminho de
+   RLS-bloqueada (`data: []` → `PERMISSAO_NEGADA`), replicando o padrão já
+   estabelecido em `useOfficeSettingList.test.tsx`/`useTimesheetConfig.test.tsx`.
+6. **Padrão #4 (gate ausente)** — os "atalhos" (drag-and-drop, botão
+   inline, dialog secundário) precisam do mesmo gate da ação principal;
+   um teste de `PermissionGuard` por página não pega isso, só revisão
+   dirigida por essa pergunta específica ("todo caminho pra esta mutation
+   tem o mesmo gate?").
+
+Nenhuma correção desta lista foi aplicada nesta rodada — esta parte é
+só o diagnóstico e o plano; a decisão de quais frentes atacar e em que
+ordem foi deixada para o usuário confirmar antes de abrir PRs.
