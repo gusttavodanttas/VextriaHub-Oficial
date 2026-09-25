@@ -21,7 +21,7 @@ fluxo de contribuição humano, ver [`CONTRIBUTING.md`](./CONTRIBUTING.md).
 ```sh
 npx tsc --noEmit -p tsconfig.app.json   # tsc --noEmit sem -p é um no-op neste repo
 npx eslint . --ext .ts,.tsx             # orçamento: ≤700 warnings, 0 erros
-npx vitest run                          # hoje: 227 testes
+npx vitest run                          # hoje: 244 testes
 npx vite build
 ```
 
@@ -44,6 +44,9 @@ quebra CI custa um ciclo de revisão inteiro.
   mutation que depende de RLS para permissão precisa encadear `.select('id')`
   e checar a contagem com esse helper, senão a UI mostra "sucesso" com a
   linha intocada no banco.
+  Para testar esse caminho, `src/tests/helpers/supabaseMock.ts` tem um mock
+  encadeável do client: `enfileirar('tabela', { data: [] })` simula a RLS
+  barrando em silêncio (ver `src/tests/hooks/*.rls.test.tsx`).
 
 - **Hooks de dado expõem `error`/`isError`, não só `loading`.** Página
   correspondente deve mostrar um banner de erro com ação de retry — ver
