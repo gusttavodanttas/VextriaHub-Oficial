@@ -2,9 +2,11 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Pencil, Trash2, Check, X, RotateCcw, Tag } from "lucide-react";
+import { Plus, Pencil, Trash2, Check, X, RotateCcw, Tag, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAudienciaTipos } from "@/hooks/useAudienciaTipos";
+import { usePermissions } from "@/hooks/usePermissions";
+import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
 
 interface Props {
   open: boolean;
@@ -12,8 +14,13 @@ interface Props {
 }
 
 export function GerenciarTiposDialog({ open, onOpenChange }: Props) {
-  const { tipos, add, rename, remove, reset } = useAudienciaTipos();
+  const { tipos, error, refetch, add, rename, remove, reset } = useAudienciaTipos();
+  const { canManageAudiencias } = usePermissions();
   const { toast } = useToast();
+  // Remover/restaurar eram 1 clique sem volta (e o restaurar apagava todos os tipos
+  // personalizados do escritório inteiro).
+  const [removeTarget, setRemoveTarget] = useState<string | null>(null);
+  const [resetOpen, setResetOpen] = useState(false);
   const [novo, setNovo] = useState("");
   const [editando, setEditando] = useState<string | null>(null);
   const [editValor, setEditValor] = useState("");
@@ -38,6 +45,7 @@ export function GerenciarTiposDialog({ open, onOpenChange }: Props) {
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md rounded-3xl">
         <DialogHeader>
@@ -48,8 +56,16 @@ export function GerenciarTiposDialog({ open, onOpenChange }: Props) {
           <DialogDescription>Adicione, edite ou remova os tipos usados ao cadastrar audiências.</DialogDescription>
         </DialogHeader>
 
+        {error && (
+          <div className="flex items-center gap-2 rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-xs text-destructive">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span className="flex-1">{error}</span>
+            <Button size="sm" variant="outline" className="h-7 rounded-lg text-xs" onClick={() => refetch()}>Tentar de novo</Button>
+          </div>
+        )}
+
         {/* Adicionar */}
-        <div className="flex gap-2">
+        {canManageAudiencias && <div className="flex gap-2">
           <Input
             placeholder="Novo tipo (ex: Audiência de Custódia)"
             value={novo}
@@ -60,7 +76,7 @@ export function GerenciarTiposDialog({ open, onOpenChange }: Props) {
           <Button onClick={handleAdd} className="rounded-xl h-10 px-3 shrink-0 gap-1 font-bold">
             <Plus className="h-4 w-4" /> Add
           </Button>
-        </div>
+        </div>}
 
         {/* Lista */}
         <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
@@ -91,12 +107,14 @@ export function GerenciarTiposDialog({ open, onOpenChange }: Props) {
               ) : (
                 <>
                   <span className="flex-1 text-sm font-semibold pl-1 truncate">{t}</span>
+                  {canManageAudiencias && <>
                   <Button size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-lg" onClick={() => startEdit(t)}>
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
-                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-lg text-destructive" onClick={() => remove(t)}>
+                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-lg text-destructive" onClick={() => setRemoveTarget(t)}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
+                  </>}
                 </>
               )}
             </div>
@@ -104,12 +122,31 @@ export function GerenciarTiposDialog({ open, onOpenChange }: Props) {
         </div>
 
         <div className="flex items-center justify-between pt-1">
-          <Button variant="ghost" size="sm" className="rounded-xl gap-1.5 text-xs text-muted-foreground" onClick={reset}>
-            <RotateCcw className="h-3.5 w-3.5" /> Restaurar padrão
-          </Button>
+          {canManageAudiencias ? (
+            <Button variant="ghost" size="sm" className="rounded-xl gap-1.5 text-xs text-muted-foreground" onClick={() => setResetOpen(true)}>
+              <RotateCcw className="h-3.5 w-3.5" /> Restaurar padrão
+            </Button>
+          ) : <span />}
           <Button variant="outline" className="rounded-xl font-bold" onClick={() => onOpenChange(false)}>Fechar</Button>
         </div>
       </DialogContent>
     </Dialog>
+    <DeleteConfirmDialog
+      open={!!removeTarget}
+      onOpenChange={(o) => { if (!o) setRemoveTarget(null); }}
+      onConfirm={() => { if (removeTarget) remove(removeTarget); setRemoveTarget(null); }}
+      title="Remover tipo de audiência"
+      description={`O tipo "${removeTarget ?? ""}" deixa de aparecer ao cadastrar audiências para todo o escritório. Audiências já cadastradas com ele não mudam.`}
+      confirmText="Remover"
+    />
+    <DeleteConfirmDialog
+      open={resetOpen}
+      onOpenChange={setResetOpen}
+      onConfirm={() => { reset(); setResetOpen(false); }}
+      title="Restaurar tipos padrão"
+      description="Os tipos personalizados do escritório serão removidos e a lista volta aos padrões. Audiências já cadastradas não mudam."
+      confirmText="Restaurar"
+    />
+    </>
   );
 }

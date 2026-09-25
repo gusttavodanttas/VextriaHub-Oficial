@@ -77,7 +77,7 @@ export default function Prazos() {
 
   // Dados + mutações extraídos para hooks/usePrazosData (efeitos de UI via callbacks)
   const {
-    prazos, isLoading, isError, error, refetch, pubInfo, teorMap, processoInfo,
+    prazos, isLoading, isError, error, refetch, auxError, refetchAux, pubInfo, teorMap, processoInfo,
     procDoPrazo, clienteDoPrazo, clienteNomeDoPrazo,
     aceitarMutation, concludeMutation, reopenMutation, deleteMutation,
     bulkConcludeMutation, bulkDeleteMutation, bulkAssignMutation,
@@ -360,6 +360,14 @@ export default function Prazos() {
         </div>
       )}
 
+      {!isLoading && !isError && auxError && (
+        <div className="flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-400">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span className="flex-1">Não foi possível carregar o cliente ou o teor de alguns prazos — filtros por cliente podem ficar incompletos.</span>
+          <Button size="sm" variant="outline" onClick={refetchAux} className="h-7 rounded-lg text-xs">Tentar de novo</Button>
+        </div>
+      )}
+
       {/* Calendário mensal */}
       {!isLoading && !isError && view === 'calendario' && (
         <MonthView
@@ -577,7 +585,8 @@ export default function Prazos() {
                           <Gavel className="h-4 w-4" /> <span className="hidden lg:inline">Agendar audiência</span>
                         </Button>
                       )}
-                      {!isConcluido ? (
+                      {/* Atalho inline: mesmo gate do menu (antes ficava aberto a quem só visualiza). */}
+                      {canManagePrazos && (!isConcluido ? (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -599,7 +608,7 @@ export default function Prazos() {
                         >
                           <RotateCcw className="h-4 w-4" />
                         </Button>
-                      )}
+                      ))}
 
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>

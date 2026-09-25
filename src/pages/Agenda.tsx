@@ -55,7 +55,7 @@ export default function Agenda() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const { events, atrasados, loading, error, getEventsForDay, refresh } = useAgendaEvents(currentViewMonth);
+  const { events, atrasados, atrasadosTotal, loading, error, getEventsForDay, refresh } = useAgendaEvents(currentViewMonth);
   const { canManageAgenda } = usePermissions();
 
   // Busca global: vai ao mês do evento (?date) e destaca (?openId)
@@ -133,13 +133,13 @@ export default function Agenda() {
     const today = new Date();
     const in7 = new Date(Date.now() + 7 * 86400000);
     return {
-      atrasados: atrasados.length,
+      atrasados: atrasadosTotal,
       hoje: events.filter(e => isSameDay(new Date(e.datetime), today)).length,
       semana: events.filter(e => { const d = new Date(e.datetime); return d >= today && d <= in7; }).length,
       audiencias: events.filter(e => e.type === "audiencia").length,
       prazos: events.filter(e => e.type === "prazo").length,
     };
-  }, [events, atrasados]);
+  }, [events, atrasadosTotal]);
 
   // Clicar num evento abre o modal in-place (não navega) — igual ao dashboard
   const goToSource = (e: AgendaEvent) => {
@@ -295,6 +295,11 @@ export default function Agenda() {
               <div className="space-y-2">
                 {atrasadosFiltrados.map(e => <EventRow key={`atr-${e.type}-${e.id}`} e={e} atrasado />)}
               </div>
+              {atrasadosTotal > atrasados.length && (
+                <p className="text-[11px] text-muted-foreground px-1">
+                  Mostrando os {atrasados.length} mais recentes de {atrasadosTotal} atrasados — use as abas de cada módulo para ver todos.
+                </p>
+              )}
             </div>
           )}
 

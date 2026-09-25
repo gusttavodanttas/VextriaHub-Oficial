@@ -148,7 +148,7 @@ const AppWithRouter = () => {
         <Route
           path="/atendimentos"
           element={
-            <PrivateRoute>
+            <PrivateRoute requirePermission="canViewAtendimentos">
               <AppLayout>
                 <Atendimentos />
               </AppLayout>
@@ -188,7 +188,7 @@ const AppWithRouter = () => {
         <Route
           path="/agenda"
           element={
-            <PrivateRoute>
+            <PrivateRoute requirePermission="canViewAgenda">
               <AppLayout>
                 <Agenda />
               </AppLayout>
@@ -198,7 +198,7 @@ const AppWithRouter = () => {
         <Route
           path="/audiencias"
           element={
-            <PrivateRoute>
+            <PrivateRoute requirePermission="canViewAudiencias">
               <AppLayout>
                 <Audiencias />
               </AppLayout>
@@ -228,7 +228,7 @@ const AppWithRouter = () => {
         <Route
           path="/tarefas"
           element={
-            <PrivateRoute>
+            <PrivateRoute requirePermission="canViewTarefas">
               <AppLayout>
                 <Tarefas />
               </AppLayout>
@@ -238,7 +238,7 @@ const AppWithRouter = () => {
         <Route
           path="/timesheet"
           element={
-            <PrivateRoute>
+            <PrivateRoute requirePermission="canViewTimesheet">
               <AppLayout>
                 <Timesheet />
               </AppLayout>
@@ -248,7 +248,7 @@ const AppWithRouter = () => {
         <Route
           path="/prazos"
           element={
-            <PrivateRoute>
+            <PrivateRoute requirePermission="canViewPrazos">
               <AppLayout>
                 <Prazos />
               </AppLayout>
@@ -258,7 +258,7 @@ const AppWithRouter = () => {
         <Route
           path="/publicacoes"
           element={
-            <PrivateRoute>
+            <PrivateRoute requirePermission="canViewPublicacoes">
               <AppLayout>
                 <Publicacoes />
               </AppLayout>
@@ -308,7 +308,7 @@ const AppWithRouter = () => {
         <Route
           path="/notificacoes"
           element={
-            <PrivateRoute>
+            <PrivateRoute requirePermission="canViewNotificacoes">
               <AppLayout>
                 <Notificacoes />
               </AppLayout>

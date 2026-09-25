@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { assertRowsAffected } from '@/lib/errors';
 import { concluirPrazoDb, concluirPrazosBulkDb } from '@/lib/concluirItens';
+import { captureError } from '@/lib/monitoring';
 import {
   type Prazo, type ProcInfo, type PubInfo,
   onlyDigits, teorPrazo,
@@ -89,13 +90,14 @@ export function usePrazosData(ui: UiCallbacks = {}) {
     () => Array.from(new Set(prazos.map(p => p.publicacao_id).filter(Boolean))) as string[],
     [prazos]
   );
-  const { data: pubInfo = {} } = useQuery<Record<string, PubInfo>>({
+  const { data: pubInfo = {}, isError: pubError, refetch: refetchPub } = useQuery<Record<string, PubInfo>>({
     queryKey: ['prazos-publicacoes', pubIds],
     enabled: pubIds.length > 0,
     queryFn: async () => {
-      const { data } = await supabase.from('publicacoes')
+      const { data, error } = await supabase.from('publicacoes')
         .select('id, titulo, conteudo')
         .in('id', pubIds);
+      if (error) throw error;
       const map: Record<string, PubInfo> = {};
       (data || []).forEach((p: any) => { map[p.id] = { titulo: p.titulo ?? null, conteudo: p.conteudo ?? null }; });
       return map;
@@ -111,13 +113,15 @@ export function usePrazosData(ui: UiCallbacks = {}) {
 
   // Mapa processo → cliente. Indexado por id E por número, porque os prazos do
   // robô guardam apenas `numero_processo` (sem processo_id).
-  const { data: processoInfo = { byId: {}, byNumero: {} } } = useQuery<{ byId: Record<string, ProcInfo>; byNumero: Record<string, ProcInfo> }>({
+  const { data: processoInfo = { byId: {}, byNumero: {} }, isError: procError, refetch: refetchProc } = useQuery<{ byId: Record<string, ProcInfo>; byNumero: Record<string, ProcInfo> }>({
     queryKey: ['prazos-processos', user?.office_id],
     enabled: !!user?.office_id,
     queryFn: async () => {
-      const { data } = await supabase.from('processos')
+      const { data, error } = await supabase.from('processos')
         .select('id, numero_processo, cliente_id, clientes(nome)')
         .eq('office_id', user!.office_id!).eq('deletado', false);
+      // Antes a falha virava mapa vazio: prazos sem cliente e filtro por cliente vazio.
+      if (error) throw error;
       const byId: Record<string, ProcInfo> = {};
       const byNumero: Record<string, ProcInfo> = {};
       (data || []).forEach((p: any) => {
@@ -161,8 +165,11 @@ export function usePrazosData(ui: UiCallbacks = {}) {
 
       let vinculados = 0;
       for (const [procId, ids] of porProcesso) {
-        const { error } = await supabase.from('prazos').update({ processo_id: procId }).in('id', ids);
-        if (!error) vinculados += ids.length;
+        // Conta as linhas de verdade: a RLS bloqueando devolve 0 linhas sem erro, e o
+        // toast anunciava vínculos que não aconteceram.
+        const { data, error } = await supabase.from('prazos').update({ processo_id: procId }).in('id', ids).select('id');
+        if (error) captureError(error, { context: 'usePrazosData.autoVinculo', procId });
+        else vinculados += data?.length ?? 0;
       }
       if (vinculados) {
         queryClient.invalidateQueries({ queryKey: ['prazos'] });
@@ -267,6 +274,10 @@ export function usePrazosData(ui: UiCallbacks = {}) {
 
   return {
     prazos, isLoading, isError, error, refetch,
+    // Consultas auxiliares (teor da publicação, processo→cliente): a lista em si
+    // carregou, mas cliente/teor podem estar incompletos — a página avisa à parte.
+    auxError: pubError || procError,
+    refetchAux: () => { if (pubError) refetchPub(); if (procError) refetchProc(); },
     pubInfo, teorMap, processoInfo,
     procDoPrazo, clienteDoPrazo, clienteNomeDoPrazo,
     aceitarMutation, concludeMutation, reopenMutation, deleteMutation,

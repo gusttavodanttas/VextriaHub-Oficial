@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { captureError } from "@/lib/monitoring";
 import { assertRowsAffected, getErrorMessage } from "@/lib/errors";
 import { patchOfficeSettings } from "@/lib/officeSettings";
 import { continueOccurrences, type RecRule } from "@/lib/recorrencia";
@@ -12,7 +13,24 @@ import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/rows";
 
 // Filtra soft-deletados em JS (não `.eq('deletado', false)` na query — linhas
 // antigas podem ter a coluna null, e isso as excluiria indevidamente).
-const naoDeletado = (rows: any[] | null) => (rows ?? []).filter((i: any) => !i.deletado) as unknown as Atendimento[];
+// Status legados (variantes femininas, "confirmado") e NULL não casavam com o filtro
+// canônico de nenhuma das duas listas — o atendimento sumia da tela, das stats e do
+// "aguardando baixa". As queries abaixo incluem as variantes e aqui normalizamos
+// para o valor canônico que o resto da tela entende.
+const STATUS_LEGADO: Record<string, Atendimento["status"]> = {
+  agendada: "agendado", confirmado: "agendado", confirmada: "agendado",
+  pendente: "pendente", agendado: "agendado",
+  realizada: "realizado", realizado: "realizado", concluido: "realizado", concluida: "realizado",
+  cancelada: "cancelado", cancelado: "cancelado",
+};
+const ATIVOS_DB = ["agendado", "pendente", "agendada", "confirmado", "confirmada"];
+const HISTORICO_DB = ["realizado", "cancelado", "realizada", "cancelada", "concluido", "concluida"];
+export const normalizarStatusAtendimento = (status: string | null | undefined): Atendimento["status"] =>
+  STATUS_LEGADO[(status ?? "").toLowerCase()] ?? "agendado";
+
+const naoDeletado = (rows: any[] | null) => (rows ?? [])
+  .filter((i: any) => !i.deletado)
+  .map((i: any) => ({ ...i, status: normalizarStatusAtendimento(i.status) })) as unknown as Atendimento[];
 
 export const useAtendimentos = (officeId: string | null | undefined) => {
   const queryClient = useQueryClient();
@@ -34,7 +52,8 @@ export const useAtendimentos = (officeId: string | null | undefined) => {
         .from("atendimentos")
         .select("*, clientes(nome)")
         .eq("office_id", officeId!)
-        .in("status", ["agendado", "pendente"])
+        // NULL entra aqui (tratado como agendado) — `.in()` sozinho nunca casa NULL.
+        .or(`status.in.(${ATIVOS_DB.join(",")}),status.is.null`)
         .order("data_atendimento", { ascending: true });
       if (error) throw error;
       return naoDeletado(data);
@@ -49,7 +68,7 @@ export const useAtendimentos = (officeId: string | null | undefined) => {
         .from("atendimentos")
         .select("*, clientes(nome)")
         .eq("office_id", officeId!)
-        .in("status", ["realizado", "cancelado"])
+        .in("status", HISTORICO_DB)
         .order("data_atendimento", { ascending: false })
         .limit(1000);
       if (error) throw error;
@@ -102,7 +121,9 @@ export const useAtendimentos = (officeId: string | null | undefined) => {
       const { data, error } = await supabase.from("atendimentos").update({ status: "realizado" }).eq("id", item.id).select("id");
       assertRowsAffected(data, error, 1);
 
-      // Recorrência encadeada: ao concluir, gera a PRÓXIMA ocorrência (best-effort)
+      // Recorrência encadeada: ao concluir, gera a PRÓXIMA ocorrência. Não desfaz o
+      // "realizado" se o insert falhar, mas avisa — antes o erro era descartado e a
+      // série parava sem ninguém saber.
       const rule = item.recorrencia_regra as RecRule | null;
       const restantes = item.recorrencia_restantes ?? 0;
       if (rule && restantes > 0 && item.data_atendimento) {
@@ -125,10 +146,19 @@ export const useAtendimentos = (officeId: string | null | undefined) => {
           recorrencia_restantes: restantes - 1,
           ...(Array.isArray(item.avisos_dias) ? { avisos_dias: item.avisos_dias } : {}),
         };
-        await supabase.from("atendimentos").insert(row);
+        const { error: recErr } = await supabase.from("atendimentos").insert(row);
+        if (recErr) {
+          captureError(recErr, { context: "useAtendimentos.markRealizado.recorrencia", atendimentoId: item.id });
+          return { recorrenciaFalhou: true };
+        }
       }
+      return { recorrenciaFalhou: false };
     },
-    onSuccess: () => { invalidate(); toast({ title: "Marcado como realizado!" }); },
+    onSuccess: (r) => {
+      invalidate();
+      if (r.recorrenciaFalhou) toast({ title: "Série recorrente interrompida", description: "O atendimento foi marcado como realizado, mas a próxima ocorrência não pôde ser criada — agende-a manualmente.", variant: "destructive" });
+      else toast({ title: "Marcado como realizado!" });
+    },
     onError: (e: Error) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 

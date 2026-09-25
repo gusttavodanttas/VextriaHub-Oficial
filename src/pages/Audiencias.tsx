@@ -369,10 +369,11 @@ const Audiencias = () => {
                   <p className="font-bold text-sm truncate">{a.titulo}</p>
                   <p className="text-[11px] text-muted-foreground">{format(parseISO(a.data_audiencia), "dd/MM/yy 'às' HH:mm", { locale: ptBR })}</p>
                 </div>
-                <div className="flex gap-1.5 shrink-0">
+                {/* Botões de baixa: mesmo gate do menu da audiência. */}
+                {canManageAudiencias && <div className="flex gap-1.5 shrink-0">
                   <Button size="sm" onClick={() => updateStatus.mutate({ id: a.id, status: "realizada" })} className="h-8 rounded-lg text-[11px] font-bold gap-1"><Gavel className="h-3.5 w-3.5" /> Realizada</Button>
                   <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ id: a.id, status: "cancelada" })} className="h-8 rounded-lg text-[11px] font-bold">Cancelada</Button>
-                </div>
+                </div>}
               </div>
             ))}
           </div>
