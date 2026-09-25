@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useUserRole } from '@/hooks/useUserRole';
 import { assertRowsAffected, getErrorMessage } from '@/lib/errors';
 import { ExclusaoPendente } from '@/types/database';
+import { captureError } from '@/lib/monitoring';
 
 export const useExclusoesPendentes = () => {
   const [data, setData] = useState<ExclusaoPendente[]>([]);
@@ -45,10 +46,12 @@ export const useExclusoesPendentes = () => {
       ) as string[];
       const profMap: Record<string, { full_name: string | null; email: string | null }> = {};
       if (userIds.length > 0) {
-        const { data: profs } = await supabase
+        const { data: profs, error: profsError } = await supabase
           .from('profiles')
           .select('user_id, full_name, email')
           .in('user_id', userIds);
+        // Nome do solicitante é secundário: lista segue, sem nome, e o erro vai pro Sentry.
+        if (profsError) captureError(profsError, { context: 'useExclusoesPendentes: perfis dos solicitantes' });
         for (const p of profs ?? []) {
           profMap[p.user_id] = { full_name: p.full_name, email: p.email };
         }
@@ -58,8 +61,7 @@ export const useExclusoesPendentes = () => {
       setData(enriched);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro desconhecido');
-      console.error('❌ Hook useExclusoesPendentes failure:', err);
+      setError(getErrorMessage(err, 'Erro desconhecido'));
     } finally {
       setLoading(false);
     }
@@ -88,16 +90,19 @@ export const useExclusoesPendentes = () => {
       assertRowsAffected(updated, deleteError, 1);
 
       // Atualizar status da exclusão pendente
-      const { error: updateError } = await supabase
+      // Também conferido: sem isto, a solicitação continuava "pendente" no banco
+      // (voltava no F5) com o registro já excluído — o admin aprovava de novo.
+      const { data: statusRows, error: updateError } = await supabase
         .from('exclusoes_pendentes')
         .update({
           status: 'aprovado',
           aprovado_por: user.id,
           aprovado_em: new Date().toISOString(),
         })
-        .eq('id', exclusaoId);
+        .eq('id', exclusaoId)
+        .select('id');
 
-      if (updateError) throw updateError;
+      assertRowsAffected(statusRows, updateError, 1);
 
       // Remover da lista local
       setData(prev => prev.filter(item => item.id !== exclusaoId));
@@ -136,16 +141,17 @@ export const useExclusoesPendentes = () => {
       assertRowsAffected(updated, revertError, 1);
 
       // Atualizar status da exclusão pendente
-      const { error: updateError } = await supabase
+      const { data: statusRows, error: updateError } = await supabase
         .from('exclusoes_pendentes')
         .update({
           status: 'rejeitado',
           aprovado_por: user.id,
           aprovado_em: new Date().toISOString(),
         })
-        .eq('id', exclusaoId);
+        .eq('id', exclusaoId)
+        .select('id');
 
-      if (updateError) throw updateError;
+      assertRowsAffected(statusRows, updateError, 1);
 
       // Remover da lista local
       setData(prev => prev.filter(item => item.id !== exclusaoId));
@@ -197,16 +203,17 @@ export const useExclusoesPendentes = () => {
       }
 
       if (succeededIds.length > 0) {
-        const { error: updateError } = await supabase
+        const { data: statusRows, error: updateError } = await supabase
           .from('exclusoes_pendentes')
           .update({
             status: 'aprovado',
             aprovado_por: user.id,
             aprovado_em: new Date().toISOString(),
           })
-          .in('id', succeededIds);
+          .in('id', succeededIds)
+          .select('id');
 
-        if (updateError) throw updateError;
+        assertRowsAffected(statusRows, updateError, succeededIds.length);
 
         // Remover da lista local só quem foi de fato aprovado
         setData(prev => prev.filter(item => !succeededIds.includes(item.id)));

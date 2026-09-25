@@ -18,6 +18,14 @@ import { cn } from "@/lib/utils";
 import { getErrorMessage, assertRowsAffected } from "@/lib/errors";
 import { useToast } from "@/hooks/use-toast";
 
+
+// Lança se a consulta falhou — nas listas de detalhe/atribuição, erro virava
+// "nenhum item", indistinguível de vazio de verdade.
+function rowsOrThrow<T>(res: { data: T[] | null; error: unknown }): T[] {
+  if (res.error) throw res.error;
+  return res.data || [];
+}
+
 // ─── Drill-down ─────────────────────────────────────────────────────────────
 type DetailType = "processos" | "tarefas" | "audiencias" | "prazos" | "atendimentos" | "consultivos";
 
@@ -266,12 +274,15 @@ function TeamDetailDialog({
 }) {
   const [items, setItems] = useState<DetailItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!type) return;
     let cancel = false;
     (async () => {
       setLoading(true);
+      setLoadError(null);
+      try {
       const { start, end } = getPeriodDates(period);
       const now = new Date();
       const in7days = new Date(Date.now() + 7 * 864e5).toISOString();
@@ -290,38 +301,41 @@ function TeamDetailDialog({
             .eq("office_id", officeId).eq("deletado", false).neq("status", "encerrado").in("user_id", memberIds),
         ]);
         const seen = new Set<string>();
-        result = [...(byTeam.data || []), ...(byResp.data || []), ...(byCreator.data || [])]
+        result = [...rowsOrThrow(byTeam), ...rowsOrThrow(byResp), ...rowsOrThrow(byCreator)]
           .filter(p => { if (seen.has(p.id)) return false; seen.add(p.id); return true; })
           .map(p => ({ id: p.id, primary: p.titulo || "Processo", secondary: p.numero_processo || "", badge: p.status || undefined }));
       } else if (type === "tarefas") {
-        const { data } = await supabase.from("tarefas").select("id, titulo, data_vencimento")
+        const res = await supabase.from("tarefas").select("id, titulo, data_vencimento")
           .eq("office_id", officeId).eq("deletado", false).eq("concluida", false)
           .in("user_id", memberIds).gte("created_at", start).lte("created_at", end);
-        result = (data || []).map(t => ({ id: t.id, primary: t.titulo || "Tarefa", secondary: t.data_vencimento ? `Vence ${fmtDate(t.data_vencimento)}` : "" }));
+        result = rowsOrThrow(res).map(t => ({ id: t.id, primary: t.titulo || "Tarefa", secondary: t.data_vencimento ? `Vence ${fmtDate(t.data_vencimento)}` : "" }));
       } else if (type === "audiencias") {
-        const { data } = await supabase.from("audiencias").select("id, titulo, data_audiencia, local")
+        const res = await supabase.from("audiencias").select("id, titulo, data_audiencia, local")
           .eq("office_id", officeId).eq("deletado", false)
           .gte("data_audiencia", now.toISOString()).lte("data_audiencia", in7days).in("user_id", memberIds);
-        result = (data || []).map(a => ({ id: a.id, primary: a.titulo || "Audiência", secondary: `${fmtDate(a.data_audiencia)}${a.local ? ` · ${a.local}` : ""}` }));
+        result = rowsOrThrow(res).map(a => ({ id: a.id, primary: a.titulo || "Audiência", secondary: `${fmtDate(a.data_audiencia)}${a.local ? ` · ${a.local}` : ""}` }));
       } else if (type === "prazos") {
-        const { data } = await supabase.from("prazos").select("id, titulo, tipo_prazo, data_fim_prazo, status, deletado")
+        const res = await supabase.from("prazos").select("id, titulo, tipo_prazo, data_fim_prazo, status, deletado")
           .eq("office_id", officeId).gte("data_fim_prazo", today).lte("data_fim_prazo", in3days).in("responsavel_id", memberIds);
         // Sem filtrar, prazo na lixeira/concluído entrava como fantasma no painel da equipe. (v11)
-        result = (data || []).filter((p: any) => !p.deletado && p.status !== "concluido")
+        result = rowsOrThrow(res).filter((p: any) => !p.deletado && p.status !== "concluido")
           .map(p => ({ id: p.id, primary: p.titulo || p.tipo_prazo || "Prazo", secondary: p.data_fim_prazo ? `Fatal ${fmtDate(p.data_fim_prazo)}` : "" }));
       } else if (type === "atendimentos") {
-        const { data } = await supabase.from("atendimentos").select("id, tipo_atendimento, data_atendimento")
+        const res = await supabase.from("atendimentos").select("id, tipo_atendimento, data_atendimento")
           .eq("office_id", officeId).eq("deletado", false)
           .gte("created_at", start).lte("created_at", end).in("user_id", memberIds);
-        result = (data || []).map(a => ({ id: a.id, primary: a.tipo_atendimento || "Atendimento", secondary: fmtDate(a.data_atendimento) }));
+        result = rowsOrThrow(res).map(a => ({ id: a.id, primary: a.tipo_atendimento || "Atendimento", secondary: fmtDate(a.data_atendimento) }));
       } else if (type === "consultivos") {
-        const { data } = await supabase.from("consultivos").select("id, titulo, status")
+        const res = await supabase.from("consultivos").select("id, titulo, status")
           .eq("office_id", officeId).eq("deletado", false)
           .gte("created_at", start).lte("created_at", end).in("user_id", memberIds);
-        result = (data || []).map(c => ({ id: c.id, primary: c.titulo || "Consultivo", badge: c.status || undefined }));
+        result = rowsOrThrow(res).map(c => ({ id: c.id, primary: c.titulo || "Consultivo", badge: c.status || undefined }));
       }
 
       if (!cancel) { setItems(result); setLoading(false); }
+      } catch (e) {
+        if (!cancel) { setItems([]); setLoadError(getErrorMessage(e, "Não foi possível carregar os itens.")); setLoading(false); }
+      }
     })();
     return () => { cancel = true; };
   }, [type, teamId, officeId, period, memberIds.join(",")]);
@@ -344,6 +358,8 @@ function TeamDetailDialog({
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2">
           {loading ? (
             [...Array(4)].map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-xl" />)
+          ) : loadError ? (
+            <p className="py-12 text-center text-sm font-bold text-destructive">{loadError}</p>
           ) : items.length === 0 ? (
             <div className="py-12 text-center">
               <Icon className={cn("h-10 w-10 mx-auto mb-2 opacity-20", cfg.color)} />
@@ -407,6 +423,7 @@ function AssignProcessosDialog({
   const [kind, setKind] = useState<AssignKind>("processos");
   const [items, setItems] = useState<AssignItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [justSaved, setJustSaved] = useState<string | null>(null);
   const { toast } = useToast();
@@ -418,6 +435,8 @@ function AssignProcessosDialog({
     let cancel = false;
     (async () => {
       setLoading(true);
+      setLoadError(null);
+      try {
       const dedup = (rows: any[]) => {
         const seen = new Set<string>();
         return rows.filter(r => { if (seen.has(r.id)) return false; seen.add(r.id); return true; });
@@ -431,7 +450,7 @@ function AssignProcessosDialog({
           supabase.from("processos").select(sel).eq("office_id", officeId).eq("deletado", false).neq("status", "encerrado").in("responsavel_id", ids),
           supabase.from("processos").select(sel).eq("office_id", officeId).eq("deletado", false).neq("status", "encerrado").in("user_id", ids),
         ]);
-        result = dedup([...(a.data || []), ...(b.data || []), ...(c.data || [])])
+        result = dedup([...rowsOrThrow(a), ...rowsOrThrow(b), ...rowsOrThrow(c)])
           .map((p: any) => ({ id: p.id, titulo: p.titulo || "Processo", sub: p.numero_processo || "", responsavel_id: p.responsavel_id }));
       } else if (kind === "tarefas") {
         const sel = "id, titulo, data_vencimento, responsavel_id";
@@ -439,7 +458,7 @@ function AssignProcessosDialog({
           supabase.from("tarefas").select(sel).eq("office_id", officeId).eq("deletado", false).in("responsavel_id", ids),
           supabase.from("tarefas").select(sel).eq("office_id", officeId).eq("deletado", false).in("user_id", ids),
         ]);
-        result = dedup([...(a.data || []), ...(b.data || [])])
+        result = dedup([...rowsOrThrow(a), ...rowsOrThrow(b)])
           .map((t: any) => ({ id: t.id, titulo: t.titulo || "Tarefa", sub: t.data_vencimento ? `Vence ${fmtDate(t.data_vencimento)}` : "", responsavel_id: t.responsavel_id }));
       } else {
         const sel = "id, titulo, data_audiencia, responsavel_id";
@@ -447,11 +466,14 @@ function AssignProcessosDialog({
           supabase.from("audiencias").select(sel).eq("office_id", officeId).eq("deletado", false).in("responsavel_id", ids),
           supabase.from("audiencias").select(sel).eq("office_id", officeId).eq("deletado", false).in("user_id", ids),
         ]);
-        result = dedup([...(a.data || []), ...(b.data || [])])
+        result = dedup([...rowsOrThrow(a), ...rowsOrThrow(b)])
           .map((a2: any) => ({ id: a2.id, titulo: a2.titulo || "Audiência", sub: a2.data_audiencia ? fmtDate(a2.data_audiencia) : "", responsavel_id: a2.responsavel_id }));
       }
 
       if (!cancel) { setItems(result); setLoading(false); }
+      } catch (e) {
+        if (!cancel) { setItems([]); setLoadError(getErrorMessage(e, "Não foi possível carregar os itens.")); setLoading(false); }
+      }
     })();
     return () => { cancel = true; };
   }, [open, kind, teamId, officeId, ids.join(",")]);
@@ -513,6 +535,8 @@ function AssignProcessosDialog({
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2">
           {loading ? (
             [...Array(4)].map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-xl" />)
+          ) : loadError ? (
+            <p className="py-12 text-center text-sm font-bold text-destructive">{loadError}</p>
           ) : items.length === 0 ? (
             <div className="py-12 text-center">
               <FolderPlus className="h-10 w-10 mx-auto mb-2 opacity-20 text-blue-500" />
@@ -600,15 +624,23 @@ export default function EquipeDetalhe() {
       .eq("team_id", teamId);
 
     if (membersError) throw membersError;
-    if (!membersData?.length) { return; }
+    if (!membersData?.length) {
+      // Antes só `return`: a tela mantinha membros/resumo da equipe aberta ANTES
+      // (navegação entre equipes) como se fossem desta.
+      setMembers([]);
+      setMemberIds([]);
+      setSummary({ processos: 0, tarefasPendentes: 0, tarefasConcluidas: 0, audiencias: 0, prazos: 0, atendimentos: 0, consultivos: 0, horasTimesheet: 0 });
+      return;
+    }
 
     const userIds = membersData.map(m => m.user_id);
     setMemberIds(userIds);
 
-    const { data: profilesData } = await supabase
+    const { data: profilesData, error: profilesError } = await supabase
       .from("profiles")
       .select("user_id, full_name, email")
       .in("user_id", userIds);
+    if (profilesError) throw profilesError;
 
     const profileMap: Record<string, { full_name: string | null; email: string | null }> = {};
     (profilesData || []).forEach(p => { profileMap[p.user_id] = p; });
@@ -623,6 +655,10 @@ export default function EquipeDetalhe() {
       supabase.from("processos").select(procSel).eq("office_id", user.office_id)
         .eq("deletado", false).neq("status", "encerrado").in("user_id", userIds),
     ]);
+    // Nenhuma das 9 consultas checava erro: uma falha virava "0" no card do membro,
+    // indistinguível de "não tem nada" — um ranking de produtividade errado.
+    const procErr = procByTeam.error || procByResp.error || procByCreator.error;
+    if (procErr) throw procErr;
     // Mescla deduplicando por id (um processo pode bater em mais de um critério)
     const procSeen = new Set<string>();
     const processosData = [...(procByTeam.data || []), ...(procByResp.data || []), ...(procByCreator.data || [])]
@@ -639,15 +675,21 @@ export default function EquipeDetalhe() {
       supabase.from("audiencias").select("user_id").eq("office_id", user.office_id)
         .eq("deletado", false).gte("data_audiencia", now.toISOString())
         .lte("data_audiencia", in7days).in("user_id", userIds),
+      // deletado/concluído não são "prazos próximos" do membro.
       supabase.from("prazos").select("responsavel_id").eq("office_id", user.office_id)
+        .eq("deletado", false).neq("status", "concluido")
         .gte("data_fim_prazo", today).lte("data_fim_prazo", in3days).in("responsavel_id", userIds),
       supabase.from("atendimentos").select("user_id").eq("office_id", user.office_id)
         .eq("deletado", false).gte("created_at", start).lte("created_at", end).in("user_id", userIds),
       supabase.from("consultivos").select("user_id").eq("office_id", user.office_id)
         .eq("deletado", false).gte("created_at", start).lte("created_at", end).in("user_id", userIds),
-      supabase.from("timesheets").select("user_id, duracao_minutos")
+      // office_id: sem ele, horas de um membro em OUTRO escritório entravam na soma.
+      supabase.from("timesheets").select("user_id, duracao_minutos").eq("office_id", user.office_id)
         .gte("created_at", start).lte("created_at", end).in("user_id", userIds),
     ]);
+
+    const metricErr = tarefasRes.error || audienciasRes.error || prazosRes.error || atendimentosRes.error || consultivosRes.error || timesheetRes.error;
+    if (metricErr) throw metricErr;
 
     // 4. Agrupar por user_id (key = campo que identifica o membro)
     const countBy = (arr: any[] | null, key = "user_id") => {
@@ -714,7 +756,6 @@ export default function EquipeDetalhe() {
       horasTimesheet: memberStats.reduce((s, m) => s + m.horasTimesheet, 0),
     });
     } catch (e) {
-      console.error("Erro ao carregar produtividade da equipe:", e);
       setError(getErrorMessage(e, "Não foi possível carregar os dados da equipe."));
     } finally {
       setLoading(false);

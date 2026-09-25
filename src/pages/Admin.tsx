@@ -11,6 +11,7 @@ import CobrancaAsaas from "@/components/Admin/CobrancaAsaas";
 import { GlobalMetrics } from "@/components/Admin/GlobalMetrics";
 import { PlanManagement } from "@/components/Admin/PlanManagement";
 import { ExclusoesPendentesSection } from "@/components/Admin/ExclusoesPendentesSection";
+import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
 
 import { useSearchParams } from "react-router-dom";
 
@@ -49,7 +50,11 @@ const Admin = () => {
   const multiSelect = useMultiSelect(exclusoesPendentes);
   const [processando, setProcessando] = useState<string | null>(null);
 
-  const handleAprovar = async (id: string) => {
+  // Aprovar exclui o registro (vai pra Lixeira) — era 1 clique sem confirmação,
+  // inclusive o "aprovar selecionados" em lote.
+  const [confirmAprovar, setConfirmAprovar] = useState<{ ids: string[]; bulk: boolean } | null>(null);
+  const handleAprovar = (id: string) => setConfirmAprovar({ ids: [id], bulk: false });
+  const aprovarConfirmado = async (id: string) => {
     setProcessando(id);
     await aprovarExclusao(id);
     setProcessando(null);
@@ -61,8 +66,11 @@ const Admin = () => {
     setProcessando(null);
   };
 
-  const handleAprovarSelecionados = async () => {
+  const handleAprovarSelecionados = () => {
     const selectedIds = multiSelect.getSelectedItems().map(item => item.id);
+    if (selectedIds.length) setConfirmAprovar({ ids: selectedIds, bulk: true });
+  };
+  const aprovarSelecionadosConfirmado = async (selectedIds: string[]) => {
     setProcessando('multiplo');
     await aprovarMultiplasExclusoes(selectedIds);
     multiSelect.clearSelection();
@@ -153,6 +161,20 @@ const Admin = () => {
           </div>
         )}
       </div>
+      <DeleteConfirmDialog
+        open={!!confirmAprovar}
+        onOpenChange={(o) => { if (!o) setConfirmAprovar(null); }}
+        title={confirmAprovar && confirmAprovar.ids.length > 1 ? `Aprovar ${confirmAprovar.ids.length} exclusões` : "Aprovar exclusão"}
+        description="Os registros serão excluídos e movidos para a Lixeira, de onde podem ser restaurados."
+        confirmText="Aprovar"
+        onConfirm={() => {
+          const alvo = confirmAprovar;
+          setConfirmAprovar(null);
+          if (!alvo) return;
+          if (alvo.bulk) aprovarSelecionadosConfirmado(alvo.ids);
+          else aprovarConfirmado(alvo.ids[0]);
+        }}
+      />
     </div>
   );
 };

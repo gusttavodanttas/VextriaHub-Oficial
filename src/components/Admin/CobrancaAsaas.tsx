@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import { formatCpfCnpj, onlyDigits, isValidCpfCnpj } from "@/lib/document";
 import { formatBRL } from "@/lib/currency";
+import { getErrorMessage } from "@/lib/errors";
+import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
 
 interface SubRow {
   asaas_subscription_id?: string | null;
@@ -52,6 +54,8 @@ export default function CobrancaAsaas() {
   const { toast } = useToast();
   const [rows, setRows] = useState<OfficeRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<OfficeRow | null>(null);
   const [q, setQ] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -71,10 +75,19 @@ export default function CobrancaAsaas() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [{ data: offices }, { data: subs }] = await Promise.all([
+    const [{ data: offices, error: officesError }, { data: subs, error: subsError }] = await Promise.all([
       supabase.from("offices").select("id, name, email").order("created_at", { ascending: false }),
       supabase.from("office_subscriptions").select("*"),
     ]);
+    // Sem isto, falha em office_subscriptions mostrava TODO escritório como "Sem
+    // plano" — e o admin podia criar uma segunda cobrança para quem já paga.
+    if (officesError || subsError) {
+      setLoadError(getErrorMessage(officesError || subsError, "Não foi possível carregar os escritórios."));
+      setRows([]);
+      setLoading(false);
+      return;
+    }
+    setLoadError(null);
     const byOffice = new Map<string, SubRow>();
     ((subs as unknown as (SubRow & { office_id: string })[]) || []).forEach((s) => byOffice.set(s.office_id, s));
     setRows(((offices as { id: string; name: string; email: string | null }[]) || []).map((o) => ({ ...o, sub: byOffice.get(o.id) || null })));
@@ -85,7 +98,8 @@ export default function CobrancaAsaas() {
   // Qual ambiente Asaas as ações desta tela vão atingir — sem isso, criar uma
   // cobrança "de teste" aqui não tinha como saber se ela é real ou de mentira.
   useEffect(() => {
-    supabase.functions.invoke("asaas-billing", { body: { action: "env" } }).then(({ data }) => {
+    supabase.functions.invoke("asaas-billing", { body: { action: "env" } }).then(({ data, error }) => {
+      if (error) { captureError(error, { context: "CobrancaAsaas: ambiente Asaas" }); return; }
       const env = (data as { environment?: string } | null)?.environment;
       if (env === "sandbox" || env === "production") setEnvironment(env);
     });
@@ -128,11 +142,18 @@ export default function CobrancaAsaas() {
   };
   const courtesy = async (r: OfficeRow) => { const res = await call("courtesy", r.id, { plan_name: plan.trim() || "Cortesia" }); if (res) { toast({ title: "Cortesia liberada! 🎟️" }); setOpenId(null); resetForm(); load(); } };
   const sync = async (r: OfficeRow) => { const res = await call("sync", r.id); if (res) { toast({ title: "Status atualizado" }); load(); } };
-  const cancel = async (r: OfficeRow) => {
-    if (!confirm(`Cancelar a cobrança de ${r.name}? O acesso será bloqueado.`)) return;
+  // Confirmação no padrão do app (AlertDialog) em vez do confirm() nativo.
+  const cancel = (r: OfficeRow) => setCancelTarget(r);
+  const confirmarCancelamento = async () => {
+    const r = cancelTarget;
+    setCancelTarget(null);
+    if (!r) return;
     const res = await call("cancel", r.id); if (res) { toast({ title: "Cobrança cancelada" }); load(); }
   };
-  const copyLink = async (url: string, id: string) => { await navigator.clipboard.writeText(url); setCopied(id); setTimeout(() => setCopied(null), 1600); };
+  const copyLink = async (url: string, id: string) => {
+    try { await navigator.clipboard.writeText(url); setCopied(id); setTimeout(() => setCopied(null), 1600); }
+    catch (e) { toast({ title: "Não foi possível copiar", description: getErrorMessage(e), variant: "destructive" }); }
+  };
 
   const Metric = ({ icon: Icon, label, value: v, cls }: { icon: typeof Users; label: string; value: string | number; cls?: string }) => (
     <div className="rounded-xl border border-border bg-card p-4">
@@ -156,12 +177,13 @@ export default function CobrancaAsaas() {
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* Com erro, as métricas seriam 0/R$ 0 — ocultas em vez de mentir. */}
+      {!loadError && <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Metric icon={Users} label="Escritórios" value={metrics.total} />
         <Metric icon={CheckCircle2} label="Ativos / cortesia" value={metrics.ativos} cls="text-emerald-600" />
         <Metric icon={AlertTriangle} label="Pendentes / atrasados" value={metrics.inadimplentes} cls="text-red-600" />
         <Metric icon={TrendingUp} label="Receita ativa (mês-base)" value={brl(metrics.receita)} cls="text-blue-600" />
-      </div>
+      </div>}
 
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
@@ -173,6 +195,11 @@ export default function CobrancaAsaas() {
 
       {loading ? (
         <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+      ) : loadError ? (
+        <div className="text-center py-10 space-y-3">
+          <p className="text-sm font-bold text-destructive">{loadError}</p>
+          <Button size="sm" variant="outline" onClick={load}>Tentar novamente</Button>
+        </div>
       ) : shown.length === 0 ? (
         <p className="text-sm text-muted-foreground text-center py-10">Nenhum escritório.</p>
       ) : (
@@ -258,6 +285,14 @@ export default function CobrancaAsaas() {
           })}
         </div>
       )}
+      <DeleteConfirmDialog
+        open={!!cancelTarget}
+        onOpenChange={(o) => { if (!o) setCancelTarget(null); }}
+        onConfirm={confirmarCancelamento}
+        title="Cancelar cobrança"
+        description={`Cancelar a cobrança de ${cancelTarget?.name ?? "este escritório"}? O acesso será bloqueado.`}
+        confirmText="Cancelar cobrança"
+      />
     </section>
   );
 }

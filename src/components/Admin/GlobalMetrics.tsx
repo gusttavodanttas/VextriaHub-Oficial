@@ -56,8 +56,8 @@ function MetricCard({ title, value, sub, icon: Icon, color, bg, badge, badgeColo
 }
 
 export const GlobalMetrics: React.FC = () => {
-  const { offices, loading: officesLoading } = useOfficeManagement();
-  const { subscriptions, loading: subscriptionsLoading } = useSubscriptions();
+  const { offices, loading: officesLoading, error: officesError, refresh: refreshOffices } = useOfficeManagement();
+  const { subscriptions, loading: subscriptionsLoading, error: subscriptionsError, refresh: refreshSubscriptions } = useSubscriptions();
   const { user } = useAuth();
   const loading = officesLoading || subscriptionsLoading;
 
@@ -91,6 +91,20 @@ export const GlobalMetrics: React.FC = () => {
           ))}
         </div>
       </div>
+    );
+  }
+
+  // Os dois hooks já guardavam o erro, mas o painel não lia: uma falha virava
+  // "0 escritórios / R$ 0" como se fosse o número real.
+  if (officesError || subscriptionsError) {
+    return (
+      <Card className="border-destructive/20 bg-destructive/5 rounded-[2rem]">
+        <CardContent className="py-10 text-center space-y-3">
+          <p className="font-bold text-destructive">Não foi possível carregar as métricas globais</p>
+          <p className="text-sm text-muted-foreground">{officesError || subscriptionsError}</p>
+          <button type="button" onClick={() => { refreshOffices(); refreshSubscriptions(); }} className="text-sm font-bold underline">Tentar novamente</button>
+        </CardContent>
+      </Card>
     );
   }
 
