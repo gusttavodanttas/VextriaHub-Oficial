@@ -45,6 +45,15 @@ quebra CI custa um ciclo de revisão inteiro.
   e checar a contagem com esse helper, senão a UI mostra "sucesso" com a
   linha intocada no banco.
 
+- **`patchOfficeSettings(officeId, patch)`** (`src/lib/officeSettings.ts`) — o
+  **único** caminho de escrita em `offices.settings`. O jsonb guarda configurações
+  de várias telas; cada uma só conhece as próprias chaves. O helper aborta se a
+  releitura falhar (mesclar em cima de `{}` apagaria as outras chaves) e confere
+  as linhas afetadas. Quem lê `offices.settings` para editar também precisa
+  propagar o erro do load e **bloquear o save enquanto ele não tiver
+  sucesso** — senão os defaults exibidos na tela são gravados por cima da
+  configuração real (ver `useOfficeSettingList`).
+
 - **Hooks de dado expõem `error`/`isError`, não só `loading`.** Página
   correspondente deve mostrar um banner de erro com ação de retry — ver
   `useStats`/`Index.tsx`, `useNotifications`/`Notificacoes.tsx` como exemplos.

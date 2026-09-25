@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
+import { patchOfficeSettings } from "@/lib/officeSettings";
 
 /**
  * Lê e grava um valor único de configuração dentro de offices.settings[key] (jsonb).
@@ -42,20 +43,11 @@ export function useOfficeSettingValue<T>(key: string, defaultValue: T) {
     if (!user?.office_id) return false;
     const previous = value;
     setValue(next); // otimista
-    const { data: cur } = await supabase.from("offices").select("settings").eq("id", user.office_id).maybeSingle();
-    const merged = { ...((cur?.settings as any) || {}), [key]: next };
-    // .select() conta as linhas afetadas: uma RLS que barra devolve 0 linhas
-    // SEM erro — sem checar, o valor otimista ficava "salvo" na tela mesmo
-    // sem persistir (mesma classe de bug corrigida em useOfficeSettingList).
-    const { data: updated, error: updateError } = await supabase.from("offices").update({ settings: merged }).eq("id", user.office_id).select("id");
-    if (updateError) {
+    try {
+      await patchOfficeSettings(user.office_id, { [key]: next });
+    } catch (e) {
       setValue(previous);
-      toast({ variant: "destructive", title: "Erro ao salvar", description: updateError.message });
-      return false;
-    }
-    if (!updated || updated.length === 0) {
-      setValue(previous);
-      toast({ variant: "destructive", title: "Sem permissão", description: "Só um administrador do escritório pode alterar esta configuração." });
+      toast({ variant: "destructive", title: "Erro ao salvar", description: getErrorMessage(e) });
       return false;
     }
     return true;

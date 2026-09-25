@@ -16,6 +16,13 @@ export const DEFAULT_LEAD_DIAS = 3;
 export interface NotifPrefs {
   prefs: Record<string, boolean>;
   leadDias: number;
+  /**
+   * true quando a leitura do banco falhou e os valores vieram do cache local/defaults.
+   * Quem grava (tela de Configurações) precisa bloquear o save nesse estado: o upsert
+   * grava o objeto inteiro, então salvar um toggle gravaria os defaults por cima das
+   * preferências reais. O gerador de notificações pode seguir usando o fallback.
+   */
+  loadFailed?: boolean;
 }
 
 const prefsKey = (uid: string) => `notif_prefs_${uid}`;
@@ -47,11 +54,13 @@ function writeLocalPrefs(userId: string, p: NotifPrefs): void {
  */
 export async function fetchNotificationPrefs(userId: string): Promise<NotifPrefs> {
   try {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('user_notification_prefs')
       .select('prefs, lead_dias')
       .eq('user_id', userId)
       .maybeSingle();
+    // supabase-js não lança em erro de PostgREST/RLS — o catch abaixo só pegava rede.
+    if (error) throw error;
     if (data) {
       const dbPrefs = (data.prefs as Record<string, boolean> | null) || {};
       return {
@@ -61,7 +70,9 @@ export async function fetchNotificationPrefs(userId: string): Promise<NotifPrefs
     }
   } catch (e) {
     captureError(e, { context: 'fetchNotificationPrefs: rede/RLS, caindo pro localStorage', userId });
+    return { ...readLocalPrefs(userId), loadFailed: true };
   }
+  // Sem linha no banco (usuário antigo): o localStorage é a fonte legítima, não uma falha.
   return readLocalPrefs(userId);
 }
 

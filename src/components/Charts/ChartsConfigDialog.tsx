@@ -7,6 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Trophy, AlertTriangle } from "lucide-react";
 import type { PontosConfig } from "@/hooks/useChartsData";
+import { getErrorMessage } from "@/lib/errors";
+import { patchOfficeSettings } from "@/lib/officeSettings";
 import React from "react";
 
 // Componente ESTÁVEL (fora do dialog) para os <Input> não remontarem a cada tecla
@@ -82,22 +84,26 @@ export function ChartsConfigDialog({
 
   const handleSave = async () => {
     setSaving(true);
-    const { data: cur } = await supabase.from("offices").select("settings").eq("id", officeId).maybeSingle();
     const clean = (m: Record<string, number>) => Object.fromEntries(Object.entries(m).map(([k, v]) => [k, Number(v) || 0]));
-    const merged = {
-      ...((cur?.settings as any) || {}),
-      chart_pontos: {
-        tarefa: Number(tarefa) || 0,
-        processo: Number(processo) || 0,
-        penalidadeAtraso: Number(penalidade) || 0,
-        prazo: clean(prazoMap),
-        audiencia: clean(audMap),
-      },
-      chart_meta: null, // meta de contratos fica no CRM
-    };
-    const { error } = await supabase.from("offices").update({ settings: merged }).eq("id", officeId);
-    setSaving(false);
-    if (error) { toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" }); return; }
+    try {
+      // Antes: releitura sem checar erro (merge em cima de {} apagava as outras chaves
+      // de offices.settings) e UPDATE sem contar linhas (RLS barrando = "Pontuação salva").
+      await patchOfficeSettings(officeId, {
+        chart_pontos: {
+          tarefa: Number(tarefa) || 0,
+          processo: Number(processo) || 0,
+          penalidadeAtraso: Number(penalidade) || 0,
+          prazo: clean(prazoMap),
+          audiencia: clean(audMap),
+        },
+        chart_meta: null, // meta de contratos fica no CRM
+      });
+    } catch (e) {
+      toast({ title: "Erro ao salvar", description: getErrorMessage(e), variant: "destructive" });
+      return;
+    } finally {
+      setSaving(false);
+    }
     toast({ title: "Pontuação salva" });
     onSaved();
     onClose();

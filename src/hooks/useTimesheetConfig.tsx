@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
+import { patchOfficeSettings } from "@/lib/officeSettings";
 
 export type Arredondamento = "nenhum" | "6" | "15";
 
@@ -42,18 +43,14 @@ export function useTimesheetConfig(officeId: string) {
       toast({ title: "Não foi possível salvar", description: "A configuração não carregou — recarregue antes de editar.", variant: "destructive" });
       return false;
     }
-    const { data: cur } = await supabase.from("offices").select("settings").eq("id", officeId).maybeSingle();
-    const merged: any = { ...((cur?.settings as any) ?? {}) };
-    if (cfg.valorPadrao !== undefined) merged.ts_valor_hora_padrao = cfg.valorPadrao;
-    if (cfg.valorClientes !== undefined) merged.ts_valor_hora_clientes = cfg.valorClientes;
-    if (cfg.arredondamento !== undefined) merged.ts_arredondamento = cfg.arredondamento;
-    const { data: updated, error } = await supabase.from("offices").update({ settings: merged }).eq("id", officeId).select("id");
-    if (error || !updated || updated.length === 0) {
-      toast({
-        title: "Erro ao salvar",
-        description: error?.message ?? "Só um administrador do escritório pode alterar esta configuração.",
-        variant: "destructive",
-      });
+    const patch: Record<string, unknown> = {};
+    if (cfg.valorPadrao !== undefined) patch.ts_valor_hora_padrao = cfg.valorPadrao;
+    if (cfg.valorClientes !== undefined) patch.ts_valor_hora_clientes = cfg.valorClientes;
+    if (cfg.arredondamento !== undefined) patch.ts_arredondamento = cfg.arredondamento;
+    try {
+      await patchOfficeSettings(officeId, patch);
+    } catch (e) {
+      toast({ title: "Erro ao salvar", description: getErrorMessage(e), variant: "destructive" });
       return false;
     }
     queryClient.invalidateQueries({ queryKey: ["ts-config", officeId] });

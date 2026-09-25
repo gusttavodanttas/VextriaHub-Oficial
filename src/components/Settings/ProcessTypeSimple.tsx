@@ -32,8 +32,12 @@ const areaColor = (area: string) => {
 };
 
 export function ProcessTypeSimple() {
-  const { items: tiposProcesso, loading, saving, error, refetch, persist } = useOfficeSettingList<TipoProcesso>("tipos_processo", TIPOS_PROCESSO_DEFAULT);
-  const { items: areas, persist: persistAreas } = useOfficeSettingList<string>("areas_processo", AREAS_DEFAULT);
+  const { items: tiposProcesso, loading, saving, error: tiposError, refetch: refetchTipos, persist } = useOfficeSettingList<TipoProcesso>("tipos_processo", TIPOS_PROCESSO_DEFAULT);
+  // As áreas também vêm de offices.settings: se só esta leitura falhar, o select mostrava
+  // AREAS_DEFAULT como se fossem as áreas do escritório, sem aviso nenhum.
+  const { items: areas, persist: persistAreas, error: areasError, refetch: refetchAreas } = useOfficeSettingList<string>("areas_processo", AREAS_DEFAULT);
+  const error = tiposError || areasError;
+  const refetch = () => { refetchTipos(); refetchAreas(); };
   const [novoTipo, setNovoTipo] = useState({ nome: "", descricao: "", area: "Previdenciário" });
 
   const adicionarTipo = () => {
