@@ -76,7 +76,7 @@ export default function Publicacoes() {
   const { oabs: monitoredOabs } = useMonitoredOabs();
   const { user, profile } = useAuth();
   const { deletePublication, updateStatus, bulkUpdateStatus, syncByOab, refresh, linkPublicacaoToProcesso, findProcessoIdByCnj } = usePublicacoes();
-  const { stats, loading: statsLoading } = usePublicacoesStats();
+  const { stats, loading: statsLoading, isError: statsError, refetch: refetchStats } = usePublicacoesStats();
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 24;
   const [view, setView] = useState<'grid' | 'table'>('table');
@@ -128,7 +128,13 @@ export default function Publicacoes() {
     setSelectedPub(pub);
 
     // Anti-duplicata: se o processo já estiver cadastrado, apenas vincula a publicação.
-    const processoExistenteId = await findProcessoIdByCnj(pub.numero_processo);
+    let processoExistenteId: string | null;
+    try {
+      processoExistenteId = await findProcessoIdByCnj(pub.numero_processo);
+    } catch (e) {
+      toast({ title: "Não foi possível verificar o processo", description: `${getErrorMessage(e)} Tente de novo para não cadastrar em dobro.`, variant: "destructive" });
+      return;
+    }
     if (processoExistenteId) {
       setDetailDialogOpen(false);
       const ok = await linkPublicacaoToProcesso(pub.id, processoExistenteId);
@@ -232,6 +238,9 @@ export default function Publicacoes() {
   // Volta pra página 1 sempre que um filtro muda (senão o usuário podia ficar
   // preso numa página 4 vazia depois de estreitar os filtros).
   useEffect(() => { setPage(1); }, [dSearch, filters.status, filters.urgencia, filters.vinculo, filters.dateRange]);
+  // Seleção vale só para o que está na tela: sem isto, itens marcados numa página/
+  // filtro anterior continuavam selecionados (invisíveis) e entravam na ação em lote.
+  useEffect(() => { setSelectedIds([]); }, [page, dSearch, filters.status, filters.urgencia, filters.vinculo, filters.dateRange]);
 
   const { data: filteredPublications, total: totalFiltered, loading, error: listaError, refetch: refetchLista } = usePublicacoesLista({
     page,
@@ -416,7 +425,15 @@ export default function Publicacoes() {
         </div>
       </div>
 
-      <PublicationSummary stats={stats} loading={statsLoading} onCardClick={handleCardClick} />
+      {statsError ? (
+        // Com erro, os cards mostrariam 0 como número real.
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          <span>Não foi possível carregar os contadores das publicações.</span>
+          <Button size="sm" variant="outline" onClick={refetchStats} className="rounded-xl">Tentar novamente</Button>
+        </div>
+      ) : (
+        <PublicationSummary stats={stats} loading={statsLoading} onCardClick={handleCardClick} />
+      )}
 
       <div className="space-y-6">
         <div className="flex flex-col gap-4">
@@ -567,6 +584,11 @@ export default function Publicacoes() {
                 <p className="text-sm text-muted-foreground/60 font-medium">{listaError}</p>
               </div>
               <Button variant="outline" onClick={() => refetchLista()} className="rounded-xl font-bold">Tentar novamente</Button>
+            </div>
+          ) : loading && filteredPublications.length === 0 ? (
+            // Antes o carregamento mostrava "Caixa de Entrada Vazia" até a lista chegar.
+            <div className="space-y-3">
+              {[...Array(5)].map((_, i) => <div key={i} className="h-16 rounded-2xl bg-muted/30 animate-pulse" />)}
             </div>
           ) : filteredPublications.length === 0 ? (
             <div className="py-24 text-center glass-card rounded-[3rem] bg-black/[0.02] dark:bg-card/30 space-y-6 border-black/5 dark:border-border shadow-inner">
