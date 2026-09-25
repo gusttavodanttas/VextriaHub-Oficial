@@ -2430,12 +2430,15 @@ consequência direta do #1 em quase todos os pontos acima (ex.: "Exclusão
 aprovada" em `exclusoes_pendentes` mesmo com o update de status bloqueado;
 "OAB removida" com a linha intocada).
 
-**#4 — Gate de permissão ausente onde a permissão já existe.** Achado
-mais grave desta rodada: **a rota `/pagamento` está fora do
-`PrivateRoute` e sem `PermissionGuard`** (`App.tsx:368`) — visitante
-anônimo abre a página de planos, e qualquer membro comum do escritório
-pode gerar cobrança de assinatura pra ele inteiro, apesar de
-`canManageOffice`/`canManageSubscriptions` já existirem. Mais achados do
+**#4 — Gate de permissão ausente onde a permissão já existe.** A rota
+**`/pagamento` estava fora do `PrivateRoute`** (`App.tsx:368`) —
+visitante anônimo abria a página de planos, e o membro comum preenchia o
+formulário inteiro para levar um erro. *Correção de leitura, feita ao
+implementar a PR #92:* a primeira versão deste texto dizia que qualquer
+membro podia gerar cobrança — não procede, a edge function
+`asaas-billing` já recusa quem não é admin/owner com 403
+(`asaas-billing/index.ts:56-63`); o problema era de rota e de UX (o 403
+ainda era traduzido como "sua sessão expirou"), não de autorização. Mais achados do
 mesmo padrão: os `canView*` de Agenda/Prazos/Audiências/Tarefas existem
 mas nenhuma das 5 rotas usa (`App.tsx`, só `PrivateRoute` puro); ações
 "atalho" sem o gate que a ação principal já tem (botão-círculo de concluir
@@ -2522,9 +2525,9 @@ impeça a recorrência (não só mais um PR pontual):
    `useOfficeSettingValue` (propagar erro do load, bloquear save/persist
    enquanto `error`, `.select('id')` + `assertRowsAffected` no write) — e
    a releitura interna desses dois hooks precisa do mesmo tratamento.
-3. **`/pagamento` fora de `PrivateRoute`/sem gate é o achado de maior
-   risco de negócio** — deveria ser tratado como correção isolada e
-   imediata, não esperar um lote.
+3. **`/pagamento` fora de `PrivateRoute`** — correção isolada e
+   imediata (PR #92). O servidor já bloqueava a cobrança por não-admin;
+   o risco era de rota e de mensagem enganosa, não de autorização.
 4. **Padrão #1 (linhas afetadas) nos pontos financeiros** (`useTimesheet`
    estorno/compensação, `useFinanceiro.cancelarGrupo`) tem prioridade
    sobre o resto do padrão #1 por envolver dinheiro real.
