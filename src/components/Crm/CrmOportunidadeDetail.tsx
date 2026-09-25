@@ -22,6 +22,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { PermissionGuard } from "@/components/Auth/PermissionGuard";
 import { useToast } from "@/hooks/use-toast";
 import { assertRowsAffected, getErrorMessage } from "@/lib/errors";
+import { planQuotaMessage } from "@/lib/planQuotaError";
 import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -35,10 +36,11 @@ interface Props {
 
 export function CrmOportunidadeDetail({ onBack, opportunity }: Props) {
   const { user } = useAuth();
-  const { canEditAtendimentos } = usePermissions();
+  const { canEditAtendimentos, canCreateAtendimentos } = usePermissions();
   const { toast } = useToast();
   const [historyItems, setHistoryItems] = useState<Atendimento[]>([]);
   const [loading, setLoading] = useState(true);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<Atendimento | null>(null);
   const [editingHistoryItem, setEditingHistoryItem] = useState<Atendimento | null>(null);
   const [showNewHistoryDialog, setShowNewHistoryDialog] = useState(false);
@@ -53,21 +55,25 @@ export function CrmOportunidadeDetail({ onBack, opportunity }: Props) {
   });
 
   const fetchHistory = async () => {
-    if (!opportunity?.id) return;
+    if (!opportunity?.id || !user?.office_id) return;
     
     try {
       setLoading(true);
+      setHistoryError(null);
       const { data: interactions, error: fetchError } = await supabase
         .from('atendimentos')
         .select('*')
         .eq('cliente_id', opportunity.id)
+        .eq('office_id', user.office_id)
         .eq('deletado', false)
         .order('data_atendimento', { ascending: false });
 
       if (fetchError) throw fetchError;
       setHistoryItems(interactions || []);
     } catch (err) {
-      console.error('Erro ao buscar histórico:', err);
+      // Antes só ia pro console e a tela mostrava "Sem histórico" — como se o lead
+      // nunca tivesse sido contatado.
+      setHistoryError(getErrorMessage(err, 'Não foi possível carregar o histórico.'));
     } finally {
       setLoading(false);
     }
@@ -75,10 +81,10 @@ export function CrmOportunidadeDetail({ onBack, opportunity }: Props) {
 
   useEffect(() => {
     fetchHistory();
-  }, [opportunity?.id]);
+  }, [opportunity?.id, user?.office_id]);
 
   const handleCreateNewHistory = async () => {
-    if (!user?.office_id || !opportunity?.id) return;
+    if (!user?.office_id || !opportunity?.id || !canCreateAtendimentos) return;
 
     try {
       const { data, error } = await supabase
@@ -112,10 +118,10 @@ export function CrmOportunidadeDetail({ onBack, opportunity }: Props) {
         status: 'realizado'
       });
     } catch (err) {
-      console.error('Erro ao criar histórico:', err);
+      const quota = planQuotaMessage(err);
       toast({
-        title: "Erro ao salvar",
-        description: "Não foi possível salvar a interação.",
+        title: quota?.title ?? "Erro ao salvar",
+        description: quota?.description ?? getErrorMessage(err, "Não foi possível salvar a interação."),
         variant: "destructive"
       });
     }
@@ -148,10 +154,9 @@ export function CrmOportunidadeDetail({ onBack, opportunity }: Props) {
       ));
       setEditingHistoryItem(null);
     } catch (err) {
-      console.error('Erro ao editar histórico:', err);
       toast({
         title: "Erro ao atualizar",
-        description: "Não foi possível salvar as alterações.",
+        description: getErrorMessage(err, "Não foi possível salvar as alterações."),
         variant: "destructive"
       });
     }
@@ -278,16 +283,23 @@ export function CrmOportunidadeDetail({ onBack, opportunity }: Props) {
                 <CardTitle className="text-lg font-bold">Linha do Tempo</CardTitle>
                 <CardDescription className="text-xs font-medium uppercase tracking-widest opacity-60">Histórico de interações e follow-ups</CardDescription>
               </div>
-              <Button onClick={() => setShowNewHistoryDialog(true)} size="sm" className="rounded-xl font-bold shadow-lg shadow-primary/20">
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Interação
-              </Button>
+              {canCreateAtendimentos && (
+                <Button onClick={() => setShowNewHistoryDialog(true)} size="sm" className="rounded-xl font-bold shadow-lg shadow-primary/20">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nova Interação
+                </Button>
+              )}
             </CardHeader>
             <CardContent className="p-6">
               {loading ? (
                 <div className="flex flex-col items-center justify-center py-12 gap-4">
                   <Loader2 className="h-8 w-8 animate-spin text-primary/40" />
                   <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground opacity-40">Carregando interações...</p>
+                </div>
+              ) : historyError ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
+                  <p className="text-sm font-bold text-destructive">{historyError}</p>
+                  <Button variant="outline" size="sm" className="rounded-xl font-bold" onClick={fetchHistory}>Tentar novamente</Button>
                 </div>
               ) : historyItems.length > 0 ? (
                 <div className="space-y-6 relative before:absolute before:left-6 before:top-2 before:bottom-2 before:w-px before:bg-black/5 dark:before:bg-muted/40">
@@ -348,9 +360,11 @@ export function CrmOportunidadeDetail({ onBack, opportunity }: Props) {
                       Registre a primeira interação para começar a construir a jornada deste lead.
                     </p>
                   </div>
-                  <Button variant="outline" size="sm" className="rounded-xl font-bold mt-2" onClick={() => setShowNewHistoryDialog(true)}>
-                    Registrar Agora
-                  </Button>
+                  {canCreateAtendimentos && (
+                    <Button variant="outline" size="sm" className="rounded-xl font-bold mt-2" onClick={() => setShowNewHistoryDialog(true)}>
+                      Registrar Agora
+                    </Button>
+                  )}
                 </div>
               )}
             </CardContent>

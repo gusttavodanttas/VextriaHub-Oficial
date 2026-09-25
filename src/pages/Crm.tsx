@@ -287,7 +287,7 @@ export default function Crm() {
               <UserCheck className="h-5 w-5 text-primary" />
             </div>
           </div>
-          <p className="text-4xl font-black text-foreground">{loading ? <Loader2 className="h-8 w-8 animate-spin" /> : leads.length}</p>
+          <p className="text-4xl font-black text-foreground">{loading ? <Loader2 className="h-8 w-8 animate-spin" /> : error ? "—" : leads.length}</p>
           <p className="text-xs font-bold text-muted-foreground/40 mt-2 uppercase tracking-tighter">Leads em observação</p>
         </div>
         
@@ -298,7 +298,7 @@ export default function Crm() {
               <Phone className="h-5 w-5 text-orange-500" />
             </div>
           </div>
-          <p className="text-4xl font-black text-orange-500">{loading ? <Loader2 className="h-8 w-8 animate-spin" /> : hotLeadsCount}</p>
+          <p className="text-4xl font-black text-orange-500">{loading ? <Loader2 className="h-8 w-8 animate-spin" /> : error ? "—" : hotLeadsCount}</p>
           <p className="text-xs font-bold text-muted-foreground/40 mt-2 uppercase tracking-tighter">Potencial de contrato imediato</p>
         </div>
 
@@ -309,7 +309,7 @@ export default function Crm() {
               <TrendingUp className="h-5 w-5 text-emerald-500" />
             </div>
           </div>
-          <p className="text-4xl font-black text-emerald-500">{loading ? <Loader2 className="h-8 w-8 animate-spin" /> : `${conversionRate}%`}</p>
+          <p className="text-4xl font-black text-emerald-500">{loading ? <Loader2 className="h-8 w-8 animate-spin" /> : error ? "—" : `${conversionRate}%`}</p>
           <p className="text-xs font-bold text-muted-foreground/40 mt-2 uppercase tracking-tighter">Convertidos sobre o total da base</p>
         </div>
  
@@ -320,13 +320,14 @@ export default function Crm() {
               <BarChart3 className="h-5 w-5 text-primary" />
             </div>
           </div>
-          <p className="text-3xl font-black text-gradient truncate">{loading ? <Loader2 className="h-8 w-8 animate-spin" /> : brl(pipelineValue)}</p>
+          <p className="text-3xl font-black text-gradient truncate">{loading ? <Loader2 className="h-8 w-8 animate-spin" /> : error ? "—" : brl(pipelineValue)}</p>
           <p className="text-xs font-bold text-muted-foreground/40 mt-2 uppercase tracking-tighter">Soma do valor estimado dos leads</p>
         </div>
       </div>
 
-      {/* Robô do CRM — contatos de hoje + leads esfriando */}
-      {!loading && (
+      {/* Robô do CRM — contatos de hoje + leads esfriando (oculto se a base não carregou:
+          com lista vazia ele diria "CRM em dia"). */}
+      {!loading && !error && (
         <CrmRoboBox data={allClientes} refresh={refresh} remetente={(profile as any)?.full_name} onOpenLead={handleOpportunityClick} />
       )}
 
