@@ -30,7 +30,7 @@ export const ProcessoIntegracaoPanel: React.FC<ProcessoIntegracaoPanelProps> = (
   onSuccess,
 }) => {
   const isDialogMode = open !== undefined;
-  const { create } = useProcessosV2();
+  const { create } = useProcessosV2({ lista: false });
 
   // Lida tanto com array (vindo do JudicialSyncContent) quanto objeto (vindo do form manual)
   const handleAdd = async (input: any) => {

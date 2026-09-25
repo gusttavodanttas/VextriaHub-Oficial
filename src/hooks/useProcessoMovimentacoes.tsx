@@ -27,7 +27,7 @@ interface AndamentoConfirmState { all: any[]; novos: any[]; meta: any; processoI
  */
 export function useProcessoMovimentacoes(processo: Processo | null, open: boolean) {
   const { user, profile } = useAuth();
-  const { persistAndamentos } = useProcessosV2();
+  const { persistAndamentos } = useProcessosV2({ lista: false });
   const { canDeleteProcesses } = usePermissions();
   const { toast } = useToast();
   const queryClient = useQueryClient();

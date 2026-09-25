@@ -84,7 +84,7 @@ const Processos = () => {
   const { teams: myTeams, isAnyCoordinator, coordinatedMemberIds } = useMyTeams();
   const { count: encontradosCount, refetch: refetchEncontrados } = useProcessosEncontrados();
 
-  const { requestDelete } = useProcessosV2();
+  const { requestDelete } = useProcessosV2({ lista: false });
   const queryClient = useQueryClient();
   const refresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['processos'] });

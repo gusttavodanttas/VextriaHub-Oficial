@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { onlyDigits } from "@/lib/document";
 import { NovoClienteDialog } from "@/components/Clientes/NovoClienteDialog";
 import { planQuotaMessage } from "@/lib/planQuotaError";
+import { getErrorMessage } from "@/lib/errors";
 
 interface ClientSelectProps {
   value: string; // client_id
@@ -24,6 +25,7 @@ export const ClientSelect: React.FC<ClientSelectProps> = ({ value, onValueChange
   const [createOpen, setCreateOpen] = useState(false);
   const [createName, setCreateName] = useState('');
   const [clients, setClients] = useState<{ id: string, nome: string }[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
@@ -37,7 +39,11 @@ export const ClientSelect: React.FC<ClientSelectProps> = ({ value, onValueChange
       .eq('office_id', user.office_id)
       .eq('deletado', false)
       .order('nome');
-    if (!error) setClients(data || []);
+    // Antes o erro deixava a lista vazia: o nome digitado "não existia" e o
+    // componente oferecia cadastrar — cliente duplicado. Agora bloqueia o cadastro.
+    if (error) { setLoadError(getErrorMessage(error, 'Não foi possível carregar os clientes.')); return; }
+    setLoadError(null);
+    setClients(data || []);
   }, [user?.office_id]);
 
   useEffect(() => { fetchClients(); }, [fetchClients]);
@@ -75,6 +81,7 @@ export const ClientSelect: React.FC<ClientSelectProps> = ({ value, onValueChange
   const pick = (id: string, nome: string) => { onValueChange(id, nome); setQuery(nome); setOpen(false); };
 
   const openCreate = () => {
+    if (loadError) return;
     // Dedup: se o nome digitado bate com um cliente existente, SELECIONA em vez de
     // abrir o cadastro (senão vira cliente duplicado).
     if (exactMatch) { pick(exactMatch.id, exactMatch.nome); return; }
@@ -93,6 +100,20 @@ export const ClientSelect: React.FC<ClientSelectProps> = ({ value, onValueChange
       toast({ title: "Cliente já cadastrado", description: `${dupe.nome} foi selecionado (não dupliquei).` });
       return true;
     }
+    // Confere no banco também: a lista em memória pode estar cortada (limite de
+    // linhas do PostgREST) e não conter o cliente homônimo.
+    const { data: noBanco, error: dupErr } = await supabase.from('clientes').select('id, nome')
+      .eq('office_id', user.office_id).eq('deletado', false).ilike('nome', String(c.name || '').trim()).limit(1);
+    if (dupErr) {
+      toast({ title: "Erro ao cadastrar cliente", description: getErrorMessage(dupErr), variant: "destructive" });
+      return false;
+    }
+    if (noBanco?.[0]) {
+      onValueChange(noBanco[0].id, noBanco[0].nome);
+      setQuery(noBanco[0].nome);
+      toast({ title: "Cliente já cadastrado", description: `${noBanco[0].nome} foi selecionado (não dupliquei).` });
+      return true;
+    }
     const payload = {
       nome: c.name, email: c.email || null, telefone: c.phone || null,
       cpf_cnpj: onlyDigits(c.cpfCnpj) || null, tipo_pessoa: c.tipoPessoa,
@@ -103,7 +124,7 @@ export const ClientSelect: React.FC<ClientSelectProps> = ({ value, onValueChange
     const { data: created, error } = await supabase.from('clientes').insert(payload).select('id, nome').single();
     if (error || !created) {
       const quota = planQuotaMessage(error);
-      toast(quota ? { ...quota, variant: "destructive" } : { title: "Erro ao cadastrar cliente", description: error?.message, variant: "destructive" });
+      toast(quota ? { ...quota, variant: "destructive" } : { title: "Erro ao cadastrar cliente", description: getErrorMessage(error), variant: "destructive" });
       return false;
     }
     await fetchClients();
@@ -138,6 +159,12 @@ export const ClientSelect: React.FC<ClientSelectProps> = ({ value, onValueChange
         {open && (
           <div className="absolute z-50 mt-1 w-full rounded-xl border border-border bg-popover text-popover-foreground shadow-lg overflow-hidden">
             <div className="max-h-60 overflow-y-auto py-1">
+              {loadError && (
+                <div className="px-3 py-2 text-xs text-destructive flex items-center justify-between gap-2">
+                  <span>{loadError}</span>
+                  <button type="button" onClick={() => fetchClients()} className="font-bold underline shrink-0">Tentar de novo</button>
+                </div>
+              )}
               {filtered.map((client) => (
                 <button
                   key={client.id}
@@ -149,12 +176,12 @@ export const ClientSelect: React.FC<ClientSelectProps> = ({ value, onValueChange
                   <span className="truncate">{client.nome}</span>
                 </button>
               ))}
-              {filtered.length === 0 && (
+              {!loadError && filtered.length === 0 && (
                 <p className="px-3 py-2 text-xs text-muted-foreground/60">
                   {query.trim() ? `Nenhum cliente com "${query.trim()}".` : "Nenhum cliente cadastrado."}
                 </p>
               )}
-              {exactMatch ? (
+              {loadError ? null : exactMatch ? (
                 <p className="px-3 py-2 text-xs text-emerald-600 dark:text-emerald-400 border-t border-border mt-1 flex items-center gap-2">
                   <Check className="h-4 w-4 shrink-0" /> Já cadastrado — clique no nome acima para vincular.
                 </p>

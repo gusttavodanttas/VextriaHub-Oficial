@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { format } from 'date-fns';
 import { useCorrespondentes, type Correspondente, type Diligencia, type DiligenciaStatus, type DiligenciaTipo } from '@/hooks/useCorrespondentes';
 import { useProcessosV2 } from '@/hooks/useProcessosV2';
 import { useAuth } from '@/contexts/AuthContext';
@@ -158,8 +159,11 @@ const DiligenciaDialog: React.FC<{
     const ok = await onSave(editing?.id, patch).then(() => true).catch(() => false);
     if (ok) onOpenChange(false);
   };
-  const dataDefault = editing?.data_diligencia ? String(editing.data_diligencia).slice(0, 10) : '';
-  const horaDefault = editing?.data_diligencia ? new Date(editing.data_diligencia).toISOString().slice(11, 16) : '';
+  // Horário LOCAL: o save monta `new Date(`${data}T${hora}`)` (local) — preencher com
+  // UTC (toISOString) deslocava a diligência 3h (BRT) a cada edição salva.
+  const dataLocal = editing?.data_diligencia ? new Date(editing.data_diligencia) : null;
+  const dataDefault = dataLocal ? format(dataLocal, 'yyyy-MM-dd') : '';
+  const horaDefault = dataLocal ? format(dataLocal, 'HH:mm') : '';
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent aria-describedby={undefined} className="max-w-lg rounded-3xl">
@@ -327,10 +331,13 @@ const CorrespondenteCard: React.FC<{
 const Correspondentes: React.FC = () => {
   const { isOfficeAdmin, isSuperAdmin } = useAuth();
   const {
-    correspondentes, diligencias, statsByCorrespondente, loading,
+    correspondentes, diligencias, statsByCorrespondente, loading, error, refetch,
     saveCorrespondente, deleteCorrespondente, savingCorrespondente,
-    saveDiligencia, patchDiligencia, deleteDiligencia, savingDiligencia,
+    saveDiligencia, patchDiligencia: patchDiligenciaAsync, deleteDiligencia, savingDiligencia,
   } = useCorrespondentes();
+  // mutateAsync rejeita em falha; o onError do hook já mostra o toast. O catch aqui
+  // só evita a rejeição sem handler (unhandledrejection → Sentry/console).
+  const patchDiligencia = (id: string, patch: Partial<Diligencia>) => { patchDiligenciaAsync(id, patch).catch(() => undefined); };
   const { data: processos } = useProcessosV2();
 
   const [tab, setTab] = useState<'diligencias' | 'correspondentes'>('diligencias');
@@ -425,6 +432,12 @@ const Correspondentes: React.FC = () => {
 
       {loading ? (
         <div className="py-20 flex justify-center"><RotateCw className="h-6 w-6 animate-spin text-primary" /></div>
+      ) : error ? (
+        <div className="py-16 flex flex-col items-center gap-3 text-center">
+          <p className="font-bold">Não foi possível carregar os correspondentes</p>
+          <p className="text-sm text-muted-foreground">{error}</p>
+          <Button variant="outline" onClick={refetch} className="rounded-xl font-bold">Tentar novamente</Button>
+        </div>
       ) : tab === 'diligencias' ? (
         <div className="space-y-5">
           {/* KPIs */}
@@ -504,10 +517,10 @@ const Correspondentes: React.FC = () => {
 
       <DeleteConfirmDialog open={!!delCorr} onOpenChange={(o) => { if (!o) setDelCorr(null); }}
         title="Remover correspondente" description={`Remover "${delCorr?.nome}"? As diligências ficam no histórico, sem vínculo.`}
-        onConfirm={async () => { if (delCorr) await deleteCorrespondente(delCorr.id); setDelCorr(null); }} />
+        onConfirm={async () => { try { if (delCorr) await deleteCorrespondente(delCorr.id); } catch { /* toast já exibido pelo onError do hook */ } finally { setDelCorr(null); } }} />
       <DeleteConfirmDialog open={!!delDil} onOpenChange={(o) => { if (!o) setDelDil(null); }}
         title="Excluir diligência" description="Excluir esta diligência? Esta ação não pode ser desfeita."
-        onConfirm={async () => { if (delDil) await deleteDiligencia(delDil.id); setDelDil(null); }} />
+        onConfirm={async () => { try { if (delDil) await deleteDiligencia(delDil.id); } catch { /* toast já exibido pelo onError do hook */ } finally { setDelDil(null); } }} />
     </div>
   );
 };

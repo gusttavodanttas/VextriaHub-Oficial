@@ -373,7 +373,7 @@ export default function ConsultivoPage() {
     label: u.profile?.full_name || u.profile?.email || "Membro",
   })), [officeUsers]);
   const {
-    data: categorias, loading: catLoading,
+    data: categorias, loading: catLoading, error: catError, refetch: refetchCat,
     create: createCat, update: updateCat, remove: removeCat,
   } = useConsultivoCategorias();
   const categoriaValoresEmUso = useConsultivoCategoriaValoresEmUso();
@@ -393,20 +393,12 @@ export default function ConsultivoPage() {
   const [editItem, setEditItem] = useState<Consultivo | null>(null);
   const [form, setForm] = useState({ ...BLANK_FORM });
   const [saving, setSaving] = useState(false);
-  const [clientes, setClientes] = useState<{ id: string; nome: string }[]>([]);
 
   useEffect(() => {
     const s = location.state;
     if (s?.clientFilter) setFiltroClienteNome(s.clientFilter);
     if (s?.clientId) setFiltroClienteId(s.clientId);
   }, [location]);
-
-  useEffect(() => {
-    if (!user?.office_id) return;
-    supabase.from("clientes").select("id, nome")
-      .eq("office_id", user.office_id).eq("deletado", false).order("nome")
-      .then(({ data: rows }) => setClientes(rows || []));
-  }, [user?.office_id]);
 
   // Volta pra página 1 sempre que um filtro muda — senão o usuário pode ficar
   // numa página que não existe mais para o novo recorte.
@@ -627,6 +619,14 @@ export default function ConsultivoPage() {
             </SelectContent>
           </Select>
         </div>
+
+        {catError && (
+          <div className="flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-400">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span className="flex-1">Categorias não carregaram ({catError}) — os consultivos podem aparecer sem categoria.</span>
+            <Button size="sm" variant="outline" onClick={() => refetchCat()} className="h-7 rounded-lg text-xs">Tentar de novo</Button>
+          </div>
+        )}
 
         {/* list */}
         {loading ? (

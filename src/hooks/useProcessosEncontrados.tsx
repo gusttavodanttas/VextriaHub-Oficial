@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { tribunalFromCNJ } from "@/utils/tribunalCNJ";
+import { assertRowsAffected, getErrorMessage } from "@/lib/errors";
 
 export interface ProcessoEncontrado {
   id: string;
@@ -19,15 +20,23 @@ export function useProcessosEncontrados() {
   const { user } = useAuth();
   const [items, setItems] = useState<ProcessoEncontrado[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetch = useCallback(async () => {
-    if (!user?.office_id) { setItems([]); setLoading(false); return; }
+    if (!user?.office_id) { setItems([]); setError(null); setLoading(false); return; }
     setLoading(true);
-    const { data } = await supabase
+    const { data, error: fetchError } = await supabase
       .from("processos_encontrados")
       .select("*")
       .eq("office_id", user.office_id)
       .order("created_at", { ascending: false });
+    // Antes a falha virava "Nenhum processo encontrado aguardando".
+    if (fetchError) {
+      setError(getErrorMessage(fetchError, "Não foi possível carregar os processos encontrados."));
+      setLoading(false);
+      return;
+    }
+    setError(null);
     setItems((data as any) || []);
     setLoading(false);
   }, [user?.office_id]);
@@ -35,8 +44,11 @@ export function useProcessosEncontrados() {
   useEffect(() => { fetch(); }, [fetch]);
 
   // Remove do staging (após aprovar/importar)
+  // Lança se não removeu: senão o item continuava na caixa (volta no F5) e podia
+  // ser "Adicionado" de novo — processo duplicado.
   const remover = useCallback(async (id: string) => {
-    await supabase.from("processos_encontrados").delete().eq("id", id);
+    const { data, error: delError } = await supabase.from("processos_encontrados").delete().eq("id", id).select("id");
+    assertRowsAffected(data, delError, 1);
     setItems((prev) => prev.filter((i) => i.id !== id));
   }, []);
 
@@ -62,8 +74,14 @@ export function useProcessosEncontrados() {
       throw new Error(error.message || "Falha ao registrar descarte");
     }
     // Registrado (ou já estava) → remove do staging definitivamente
-    await supabase.from("processos_encontrados").delete().eq("id", item.id);
+    const { data, error: delError } = await supabase.from("processos_encontrados").delete().eq("id", item.id).select("id");
+    try {
+      assertRowsAffected(data, delError, 1);
+    } catch (e) {
+      setItems((prev) => [item, ...prev]);
+      throw new Error(`O descarte foi registrado, mas o item não saiu da caixa: ${getErrorMessage(e)}`);
+    }
   }, [user?.office_id, user?.id]);
 
-  return { items, count: items.length, loading, refetch: fetch, remover, descartar };
+  return { items, count: items.length, loading, error, refetch: fetch, remover, descartar };
 }

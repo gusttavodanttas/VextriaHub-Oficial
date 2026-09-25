@@ -4,7 +4,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { usePermissions } from '@/hooks/usePermissions';
 import { planQuotaMessage } from '@/lib/planQuotaError';
-import { assertRowsAffected } from '@/lib/errors';
+import { assertRowsAffected, getErrorMessage } from '@/lib/errors';
+import { useQueryClient } from '@tanstack/react-query';
 import { Cliente, NovoCliente, DatabaseHookResult, ClienteComProcessos } from '@/types/database';
 import type { TablesInsert, TablesUpdate } from '@/integrations/supabase/rows';
 import type { Json } from '@/integrations/supabase/types';
@@ -16,6 +17,30 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
   const { user, isAdmin, isOfficeAdmin, isSuperAdmin } = useAuth();
   const permissions = usePermissions();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  // A página de Clientes lê a lista paginada e as contagens via TanStack Query
+  // (chaves ["clientes", ...]); este hook é useState — sem invalidar, a tela seguia
+  // mostrando o cliente excluído/antigo e os cards com o número velho.
+  const invalidarListas = () => queryClient.invalidateQueries({ queryKey: ['clientes'] });
+
+  // Snapshot dos registros para a solicitação de exclusão. Busca no banco o que não
+  // estiver na lista em memória (limitada a 1000): antes, cliente fora dela ficava
+  // com deletado_pendente=true SEM solicitação — sumia sem o admin ter o que aprovar.
+  const snapshotsParaExclusao = async (ids: string[], officeId: string) => {
+    const emMemoria = data.filter(item => ids.includes(item.id));
+    const faltando = ids.filter(id => !emMemoria.some(r => r.id === id));
+    if (!faltando.length) return emMemoria;
+    const { data: extra, error } = await supabase.from('clientes').select('*').in('id', faltando).eq('office_id', officeId);
+    if (error) throw error;
+    return [...emMemoria, ...((extra || []) as unknown as ClienteComProcessos[])];
+  };
+
+  // Pedido de exclusão que não conseguiu registrar a solicitação: desfaz o
+  // deletado_pendente para o cliente não sumir sem nada para o admin aprovar.
+  const reverterPendente = async (ids: string[], officeId: string) => {
+    const { error } = await supabase.from('clientes').update({ deletado_pendente: false }).in('id', ids).eq('office_id', officeId);
+    if (error) throw new Error(`A solicitação não foi registrada e os clientes ficaram ocultos — peça ao administrador para restaurá-los na Lixeira. (${getErrorMessage(error)})`);
+  };
 
   const fetchData = async () => {
     if (!user || !user.office_id) {
@@ -45,11 +70,10 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
       setData(result || []);
       setError(null);
     } catch (err) {
-      console.error('Erro ao buscar clientes:', err);
-      setError(err instanceof Error ? err.message : 'Erro desconhecido');
+      setError(getErrorMessage(err, 'Erro desconhecido'));
       toast({
         title: 'Erro ao carregar clientes',
-        description: 'Não foi possível carregar a lista de clientes.',
+        description: getErrorMessage(err, 'Não foi possível carregar a lista de clientes.'),
         variant: 'destructive',
       });
     } finally {
@@ -82,6 +106,7 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
       if (error) throw error;
 
       setData(prev => [result, ...prev]);
+      invalidarListas();
       toast({
         title: 'Cliente criado',
         description: 'O cliente foi criado com sucesso.',
@@ -89,11 +114,10 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
       
       return result;
     } catch (err) {
-      console.error('Erro ao criar cliente:', err);
       const quota = planQuotaMessage(err);
       toast({
         title: quota?.title ?? 'Erro ao criar cliente',
-        description: quota?.description ?? 'Não foi possível criar o cliente.',
+        description: quota?.description ?? getErrorMessage(err, 'Não foi possível criar o cliente.'),
         variant: 'destructive',
       });
       return null;
@@ -113,26 +137,28 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
         .update(payload)
         .eq('id', id)
         .eq('office_id', officeId)
-        .select()
-        .single();
+        .select();
 
-      if (error) throw error;
+      // Sem .single(): 0 linhas (RLS) vira a mensagem de permissão do helper, em vez
+      // do PGRST116 genérico.
+      assertRowsAffected(result, error, 1);
+      const row = result![0];
 
       setData(prev => prev.map(item => 
-        item.id === id ? { ...item, ...result } : item
+        item.id === id ? { ...item, ...row } : item
       ));
+      invalidarListas();
 
       toast({
         title: 'Cliente atualizado',
         description: 'O cliente foi atualizado com sucesso.',
       });
       
-      return result;
+      return row;
     } catch (err) {
-      console.error('Erro ao atualizar cliente:', err);
       toast({
         title: 'Erro ao atualizar cliente',
-        description: 'Não foi possível atualizar o cliente.',
+        description: getErrorMessage(err, 'Não foi possível atualizar o cliente.'),
         variant: 'destructive',
       });
       return null;
@@ -148,8 +174,8 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
     const officeId = user.office_id;
 
     try {
-      const recordToDelete = data.find(item => item.id === id);
-      if (!recordToDelete) return false;
+      const [recordToDelete] = await snapshotsParaExclusao([id], officeId);
+      if (!recordToDelete) throw new Error('Cliente não encontrado.');
 
       const hasAdminRights = isAdmin || isOfficeAdmin || isSuperAdmin;
 
@@ -193,7 +219,10 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
             }
           ]);
 
-        if (exclusionError) throw exclusionError;
+        if (exclusionError) {
+          await reverterPendente([id], officeId);
+          throw exclusionError;
+        }
 
         setData(prev => prev.filter(item => item.id !== id));
 
@@ -202,14 +231,12 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
           description: 'Sua solicitação foi enviada para aprovação do administrador.',
         });
       }
-      
-      
+      invalidarListas();
       return true;
     } catch (err) {
-      console.error('Erro ao solicitar exclusão:', err);
       toast({
         title: 'Erro ao solicitar exclusão',
-        description: err instanceof Error ? err.message : 'Não foi possível processar a solicitação de exclusão.',
+        description: getErrorMessage(err, 'Não foi possível processar a solicitação de exclusão.'),
         variant: 'destructive',
       });
       return false;
@@ -221,7 +248,6 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
     const officeId = user.office_id;
 
     try {
-      const recordsToDelete = data.filter(item => ids.includes(item.id));
       const hasAdminRights = isAdmin || isOfficeAdmin || isSuperAdmin;
 
       if (hasAdminRights) {
@@ -243,6 +269,7 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
         });
       } else {
         // Pending Deletion for non-admins
+        const recordsToDelete = await snapshotsParaExclusao(ids, officeId);
         const { data: updated, error: updateError } = await supabase
           .from('clientes')
           .update({ deletado_pendente: true })
@@ -264,7 +291,10 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
           .from('exclusoes_pendentes')
           .insert(exclusionRecords);
 
-        if (exclusionError) throw exclusionError;
+        if (exclusionError) {
+          await reverterPendente(ids, officeId);
+          throw exclusionError;
+        }
 
         setData(prev => prev.filter(item => !ids.includes(item.id)));
 
@@ -273,13 +303,12 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
           description: `${ids.length} solicitação(ões) enviadas para aprovação do administrador.`,
         });
       }
-      
+      invalidarListas();
       return true;
     } catch (err) {
-      console.error('Erro ao solicitar exclusões múltiplas:', err);
       toast({
         title: 'Erro ao solicitar exclusões',
-        description: err instanceof Error ? err.message : 'Não foi possível processar as solicitações de exclusão.',
+        description: getErrorMessage(err, 'Não foi possível processar as solicitações de exclusão.'),
         variant: 'destructive',
       });
       return false;

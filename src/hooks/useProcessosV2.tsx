@@ -7,6 +7,7 @@ import { Processo } from '@/types/processo';
 import type { TablesInsert, TablesUpdate } from '@/integrations/supabase/rows';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getErrorMessage } from '@/lib/errors';
+import { captureError } from '@/lib/monitoring';
 import { planQuotaMessage } from '@/lib/planQuotaError';
 
 // Map database row -> frontend Processo. Módulo-level (não recriada por render)
@@ -53,7 +54,13 @@ export const mapDatabaseToProcesso = (dbRecord: any): Processo => {
   };
 };
 
-export function useProcessosV2() {
+/**
+ * @param opts.lista  false para quem só usa as mutations (create/update/delete/
+ *   persistAndamentos): sem isto, cada drawer/dialog que abria disparava o fetch de
+ *   TODOS os processos do escritório só para ter acesso ao `create`.
+ */
+export function useProcessosV2(opts: { lista?: boolean } = {}) {
+  const lista = opts.lista ?? true;
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -91,7 +98,7 @@ export function useProcessosV2() {
         throw e;
       }
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && lista,
     staleTime: 0,
     gcTime: 60000,
     retry: 1,
@@ -164,13 +171,15 @@ export function useProcessosV2() {
       let existing: { id: string } | null = null;
       if (numeroLimpo && user.office_id) {
         const officeId = user.office_id;
-        const { data } = await supabase
+        const { data, error: lookupError } = await supabase
           .from('processos')
           .select('id')
           .eq('office_id', officeId)
           .eq('numero_processo', numeroLimpo)
           .eq('deletado', false)
           .maybeSingle();
+        // Falha aqui virava "não existe" → insert duplicado.
+        if (lookupError) throw lookupError;
         existing = data;
       }
 
@@ -253,15 +262,16 @@ export function useProcessosV2() {
     // Se officeId não veio do caller, busca pelo próprio processo como fallback
     let resolvedOfficeId = officeId;
     if (!resolvedOfficeId) {
-      const { data: proc } = await supabase
+      const { data: proc, error: procError } = await supabase
         .from('processos')
         .select('office_id')
         .eq('id', processoId)
         .maybeSingle();
+      if (procError) captureError(procError, { context: 'persistAndamentos: office do processo', processoId });
       resolvedOfficeId = proc?.office_id ?? undefined;
     }
     if (!resolvedOfficeId) {
-      console.error('persistAndamentos: no officeId');
+      toast({ title: 'Falha ao salvar movimentações', description: 'Não foi possível identificar o escritório do processo.', variant: 'destructive' });
       return 0;
     }
     const effectiveOfficeId = resolvedOfficeId;
@@ -292,8 +302,9 @@ export function useProcessosV2() {
       .select('data_movimentacao, descricao')
       .eq('processo_id', processoId);
 
+    // Antes só ia pro console e o chamador dizia "nenhuma movimentação nova".
     if (fetchError) {
-      console.error('persistAndamentos fetch existing error');
+      toast({ title: 'Falha ao salvar movimentações', description: getErrorMessage(fetchError), variant: 'destructive' });
       return 0;
     }
 
@@ -330,7 +341,6 @@ export function useProcessosV2() {
       .select('id');
 
     if (error) {
-      console.error('persistAndamentos insert error:', error.message);
       toast({
         title: 'Falha ao salvar movimentações',
         description: error.message,
@@ -433,13 +443,14 @@ export function useProcessosV2() {
       if (!texto) return null;
 
       // Deduplicar manualmente
-      const { data: existing } = await supabase
+      const { data: existing, error: dedupeError } = await supabase
         .from('movimentacoes_processo')
         .select('id')
         .eq('processo_id', processoId)
         .eq('data_movimentacao', targetDate)
         .eq('descricao', texto)
         .maybeSingle();
+      if (dedupeError) throw dedupeError;
 
       if (existing) {
         return existing;
@@ -465,7 +476,7 @@ export function useProcessosV2() {
       if (movError) throw movError;
       return result;
     } catch (err) {
-      console.error('Erro ao adicionar movimentação:', err);
+      toast({ title: 'Erro ao adicionar movimentação', description: getErrorMessage(err), variant: 'destructive' });
       return null;
     }
   };
