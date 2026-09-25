@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { assertRowsAffected, getErrorMessage } from "@/lib/errors";
+import { captureError } from "@/lib/monitoring";
+import { planQuotaMessage } from "@/lib/planQuotaError";
 
 export interface Meta {
   id: string;
@@ -118,7 +120,8 @@ export function useMetas() {
         }
         case "prazos": {
           const { count, error: qError } = await scope(supabase.from("prazos").select("id", { count: "exact", head: true })
-            .eq("office_id", office).eq("status", "concluido")
+            // deletado: prazo na Lixeira não conta pra meta (as outras métricas já filtravam).
+            .eq("office_id", office).eq("deletado", false).eq("status", "concluido")
             .gte("data_fim_prazo", inicio).lte("data_fim_prazo", fim), "responsavel_id");
           if (qError) throw qError;
           return { value: count || 0, ok: true };
@@ -127,7 +130,7 @@ export function useMetas() {
           return { value: fallback, ok: true };
       }
     } catch (e) {
-      console.error(`computeAtual (${tipo}):`, e);
+      captureError(e, { context: `useMetas.computeAtual (${tipo})` });
       return { value: fallback, ok: false };
     }
   }, [user?.office_id]);
@@ -137,11 +140,12 @@ export function useMetas() {
     setLoading(true);
     setError(null);
     const [{ data, error: fetchError }, teamsRes] = await Promise.all([
-      supabase.from("metas").select("*").eq("deletado", false).order("created_at", { ascending: false }),
+      // office_id explícito: sem ele, quem enxerga vários escritórios pela RLS (super
+      // admin) via as metas de todos misturadas.
+      supabase.from("metas").select("*").eq("office_id", user.office_id).eq("deletado", false).order("created_at", { ascending: false }),
       supabase.from("office_teams").select("id, name").eq("office_id", user.office_id),
     ]);
     if (fetchError) {
-      console.error("Erro ao buscar metas:", fetchError);
       setError(getErrorMessage(fetchError, "Não foi possível carregar as metas."));
       setMetas([]);
       setLoading(false);
@@ -149,23 +153,33 @@ export function useMetas() {
     }
     const teamName: Record<string, string> = {};
     (teamsRes.data || []).forEach((t: any) => { teamName[t.id] = t.name; });
+    let progressoComErro = !!teamsRes.error;
 
     // Cache de membros por equipe (para metas de equipe)
     const teamMembersCache: Record<string, string[]> = {};
     const getTeamMembers = async (teamId: string): Promise<string[]> => {
       if (teamMembersCache[teamId]) return teamMembersCache[teamId];
-      const { data: tm } = await supabase.from("office_team_members").select("user_id").eq("team_id", teamId);
+      const { data: tm, error: tmError } = await supabase.from("office_team_members").select("user_id").eq("team_id", teamId);
+      // Sem isto, a falha virava "equipe sem membros" e a meta mostrava 0 de progresso
+      // como se fosse real. Lança → cai no fallback (valor salvo) com o aviso de erro.
+      if (tmError) throw tmError;
       const ids = (tm || []).map((m: any) => m.user_id);
       teamMembersCache[teamId] = ids.length ? ids : ["00000000-0000-0000-0000-000000000000"];
       return teamMembersCache[teamId];
     };
 
     const rows = data || [];
-    let progressoComErro = false;
     const withProgress = await Promise.all(rows.map(async (r: any) => {
-      const memberIds = r.team_id ? await getTeamMembers(r.team_id) : null;
-      const { value: valorAtual, ok } = await computeAtual(r.tipo, r.data_inicio, r.data_fim, Number(r.valor_atual) || 0, memberIds);
-      if (!ok) progressoComErro = true;
+      let valorAtual = Number(r.valor_atual) || 0;
+      try {
+        const memberIds = r.team_id ? await getTeamMembers(r.team_id) : null;
+        const res = await computeAtual(r.tipo, r.data_inicio, r.data_fim, valorAtual, memberIds);
+        valorAtual = res.value;
+        if (!res.ok) progressoComErro = true;
+      } catch (e) {
+        captureError(e, { context: "useMetas.getTeamMembers", teamId: r.team_id });
+        progressoComErro = true;
+      }
       return {
         id: r.id, titulo: r.titulo, tipo: r.tipo, periodo: r.periodo,
         valorMeta: Number(r.valor_meta) || 0, valorAtual, status: r.status || "ativa",
@@ -191,7 +205,11 @@ export function useMetas() {
       valor_meta: input.valorMeta, valor_atual: 0, status: "ativa",
       data_inicio: inicio, data_fim: fim, team_id: input.teamId || null,
     });
-    if (error) { toast({ title: "Erro ao criar meta", description: error.message, variant: "destructive" }); return false; }
+    if (error) {
+      const quota = planQuotaMessage(error);
+      toast({ title: quota?.title ?? "Erro ao criar meta", description: quota?.description ?? getErrorMessage(error), variant: "destructive" });
+      return false;
+    }
     toast({ title: "Meta criada" });
     await fetch();
     return true;
@@ -203,7 +221,7 @@ export function useMetas() {
       titulo: input.titulo, tipo: input.tipo, periodo: input.periodo,
       valor_meta: input.valorMeta, data_inicio: inicio, data_fim: fim,
       team_id: input.teamId || null, updated_at: new Date().toISOString(),
-    }).eq("id", id).select("id");
+    }).eq("id", id).eq("office_id", user?.office_id ?? "").select("id");
     try {
       assertRowsAffected(data, error, 1);
     } catch (e) {
@@ -216,7 +234,7 @@ export function useMetas() {
   };
 
   const remove = async (id: string): Promise<boolean> => {
-    const { data, error } = await supabase.from("metas").update({ deletado: true }).eq("id", id).select("id");
+    const { data, error } = await supabase.from("metas").update({ deletado: true }).eq("id", id).eq("office_id", user?.office_id ?? "").select("id");
     try {
       assertRowsAffected(data, error, 1);
     } catch (e) {

@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { PermissionGuard } from "@/components/Auth/PermissionGuard";
 import { useToast } from "@/hooks/use-toast";
+import { assertRowsAffected, getErrorMessage } from "@/lib/errors";
 
 interface Props {
   onBack: () => void;
@@ -118,13 +119,15 @@ export function CrmLeadsList({ onBack, tipo, data = [], refresh, onManage }: Pro
                                 if (!user?.office_id) throw new Error("Escritório não identificado");
                                 
                                 const { supabase } = await import("@/integrations/supabase/client");
-                                const { error } = await supabase
+                                // .select('id') + assert: a RLS bloqueando devolvia 0 linhas sem
+                                // erro e a tela dizia "Lead convertido!" com o lead intocado.
+                                const { data: upd, error } = await supabase
                                   .from('clientes')
                                   .update({ status: 'convertido' })
                                   .eq('id', lead.id)
-                                  .eq('office_id', user.office_id);
-                                
-                                if (error) throw error;
+                                  .eq('office_id', user.office_id)
+                                  .select('id');
+                                assertRowsAffected(upd, error, 1);
                                 
                                 toast({
                                   title: "Lead convertido!",
@@ -133,10 +136,9 @@ export function CrmLeadsList({ onBack, tipo, data = [], refresh, onManage }: Pro
                                 
                                 if (refresh) await refresh();
                               } catch (err) {
-                                console.error(err);
                                 toast({
                                   title: "Erro na conversão",
-                                  description: "Não foi possível converter o lead.",
+                                  description: getErrorMessage(err, "Não foi possível converter o lead."),
                                   variant: "destructive"
                                 });
                               }

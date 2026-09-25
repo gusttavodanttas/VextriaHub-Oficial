@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { getErrorMessage } from "@/lib/errors";
+import { planQuotaMessage } from "@/lib/planQuotaError";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserCheck, Building2, Phone, Mail, MapPin, Target, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -202,10 +204,11 @@ export const NovoLeadDialog = ({ open, onOpenChange, onSave }: NovoLeadDialogPro
       resetForm();
       onOpenChange(false);
     } catch (error) {
-      console.error('Erro ao criar lead:', error);
+      // Mostra a causa (cota do plano, duplicidade, RLS) em vez de um genérico.
+      const quota = planQuotaMessage(error);
       toast({
-        title: "Erro ao criar lead",
-        description: "Ocorreu um erro ao salvar o lead. Tente novamente.",
+        title: quota?.title ?? "Erro ao criar lead",
+        description: quota?.description ?? getErrorMessage(error, "Ocorreu um erro ao salvar o lead. Tente novamente."),
         variant: "destructive",
       });
     } finally {
