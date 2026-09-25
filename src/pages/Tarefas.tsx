@@ -364,7 +364,7 @@ const Tarefas = () => {
   // Kanban: mover tarefa entre colunas de fluxo
   const moverTarefa = (id: string, col: string) => {
     const t = tarefas.find(x => x.id === id);
-    if (!t) return;
+    if (!t || !canManageTarefas) return;
     if (col === "concluida") {
       if (!t.concluida) toggle.mutate({ id: t.id, concluida: true, tarefa: t });
     } else if (t.concluida) {
@@ -397,7 +397,9 @@ const Tarefas = () => {
         )}>
         {/* Checkbox concluir */}
         <button
-          onClick={(e) => { e.stopPropagation(); toggle.mutate({ id: t.id, concluida: !t.concluida, tarefa: t }); }}
+          // Atalho de concluir/reabrir respeita o mesmo gate do menu (antes ficava aberto).
+          disabled={!canManageTarefas}
+          onClick={(e) => { e.stopPropagation(); if (canManageTarefas) toggle.mutate({ id: t.id, concluida: !t.concluida, tarefa: t }); }}
           className={cn(
             "shrink-0 h-6 w-6 rounded-lg border-2 flex items-center justify-center transition-all",
             t.concluida ? "bg-emerald-500 border-emerald-500 text-white" : "border-muted-foreground/30 hover:border-emerald-500 hover:bg-emerald-500/10"
@@ -495,8 +497,8 @@ const Tarefas = () => {
     const due = t.data_vencimento ? dueLabel(t.data_vencimento) : null;
     const sc = subtaskCounts[t.id];
     return (
-      <div key={t.id} draggable
-        onDragStart={() => setDraggingId(t.id)}
+      <div key={t.id} draggable={canManageTarefas}
+        onDragStart={() => { if (canManageTarefas) setDraggingId(t.id); }}
         onDragEnd={() => { setDraggingId(null); setOverCol(null); }}
         onClick={() => openEdit(t)}
         className={cn(

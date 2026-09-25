@@ -12,7 +12,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { concluirTarefaDb, concluirPrazoDb, gerarProximaOcorrenciaTarefa } from "@/lib/concluirItens";
+import { AVISO_RECORRENCIA_FALHOU, concluirTarefaDb, concluirPrazoDb, gerarProximaOcorrenciaTarefa } from "@/lib/concluirItens";
+import { assertRowsAffected, getErrorMessage } from "@/lib/errors";
+import { captureError } from "@/lib/monitoring";
+import { usePermissions } from "@/hooks/usePermissions";
 import { AgendarPublicacaoDialog } from "@/components/Processos/AgendarPublicacaoDialog";
 import { pareceAudiencia, extrairAudienciaSugerida } from "@/components/Prazos/shared";
 
@@ -42,6 +45,8 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
   const [row, setRow] = useState<any>(null);
   const [clienteNome, setClienteNome] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [saving, setSaving] = useState(false);
   const [agendarOpen, setAgendarOpen] = useState(false);
   const [agendarRow, setAgendarRow] = useState<any>(null);
@@ -49,16 +54,32 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
   const [ed, setEd] = useState({ data: "", hora: "", local: "", tipo: "", titulo: "", prioridade: "media" });
 
   const cfg = item ? CFG[item.type] : null;
+  // Concluir/editar/marcar realizada gravam direto no banco — respeitam o canManage*
+  // do tipo (antes qualquer um que abrisse o item pelo Dashboard via os botões).
+  const perms = usePermissions();
+  const canManage = !item ? false : ({
+    prazo: perms.canManagePrazos, audiencia: perms.canManageAudiencias, tarefa: perms.canManageTarefas,
+    atendimento: perms.canEditAtendimentos, consultivo: perms.canManageConsultivo,
+  } as Record<AgendaType, boolean>)[item.type];
 
   useEffect(() => {
-    if (!item) { setRow(null); setClienteNome(null); return; }
+    if (!item) { setRow(null); setClienteNome(null); setLoadError(null); return; }
     let cancel = false;
     setEditing(false);
     (async () => {
       setLoading(true);
+      setLoadError(null);
       const table = CFG[item.type].label === "Prazo" ? "prazos" : item.type === "audiencia" ? "audiencias" : item.type === "tarefa" ? "tarefas" : item.type === "atendimento" ? "atendimentos" : "consultivos";
-      const { data } = await supabase.from(table as any).select("*").eq("id", item.id).maybeSingle();
+      const { data, error } = await supabase.from(table as any).select("*").eq("id", item.id).maybeSingle();
       if (cancel) return;
+      // Antes: erro ou item inexistente (excluído, sem acesso) deixava `row` nulo e o
+      // dialog preso no spinner para sempre.
+      if (error || !data) {
+        setRow(null);
+        setLoadError(error ? getErrorMessage(error, "Não foi possível carregar o item.") : "Item não encontrado — ele pode ter sido excluído ou você não tem acesso a ele.");
+        setLoading(false);
+        return;
+      }
       setRow(data);
       // `table as any` faz o select retornar SelectQueryError; tipamos o mínimo que usamos.
       const rec = data as unknown as { cliente_id?: string | null } | null;
@@ -69,7 +90,7 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
       setLoading(false);
     })();
     return () => { cancel = true; };
-  }, [item?.type, item?.id]);
+  }, [item?.type, item?.id, reloadKey]);
 
   // Após mutar direto no banco, invalida as queries do dashboard e das páginas para
   // os blocos irmãos (Próximos Prazos, KPIs) e as abas não ficarem com dado velho.
@@ -79,24 +100,36 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
   };
 
   const concluir = async () => {
-    if (!item || !cfg) return;
+    if (!item || !cfg || !canManage) return;
     setSaving(true);
-    let error: any = null;
-    if (item.type === "tarefa") {
-      // Lógica (update + fallback + recorrência) em lib/concluirItens.ts —
-      // compartilhada com useTarefas.tsx, pra não haver 2 cópias divergindo.
-      ({ error } = await concluirTarefaDb(item.id, user?.id));
-      if (!error && row?.recorrencia_regra && (row.recorrencia_restantes ?? 0) > 0 && row.data_vencimento) {
-        await gerarProximaOcorrenciaTarefa(row, row.office_id, row.user_id ?? user?.id ?? "");
+    let recorrenciaFalhou = false;
+    try {
+      // Todas as variantes conferem linhas afetadas: a RLS bloqueando devolve 0 linhas
+      // sem erro, e o dialog dizia "concluído" com o item intocado.
+      if (item.type === "tarefa") {
+        // Lógica (update + fallback + recorrência) em lib/concluirItens.ts —
+        // compartilhada com useTarefas.tsx, pra não haver 2 cópias divergindo.
+        const { data, error } = await concluirTarefaDb(item.id, user?.id);
+        assertRowsAffected(data, error, 1);
+        if (row?.recorrencia_regra && (row.recorrencia_restantes ?? 0) > 0 && row.data_vencimento) {
+          const { error: recErr } = await gerarProximaOcorrenciaTarefa(row, row.office_id, row.user_id ?? user?.id ?? "");
+          if (recErr) { captureError(recErr, { context: "AgendaItemDialog.gerarProximaOcorrencia", tarefaId: item.id }); recorrenciaFalhou = true; }
+        }
+      } else if (item.type === "prazo") {
+        const { data, error } = await concluirPrazoDb(item.id, user?.id);
+        assertRowsAffected(data, error, 1);
+      } else if (item.type === "consultivo") {
+        const { data, error } = await supabase.from("consultivos").update({ status: "concluido" }).eq("id", item.id).select("id");
+        assertRowsAffected(data, error, 1);
       }
-    } else if (item.type === "prazo") {
-      ({ error } = await concluirPrazoDb(item.id, user?.id));
-    } else if (item.type === "consultivo") {
-      ({ error } = await supabase.from("consultivos").update({ status: "concluido" }).eq("id", item.id));
+    } catch (e) {
+      setSaving(false);
+      toast({ title: "Erro ao concluir", description: getErrorMessage(e), variant: "destructive" });
+      return;
     }
     setSaving(false);
-    if (error) { toast({ title: "Erro ao concluir", description: error.message, variant: "destructive" }); return; }
-    toast({ title: `${cfg.label} concluído(a)` });
+    if (recorrenciaFalhou) toast({ title: "Série recorrente interrompida", description: AVISO_RECORRENCIA_FALHOU, variant: "destructive" });
+    else toast({ title: `${cfg.label} concluído(a)` });
     invalidarTudo();
     onChanged?.();
     onOpenChange(false);
@@ -114,20 +147,29 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
   };
 
   const salvar = async () => {
-    if (!item || !ed.data) { toast({ title: "Informe a data", variant: "destructive" }); return; }
+    if (!item || !canManage) return;
+    if (!ed.data) { toast({ title: "Informe a data", variant: "destructive" }); return; }
     setSaving(true);
-    let error: any = null;
-    if (item.type === "audiencia") {
-      const iso = new Date(`${ed.data}T${ed.hora || "00:00"}`).toISOString();
-      ({ error } = await supabase.from("audiencias").update({ data_audiencia: iso, local: ed.local || null, tipo: ed.tipo || null, titulo: ed.titulo || row.titulo }).eq("id", item.id));
-      if (!error) setRow({ ...row, data_audiencia: iso, local: ed.local || null, tipo: ed.tipo || null, titulo: ed.titulo || row.titulo });
-    } else {
-      // prazo: grava as DUAS datas (data_fim_prazo é a que Agenda/Dashboard/Relatórios leem)
-      ({ error } = await supabase.from("prazos").update({ data_fim_prazo: ed.data, data_vencimento: ed.data, titulo: ed.titulo || row.titulo, prioridade: ed.prioridade }).eq("id", item.id));
-      if (!error) setRow({ ...row, data_fim_prazo: ed.data, data_vencimento: ed.data, titulo: ed.titulo || row.titulo, prioridade: ed.prioridade });
+    try {
+      if (item.type === "audiencia") {
+        const iso = new Date(`${ed.data}T${ed.hora || "00:00"}`).toISOString();
+        const patch = { data_audiencia: iso, local: ed.local || null, tipo: ed.tipo || null, titulo: ed.titulo || row.titulo };
+        const { data, error } = await supabase.from("audiencias").update(patch).eq("id", item.id).select("id");
+        assertRowsAffected(data, error, 1);
+        setRow({ ...row, ...patch });
+      } else {
+        // prazo: grava as DUAS datas (data_fim_prazo é a que Agenda/Dashboard/Relatórios leem)
+        const patch = { data_fim_prazo: ed.data, data_vencimento: ed.data, titulo: ed.titulo || row.titulo, prioridade: ed.prioridade };
+        const { data, error } = await supabase.from("prazos").update(patch).eq("id", item.id).select("id");
+        assertRowsAffected(data, error, 1);
+        setRow({ ...row, ...patch });
+      }
+    } catch (e) {
+      setSaving(false);
+      toast({ title: "Erro ao salvar", description: getErrorMessage(e), variant: "destructive" });
+      return;
     }
     setSaving(false);
-    if (error) { toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" }); return; }
     toast({ title: `${cfg?.label || "Item"} atualizado` });
     invalidarTudo();
     setEditing(false);
@@ -135,11 +177,14 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
   };
 
   const marcarRealizada = async () => {
-    if (!item) return;
+    if (!item || !canManage) return;
     setSaving(true);
-    const { error } = await supabase.from("audiencias").update({ status: "realizada" }).eq("id", item.id);
+    const { data, error } = await supabase.from("audiencias").update({ status: "realizada" }).eq("id", item.id).select("id");
     setSaving(false);
-    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    try { assertRowsAffected(data, error, 1); } catch (e) {
+      toast({ title: "Erro ao marcar como realizada", description: getErrorMessage(e), variant: "destructive" });
+      return;
+    }
     toast({ title: "Audiência marcada como realizada" });
     invalidarTudo();
     onChanged?.();
@@ -169,7 +214,13 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
           </DialogHeader>
         )}
 
-        {loading || !row || !cfg ? (
+        {loadError ? (
+          <div className="flex flex-col items-center gap-3 py-8 text-center">
+            <AlertCircle className="h-6 w-6 text-destructive" />
+            <p className="text-sm text-muted-foreground">{loadError}</p>
+            <Button variant="outline" size="sm" className="rounded-xl" onClick={() => setReloadKey((k) => k + 1)}>Tentar de novo</Button>
+          </div>
+        ) : loading || !row || !cfg ? (
           <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary/40" /></div>
         ) : editing ? (
           <div className="space-y-3">
@@ -228,7 +279,7 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
             {/* Ações compactas (ícone + tooltip) — texto nos botões estourava a largura e criava scroll lateral */}
             <TooltipProvider delayDuration={150}>
               <div className="flex items-center justify-end gap-2 pt-1">
-                {item?.type === "prazo" && row.status !== "concluido" && (row.possivel_audiencia || pareceAudiencia(row.descricao || "")) && (
+                {canManage && item?.type === "prazo" && row.status !== "concluido" && (row.possivel_audiencia || pareceAudiencia(row.descricao || "")) && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button variant="outline" aria-label="Agendar audiência" onClick={() => { const r = row; onOpenChange(false); setTimeout(() => { try { document.body.style.pointerEvents = ""; } catch { /* */ } setAgendarRow(r); setAgendarOpen(true); }, 300); }} className="h-10 w-10 p-0 rounded-xl shrink-0">
@@ -238,7 +289,7 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
                     <TooltipContent>Agendar audiência</TooltipContent>
                   </Tooltip>
                 )}
-                {(item?.type === "audiencia" || item?.type === "prazo") && row.status !== "concluido" && (
+                {canManage && (item?.type === "audiencia" || item?.type === "prazo") && row.status !== "concluido" && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button variant="outline" aria-label={item?.type === "audiencia" ? "Editar audiência" : "Editar prazo"} onClick={startEdit} className="h-10 w-10 p-0 rounded-xl shrink-0">
@@ -248,7 +299,7 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
                     <TooltipContent>{item?.type === "audiencia" ? "Editar audiência" : "Editar prazo"}</TooltipContent>
                   </Tooltip>
                 )}
-                {item?.type === "audiencia" && row.status !== "realizada" && row.status !== "cancelada" && (
+                {canManage && item?.type === "audiencia" && row.status !== "realizada" && row.status !== "cancelada" && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button variant="outline" aria-label="Marcar como realizada" onClick={marcarRealizada} disabled={saving} className="h-10 w-10 p-0 rounded-xl shrink-0 text-emerald-600">
@@ -258,7 +309,7 @@ export function AgendaItemDialog({ item, onOpenChange, onChanged }: Props) {
                     <TooltipContent>Marcar como realizada</TooltipContent>
                   </Tooltip>
                 )}
-                {cfg.canConclude && row.status !== "concluido" && !row.concluida && (
+                {canManage && cfg.canConclude && row.status !== "concluido" && !row.concluida && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button aria-label="Concluir" onClick={concluir} disabled={saving} className="h-10 w-10 p-0 rounded-xl shrink-0">

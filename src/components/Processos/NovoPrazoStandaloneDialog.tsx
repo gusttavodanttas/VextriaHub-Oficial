@@ -21,7 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 import { prazoFormSchema, firstZodError } from "@/lib/validation";
 import { planQuotaMessage } from "@/lib/planQuotaError";
-import { getErrorMessage } from "@/lib/errors";
+import { assertRowsAffected, getErrorMessage } from "@/lib/errors";
 import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 
 // ─────────────────────────────────────────────
@@ -658,12 +658,14 @@ export const NovoPrazoStandaloneDialog = ({
             : (prazoParaEditar?.processo_id ?? selectedProcesso?.id ?? null),
         };
         if (formData.avisosDias != null) updates.avisos_dias = formData.avisosDias;
-        let { error } = await supabase.from('prazos').update(updates as TablesUpdate<'prazos'>).eq('id', prazoParaEditar!.id!);
+        // .select('id') + assertRowsAffected: a RLS bloqueando a edição (prazo de outro
+        // membro) devolvia 0 linhas sem erro e o dialog dizia "Prazo atualizado".
+        let { data: upd, error } = await supabase.from('prazos').update(updates as TablesUpdate<'prazos'>).eq('id', prazoParaEditar!.id!).select('id');
         if (error && /titular/.test(error.message || '')) { // coluna ainda não criada
           const { titular: _t, ...semTitular } = updates;
-          ({ error } = await supabase.from('prazos').update(semTitular as TablesUpdate<'prazos'>).eq('id', prazoParaEditar!.id!));
+          ({ data: upd, error } = await supabase.from('prazos').update(semTitular as TablesUpdate<'prazos'>).eq('id', prazoParaEditar!.id!).select('id'));
         }
-        if (error) throw error;
+        assertRowsAffected(upd, error, 1);
         toast({ title: "Prazo atualizado", description: "As alterações foram salvas." });
       } else {
         let processoId: string | null = selectedProcesso?.id || null;
