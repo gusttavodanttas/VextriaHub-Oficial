@@ -82,7 +82,7 @@ export default function Equipe() {
   const { toast } = useToast();
   const { users, loading: usersLoading, error: usersError, removeUser, updateUser, refresh: refreshUsers } = useOfficeUsers();
   const { invitations, loading: invLoading, error: invError, createInvitation, resendInvitation, cancelInvitation, refresh: refreshInvitations, pendingInvitations } = useInvitations();
-  const { teams, loading: teamsLoading, create: createTeam, update: updateTeam, remove: removeTeam } = useOfficeTeams();
+  const { teams, loading: teamsLoading, error: teamsError, refetch: refetchTeams, create: createTeam, update: updateTeam, remove: removeTeam } = useOfficeTeams();
 
   const [search, setSearch] = useState("");
   const [tab, setTab]       = useState("membros");
@@ -407,9 +407,15 @@ export default function Equipe() {
                 </Button>
               </div>
             )}
+            {teamsError && (
+              <div className="flex items-center gap-3 mb-3 rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-xs text-destructive">
+                <span className="flex-1">{teamsError}</span>
+                <Button size="sm" variant="outline" className="h-7 rounded-lg text-xs" onClick={() => refetchTeams()}>Tentar novamente</Button>
+              </div>
+            )}
             {teamsLoading ? (
               <div className="space-y-3">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-2xl" />)}</div>
-            ) : teams.length === 0 ? (
+            ) : teamsError && teams.length === 0 ? null : teams.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
                 <div className="p-4 rounded-2xl bg-muted/40"><FolderOpen className="h-8 w-8 text-muted-foreground/40" /></div>
                 <p className="font-bold">Nenhuma equipe criada</p>

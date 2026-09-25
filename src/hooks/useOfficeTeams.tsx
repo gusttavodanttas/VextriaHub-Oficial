@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { getErrorMessage } from "@/lib/errors";
 
 export type OfficeTeam = {
   id: string;
@@ -24,20 +25,30 @@ export function useOfficeTeams() {
   const { office } = useAuth();
   const [teams, setTeams] = useState<OfficeTeam[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetch = useCallback(async () => {
-    if (!office?.id) { setTeams([]); setLoading(false); return; }
+    if (!office?.id) { setTeams([]); setError(null); setLoading(false); return; }
     setLoading(true);
-    const { data: teamsData } = await supabase
+    const { data: teamsData, error: teamsError } = await supabase
       .from("office_teams")
       .select("*")
       .eq("office_id", office.id)
       .order("name");
+    // Antes a falha virava "nenhuma equipe" (e o seletor de equipe dos formulários
+    // ficava vazio sem explicação).
+    if (teamsError) {
+      setError(getErrorMessage(teamsError, "Não foi possível carregar as equipes."));
+      setLoading(false);
+      return;
+    }
 
-    const { data: countsData } = await supabase
+    const { data: countsData, error: countsError } = await supabase
       .from("office_team_members")
       .select("team_id")
       .in("team_id", (teamsData || []).map((t: any) => t.id));
+    // Contagem é secundária: mostra as equipes, mas avisa que o nº de membros pode estar errado.
+    setError(countsError ? getErrorMessage(countsError, "Não foi possível contar os membros das equipes.") : null);
 
     const countMap: Record<string, number> = {};
     (countsData || []).forEach((m: any) => {
@@ -83,29 +94,38 @@ export function useOfficeTeams() {
     return ok;
   };
 
-  return { teams, loading, create, update, remove, refetch: fetch };
+  return { teams, loading, error, create, update, remove, refetch: fetch };
 }
 
 export function useTeamMembers(teamId: string | null) {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { office } = useAuth();
 
   const fetch = useCallback(async () => {
-    if (!teamId) { setMembers([]); return; }
+    if (!teamId) { setMembers([]); setError(null); return; }
     setLoading(true);
-    const { data: membersData } = await supabase
+    const { data: membersData, error: membersError } = await supabase
       .from("office_team_members")
       .select("*")
       .eq("team_id", teamId);
+    if (membersError) {
+      setError(getErrorMessage(membersError, "Não foi possível carregar os membros."));
+      setLoading(false);
+      return;
+    }
+    setError(null);
 
     if (!membersData?.length) { setMembers([]); setLoading(false); return; }
 
     const userIds = membersData.map((m: any) => m.user_id);
-    const { data: profilesData } = await supabase
+    const { data: profilesData, error: profilesError } = await supabase
       .from("profiles")
       .select("user_id, full_name, email")
       .in("user_id", userIds);
+    // Nomes são secundários: mostra os membros sem nome, mas avisa.
+    if (profilesError) setError(getErrorMessage(profilesError, "Não foi possível carregar os nomes dos membros."));
 
     const profileMap: Record<string, any> = {};
     (profilesData || []).forEach((p: any) => { profileMap[p.user_id] = p; });
@@ -126,10 +146,8 @@ export function useTeamMembers(teamId: string | null) {
     const { error } = await supabase
       .from("office_team_members")
       .insert({ team_id: teamId, user_id: userId, office_id: office.id, role });
-    if (error) {
-      console.error("addMember error:", error);
-      return false;
-    }
+    // Falha de mutation não mexe no `error` (que é o estado da carga) — quem chama avisa.
+    if (error) return false;
     fetch();
     return true;
   };
@@ -162,5 +180,5 @@ export function useTeamMembers(teamId: string | null) {
     return ok;
   };
 
-  return { members, loading, addMember, removeMember, setMemberRole, refetch: fetch };
+  return { members, loading, error, addMember, removeMember, setMemberRole, refetch: fetch };
 }

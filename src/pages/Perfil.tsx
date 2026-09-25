@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getErrorMessage, assertRowsAffected } from "@/lib/errors";
+import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -152,6 +153,8 @@ const Perfil = () => {
     }
   };
 
+  // O "x" da foto ficava colado no botão de trocar — 1 clique errado apagava a foto.
+  const [confirmRemoveAvatar, setConfirmRemoveAvatar] = useState(false);
   const handleRemoveAvatar = async () => {
     if (!avatarUrl) return;
     const targetId = profile?.id || user?.id;
@@ -216,7 +219,6 @@ const Perfil = () => {
       });
       setEditMode(false);
     } catch (err: unknown) {
-      console.error("Erro no catch do update:", err);
       toast({
         variant: "destructive",
         title: "Erro ao atualizar",
@@ -306,13 +308,21 @@ const Perfil = () => {
                   {avatarUrl && !uploadingAvatar && (
                     <button
                       type="button"
-                      onClick={handleRemoveAvatar}
+                      onClick={() => setConfirmRemoveAvatar(true)}
                       aria-label="Remover foto"
                       className="absolute -top-1 -right-1 h-7 w-7 rounded-full bg-destructive text-white flex items-center justify-center shadow-lg border-2 border-background hover:scale-105 transition-transform"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
                   )}
+                  <DeleteConfirmDialog
+                    open={confirmRemoveAvatar}
+                    onOpenChange={setConfirmRemoveAvatar}
+                    title="Remover foto de perfil"
+                    description="Sua foto será removida e as iniciais do seu nome voltam a aparecer no lugar."
+                    confirmText="Remover"
+                    onConfirm={() => { setConfirmRemoveAvatar(false); handleRemoveAvatar(); }}
+                  />
                 </div>
 
                 <div className="flex-1 text-center md:text-left space-y-2 md:pb-2">
@@ -508,18 +518,24 @@ const Perfil = () => {
               </div>
             </div>
 
+            {myStats.isError && (
+              <div className="flex items-center justify-between gap-2 rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                <span>Não foi possível carregar suas estatísticas.</span>
+                <button type="button" onClick={myStats.refetch} className="font-bold underline shrink-0">Tentar novamente</button>
+              </div>
+            )}
             <div className="space-y-4 pt-4 border-t border-border/50">
               <div className="flex justify-between items-center px-2">
                 <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Processos Ativos</span>
-                <span className="text-lg font-black text-foreground">{myStats.processosAtivos}</span>
+                <span className="text-lg font-black text-foreground">{myStats.loading ? "…" : myStats.isError ? "—" : myStats.processosAtivos}</span>
               </div>
               <div className="flex justify-between items-center px-2">
                 <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Processos Finalizados</span>
-                <span className="text-lg font-black text-foreground">{myStats.processosFinalizados}</span>
+                <span className="text-lg font-black text-foreground">{myStats.loading ? "…" : myStats.isError ? "—" : myStats.processosFinalizados}</span>
               </div>
               <div className="flex justify-between items-center px-2">
                 <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Clientes Cadastrados</span>
-                <span className="text-lg font-black text-foreground">{myStats.clientesAtendidos}</span>
+                <span className="text-lg font-black text-foreground">{myStats.loading ? "…" : myStats.isError ? "—" : myStats.clientesAtendidos}</span>
               </div>
             </div>
           </div>
@@ -535,7 +551,7 @@ const Perfil = () => {
 /* ---------- Atividade recente ---------- */
 function ActivityCard() {
   const navigate = useNavigate();
-  const { items, loading } = useMyActivity(8);
+  const { items, loading, isError, refetch } = useMyActivity(8);
   const dotColor: Record<string, string> = {
     Processo: "bg-blue-500",
     Tarefa: "bg-emerald-500",
@@ -549,6 +565,12 @@ function ActivityCard() {
       </h3>
       {loading ? (
         <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-primary/40" /></div>
+      ) : isError ? (
+        // Antes o erro caía em "Nenhuma atividade ainda."
+        <div className="text-center py-8 space-y-2">
+          <p className="text-sm font-bold text-destructive">Não foi possível carregar sua atividade.</p>
+          <button type="button" onClick={refetch} className="text-xs font-bold underline">Tentar novamente</button>
+        </div>
       ) : items.length === 0 ? (
         <div className="text-center py-8">
           <p className="text-sm text-muted-foreground font-medium">Nenhuma atividade ainda.</p>
