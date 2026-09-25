@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarDays, Clock, AlertCircle, CheckSquare, Headphones, BookOpen } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { captureError } from "@/lib/monitoring";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -38,6 +39,7 @@ export function CalendarWidget({ refreshKey }: { refreshKey?: number }) {
   const [selected, setSelected] = useState<Date | undefined>(new Date());
   const [eventMap, setEventMap] = useState<Record<string, DayEvent[]>>({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [openItem, setOpenItem] = useState<{ type: AgendaType; id: string } | null>(null);
 
   const load = useCallback(async () => {
@@ -51,7 +53,7 @@ export function CalendarWidget({ refreshKey }: { refreshKey?: number }) {
       const start = new Date(now.getFullYear(), now.getMonth() - ATRASO_MESES_ATRAS, 1).toISOString().split("T")[0];
       const end = new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString().split("T")[0];
 
-      const [{ data: prazos }, { data: audiencias }, { data: tarefas }, { data: atendimentos }, { data: consultivos }] = await Promise.all([
+      const resultados = await Promise.all([
         // fatal = data_fim_prazo OU, em prazo sem fim (ex.: criado inline no processo, que grava
         // data_vencimento), a data_vencimento — senão esse prazo some da agenda (igual useAgendaEvents).
         supabase.from("prazos").select("id, titulo, tipo_prazo, numero_processo, processo_id, data_fim_prazo, data_vencimento, publicacoes(titulo)")
@@ -81,6 +83,16 @@ export function CalendarWidget({ refreshKey }: { refreshKey?: number }) {
           .neq("status", "concluido")
           .gte("prazo", start).lte("prazo", end),
       ]);
+      // Nenhuma das 5 consultas checava erro — falha virava "agenda livre" no painel.
+      const falha = resultados.find((r) => r.error)?.error;
+      if (falha) {
+        captureError(falha, { context: "CalendarWidget.load" });
+        setLoadError(true);
+        setLoading(false);
+        return;
+      }
+      setLoadError(false);
+      const [{ data: prazos }, { data: audiencias }, { data: tarefas }, { data: atendimentos }, { data: consultivos }] = resultados;
 
       // Cliente + nº do processo (prazo E audiência costumam vir ligados só por
       // processo_id, sem número/cliente próprios) → resolve tudo pelo processo. (v11)
@@ -90,7 +102,9 @@ export function CalendarWidget({ refreshKey }: { refreshKey?: number }) {
       ].filter(Boolean)));
       let procMap: Record<string, { numero?: string; cliente?: string }> = {};
       if (allProcIds.length) {
-        const { data: procs } = await supabase.from("processos").select("id, numero_processo, parte_autora, clientes!cliente_id(nome)").in("id", allProcIds);
+        const { data: procs, error: procsError } = await supabase.from("processos").select("id, numero_processo, parte_autora, clientes!cliente_id(nome)").in("id", allProcIds);
+        // Secundário (só enriquece com cliente/nº): os eventos aparecem mesmo assim.
+        if (procsError) captureError(procsError, { context: "CalendarWidget.processos" });
         procMap = Object.fromEntries(((procs as any[]) || []).map(p => [p.id, { numero: p.numero_processo, cliente: p.clientes?.nome || p.parte_autora || undefined }]));
       }
 
@@ -180,6 +194,13 @@ export function CalendarWidget({ refreshKey }: { refreshKey?: number }) {
           </span>
         )}
       </div>
+
+      {loadError && (
+        <div className="flex items-center justify-between gap-2 rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+          <span>Não foi possível carregar a agenda — os dias abaixo podem estar incompletos.</span>
+          <button type="button" onClick={() => { setLoading(true); load(); }} className="font-bold underline shrink-0">Tentar novamente</button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Calendário */}

@@ -197,16 +197,18 @@ const EMPTY_STATS: PublicacoesStats = {
  * Contadores para os cards de resumo — independentes de página/filtro ativo
  * (sempre o total real do escritório), mesmo padrão de useProcessosStatusCounts.
  */
-export function usePublicacoesStats(): { stats: PublicacoesStats; loading: boolean } {
+export function usePublicacoesStats(): { stats: PublicacoesStats; loading: boolean; isError: boolean; refetch: () => void } {
   const { user } = useAuth();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['publicacoes', 'stats', user?.id, user?.office_id],
     queryFn: async (): Promise<PublicacoesStats> => {
       const officeId = user!.office_id;
       const userId = user!.id;
       const base = () => {
-        const q = supabase.from('publicacoes').select('id', { count: 'exact', head: true });
+        // Arquivadas fora, como na lista (filtro 'all') — antes o card contava as
+        // arquivadas e o número não batia com a lista que ele abre.
+        const q = supabase.from('publicacoes').select('id', { count: 'exact', head: true }).neq('status', 'arquivada');
         return officeId ? q.eq('office_id', officeId) : q.eq('user_id', userId);
       };
       const today = localYmd(new Date());
@@ -220,6 +222,9 @@ export function usePublicacoesStats(): { stats: PublicacoesStats; loading: boole
         base().eq('data_publicacao', today),
         base().in('status', ['lida', 'processada']),
       ]);
+      // Nenhuma das 7 contagens checava erro — falha virava 0 nos cards.
+      const falha = [total, prazosSemana, naoTratadas, semVinculo, comVinculo, novosAndamentos, tratadas].find((r) => r.error)?.error;
+      if (falha) throw falha;
 
       return {
         total: total.count ?? 0,
@@ -236,7 +241,7 @@ export function usePublicacoesStats(): { stats: PublicacoesStats; loading: boole
     gcTime: 60000,
   });
 
-  return { stats: data ?? EMPTY_STATS, loading: isLoading };
+  return { stats: data ?? EMPTY_STATS, loading: isLoading, isError: !!error, refetch: () => { refetch(); } };
 }
 
 export const usePublicacoes = () => {
@@ -267,11 +272,12 @@ export const usePublicacoes = () => {
         .filter(Boolean);
       const processoMap = new Map<string, string>();
       if (numerosBusca.length > 0) {
-        const { data: procs } = await supabase
+        const { data: procs, error: procsError } = await supabase
           .from('processos')
           .select('id, numero_processo')
           .eq('office_id', user.office_id)
           .in('numero_processo', numerosBusca);
+        if (procsError) throw procsError;
         (procs || []).forEach((p: any) => processoMap.set(p.numero_processo, p.id));
       }
 
@@ -316,13 +322,16 @@ export const usePublicacoes = () => {
         };
 
         // Dedup: mesmo processo + mesma data de publicação
-        const { data: existing } = await supabase
+        const { data: existing, error: dedupError } = await supabase
           .from('publicacoes')
           .select('id, conteudo, processo_id')
           .eq('office_id', user.office_id)
           .eq('numero_processo', newRecord.numero_processo)
           .eq('data_publicacao', newRecord.data_publicacao)
           .maybeSingle();
+        // Falha no dedup virava "não existe" → publicação duplicada. Pula o item (a
+        // próxima sincronização tenta de novo) e reporta.
+        if (dedupError) { captureError(dedupError, { context: 'usePublicacoes.syncByOab: dedup', numero: newRecord.numero_processo }); continue; }
 
         if (existing) {
           // Atualiza se o novo conteúdo for mais completo e/ou vincula se ainda não vinculado
@@ -336,7 +345,8 @@ export const usePublicacoes = () => {
             patch.processo_id = processoIdVinculado;
           }
           if (Object.keys(patch).length > 0) {
-            await supabase.from('publicacoes').update(patch as TablesUpdate<'publicacoes'>).eq('id', existing.id);
+            const { error: patchError } = await supabase.from('publicacoes').update(patch as TablesUpdate<'publicacoes'>).eq('id', existing.id);
+            if (patchError) captureError(patchError, { context: 'usePublicacoes.syncByOab: atualizar existente', id: existing.id });
           }
         } else {
           const saved = await createPublication(newRecord as any);
@@ -419,16 +429,18 @@ export const usePublicacoes = () => {
   };
 
   // Procura um processo já cadastrado pelo número (CNJ). Retorna o id ou null.
+  // LANÇA em erro: devolver null fazia o chamador cadastrar o processo de novo.
   const findProcessoIdByCnj = async (numeroProcesso: string): Promise<string | null> => {
     if (!user?.office_id || !numeroProcesso) return null;
     const cnj = numeroProcesso.replace(/\D/g, '');
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('processos')
       .select('id')
       .eq('office_id', user.office_id)
       .eq('numero_processo', cnj)
       .eq('deletado', false)
       .maybeSingle();
+    if (error) throw error;
     return data?.id || null;
   };
 

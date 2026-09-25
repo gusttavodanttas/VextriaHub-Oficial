@@ -109,7 +109,7 @@ const Index = () => {
   const myStats = useMyStats();
   const { items: activity, loading: activityLoading, isError: activityError, error: activityErrorMsg, refetch: refetchActivity } = useMyActivity(6);
   const { prefs, toggle, move } = useDashboardPrefs();
-  const { canViewMetas, canCreateProcesses, canViewFinanceiro } = usePermissions();
+  const { canViewMetas, canCreateProcesses, canViewFinanceiro, canViewEquipe } = usePermissions();
   const { create: createCliente } = useClientes();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -332,7 +332,8 @@ const Index = () => {
           <KpiCard icon={UserCheck} label="Clientes ativos" value={stats.clientes}
             sub="cadastrados" color="text-emerald-500" bg="bg-emerald-500/10"
             onClick={() => setSheetView("clientes")} loading={statsLoading} />
-          {isOfficeAdmin && (
+          {/* Permissão granular (usePermissions), não papel — padrão do projeto. */}
+          {canViewEquipe && (
             <KpiCard icon={Users2} label="Equipe" value={stats.colaboradores}
               sub="colaboradores" color="text-sky-500" bg="bg-sky-500/10"
               onClick={() => navigate("/equipe")} loading={statsLoading} />
