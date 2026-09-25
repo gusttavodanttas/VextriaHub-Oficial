@@ -40,12 +40,20 @@ import { useTimesheetFilters } from "@/hooks/useTimesheetFilters";
 import { useTimesheetTimer } from "@/hooks/useTimesheetTimer";
 import { usePermissions } from "@/hooks/usePermissions";
 import { PermissionGuard } from "@/components/Auth/PermissionGuard";
+import { useQueryClient } from "@tanstack/react-query";
+import { getErrorMessage } from "@/lib/errors";
+import { planQuotaMessage } from "@/lib/planQuotaError";
 
 export default function Timesheet() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
-  const { canManageTimesheet } = usePermissions();
+  const queryClient = useQueryClient();
+  const { canManageTimesheet, canManageFinanceiro, canManageOfficeSettings } = usePermissions();
+  // "Gerar cobrança" cria receitas no Financeiro; as configurações de valor/hora gravam
+  // em offices.settings (só admin). Os botões ficavam abertos a qualquer canViewTimesheet.
+  const canGerarCobranca = canManageTimesheet && canManageFinanceiro;
+  const canConfigurarFaturamento = canManageTimesheet && canManageOfficeSettings;
   const {
     data: timesheets, loading, error: timesheetsError, fetchData: refetchTimesheets, activeTimer,
     periodDays, setPeriodDays, scope, setScope,
@@ -89,7 +97,7 @@ export default function Timesheet() {
     dialogOpen, setDialogOpen, elapsedTime, saving,
     descricao, setDescricao, categoria, clienteId, setClienteId,
     faturavel, setFaturavel, valorHora, setValorHora,
-    refTipo, setRefTipo, refItems, setRefItems, refLoading, refId, setRefId, refLabel, setRefLabel,
+    refTipo, setRefTipo, refItems, setRefItems, refLoading, refError, refId, setRefId, refLabel, setRefLabel,
     handleSetCategoria, resetDialog, openTimer, handleStart, navigateToRef,
   } = useTimesheetTimer({ activeTimer, startTimer, config, user, navigate });
 
@@ -102,8 +110,15 @@ export default function Timesheet() {
     supabase.from("clientes").select("id, nome")
       .eq("office_id", user.office_id).eq("deletado", false)
       .order("nome").limit(500)
-      .then(({ data }) => setClientes(data || []));
-  }, [user?.office_id]);
+      .then(({ data, error }) => {
+        // Falha aqui esvaziava os seletores de cliente sem aviso.
+        if (error) {
+          toast({ title: "Não foi possível carregar os clientes", description: getErrorMessage(error), variant: "destructive" });
+          return;
+        }
+        setClientes(data || []);
+      });
+  }, [user?.office_id, toast]);
 
   // Timer: cronômetro, carga de referências e handlers (start/reset/open/navigate) → useTimesheetTimer.
 
@@ -130,6 +145,7 @@ export default function Timesheet() {
 
   // Gera lançamentos de receita no Financeiro a partir das horas faturáveis pendentes
   const gerarCobranca = async () => {
+    if (!canGerarCobranca) return;
     setCobrando(true);
     try {
       const porCliente: Record<string, { valor: number; min: number; ids: string[] }> = {};
@@ -141,6 +157,8 @@ export default function Timesheet() {
       const hoje = new Date();
       const hojeYmd = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`;
       let ok = 0, falhas = 0;
+      const causas: string[] = [];
+      const receitasOrfas: string[] = [];
       for (const [cid, g] of Object.entries(porCliente)) {
         const valor = Math.round(g.valor * 100) / 100;
         if (valor <= 0) continue;
@@ -157,20 +175,39 @@ export default function Timesheet() {
         }).select("id").single();
         // Só marca como faturado se a RECEITA foi criada — senão as horas sumiriam do
         // "Faturável" sem nenhum lançamento no Financeiro (perda silenciosa de receita).
-        if (error || !novo) { falhas++; continue; }
-        const marcado = await marcarFaturado(g.ids, true, (novo as any).id);
+        if (error || !novo) {
+          falhas++;
+          causas.push(planQuotaMessage(error)?.description ?? getErrorMessage(error, "receita não criada"));
+          continue;
+        }
+        const receitaId = (novo as { id: string }).id;
+        const marcado = await marcarFaturado(g.ids, true, receitaId);
         if (!marcado) {
           // Compensa: a receita nasceu mas as horas NÃO foram marcadas faturadas → apaga
-          // a receita pra não gerar cobrança EM DOBRO na próxima "Gerar cobrança". (v12)
-          await supabase.from("financeiro").update({ deletado: true }).eq("id", (novo as any).id);
+          // a receita pra não gerar cobrança EM DOBRO na próxima "Gerar cobrança". A
+          // compensação também precisa ser conferida: se ela falhar (ou a RLS barrar em
+          // silêncio), a receita fica e o usuário precisa saber para excluí-la à mão.
+          const { data: comp, error: compErr } = await supabase.from("financeiro").update({ deletado: true }).eq("id", receitaId).select("id");
+          if (compErr || !comp?.length) receitasOrfas.push(receitaId);
           falhas++; continue;
         }
         ok++;
       }
-      if (falhas > 0) {
+      if (ok > 0 || receitasOrfas.length > 0) {
+        // Sem isto a tela Financeiro seguia mostrando dados velhos até o refetch natural.
+        queryClient.invalidateQueries({ queryKey: ["financeiro"] });
+      }
+      if (receitasOrfas.length > 0) {
+        toast({
+          title: "Atenção: receita sem horas vinculadas",
+          description: `${receitasOrfas.length} receita(s) foram criadas no Financeiro, mas as horas não puderam ser marcadas como faturadas e a receita não pôde ser removida. Exclua-as no Financeiro antes de gerar a cobrança de novo, para não cobrar em dobro.`,
+          variant: "destructive",
+        });
+      } else if (falhas > 0) {
+        const motivo = causas.length ? ` Motivo: ${[...new Set(causas)].join("; ")}.` : "";
         toast({
           title: ok > 0 ? "Cobrança parcial" : "Falha ao gerar cobrança",
-          description: `${ok} grupo(s) faturado(s), ${falhas} falharam — as horas que falharam continuam em "Faturável".`,
+          description: `${ok} grupo(s) faturado(s), ${falhas} falharam — as horas que falharam continuam em "Faturável".${motivo}`,
           variant: "destructive",
         });
       } else if (ok > 0) {
@@ -205,10 +242,12 @@ export default function Timesheet() {
           </div>
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
-          <Button variant="outline" size="icon" onClick={() => setSettingsOpen(true)}
-            className="rounded-xl h-11 w-11 shrink-0" title="Configurações de faturamento" aria-label="Configurações de faturamento">
-            <Settings2 className="h-4 w-4" />
-          </Button>
+          {canConfigurarFaturamento && (
+            <Button variant="outline" size="icon" onClick={() => setSettingsOpen(true)}
+              className="rounded-xl h-11 w-11 shrink-0" title="Configurações de faturamento" aria-label="Configurações de faturamento">
+              <Settings2 className="h-4 w-4" />
+            </Button>
+          )}
           {canManageTimesheet && (
             <>
               <Button variant="outline" size="lg" onClick={openManual}
@@ -307,7 +346,7 @@ export default function Timesheet() {
               </div>
             )}
 
-            <div className="flex items-center gap-3 w-full sm:w-auto max-w-xs sm:max-w-none">
+            {canManageTimesheet && <div className="flex items-center gap-3 w-full sm:w-auto max-w-xs sm:max-w-none">
               <Button variant="outline" onClick={() => pauseTimer(activeTimer.id)}
                 className="flex-1 sm:flex-none h-11 px-4 sm:px-6 rounded-xl font-black text-xs uppercase tracking-wider border-black/10 dark:border-border">
                 <Pause className="h-4 w-4 mr-2" />Pausar
@@ -316,7 +355,7 @@ export default function Timesheet() {
                 className="flex-1 sm:flex-none h-11 px-4 sm:px-8 rounded-xl font-black text-xs uppercase tracking-wider shadow-premium">
                 <Square className="h-4 w-4 mr-2 fill-current" />Finalizar
               </Button>
-            </div>
+            </div>}
           </div>
         ) : (
           <div className="p-10 flex flex-col items-center gap-4 text-center">
@@ -327,10 +366,12 @@ export default function Timesheet() {
               <p className="font-bold text-muted-foreground">Nenhum timer ativo</p>
               <p className="text-xs text-muted-foreground/60 mt-1">Clique em "Novo Timer" para começar a registrar</p>
             </div>
-            <Button onClick={openTimer} size="lg"
-              className="mt-2 h-11 px-8 rounded-xl font-black text-xs uppercase tracking-widest shadow-premium">
-              <Play className="h-4 w-4 mr-2 fill-current" />Iniciar Atividade
-            </Button>
+            {canManageTimesheet && (
+              <Button onClick={openTimer} size="lg"
+                className="mt-2 h-11 px-8 rounded-xl font-black text-xs uppercase tracking-widest shadow-premium">
+                <Play className="h-4 w-4 mr-2 fill-current" />Iniciar Atividade
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -342,9 +383,11 @@ export default function Timesheet() {
             <div className="flex items-center gap-2 text-sm font-black"><Receipt className="h-4 w-4 text-amber-600" /> Resumo para cobrança</div>
             <div className="flex items-center gap-2">
               <span className="text-sm font-black text-amber-700 dark:text-amber-400">{formatBRL(billing.totalValor)} · {formatMinutes(billing.totalMin)}</span>
-              <Button size="sm" onClick={() => setCobrarOpen(true)} className="rounded-lg h-8 px-3 font-black uppercase text-[10px] tracking-widest bg-amber-500 hover:bg-amber-600 text-white gap-1.5">
-                <DollarSign className="h-3.5 w-3.5" />Gerar cobrança
-              </Button>
+              {canGerarCobranca && (
+                <Button size="sm" onClick={() => setCobrarOpen(true)} className="rounded-lg h-8 px-3 font-black uppercase text-[10px] tracking-widest bg-amber-500 hover:bg-amber-600 text-white gap-1.5">
+                  <DollarSign className="h-3.5 w-3.5" />Gerar cobrança
+                </Button>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-1 flex-wrap">
@@ -599,7 +642,9 @@ export default function Timesheet() {
                 )}
                 {refTipo && (
                   refLoading ? <Skeleton className="h-10 rounded-xl" /> :
-                  refItems.length === 0 ? (
+                  refError ? (
+                    <p className="text-xs font-bold text-destructive py-2.5 px-3 rounded-xl bg-destructive/5 border border-destructive/20 text-center">{refError}</p>
+                  ) : refItems.length === 0 ? (
                     <p className="text-xs text-muted-foreground/60 py-2.5 px-3 rounded-xl bg-muted/10 border border-black/5 dark:border-border text-center">{clienteId ? "Nenhum item encontrado para este cliente" : "Nenhum item encontrado"}</p>
                   ) : (
                     <Select value={refId} onValueChange={v => { setRefId(v); setRefLabel(refItems.find(i => i.id === v)?.label ?? ""); }}>

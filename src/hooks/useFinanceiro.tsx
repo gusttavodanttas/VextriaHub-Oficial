@@ -99,11 +99,14 @@ const useFinanceiro = (officeId: string | null | undefined) => {
       // Conta ANTES de atualizar: 0 linhas afetadas é legítimo quando o grupo já não
       // tem lançamento futuro pendente — só é bloqueio de permissão quando o filtro
       // casava alguma coisa e a RLS impediu o UPDATE de tocar nela.
-      const { count } = await supabase.from("financeiro")
+      const { count, error: countError } = await supabase.from("financeiro")
         .select("id", { count: "exact", head: true })
         .eq("grupo_id", grupoId)
         .eq("status", "pendente")
         .gte("data_vencimento", hoje);
+      // Sem isto, uma contagem falha virava `count ?? 0` e o assertRowsAffected abaixo
+      // passava a aceitar 0 linhas — um UPDATE 100% bloqueado dizia "cancelados".
+      if (countError) throw countError;
       const { data, error } = await supabase.from("financeiro")
         .update({ deletado: true })
         .eq("grupo_id", grupoId)

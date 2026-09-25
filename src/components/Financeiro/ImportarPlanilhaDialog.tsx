@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/select";
 import { FileSpreadsheet, Sparkles, Loader2, Upload, Trash2, Building2, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { captureError } from "@/lib/monitoring";
+import { getErrorMessage } from "@/lib/errors";
 import { useToast } from "@/hooks/use-toast";
 import { parseSpreadsheetFile, stripEmptyRows, combineSheets, type ParsedSheet } from "@/lib/spreadsheetParser";
 import { useAiAdvisor, AdvisorError, type ItemImportadoFinanceiro } from "@/hooks/useAiAdvisor";
@@ -79,8 +81,8 @@ export function ImportarPlanilhaDialog({
       setSheets(parsed);
       setItems(null);
     } catch (e) {
-      setError("Não foi possível ler esse arquivo. Confirme que é um .xlsx, .xls ou .csv válido.");
-      console.error("parseSpreadsheetFile:", e);
+      captureError(e, { context: "ImportarPlanilhaDialog.parseSpreadsheetFile" });
+      setError(`Não foi possível ler esse arquivo. Confirme que é um .xlsx, .xls ou .csv válido. (${getErrorMessage(e, "erro desconhecido")})`);
     } finally {
       setParsing(false);
     }

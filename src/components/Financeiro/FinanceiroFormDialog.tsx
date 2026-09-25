@@ -88,27 +88,29 @@ const FormDialog: React.FC<FormDialogProps> = ({
 
   useEffect(() => { if (open) setForm(initial); }, [open]);
 
-  const { data: clientes = [] } = useQuery<ClienteOption[]>({
+  const { data: clientes = [], isError: clientesError } = useQuery<ClienteOption[]>({
     queryKey: ["clientes-fin", officeId],
     enabled: !!officeId,
     queryFn: async () => {
-      const { data } = await supabase.from("clientes").select("id, nome")
+      const { data, error } = await supabase.from("clientes").select("id, nome")
         .eq("office_id", officeId).eq("deletado", false).order("nome");
+      if (error) throw error;
       return (data ?? []) as ClienteOption[];
     },
   });
 
   const clienteSelecionado = form.cliente_id !== NONE && !!form.cliente_id;
 
-  const { data: processos = [] } = useQuery<ProcessoOption[]>({
+  const { data: processos = [], isError: processosError } = useQuery<ProcessoOption[]>({
     queryKey: ["processos-fin", officeId, form.cliente_id],
     enabled: !!officeId && clienteSelecionado,
     queryFn: async () => {
-      const { data } = await supabase.from("processos")
+      const { data, error } = await supabase.from("processos")
         .select("id, numero_processo, titulo")
         .eq("office_id", officeId)
         .eq("cliente_id", form.cliente_id)
         .eq("deletado", false);
+      if (error) throw error;
       return (data ?? []).map((p: any) => ({
         id: p.id,
         titulo: p.titulo || p.numero_processo || p.id,
@@ -501,6 +503,7 @@ const FormDialog: React.FC<FormDialogProps> = ({
                   ))}
                 </SelectContent>
               </Select>
+              {clientesError && <p className="text-[11px] font-bold text-destructive">Não foi possível carregar os clientes — feche e abra de novo.</p>}
             </div>
             {clienteSelecionado && (
               <div className="space-y-1.5">
@@ -516,6 +519,7 @@ const FormDialog: React.FC<FormDialogProps> = ({
                     ))}
                   </SelectContent>
                 </Select>
+                {processosError && <p className="text-[11px] font-bold text-destructive">Não foi possível carregar os processos deste cliente.</p>}
               </div>
             )}
           </div>

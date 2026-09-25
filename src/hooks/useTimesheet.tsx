@@ -198,14 +198,29 @@ export function useTimesheet() {
         toast({ title: 'Cobrança já paga', description: 'Reverta o pagamento na tela Financeiro antes de estornar — senão a receita recebida seria apagada e as horas ficariam abertas para uma nova cobrança.', variant: 'destructive' });
         return false;
       }
-      // Checa o soft-delete da receita ANTES de reabrir as horas — senão a receita
-      // fantasma ficava (recebível órfão) e as horas voltavam re-faturáveis. (v12)
-      const { error: delErr } = await supabase.from('financeiro').update({ deletado: true }).eq('id', financeiroId);
-      if (delErr) throw delErr;
-      const { error } = await supabase.from('timesheets')
-        .update({ faturado: false, faturado_em: null, financeiro_id: null, updated_at: new Date().toISOString() })
+      // Confere o soft-delete da receita ANTES de reabrir as horas — senão a receita
+      // fantasma ficava (recebível órfão) e as horas voltavam re-faturáveis. Checar só
+      // `error` não bastava: a RLS bloqueando devolve 0 linhas SEM erro, e o código
+      // seguia reabrindo as horas — cobrança dupla na próxima geração.
+      const { data: delRows, error: delErr } = await supabase.from('financeiro').update({ deletado: true }).eq('id', financeiroId).select('id');
+      assertRowsAffected(delRows, delErr, 1);
+      const { count: linked, error: countErr } = await supabase.from('timesheets')
+        .select('id', { count: 'exact', head: true })
         .eq('financeiro_id', financeiroId);
+      if (countErr) throw countErr;
+      const { data: reopened, error } = await supabase.from('timesheets')
+        .update({ faturado: false, faturado_em: null, financeiro_id: null, updated_at: new Date().toISOString() })
+        .eq('financeiro_id', financeiroId)
+        .select('id');
+      // Receita já estornada; se só parte das horas reabriu (RLS de um registro de outro
+      // membro, por exemplo), avisa com precisão em vez de dizer que deu tudo certo.
       if (error) throw error;
+      if ((reopened?.length ?? 0) < (linked ?? 0)) {
+        invalidate();
+        queryClient.invalidateQueries({ queryKey: ['financeiro'] });
+        toast({ title: 'Estorno parcial', description: `A receita foi removida, mas só ${reopened?.length ?? 0} de ${linked} registro(s) de horas puderam ser reabertos. Peça ao administrador para reabrir os demais.`, variant: 'destructive' });
+        return false;
+      }
       invalidate();
       queryClient.invalidateQueries({ queryKey: ['financeiro'] });
       toast({ title: 'Cobrança estornada', description: 'Receita removida e registros reabertos.' });
