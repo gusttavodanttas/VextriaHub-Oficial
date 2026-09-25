@@ -7,9 +7,10 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { captureError } from '@/lib/monitoring';
+import { getErrorMessage } from '@/lib/errors';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatCpfCnpj, onlyDigits, isValidCpfCnpj } from '@/lib/document';
-import { CreditCard, FileText, QrCode, Loader2, CheckCircle2, ExternalLink, Copy, Check, RefreshCw } from 'lucide-react';
+import { CreditCard, FileText, QrCode, Loader2, CheckCircle2, ExternalLink, Copy, Check, RefreshCw, AlertTriangle, ShieldAlert } from 'lucide-react';
 import { centsToBRL } from "@/lib/currency";
 
 interface Plan { plan_type: string; plan_name: string; price_cents: number; cycle?: string; signup_only?: boolean }
@@ -21,7 +22,9 @@ const ERROS_COBRANCA: Record<string, string> = {
   'plano-invalido': 'Plano indisponível. Escolha outro plano.',
   'sem-asaas-key': 'Pagamento temporariamente indisponível. Tente de novo em instantes.',
   'sem-assinatura': 'Não encontramos sua assinatura. Recarregue a página.',
-  'nao-autorizado': 'Sua sessão expirou. Entre novamente.',
+  // A edge function devolve isto tanto para sessão inválida quanto para membro que
+  // não é admin/owner do escritório — a mensagem precisa cobrir os dois casos.
+  'nao-autorizado': 'Só o administrador do escritório pode gerenciar a assinatura. Se você é o administrador, entre novamente.',
   'escritorio-nao-encontrado': 'Escritório não encontrado. Recarregue a página.',
 };
 const mapErroCobranca = (code?: string) => {
@@ -40,9 +43,12 @@ function Pagamento() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
-  const { office, user } = useAuth();
+  const { office, user, isOfficeAdmin, isSuperAdmin, logout } = useAuth();
+  // Mesma regra da edge function asaas-billing (admin/owner ativo ou super_admin).
+  const canManageBilling = isOfficeAdmin || isSuperAdmin;
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [verificando, setVerificando] = useState(false);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [sub, setSub] = useState<Sub | null>(null);
@@ -56,17 +62,30 @@ function Pagamento() {
   const docDigits = onlyDigits(cpf);
   const docOk = isValidCpfCnpj(cpf, docDigits.length > 11 ? 'juridica' : 'fisica');
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const [{ data: planRows }, subRes, profRes] = await Promise.all([
+  // `background`: recarrega depois de assinar/verificar sem trocar a página inteira
+  // pelo spinner de tela cheia.
+  const load = useCallback(async (background = false) => {
+    if (!background) setLoading(true);
+    const [planRes, subRes, profRes] = await Promise.all([
       supabase.from('plan_configs').select('plan_type, plan_name, price_cents, cycle, signup_only').eq('is_active', true).order('price_cents'),
       office?.id
         ? supabase.from('office_subscriptions').select('status, plan_name, next_due_date, last_invoice_url').eq('office_id', office.id).maybeSingle()
-        : Promise.resolve({ data: null }),
+        : Promise.resolve({ data: null, error: null }),
       user?.id
         ? supabase.from('profiles').select('cpf_cnpj').eq('user_id', user.id).maybeSingle()
-        : Promise.resolve({ data: null }),
+        : Promise.resolve({ data: null, error: null }),
     ]);
+    // Sem isto, uma falha na leitura dos planos virava "Nenhum plano disponível" —
+    // indistinguível de catálogo vazio e sem como tentar de novo.
+    const fetchError = planRes.error || subRes.error || profRes.error;
+    if (fetchError) {
+      captureError(fetchError, { context: 'Pagamento.load' });
+      setLoadError(getErrorMessage(fetchError, 'Não foi possível carregar os planos.'));
+      setLoading(false);
+      return;
+    }
+    setLoadError(null);
+    const planRows = planRes.data;
     const rows = ((planRows as Plan[]) || []).filter((p) => !p.signup_only);
     setPlans(rows);
     const preset = searchParams.get('plano') || searchParams.get('plan');
@@ -100,16 +119,26 @@ function Pagamento() {
     }
     toast({ title: 'Cobrança criada!', description: 'Use o link para pagar por Pix, boleto ou cartão.' });
     setInvoiceUrl(payload?.invoice_url || null);
-    load();
+    load(true);
   };
 
   // "Já paguei" — reconsulta o Asaas na hora (não espera o webhook) e libera se pago.
   const verificarPagamento = async () => {
     if (!office?.id) return;
     setVerificando(true);
-    const { data } = await supabase.functions.invoke('asaas-billing', { body: { action: 'sync', office_id: office.id } });
+    const { data, error } = await supabase.functions.invoke('asaas-billing', { body: { action: 'sync', office_id: office.id } });
+    if (error) {
+      // Sem isto, falha no sync (sessão expirada, Asaas fora) virava "pagamento ainda
+      // não identificado" — mensagem ativamente errada pra quem já pagou.
+      let code: string | undefined;
+      try { code = (await (error as { context?: Response }).context?.json())?.error; } catch (e) { captureError(e, { context: 'Pagamento.sync: parse error body' }); }
+      captureError(error, { context: 'Pagamento.sync' });
+      setVerificando(false);
+      toast({ title: 'Não consegui verificar o pagamento', description: code ? mapErroCobranca(code) : getErrorMessage(error, 'Tente novamente em instantes.'), variant: 'destructive' });
+      return;
+    }
     const st = (data as { status?: string } | null)?.status;
-    await load();
+    await load(true);
     setVerificando(false);
     if (st && ['ativa', 'cortesia'].includes(st)) {
       toast({ title: 'Pagamento confirmado!', description: 'Seu acesso está ativo.' });
@@ -128,7 +157,46 @@ function Pagamento() {
     return <div className="flex items-center justify-center min-h-screen gap-2"><Loader2 className="h-6 w-6 animate-spin" /> Carregando…</div>;
   }
 
+  if (loadError) {
+    return (
+      <div className="container mx-auto px-4 py-10 max-w-2xl">
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
+            <AlertTriangle className="h-10 w-10 text-destructive" />
+            <p className="font-semibold">Não foi possível carregar a assinatura</p>
+            <p className="text-sm text-muted-foreground">{loadError}</p>
+            <Button onClick={() => load()} className="gap-2"><RefreshCw className="h-4 w-4" /> Tentar novamente</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   const active = sub && ['ativa', 'cortesia'].includes(sub.status);
+
+  // Membro comum chega aqui redirecionado pelo PrivateRoute quando o escritório está
+  // com pagamento pendente. Ele não pode assinar (a edge function recusa com 403) —
+  // mostrar o formulário só levava a um erro depois de preencher tudo.
+  if (!active && !canManageBilling) {
+    return (
+      <div className="container mx-auto px-4 py-10 max-w-2xl">
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
+            <ShieldAlert className="h-10 w-10 text-amber-500" />
+            <p className="font-semibold text-lg">Assinatura do escritório pendente</p>
+            <p className="text-sm text-muted-foreground max-w-md">
+              O acesso do seu escritório está aguardando pagamento. Só o administrador do escritório pode
+              regularizar a assinatura — avise-o e tente entrar de novo depois.
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => load()} className="gap-2"><RefreshCw className="h-4 w-4" /> Verificar de novo</Button>
+              <Button variant="ghost" onClick={() => logout()}>Sair</Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-10 max-w-2xl space-y-6">
