@@ -134,7 +134,7 @@ const Clientes = () => {
   // Stats globais (independentes da busca/filtro ativo) e "office vazio" (pra
   // decidir entre o empty-state de onboarding e o de "sem resultados pra estes filtros").
   const stats = useClientesStats();
-  const showEmptyState = !loading && !dbError && stats.total === 0;
+  const showEmptyState = !loading && !dbError && !stats.isError && stats.total === 0;
   const semResultadosParaFiltro = !loading && !dbError && !showEmptyState && total === 0;
   const hasActiveFilters = !!(dSearch || advancedFilters.tipoPessoa || advancedFilters.origem || advancedFilters.status || advancedFilters.dataInicioFrom || advancedFilters.dataInicioTo || teamFilter);
   const handleClearAllFilters = () => { setSearchValue(""); setAdvancedFilters({}); setTeamFilter(null); };
@@ -178,12 +178,14 @@ const Clientes = () => {
     const openId = searchParams.get("openId") || searchParams.get("id");
     if (!openId) return;
     (async () => {
-      const { data: row } = await supabase
+      const { data: row, error: rowError } = await supabase
         .from("clientes")
         .select("*, processos!processos_cliente_id_fkey(count)")
         .eq("id", openId)
         .maybeSingle();
       if (row) { setSelectedClient(mapClient(row as any)); setClientDetailsOpen(true); }
+      // Antes o link simplesmente não abria nada.
+      else toast({ variant: "destructive", title: "Cliente não encontrado", description: rowError ? getErrorMessage(rowError) : "Ele pode ter sido excluído." });
     })();
     navigate("/clientes", { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -300,7 +302,7 @@ const Clientes = () => {
       </div>
 
       {/* Stats */}
-      {!loading && stats.total > 0 && (
+      {!loading && !stats.isError && stats.total > 0 && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard label="Total" value={stats.total} Icon={Users} color="bg-primary/10 text-primary" />
           <StatCard label="Ativos" value={stats.ativos} Icon={UserCheck} color="bg-emerald-500/10 text-emerald-500" />

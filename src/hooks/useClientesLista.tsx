@@ -103,7 +103,7 @@ export function useClientesLista(params: ClientesListaParams) {
 export function useClientesStats() {
   const { user } = useAuth();
 
-  const { data } = useQuery({
+  const { data, error } = useQuery({
     queryKey: ["clientes", "contagens", user?.office_id],
     queryFn: async () => {
       if (!user?.office_id) return { total: 0, ativos: 0, inativos: 0, juridica: 0 };
@@ -116,6 +116,10 @@ export function useClientesStats() {
         base().ilike("status", "inativo"),
         base().eq("tipo_pessoa", "juridica"),
       ]);
+      // Antes a falha virava contagem 0 — e a página mostrava o estado "nenhum
+      // cliente cadastrado" para um escritório com a base inteira lá.
+      const falha = total.error || ativos.error || inativos.error || juridica.error;
+      if (falha) throw falha;
       return {
         total: total.count ?? 0,
         ativos: ativos.count ?? 0,
@@ -128,7 +132,7 @@ export function useClientesStats() {
     gcTime: 60000,
   });
 
-  return data ?? { total: 0, ativos: 0, inativos: 0, juridica: 0 };
+  return { ...(data ?? { total: 0, ativos: 0, inativos: 0, juridica: 0 }), isError: !!error };
 }
 
 /** Aniversariantes do mês corrente — busca leve e separada (não paginada),

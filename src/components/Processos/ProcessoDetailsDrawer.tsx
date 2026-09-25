@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProcessoSubData } from '@/hooks/useProcessoSubData';
 import { useProcessoMovimentacoes } from '@/hooks/useProcessoMovimentacoes';
-import { getErrorMessage } from '@/lib/errors';
+import { assertRowsAffected, getErrorMessage } from '@/lib/errors';
 import { planQuotaMessage } from '@/lib/planQuotaError';
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -122,7 +122,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
   onOpenChange
 }) => {
   const { user } = useAuth();
-  const { update } = useProcessosV2();
+  const { update } = useProcessosV2({ lista: false });
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { teams: officeTeams } = useOfficeTeams();
@@ -293,7 +293,9 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
       // ainda duplicava. Normaliza e compara em JS (mesma norma do ClientSelect). (v12)
       const norm = (s: string) => (s || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/\s+/g, ' ').trim();
       const alvo = norm(nomeCliente);
-      const { data: candidatos } = await supabase.from('clientes').select('id, nome').eq('office_id', user.office_id).eq('deletado', false);
+      const { data: candidatos, error: candErr } = await supabase.from('clientes').select('id, nome').eq('office_id', user.office_id).eq('deletado', false);
+      // Sem isto, a falha na busca virava "cliente não existe" e criava um duplicado.
+      if (candErr) throw candErr;
       const existing = (candidatos || []).find((c: any) => norm(c.nome) === alvo) || null;
       let clienteId: string;
       if (existing) {
@@ -306,8 +308,8 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
         if (!novo) throw new Error('Erro ao criar cliente');
         clienteId = novo.id;
       }
-      const { error: updateError } = await supabase.from('processos').update({ cliente_id: clienteId }).eq('id', processo.id);
-      if (updateError) throw updateError;
+      const { data: upd, error: updateError } = await supabase.from('processos').update({ cliente_id: clienteId }).eq('id', processo.id).select('id');
+      assertRowsAffected(upd, updateError, 1);
       queryClient.invalidateQueries({ queryKey: ['processos'] });
       toast({ title: 'Cliente vinculado', description: `${nomeCliente} vinculado como cliente deste processo.` });
     } catch (e: unknown) {

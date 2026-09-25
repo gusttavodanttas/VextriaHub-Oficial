@@ -76,7 +76,7 @@ export function useCorrespondentes() {
     queryClient.invalidateQueries({ queryKey: ['diligencias'] });
   };
 
-  const { data: correspondentes = [], isLoading: loadingCorr } = useQuery({
+  const { data: correspondentes = [], isLoading: loadingCorr, error: errorCorr, refetch: refetchCorr } = useQuery({
     queryKey: ['correspondentes', officeId],
     queryFn: async (): Promise<Correspondente[]> => {
       // Sem este filtro, a única coisa restringindo a lista era a RLS — que libera
@@ -93,7 +93,7 @@ export function useCorrespondentes() {
     staleTime: 20_000,
   });
 
-  const { data: diligencias = [], isLoading: loadingDil } = useQuery({
+  const { data: diligencias = [], isLoading: loadingDil, error: errorDil, refetch: refetchDil } = useQuery({
     queryKey: ['diligencias', officeId],
     queryFn: async (): Promise<Diligencia[]> => {
       // Cap de segurança: sem paginação real ainda, evita carregar a tabela
@@ -219,6 +219,10 @@ export function useCorrespondentes() {
     diligencias,
     statsByCorrespondente,
     loading: loadingCorr || loadingDil,
+    // As queries já lançavam, mas o hook não expunha o erro — a página mostrava
+    // "nenhum correspondente" numa falha de rede/RLS.
+    error: errorCorr || errorDil ? getErrorMessage(errorCorr || errorDil, 'Não foi possível carregar os correspondentes.') : null,
+    refetch: () => { refetchCorr(); refetchDil(); },
     saveCorrespondente: (id: string | undefined, patch: Partial<Correspondente>) => saveCorrespondente.mutateAsync({ id, patch }),
     deleteCorrespondente: deleteCorrespondente.mutateAsync,
     savingCorrespondente: saveCorrespondente.isPending,

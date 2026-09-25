@@ -10,18 +10,27 @@ export type ConsultivoCategoria = Tables<"consultivo_categorias">;
 export function useConsultivoCategorias() {
   const [data, setData] = useState<ConsultivoCategoria[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
   const fetch = async () => {
     if (!user?.office_id) { setData([]); setLoading(false); return; }
     setLoading(true);
-    const { data: rows } = await supabase
+    const { data: rows, error: fetchError } = await supabase
       .from("consultivo_categorias")
       .select("*")
       .eq("office_id", user.office_id)
       .order("ordem")
       .order("created_at");
+    // Antes a falha virava "nenhuma categoria" — e os consultivos apareciam sem
+    // categoria/cor, como se a configuração tivesse sumido.
+    if (fetchError) {
+      setLoadError(getErrorMessage(fetchError, "Não foi possível carregar as categorias."));
+      setLoading(false);
+      return;
+    }
+    setLoadError(null);
     setData(rows || []);
     setLoading(false);
   };
@@ -30,6 +39,8 @@ export function useConsultivoCategorias() {
 
   const create = async (label: string, cor: string, icone: string): Promise<boolean> => {
     if (!user?.office_id) return false;
+    // Com a lista não carregada, `ordem: data.length` gravaria 0 e embaralharia a ordem.
+    if (loadError) { toast({ title: "Não foi possível criar", description: "As categorias não carregaram — tente de novo.", variant: "destructive" }); return false; }
     const valor = label.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
     const { error } = await supabase.from("consultivo_categorias").insert({
       office_id: user.office_id, label, valor, cor, icone,
@@ -71,5 +82,5 @@ export function useConsultivoCategorias() {
     return true;
   };
 
-  return { data, loading, create, update, remove, refetch: fetch };
+  return { data, loading, error: loadError, create, update, remove, refetch: fetch };
 }

@@ -23,6 +23,8 @@ import {
 } from '@/components/ui/select';
 import { Plus, FileText, Scale, User, Gavel, ShieldCheck, Info, RotateCw, Search, Loader2, AlertTriangle } from 'lucide-react';
 import { usePlanLimits } from '@/hooks/usePlanFeatures';
+import { getErrorMessage } from '@/lib/errors';
+import { captureError } from '@/lib/monitoring';
 import { planQuotaMessage } from '@/lib/planQuotaError';
 import { useToast } from '@/hooks/use-toast';
 import { PermissionGuard } from '@/components/Auth/PermissionGuard';
@@ -69,7 +71,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
   const { limits } = usePlanLimits();
   const { users: teamMembers } = useOfficeUsers();
   const { teams: officeTeams } = useOfficeTeams();
-  const { addMovimentacao, create } = useProcessosV2();
+  const { addMovimentacao, create } = useProcessosV2({ lista: false });
   const { data: clientesData = [] } = useClientes();
   // Tipos de processo cadastrados em Config → Processos (antes essa lista não era lida em lugar nenhum)
   const { items: tiposProcessoCfg, persist: persistTipos } = useOfficeSettingList<TipoProcesso>('tipos_processo', TIPOS_PROCESSO_DEFAULT);
@@ -211,13 +213,15 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
       // Rede de segurança contra duplicata ao salvar (ex: CNJ digitado manualmente)
       const cnjLimpo = (fd.numeroProcesso || '').replace(/\D/g, '');
       if (user?.office_id && cnjLimpo) {
-        const { data: jaExiste } = await supabase
+        const { data: jaExiste, error: dupErr } = await supabase
           .from('processos')
           .select('id')
           .eq('office_id', user.office_id)
           .eq('numero_processo', cnjLimpo)
           .eq('deletado', false)
           .maybeSingle();
+          // Sem isto, a falha virava "não existe" e o cadastro seguia em dobro.
+          if (dupErr) throw dupErr;
         if (jaExiste) {
           toast({
             title: 'Processo já cadastrado',
@@ -257,11 +261,10 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
         description: `Processo salvo com ${(fd.andamentos || []).length} movimentação(ões) sincronizadas.`,
       });
     } catch (error) {
-      console.error('Erro ao criar processo:', error);
       const quota = planQuotaMessage(error);
       toast({
         title: quota?.title ?? "Erro ao criar",
-        description: quota?.description ?? "Ocorreu um erro ao criar o processo.",
+        description: quota?.description ?? getErrorMessage(error, "Ocorreu um erro ao criar o processo."),
         variant: "destructive",
       });
     } finally {
@@ -273,17 +276,20 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
     if (!cnjInput) return;
     setPartesNaoLocalizadas(false);
     setIsLoading(true);
+    let naoLocalizado = false;
     try {
       // Bloqueia duplicata: se o CNJ já estiver cadastrado no escritório, não busca de novo.
       const cnjLimpo = cnjInput.replace(/\D/g, '');
       if (user?.office_id && cnjLimpo) {
-        const { data: jaExiste } = await supabase
+        const { data: jaExiste, error: dupErr } = await supabase
           .from('processos')
           .select('id')
           .eq('office_id', user.office_id)
           .eq('numero_processo', cnjLimpo)
           .eq('deletado', false)
           .maybeSingle();
+          // Sem isto, a falha virava "não existe" e o cadastro seguia em dobro.
+          if (dupErr) throw dupErr;
         if (jaExiste) {
           toast({
             title: 'Processo já cadastrado',
@@ -338,13 +344,18 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
           description: `${data.andamentos?.length || 0} movimentação(ões) recuperada(s) do DataJud.`,
         });
       } else {
+        naoLocalizado = true;
         throw new Error(data?.error || 'Processo não localizado.');
       }
     } catch (error: unknown) {
-      console.error('Erro ao buscar CNJ:', error);
+      // Distingue "o DataJud não tem esse processo" de "a consulta falhou" (rede,
+      // função fora do ar) — antes tudo virava "Não encontrado".
+      if (!naoLocalizado) captureError(error, { context: 'NovoProcessoDialog.handleCnjSearch' });
       toast({
-        title: "Não encontrado",
-        description: "Não conseguimos localizar este processo no DataJud. Você pode cadastrar manualmente.",
+        title: naoLocalizado ? "Não encontrado" : "Não foi possível consultar agora",
+        description: naoLocalizado
+          ? "Não conseguimos localizar este processo no DataJud. Você pode cadastrar manualmente."
+          : `${getErrorMessage(error, "Falha na consulta.")} Tente de novo ou cadastre manualmente.`,
         variant: "destructive"
       });
       setStep('form');
@@ -353,27 +364,23 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
     }
   };
 
+  // Erros sobem para quem chamou (o dialog de importação), que mostra o toast.
   const handleImportedSync = async (processes: any[]) => {
-    try {
-      for (const proc of processes) {
-        // Passa o objeto completo: useProcessosV2.create já lida com
-        // andamentos[], ultimoAndamento, classe, assunto, etc., e persiste
-        // todas as movimentações em batch (deduplicadas via hash).
-        await addProcesso({
-          ...proc,
-          cliente: proc.clienteDestaque || 'Importado via OAB',
-          clienteId: proc.clienteId,
-          status: 'Em andamento',
-          descricao: `Importado via OAB. Último andamento: ${proc.ultimoAndamento?.descricao || 'N/A'}`,
-        });
-      }
-      onSuccess?.();
-      setOpen(false);
-      resetForm();
-    } catch (error) {
-      console.error('Erro ao importar processos da OAB:', error);
-      throw error;
+    for (const proc of processes) {
+      // Passa o objeto completo: useProcessosV2.create já lida com
+      // andamentos[], ultimoAndamento, classe, assunto, etc., e persiste
+      // todas as movimentações em batch (deduplicadas via hash).
+      await addProcesso({
+        ...proc,
+        cliente: proc.clienteDestaque || 'Importado via OAB',
+        clienteId: proc.clienteId,
+        status: 'Em andamento',
+        descricao: `Importado via OAB. Último andamento: ${proc.ultimoAndamento?.descricao || 'N/A'}`,
+      });
     }
+    onSuccess?.();
+    setOpen(false);
+    resetForm();
   };
 
   const handleChange = (field: keyof NovoProcessoForm, value: any) => {

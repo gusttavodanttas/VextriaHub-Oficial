@@ -908,7 +908,7 @@ export const JudicialSyncDialog: React.FC<JudicialSyncDialogProps> = ({
   };
 
   // Quando em modo controlado, persistimos via useProcessosV2 internamente
-  const { create } = useProcessosV2();
+  const { create } = useProcessosV2({ lista: false });
 
   const handleImport = async (procs: JudicialProcessResult[]) => {
     if (onImport) {
