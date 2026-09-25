@@ -4,13 +4,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PermissionGuard } from "@/components/Auth/PermissionGuard";
-import { Target, Plus, Trash2, Save, TrendingUp } from "lucide-react";
+import { Target, Plus, Trash2, Save, TrendingUp, AlertTriangle } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/usePermissions";
 import { formatBRL } from "@/lib/currency";
+import { getErrorMessage } from "@/lib/errors";
+import { patchOfficeSettings } from "@/lib/officeSettings";
+import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
 
 type MetaDemanda = {
   id: string;
@@ -30,16 +33,26 @@ export function DemandGoalsConfig() {
   const { canManageMetas } = usePermissions();
   const [metasDemanda, setMetasDemanda] = useState<MetaDemanda[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [countError, setCountError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [removeId, setRemoveId] = useState<string | null>(null);
   const [novaMeta, setNovaMeta] = useState({ tipo: "", metaProcessos: 0, metaFaturamento: 0, cor: "bg-blue-500" });
 
-  // Conta processos ativos por tipo (tipo_processo) para preencher o progresso real
+  // Conta processos ativos por tipo (tipo_processo) para preencher o progresso real.
+  // Falha na contagem não pode virar "0 processos" como se fosse dado real.
   const contarProcessos = useCallback(async (tipos: string[]): Promise<Record<string, number>> => {
     if (!user?.office_id || tipos.length === 0) return {};
-    const { data } = await supabase.from("processos").select("tipo_processo")
+    const { data, error } = await supabase.from("processos").select("tipo_processo")
       .eq("office_id", user.office_id).eq("deletado", false).neq("status", "encerrado");
+    if (error) {
+      setCountError(true);
+      return {};
+    }
+    setCountError(false);
     const counts: Record<string, number> = {};
-    (data || []).forEach((p: any) => {
+    (data || []).forEach((p: { tipo_processo: string | null }) => {
       const t = (p.tipo_processo || "").trim().toLowerCase();
       counts[t] = (counts[t] || 0) + 1;
     });
@@ -48,30 +61,46 @@ export function DemandGoalsConfig() {
 
   // Carrega config salva em offices.settings.metas_demanda
   useEffect(() => {
-    if (!user?.office_id) return;
+    if (!user?.office_id) { setLoading(false); return; }
     const officeId = user.office_id;
+    let cancel = false;
     (async () => {
       setLoading(true);
-      const { data } = await supabase.from("offices").select("settings").eq("id", officeId).maybeSingle();
-      const saved: MetaDemanda[] = ((data?.settings as any)?.metas_demanda) || [];
+      const { data, error } = await supabase.from("offices").select("settings").eq("id", officeId).maybeSingle();
+      if (cancel) return;
+      // Sem isto a falha virava "Nenhuma meta" e o próximo save — inclusive o onBlur
+      // automático de cada campo — gravava metas_demanda: [] por cima das metas reais.
+      if (error) {
+        setLoadError(getErrorMessage(error, "Não foi possível carregar as metas por demanda."));
+        setLoading(false);
+        return;
+      }
+      setLoadError(null);
+      const saved: MetaDemanda[] = ((data?.settings as Record<string, unknown> | null)?.metas_demanda as MetaDemanda[]) || [];
       const counts = await contarProcessos(saved.map(m => m.tipo));
+      if (cancel) return;
       setMetasDemanda(saved.map(m => ({ ...m, processosAtuais: counts[(m.tipo || "").trim().toLowerCase()] || 0 })));
       setLoading(false);
     })();
-  }, [user?.office_id, contarProcessos]);
+    return () => { cancel = true; };
+  }, [user?.office_id, contarProcessos, reloadKey]);
 
   const persist = async (lista: MetaDemanda[]) => {
     if (!user?.office_id || !canManageMetas) return false;
-    setSaving(true);
-    const { data: cur } = await supabase.from("offices").select("settings").eq("id", user.office_id).maybeSingle();
-    // Salva sem o campo calculado (processosAtuais é derivado)
-    const toSave = lista.map(({ processosAtuais, ...rest }) => rest);
-    const merged = { ...((cur?.settings as any) || {}), metas_demanda: toSave };
-    const { error } = await supabase.from("offices").update({ settings: merged }).eq("id", user.office_id);
-    setSaving(false);
-    if (error) {
-      toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
+    if (loadError) {
+      toast({ title: "Não foi possível salvar", description: "As metas atuais não carregaram — recarregue antes de editar.", variant: "destructive" });
       return false;
+    }
+    setSaving(true);
+    // Salva sem o campo calculado (processosAtuais é derivado)
+    const toSave = lista.map(({ processosAtuais: _derivado, ...rest }) => rest);
+    try {
+      await patchOfficeSettings(user.office_id, { metas_demanda: toSave });
+    } catch (e) {
+      toast({ title: "Erro ao salvar", description: getErrorMessage(e), variant: "destructive" });
+      return false;
+    } finally {
+      setSaving(false);
     }
     toast({ title: "Metas por demanda salvas" });
     return true;
@@ -121,8 +150,27 @@ export function DemandGoalsConfig() {
     return <div className="space-y-4">{[...Array(2)].map((_, i) => <Skeleton key={i} className="h-40 rounded-[2rem]" />)}</div>;
   }
 
+  if (loadError) {
+    return (
+      <div className="flex items-center justify-between gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+          <p className="text-xs font-bold text-destructive">{loadError}</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => setReloadKey((k) => k + 1)} className="rounded-xl font-bold shrink-0">Tentar novamente</Button>
+      </div>
+    );
+  }
+
+  const metaParaRemover = metasDemanda.find((m) => m.id === removeId);
+
   return (
     <div className="space-y-6">
+      {countError && (
+        <p className="flex items-center gap-2 text-xs font-bold text-amber-600 dark:text-amber-400">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> Não foi possível contar os processos — o progresso de processos pode estar desatualizado.
+        </p>
+      )}
       {/* Faixa de totais */}
       {metasDemanda.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -198,7 +246,7 @@ export function DemandGoalsConfig() {
                     <h4 className="font-black text-lg tracking-tight">{meta.tipo}</h4>
                     <span className="text-xs text-muted-foreground">· {meta.processosAtuais} processos ativos (auto)</span>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => removerMeta(meta.id)} className="text-red-500 hover:bg-red-500/10 rounded-xl">
+                  <Button variant="ghost" size="sm" onClick={() => setRemoveId(meta.id)} className="text-red-500 hover:bg-red-500/10 rounded-xl">
                     <Trash2 className="h-4 w-4 mr-2" />Remover
                   </Button>
                 </div>
@@ -247,6 +295,16 @@ export function DemandGoalsConfig() {
           </CardContent>
         </Card>
       </PermissionGuard>
+
+      <DeleteConfirmDialog
+        open={!!removeId}
+        onOpenChange={(o) => { if (!o) setRemoveId(null); }}
+        onConfirm={() => { const id = removeId; setRemoveId(null); if (id) removerMeta(id); }}
+        title="Remover meta por demanda"
+        description={`A meta "${metaParaRemover?.tipo ?? ""}" será removida da configuração do escritório.`}
+        confirmText="Remover"
+        isLoading={saving}
+      />
     </div>
   );
 }

@@ -1,7 +1,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Bell, Clock, CalendarDays, CheckSquare, Headset, DollarSign, CalendarClock } from "lucide-react";
+import { Bell, Clock, CalendarDays, CheckSquare, Headset, DollarSign, CalendarClock, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useNotificationPrefs } from "@/hooks/useNotificationPrefs";
 
 interface Pref { key: string; label: string; desc: string; icon: React.ComponentType<{ className?: string }>; }
@@ -15,7 +16,8 @@ const PREFS: Pref[] = [
 ];
 
 export function NotificationPrefs() {
-  const { prefs, leadDias, toggle, saveLead, loading } = useNotificationPrefs();
+  const { prefs, leadDias, toggle, saveLead, loading, error, refetch } = useNotificationPrefs();
+  const disabled = loading || !!error;
 
   return (
     <Card className="glass-card rounded-[2rem] border-black/5 dark:border-border overflow-hidden shadow-premium">
@@ -29,6 +31,15 @@ export function NotificationPrefs() {
         </div>
       </CardHeader>
       <CardContent className="p-5 md:p-6">
+        {error && (
+          <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+              <p className="text-xs font-bold text-destructive">{error} Edição bloqueada até recarregar.</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={refetch} className="rounded-xl font-bold shrink-0">Tentar novamente</Button>
+          </div>
+        )}
         {/* Antecedência dos avisos */}
         <div className="flex items-center justify-between gap-3 p-4 rounded-2xl border border-primary/20 bg-primary/[0.03] mb-3">
           <div className="flex items-center gap-3 min-w-0">
@@ -40,7 +51,7 @@ export function NotificationPrefs() {
               <p className="text-xs text-muted-foreground truncate">Quantos dias antes você quer ser avisado de audiências, prazos e tarefas</p>
             </div>
           </div>
-          <Select value={String(leadDias)} onValueChange={(v) => saveLead(Number(v))} disabled={loading}>
+          <Select value={String(leadDias)} onValueChange={(v) => saveLead(Number(v))} disabled={disabled}>
             <SelectTrigger className="w-40 rounded-xl shrink-0"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="1">1 dia</SelectItem>
@@ -68,7 +79,7 @@ export function NotificationPrefs() {
                     <p className="text-xs text-muted-foreground truncate">{p.desc}</p>
                   </div>
                 </div>
-                <Switch checked={!!prefs[p.key]} onCheckedChange={(v) => toggle(p.key, v)} disabled={loading} />
+                <Switch checked={!!prefs[p.key]} onCheckedChange={(v) => toggle(p.key, v)} disabled={disabled} />
               </div>
             );
           })}
