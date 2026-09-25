@@ -73,20 +73,21 @@ export function useTimesheetManualEntry({ config, update, addManual }: ManualEnt
     setMSaving(true);
     const billingFields: any = { faturavel: mFat };
     if (mValor) billingFields.valor_hora = Number(mValor);
-    if (editTarget) {
-      await update(editTarget.id, {
-        tarefa_descricao: mDesc.trim(), categoria: mCat, cliente_id: mCli || null,
-        data_inicio: inicioISO, data_fim: fimISO, duracao_minutos: dur,
-        observacoes: mObs.trim() || null, ...billingFields,
-      });
-    } else {
-      await addManual({
-        tarefa_descricao: mDesc.trim(), categoria: mCat as TimesheetCategoria, cliente_id: mCli || null,
-        data_inicio: inicioISO, data_fim: fimISO, duracao_minutos: dur,
-        observacoes: mObs.trim() || null, faturavel: mFat, valor_hora: mValor ? Number(mValor) : null,
-      });
-    }
-    setMSaving(false); setManualOpen(false);
+    const ok = editTarget
+      ? await update(editTarget.id, {
+          tarefa_descricao: mDesc.trim(), categoria: mCat, cliente_id: mCli || null,
+          data_inicio: inicioISO, data_fim: fimISO, duracao_minutos: dur,
+          observacoes: mObs.trim() || null, ...billingFields,
+        })
+      : await addManual({
+          tarefa_descricao: mDesc.trim(), categoria: mCat as TimesheetCategoria, cliente_id: mCli || null,
+          data_inicio: inicioISO, data_fim: fimISO, duracao_minutos: dur,
+          observacoes: mObs.trim() || null, faturavel: mFat, valor_hora: mValor ? Number(mValor) : null,
+        });
+    setMSaving(false);
+    // Só fecha em caso de sucesso: o hook já mostrou o toast de erro, e fechar aqui
+    // descartava tudo o que o usuário tinha digitado.
+    if (ok) setManualOpen(false);
   };
 
   return {

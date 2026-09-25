@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { prazoFormSchema, firstZodError } from "@/lib/validation";
 import { planQuotaMessage } from "@/lib/planQuotaError";
 import { assertRowsAffected, getErrorMessage } from "@/lib/errors";
+import { patchOfficeSettings } from "@/lib/officeSettings";
 import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 
 // ─────────────────────────────────────────────
@@ -281,16 +282,11 @@ export function GerenciarTiposModal({ open, onClose, officeId }: GerenciarTiposP
     }
     const previous = feriados;
     setFeriados(arr); // otimista
-    const { data: cur } = await supabase.from('offices').select('settings').eq('id', officeId).maybeSingle();
-    const merged = { ...((cur?.settings as any) ?? {}), prazo_feriados: arr };
-    const { data: updated, error } = await supabase.from('offices').update({ settings: merged }).eq('id', officeId).select('id');
-    if (error || !updated || updated.length === 0) {
+    try {
+      await patchOfficeSettings(officeId, { prazo_feriados: arr });
+    } catch (e) {
       setFeriados(previous);
-      toast({
-        title: 'Erro ao salvar feriado',
-        description: error?.message ?? 'Só um administrador do escritório pode alterar esta configuração.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Erro ao salvar feriado', description: getErrorMessage(e), variant: 'destructive' });
     }
   };
   const addFeriado = () => {

@@ -365,7 +365,11 @@ const AppWithRouter = () => {
           }
         />
         <Route path="/politica-privacidade" element={<PoliticaPrivacidade />} />
-        <Route path="/pagamento" element={<Pagamento />} />
+        {/* Fora do AppLayout de propósito (o escritório pode estar bloqueado por falta de
+            pagamento), mas exige sessão: sem ela o visitante via os planos e todo "Assinar"
+            caía em "Escritório não encontrado". Quem não é admin é tratado dentro da página —
+            o PrivateRoute manda para cá qualquer membro de escritório com pagamento pendente. */}
+        <Route path="/pagamento" element={<PrivateRoute><Pagamento /></PrivateRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
       </Suspense>

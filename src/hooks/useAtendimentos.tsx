@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { captureError } from "@/lib/monitoring";
 import { assertRowsAffected, getErrorMessage } from "@/lib/errors";
+import { patchOfficeSettings } from "@/lib/officeSettings";
 import { continueOccurrences, type RecRule } from "@/lib/recorrencia";
 import type { Atendimento } from "@/components/Atendimentos/shared";
 import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/rows";
@@ -187,13 +188,10 @@ export const useAtendimentoTipos = (officeId: string) => {
       toast({ title: "Não foi possível salvar", description: "Os tipos extras não carregaram — recarregue antes de editar.", variant: "destructive" });
       return false;
     }
-    const { data: cur } = await supabase.from("offices").select("settings").eq("id", officeId).maybeSingle();
-    const merged = { ...(cur?.settings as any ?? {}), at_tipos_extras: tipos };
-    const { data: updated, error } = await supabase.from("offices").update({ settings: merged }).eq("id", officeId).select("id");
     try {
-      assertRowsAffected(updated, error, 1);
+      await patchOfficeSettings(officeId, { at_tipos_extras: tipos });
     } catch (e) {
-      toast({ title: "Erro ao salvar", description: e instanceof Error ? e.message : "Não foi possível salvar.", variant: "destructive" });
+      toast({ title: "Erro ao salvar", description: getErrorMessage(e, "Não foi possível salvar."), variant: "destructive" });
       return false;
     }
     queryClient.invalidateQueries({ queryKey: ["office-settings-at", officeId] });

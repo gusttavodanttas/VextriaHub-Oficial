@@ -6,7 +6,7 @@ import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { Profile, OfficeUser, Office } from '@/types/database';
 import { usePaymentValidation, type PaymentValidationResult } from '@/hooks/usePaymentValidation';
 import { officeService } from '@/services/officeService';
-import { setMonitoringUser } from '@/lib/monitoring';
+import { setMonitoringUser, captureError } from '@/lib/monitoring';
 
 export const SUPER_ADMIN_EMAILS = (
   import.meta.env.VITE_SUPER_ADMIN_EMAILS || 'contato@vextriahub.com.br'
@@ -230,22 +230,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (profileData) {
             // Garante o escritório no banco antes de ler (atômico, idempotente,
             // self-healing). Substitui a criação frágil de escritório no cliente.
-            try { await supabase.rpc('ensure_office_for_user'); }
-            catch (rpcErr) { console.error('ensure_office_for_user:', rpcErr); }
+            // .rpc() não lança em erro de aplicação (só devolve { error }) — o try/catch
+            // sozinho só pegava falha de rede.
+            try {
+              const { error: ensureErr } = await supabase.rpc('ensure_office_for_user');
+              if (ensureErr) captureError(ensureErr, { context: 'AuthContext.ensure_office_for_user' });
+            } catch (rpcErr) { captureError(rpcErr, { context: 'AuthContext.ensure_office_for_user' }); }
             // Cadastro por link de plano com confirmação de e-mail: o apply_signup_plan não roda no
             // Register (o auto-login falha). Aplica o plano guardado agora, no 1º login pós-confirmação.
             // Idempotente (guard plan_claimed no RPC); roda uma vez e limpa a flag.
             const pendingPlan = localStorage.getItem('pending_signup_plan');
             if (pendingPlan) {
               try {
-                await supabase.rpc('apply_signup_plan', { p_plan_type: pendingPlan });
-                // Só limpa a flag se APLICOU. Antes o removeItem rodava sempre: uma falha
-                // transitória do RPC perdia o plano pago escolhido para sempre. O RPC é
-                // idempotente (no-op quando já reivindicado), então repetir no próximo
-                // login é seguro. (v11)
+                const { error: planErr } = await supabase.rpc('apply_signup_plan', { p_plan_type: pendingPlan });
+                // Só limpa a flag se APLICOU: o RPC devolve { error } sem lançar, então sem
+                // esta checagem o removeItem rodava mesmo na falha e o plano pago escolhido
+                // se perdia para sempre. Idempotente (no-op quando já reivindicado), então
+                // repetir no próximo login é seguro.
+                if (planErr) throw planErr;
                 localStorage.removeItem('pending_signup_plan');
               } catch (planErr) {
-                console.error('apply_signup_plan (pós-confirmação):', planErr);
+                captureError(planErr, { context: 'AuthContext.apply_signup_plan (pós-confirmação)' });
                 // mantém a flag para tentar de novo no próximo login
               }
             }

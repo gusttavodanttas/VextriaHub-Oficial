@@ -4,12 +4,15 @@ import { Handshake, CircleDollarSign, MapPin, ChevronRight, Check } from 'lucide
 import { Button } from '@/components/ui/button';
 import { formatBRL } from '@/lib/currency';
 import { useCorrespondentes } from '@/hooks/useCorrespondentes';
+import { usePermissions } from '@/hooks/usePermissions';
 
 // Painel-resumo das diligências (custo com correspondentes) para a tela Financeiro.
 // Some quando não há diligências, para não poluir.
 export const DiligenciasFinanceiroPanel: React.FC = () => {
   const navigate = useNavigate();
   const { correspondentes, diligencias, patchDiligencia } = useCorrespondentes();
+  // "Marcar pago" é lançamento financeiro: quem só tem canViewFinanceiro via o botão ativo.
+  const { canManageFinanceiro } = usePermissions();
 
   const corrById = useMemo(() => new Map(correspondentes.map((c) => [c.id, c.nome])), [correspondentes]);
 
@@ -71,10 +74,14 @@ export const DiligenciasFinanceiroPanel: React.FC = () => {
                   <span className="flex items-center gap-1 font-semibold text-foreground/70"><CircleDollarSign className="h-3 w-3" />{formatBRL(d.valor || 0)}</span>
                 </div>
               </div>
-              <Button size="sm" variant="outline" className="h-8 rounded-xl text-[11px] font-bold gap-1 shrink-0"
-                onClick={() => patchDiligencia(d.id, { pago: true, data_pagamento: new Date().toISOString().slice(0, 10) })}>
-                <Check className="h-3.5 w-3.5" /> Marcar pago
-              </Button>
+              {canManageFinanceiro && (
+                <Button size="sm" variant="outline" className="h-8 rounded-xl text-[11px] font-bold gap-1 shrink-0"
+                  // mutateAsync: o onError do hook já mostra o toast com a causa; o catch
+                  // só evita a rejeição sem handler (unhandledrejection).
+                  onClick={() => { patchDiligencia(d.id, { pago: true, data_pagamento: new Date().toISOString().slice(0, 10) }).catch(() => undefined); }}>
+                  <Check className="h-3.5 w-3.5" /> Marcar pago
+                </Button>
+              )}
             </div>
           ))}
         </div>
