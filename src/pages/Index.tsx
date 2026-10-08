@@ -102,7 +102,7 @@ function KpiCard({ icon: Icon, label, value, sub, color, bg, onClick, urgent, lo
 }
 
 const Index = () => {
-  const { isSuperAdmin, isOfficeAdmin, validatePayment } = useAuth();
+  const { isSuperAdmin, validatePayment } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { stats, loading: statsLoading, isError: statsError, error: statsErrorMsg, refresh } = useStats();
@@ -139,15 +139,17 @@ const Index = () => {
   // só a navegação de saída do Login.tsx carrega, e só ela deve se
   // auto-corrigir quando o role ainda estava provisório (ver processUserData em
   // AuthContext) na hora do redirect.
+  // Só o super admin do sistema é reencaminhado para /admin — admin de
+  // escritório trabalha no Dashboard (mesma regra de getRedirectPath).
   const pendingLoginRedirect = (location.state as { fromLoginRedirect?: boolean } | null)?.fromLoginRedirect === true;
 
   useEffect(() => {
-    if (pendingLoginRedirect && (isSuperAdmin || isOfficeAdmin)) {
+    if (pendingLoginRedirect && isSuperAdmin) {
       navigate('/admin', { replace: true });
     }
-  }, [pendingLoginRedirect, isSuperAdmin, isOfficeAdmin, navigate]);
+  }, [pendingLoginRedirect, isSuperAdmin, navigate]);
 
-  if (pendingLoginRedirect && (isSuperAdmin || isOfficeAdmin)) {
+  if (pendingLoginRedirect && isSuperAdmin) {
     return (
       <div className="flex items-center justify-center min-h-[60vh] gap-3">
         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
