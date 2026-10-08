@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import {
   tribunalFromCNJ, extractPartes, decodeHtmlEntities,
   classifyFase, classifyInstancia, summarize, extractMovs, parseDataAjuizamento,
-} from "./_shared/processoParsing.ts";
+} from "../_shared/processoParsing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

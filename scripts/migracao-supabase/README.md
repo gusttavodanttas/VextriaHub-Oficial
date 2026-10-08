@@ -13,6 +13,21 @@ Os usuários mantêm as senhas (os hashes vão no backup), mas todos precisam
 > Os arquivos gerados na migração (`.migracao-supabase/`, `.env.funcoes`) contêm
 > **dados reais e segredos** e estão no `.gitignore`. Apague-os ao terminar.
 
+## Estado em 08/10/2026
+
+O banco **já foi restaurado** no projeto novo (pelo painel do Supabase): as 52
+tabelas batem linha a linha com o backup, policies/triggers/RLS idênticos,
+102 chaves estrangeiras sem órfãos, 13 usuários e os metadados do Storage. O
+secret `project_url` já está no vault. **Não rodar o passo 1/2 do `migrar.sh`**
+(recarregaria dados em cima dos existentes). Falta:
+
+- [ ] vault: `service_role_key` e `robot_secret` (SQL Editor, valores do projeto novo)
+- [ ] migration dos crons (`20261008000000`) → 8 robôs
+- [ ] edge functions: workflow **Deploy Edge Functions (Supabase)** (seção 1b)
+- [ ] segredos das functions (Dashboard → Edge Functions → Manage secrets)
+- [ ] arquivos do Storage (seção 2) — conferir antes se já existem abrindo a URL pública de um logo
+- [ ] Auth no painel (seção 3), Asaas (seção 4), virada do site (seção 5)
+
 ## Por que não restaurar o backup inteiro nem rodar as migrations do repositório
 
 - O backup traz os schemas que o Supabase gerencia (`auth`, `storage`, `realtime`,
@@ -68,12 +83,27 @@ O script pede confirmação em cada etapa:
 4. **Vault + crons:** criar os 3 secrets no SQL Editor (comandos na tela) e
    `db push` da migration `20261008000000_crons_url_pelo_vault.sql`; confere
    `cron.job` (8 robôs).
-5. **Edge functions + segredos:** publica as 24 functions e os segredos de
-   `.env.funcoes` (modelo em `.env.funcoes.example`). Os valores do projeto antigo
-   **não podem ser lidos de volta** no painel; use os originais.
+5. **Edge functions + segredos (via CLI local):** publica as 24 functions e os
+   segredos de `.env.funcoes` (modelo em `.env.funcoes.example`). Alternativa sem
+   CLI local: a seção 1b abaixo. Os valores dos segredos do projeto antigo **não
+   podem ser lidos de volta** no painel; use os originais.
 
 > `super-worker`, `regex-canary` e `asaas-sandbox-test` existiam só no projeto
 > antigo e não estão no repositório; com ele pausado, não há como baixá-las.
+
+## 1b. Edge functions pelo GitHub Actions (sem CLI na máquina)
+
+`.github/workflows/deploy-functions.yml` publica as 24 functions com a CLI oficial,
+direto do repositório. Quais dispensam JWT está em `supabase/config.toml`
+(`[functions.<nome>] verify_jwt = false`).
+
+1. Gerar um token em https://supabase.com/dashboard/account/tokens.
+2. GitHub → Settings → Secrets and variables → Actions → **Secrets** →
+   `SUPABASE_ACCESS_TOKEN` = o token. (Opcional, aba **Variables**:
+   `SUPABASE_PROJECT_REF` = `pvesofbrctfipdyqyloq`; sem ela usa o `config.toml`.)
+3. Actions → *Deploy Edge Functions (Supabase)* → **Run workflow**.
+4. Dashboard → Edge Functions → **Manage secrets**: cadastrar os segredos de
+   `.env.funcoes.example` (os valores reais, que só você tem).
 
 ## 2. Arquivos do Storage — `enviar-storage.mjs`
 
