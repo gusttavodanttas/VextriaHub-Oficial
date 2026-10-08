@@ -41,6 +41,15 @@ jobs:
       - name: Type-check (tsc)
         run: npx tsc --noEmit -p tsconfig.app.json
 
+      # Chave anon errada (de outro projeto, service_role, vazia) só apareceria em
+      # produção como "Invalid API key" no login. O script decodifica o JWT e confere
+      # o ref contra a URL — falha aqui, antes de publicar.
+      - name: Conferir URL e chave anon do Supabase
+        run: node scripts/ci/conferir-chaves-supabase.mjs
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'https://mzhnlhfxfoigkqgxseeu.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
       - name: Build de produção
         run: npm run build
         env:
