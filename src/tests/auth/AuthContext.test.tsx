@@ -375,7 +375,13 @@ describe('AuthContext', () => {
   });
 
   describe('logout', () => {
-    it('limpa o usuário/sessão e navega pra /login', async () => {
+    it('limpa o usuário/sessão e recarrega a página em /login', async () => {
+      // jsdom não implementa navegação real: substituímos window.location por um
+      // objeto com replace espiável.
+      const locationOriginal = window.location;
+      const replace = vi.fn();
+      Object.defineProperty(window, 'location', { configurable: true, writable: true, value: { ...locationOriginal, replace } });
+
       mockTableData['profiles'] = {
         user_id: 'user-1',
         role: 'admin',
@@ -407,7 +413,9 @@ describe('AuthContext', () => {
 
       expect(screen.getByTestId('role').textContent).toBe('none');
       expect(latestAuth!.isAuthenticated).toBe(false);
-      await waitFor(() => expect(screen.getByTestId('path').textContent).toBe('/login'));
+      // Recarga completa (não navigate da SPA): o próximo login usa o build novo.
+      expect(replace).toHaveBeenCalledWith('/login');
+      Object.defineProperty(window, 'location', { configurable: true, writable: true, value: locationOriginal });
     });
   });
 });
