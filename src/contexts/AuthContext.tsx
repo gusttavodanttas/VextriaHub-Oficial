@@ -512,20 +512,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user, profile, session]);
 
   // Função para determinar redirecionamento baseado no role do usuário
+  // Destino após o login. Só o super admin do sistema (lista global de e-mails)
+  // cai no painel de administração; admin de escritório e usuário comum vão
+  // para o Dashboard, que é a tela de trabalho — o /admin continua acessível
+  // pelo menu. (O role 'super_admin' no profile é derivado da mesma lista.)
   const getRedirectPath = useCallback((userRole: string | undefined, userEmail: string | undefined) => {
     const isSystemAdmin = userEmail && SUPER_ADMIN_EMAILS.includes(userEmail.toLowerCase().trim());
-    
-    if (isSystemAdmin) {
+    if (isSystemAdmin || userRole === 'super_admin') {
       return '/admin';
     }
-    
-    switch (userRole) {
-      case 'admin':
-        return '/admin';
-      case 'user':
-      default:
-        return '/dashboard';
-    }
+    return '/dashboard';
   }, []);
 
   const logout = async () => {

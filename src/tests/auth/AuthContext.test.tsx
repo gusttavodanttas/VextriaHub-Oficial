@@ -117,13 +117,14 @@ describe('AuthContext', () => {
   });
 
   describe('getRedirectPath', () => {
-    it('role admin vai pra /admin, role user (ou ausente) vai pra /dashboard', async () => {
+    it('admin de escritório, usuário comum e role ausente vão pra /dashboard; só super_admin vai pra /admin', async () => {
       renderAuth();
       await waitFor(() => expect(latestAuth).toBeTruthy());
 
-      expect(latestAuth!.getRedirectPath('admin', 'joao@escritorio.com')).toBe('/admin');
+      expect(latestAuth!.getRedirectPath('admin', 'joao@escritorio.com')).toBe('/dashboard');
       expect(latestAuth!.getRedirectPath('user', 'joao@escritorio.com')).toBe('/dashboard');
       expect(latestAuth!.getRedirectPath(undefined, 'joao@escritorio.com')).toBe('/dashboard');
+      expect(latestAuth!.getRedirectPath('super_admin', 'joao@escritorio.com')).toBe('/admin');
     });
 
     it('e-mail da lista global de super admin manda pra /admin mesmo com role "user"', async () => {
