@@ -21,10 +21,13 @@ tabelas batem linha a linha com o backup, policies/triggers/RLS idênticos,
 secret `project_url` já está no vault. **Não rodar o passo 1/2 do `migrar.sh`**
 (recarregaria dados em cima dos existentes). Falta:
 
-- [ ] vault: `service_role_key` e `robot_secret` (SQL Editor, valores do projeto novo)
-- [ ] migration dos crons (`20261008000000`) → 8 robôs
-- [ ] edge functions: workflow **Deploy Edge Functions (Supabase)** (seção 1b)
-- [ ] segredos das functions (Dashboard → Edge Functions → Manage secrets)
+- [x] vault: `service_role_key` e `robot_secret` (SQL Editor, valores do projeto novo)
+- [x] migration dos crons (`20261008000000`) → 8 robôs
+- [x] logs antigos de `cron.job_run_details` apagados (ver "Crons agendados mas
+      sem executar" abaixo) — primeira execução confirmada em 08/10 10:45 UTC
+- [x] edge functions: workflow **Deploy Edge Functions (Supabase)** (seção 1b) — 24 publicadas
+- [ ] segredos das functions (Dashboard → Edge Functions → Manage secrets) — enquanto
+      faltarem, os robôs respondem 500 (`RESEND_API_KEY ausente`, `google-nao-configurado`)
 - [ ] arquivos do Storage (seção 2) — conferir antes se já existem abrindo a URL pública de um logo
 - [ ] Auth no painel (seção 3), Asaas (seção 4), virada do site (seção 5)
 
@@ -82,7 +85,8 @@ O script pede confirmação em cada etapa:
    `db push` aplicar só as novas.
 4. **Vault + crons:** criar os 3 secrets no SQL Editor (comandos na tela) e
    `db push` da migration `20261008000000_crons_url_pelo_vault.sql`; confere
-   `cron.job` (8 robôs).
+   `cron.job` (8 robôs). Se o banco foi restaurado **pelo painel** (backup
+   inteiro, não pelo `02-dados.sql`), ler antes "Crons agendados mas sem executar".
 5. **Edge functions + segredos (via CLI local):** publica as 24 functions e os
    segredos de `.env.funcoes` (modelo em `.env.funcoes.example`). Alternativa sem
    CLI local: a seção 1b abaixo. Os valores dos segredos do projeto antigo **não
@@ -154,3 +158,30 @@ GitHub → Settings → Secrets and variables → Actions:
 - [ ] No dia seguinte: `select * from cron.job_run_details order by start_time desc limit 20;`
 
 Só depois disso: apagar `.migracao-supabase/` e, quando quiser, o projeto antigo.
+
+## Crons agendados mas sem executar (restore pelo painel)
+
+Sintoma: `cron.job` lista os 8 robôs, mas `cron.job_run_details` não ganha
+nenhuma linha nova e, no log do Postgres (Logs → Postgres), a cada minuto de
+disparo aparece:
+
+```
+duplicate key value violates unique constraint "job_run_details_pkey"
+background worker "pg_cron launcher" exited with exit code 1
+pg_cron scheduler started
+```
+
+Causa: o restore pelo painel carrega também o histórico de execuções do projeto
+antigo em `cron.job_run_details` (milhares de linhas, `runid` até 6054), mas a
+sequência `cron.runid_seq` do projeto novo continua do zero. Na primeira
+execução o agendador tenta gravar um `runid` que já existe, morre e é
+reiniciado um segundo depois — e nunca executa job nenhum. O papel `postgres`
+**não tem permissão** para `setval` nessa sequência (dona: `supabase_admin`),
+mas pode apagar as linhas. Correção, no SQL Editor:
+
+```sql
+delete from cron.job_run_details;   -- histórico do projeto antigo (continua no backup)
+```
+
+No disparo seguinte os jobs rodam e o histórico recomeça. (`extrair-do-backup.py`
+não copia o schema `cron`, então o caminho pelo `migrar.sh` não tem esse problema.)
