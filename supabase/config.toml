@@ -1,1 +1,18 @@
-project_id = "mzhnlhfxfoigkqgxseeu"
+project_id = "pvesofbrctfipdyqyloq"
+# ── Edge functions que NÃO recebem JWT do Supabase (a CLI aplica no deploy) ──
+# Webhook do Asaas e robôs chamados pelo cron só com x-robot-secret; o callback
+# do Google chega sem sessão (o redirect do Google não traz login) e google-sync
+# aceita robô OU usuário. Cada uma valida o próprio segredo no código.
+# As demais exigem JWT (usuário logado ou service role do cron/robôs).
+[functions.asaas-webhook]
+verify_jwt = false
+[functions.asaas-reconcile]
+verify_jwt = false
+[functions.trial-reminder]
+verify_jwt = false
+[functions.google-sync]
+verify_jwt = false
+[functions.google-oauth-callback]
+verify_jwt = false
+[functions.zap-bridge]
+verify_jwt = false
