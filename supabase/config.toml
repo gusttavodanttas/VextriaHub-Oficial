@@ -16,3 +16,30 @@ verify_jwt = false
 verify_jwt = false
 [functions.zap-bridge]
 verify_jwt = false
+
+# Templates dos e-mails de autenticação (em português, com a marca VextriaHub).
+# Valem para o `supabase start` local; no projeto hospedado, colar o conteúdo em
+# Authentication → Email Templates (assuntos em scripts/migracao-supabase/README.md).
+[auth.email.template.confirmation]
+subject = "Confirme seu e-mail no VextriaHub"
+content_path = "./supabase/templates/confirmacao.html"
+
+[auth.email.template.recovery]
+subject = "Redefinir sua senha do VextriaHub"
+content_path = "./supabase/templates/recuperacao.html"
+
+[auth.email.template.magic_link]
+subject = "Seu link de acesso ao VextriaHub"
+content_path = "./supabase/templates/link-magico.html"
+
+[auth.email.template.email_change]
+subject = "Confirme a troca de e-mail no VextriaHub"
+content_path = "./supabase/templates/troca-de-email.html"
+
+[auth.email.template.invite]
+subject = "Você foi convidado para o VextriaHub"
+content_path = "./supabase/templates/convite.html"
+
+[auth.email.template.reauthentication]
+subject = "Seu código de confirmação do VextriaHub"
+content_path = "./supabase/templates/reautenticacao.html"

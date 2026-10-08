@@ -123,11 +123,28 @@ A chave `service_role` fica em Settings → API. O bucket já existe (veio no
 
 ## 3. Painel do Supabase (projeto novo)
 
-- [ ] **Authentication → URL Configuration:** *Site URL* `https://www.vextriahub.com.br`
-      e *Redirect URLs* com `https://www.vextriahub.com.br/**`.
-- [ ] **Authentication → SMTP / Email Templates:** remetente, SMTP e templates
-      iguais aos do projeto antigo (o backup não traz essa configuração).
+- [x] **Authentication → URL Configuration:** *Site URL* `https://www.vextriahub.com.br`
+      e *Redirect URLs* com `https://www.vextriahub.com.br/**` (vieram no restore pelo painel).
+- [ ] **Authentication → SMTP:** NÃO vem no restore. Com o Resend (domínio já
+      verificado): host `smtp.resend.com`, porta `465`, usuário `resend`, senha =
+      chave `re_…`, remetente `avisos@vextriahub.com.br` / "VextriaHub".
+- [ ] **Authentication → Email Templates:** colar os de `supabase/templates/`
+      (assunto + corpo; tabela abaixo). `supabase/config.toml` aponta para os
+      mesmos arquivos no ambiente local.
 - [ ] **Authentication → Providers → Email:** mesmas opções (confirmação de e-mail etc.).
+
+| Template no painel | Arquivo | Assunto |
+| --- | --- | --- |
+| Confirm sign up | `confirmacao.html` | Confirme seu e-mail no VextriaHub |
+| Reset password | `recuperacao.html` | Redefinir sua senha do VextriaHub |
+| Magic link | `link-magico.html` | Seu link de acesso ao VextriaHub |
+| Change email address | `troca-de-email.html` | Confirme a troca de e-mail no VextriaHub |
+| Invite user | `convite.html` | Você foi convidado para o VextriaHub |
+| Reauthentication | `reautenticacao.html` | Seu código de confirmação do VextriaHub |
+
+Os convites de membro do escritório **não** passam por esse template: vão pela
+function `send-invite-email` (Resend). O "Invite user" só vale para convites
+feitos direto no painel do Supabase.
 
 ## 4. Serviços externos
 

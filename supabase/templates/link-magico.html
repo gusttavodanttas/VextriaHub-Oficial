@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seu link de acesso</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1f2430;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f9;padding:32px 16px;">
+<tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e6e8ef;">
+  <tr><td style="background:#1d4ed8;padding:22px 32px;">
+    <span style="display:inline-block;color:#ffffff;font-size:20px;font-weight:700;letter-spacing:0.2px;">VextriaHub</span>
+    <span style="display:block;color:#c7d2fe;font-size:13px;margin-top:2px;">Assistente Jurídico Inteligente</span>
+  </td></tr>
+  <tr><td style="padding:32px 32px 8px 32px;">
+    <h1 style="margin:0 0 12px 0;font-size:22px;line-height:1.3;color:#111827;">Seu link de acesso</h1>
+    <p style="margin:0 0 12px 0;font-size:15px;line-height:1.6;color:#374151;">Aqui está o link para entrar no VextriaHub com a conta <strong>{{ .Email }}</strong>, sem digitar senha.</p>
+    <p style="margin:0 0 12px 0;font-size:15px;line-height:1.6;color:#374151;">Ele expira em poucos minutos e funciona uma única vez.</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="margin:20px 0 12px 0;">
+      <tr><td style="background:#1d4ed8;border-radius:10px;">
+        <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:13px 26px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;">Entrar no VextriaHub</a>
+      </td></tr>
+    </table>
+
+  </td></tr>
+  <tr><td style="padding:8px 32px 28px 32px;">
+    <p style="margin:0 0 6px 0;font-size:12px;line-height:1.6;color:#6b7280;">Se o botão não abrir, copie e cole este endereço no navegador:</p>
+    <p style="margin:0;font-size:12px;line-height:1.6;word-break:break-all;"><a href="{{ .ConfirmationURL }}" style="color:#1d4ed8;">{{ .ConfirmationURL }}</a></p>
+  </td></tr>
+  <tr><td style="background:#f9fafb;border-top:1px solid #e6e8ef;padding:18px 32px;">
+    <p style="margin:0;font-size:12px;line-height:1.6;color:#6b7280;">Se você não solicitou este link, ignore a mensagem. Ninguém consegue entrar sem clicar nele.</p>
+    <p style="margin:8px 0 0 0;font-size:12px;line-height:1.6;color:#9ca3af;">VextriaHub · <a href="{{ .SiteURL }}" style="color:#6b7280;">{{ .SiteURL }}</a></p>
+  </td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>
