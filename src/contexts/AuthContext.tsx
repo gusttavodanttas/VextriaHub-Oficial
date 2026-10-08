@@ -1,6 +1,5 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { Profile, OfficeUser, Office } from '@/types/database';
@@ -70,7 +69,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [paymentValidation, setPaymentValidation] = useState<PaymentValidationResult | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [subscriptionInfo, setSubscriptionInfo] = useState<{ subscribed: boolean; subscription_tier?: string; subscription_end?: string } | null>(null);
-  const navigate = useNavigate();
   const mountedRef = useRef(true);
   const initializingRef = useRef(false);
   const loginInProgressRef = useRef(false);
@@ -546,7 +544,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      navigate('/login', { replace: true });
+      // Recarga completa, não navegação da SPA: a aba segue rodando o JS que
+      // carregou antes do último deploy até recarregar, e um "Sair" + "Entrar"
+      // dentro da SPA entrava de novo com o build antigo. Recarregar aqui
+      // garante que o próximo login já use o site publicado por último.
+      window.location.replace('/login');
     }
   };
 
