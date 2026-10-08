@@ -39,3 +39,10 @@ dist-ssr
 *.sw?
 
 .vercel
+
+# Estado local do Supabase CLI (link do projeto, versões) — não versionar
+supabase/.temp/
+
+# Migração de projeto Supabase: dumps com dados reais e segredos das functions
+.migracao-supabase/
+scripts/migracao-supabase/.env.funcoes

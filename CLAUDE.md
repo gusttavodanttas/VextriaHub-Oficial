@@ -80,6 +80,11 @@ quebra CI custa um ciclo de revisão inteiro.
 
 ## Deploy
 
+O projeto Supabase em uso vem da **variável** `VITE_SUPABASE_URL` do repositório
+(GitHub → Actions → Variables) + o secret `VITE_SUPABASE_ANON_KEY` — não há URL
+de projeto fixa no código. Os crons dos robôs leem a URL do secret `project_url`
+do vault. Trocar de projeto: roteiro em `scripts/migracao-supabase/README.md`.
+
 Merge em `main` dispara `.github/workflows/deploy-oracle.yml`. Merges
 próximos disparam múltiplas runs; runs intermediárias são canceladas
 automaticamente por debounce — só a última (build cumulativo da `main`)
