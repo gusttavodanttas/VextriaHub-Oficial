@@ -348,6 +348,7 @@ export type Database = {
           endereco: string | null
           id: string
           nome: string
+          notion_page_id: string | null
           observacoes: string | null
           office_id: string
           origem: string | null
@@ -370,6 +371,7 @@ export type Database = {
           endereco?: string | null
           id?: string
           nome: string
+          notion_page_id?: string | null
           observacoes?: string | null
           office_id: string
           origem?: string | null
@@ -392,6 +394,7 @@ export type Database = {
           endereco?: string | null
           id?: string
           nome?: string
+          notion_page_id?: string | null
           observacoes?: string | null
           office_id?: string
           origem?: string | null
@@ -1122,6 +1125,65 @@ export type Database = {
           },
         ]
       }
+      office_integrations: {
+        Row: {
+          connected_at: string | null
+          connected_by: string | null
+          created_at: string
+          database_ids: Json
+          enabled: boolean
+          id: string
+          last_error: string | null
+          last_sync_at: string | null
+          office_id: string
+          provider: string
+          status: string
+          updated_at: string
+          workspace_id: string | null
+          workspace_name: string | null
+        }
+        Insert: {
+          connected_at?: string | null
+          connected_by?: string | null
+          created_at?: string
+          database_ids?: Json
+          enabled?: boolean
+          id?: string
+          last_error?: string | null
+          last_sync_at?: string | null
+          office_id: string
+          provider: string
+          status?: string
+          updated_at?: string
+          workspace_id?: string | null
+          workspace_name?: string | null
+        }
+        Update: {
+          connected_at?: string | null
+          connected_by?: string | null
+          created_at?: string
+          database_ids?: Json
+          enabled?: boolean
+          id?: string
+          last_error?: string | null
+          last_sync_at?: string | null
+          office_id?: string
+          provider?: string
+          status?: string
+          updated_at?: string
+          workspace_id?: string | null
+          workspace_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "office_integrations_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       office_subscriptions: {
         Row: {
           asaas_customer_id: string | null
@@ -1361,6 +1423,7 @@ export type Database = {
           logo_url: string | null
           max_users: number
           name: string
+          notion_access: string
           phone: string | null
           plan: string
           settings: Json | null
@@ -1380,6 +1443,7 @@ export type Database = {
           logo_url?: string | null
           max_users?: number
           name: string
+          notion_access?: string
           phone?: string | null
           plan?: string
           settings?: Json | null
@@ -1399,6 +1463,7 @@ export type Database = {
           logo_url?: string | null
           max_users?: number
           name?: string
+          notion_access?: string
           phone?: string | null
           plan?: string
           settings?: Json | null
@@ -1408,6 +1473,7 @@ export type Database = {
       }
       plan_configs: {
         Row: {
+          allow_notion: boolean
           created_at: string
           cycle: string
           features: Json | null
@@ -1421,6 +1487,7 @@ export type Database = {
           trial_days: number | null
         }
         Insert: {
+          allow_notion?: boolean
           created_at?: string
           cycle?: string
           features?: Json | null
@@ -1434,6 +1501,7 @@ export type Database = {
           trial_days?: number | null
         }
         Update: {
+          allow_notion?: boolean
           created_at?: string
           cycle?: string
           features?: Json | null
@@ -1628,6 +1696,7 @@ export type Database = {
           natureza: string | null
           nivel_sigilo: number | null
           numero_processo: string
+          notion_page_id: string | null
           observacoes: string | null
           office_id: string
           orgao_julgador_codigo: string | null
@@ -1672,6 +1741,7 @@ export type Database = {
           natureza?: string | null
           nivel_sigilo?: number | null
           numero_processo: string
+          notion_page_id?: string | null
           observacoes?: string | null
           office_id: string
           orgao_julgador_codigo?: string | null
@@ -1716,6 +1786,7 @@ export type Database = {
           natureza?: string | null
           nivel_sigilo?: number | null
           numero_processo?: string
+          notion_page_id?: string | null
           observacoes?: string | null
           office_id?: string
           orgao_julgador_codigo?: string | null
@@ -2483,6 +2554,25 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_notion_overview: {
+        Args: never
+        Returns: {
+          conexao: string
+          escritorio: string
+          excecao: string
+          ligado: boolean
+          office_id: string
+          permitido: boolean
+          plano: string
+          status_assinatura: string
+          ultima_sync: string
+          workspace: string
+        }[]
+      }
+      admin_set_office_notion_access: {
+        Args: { p_access: string; p_office: string }
+        Returns: undefined
+      }
       apply_signup_plan: { Args: { p_plan_type: string }; Returns: string }
       authorize_process_search: {
         Args: {
@@ -2521,7 +2611,24 @@ export type Database = {
       is_super_admin: { Args: never; Returns: boolean }
       my_oab_quota: { Args: never; Returns: Json }
       my_office_has_zap: { Args: never; Returns: boolean }
+      notion_enqueue_all: { Args: { p_office: string }; Returns: number }
+      notion_status: {
+        Args: never
+        Returns: {
+          last_error: string
+          last_sync_at: string
+          ligado: boolean
+          office_id: string
+          pendentes: number
+          permitido: boolean
+          pode_gerenciar: boolean
+          status: string
+          workspace_name: string
+        }[]
+      }
       office_has_access: { Args: { p_office: string }; Returns: boolean }
+      office_notion_active: { Args: { p_office: string }; Returns: boolean }
+      office_notion_allowed: { Args: { p_office: string }; Returns: boolean }
       office_oab_limit: { Args: { p_office: string }; Returns: number }
       team_visible_user_ids: {
         Args: { p_office_id: string }

@@ -7,6 +7,7 @@ import { useMultiSelect } from "@/hooks/useMultiSelect";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Shield } from "lucide-react";
 import { OfficeControlPanel } from "@/components/SuperAdmin/OfficeControlPanel";
+import { NotionAccessPanel } from "@/components/SuperAdmin/NotionAccessPanel";
 import CobrancaAsaas from "@/components/Admin/CobrancaAsaas";
 import { GlobalMetrics } from "@/components/Admin/GlobalMetrics";
 import { PlanManagement } from "@/components/Admin/PlanManagement";
@@ -116,6 +117,7 @@ const Admin = () => {
 
             <TabsContent value="offices" className="entry-animate slide-in-from-bottom-4 duration-500 mt-0">
               <OfficeControlPanel />
+              <NotionAccessPanel />
             </TabsContent>
 
             <TabsContent value="subscriptions" className="space-y-6 entry-animate slide-in-from-bottom-4 duration-500 mt-0">

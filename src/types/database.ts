@@ -24,8 +24,8 @@ export type Invitation = Tables<'invitations'>;
 export type Profile = Tables<'profiles'>;
 
 // Tipos para criação de registros (sem campos automáticos)
-export type NovoCliente = Omit<Cliente, 'id' | 'user_id' | 'office_id' | 'deletado' | 'deletado_pendente' | 'created_at' | 'updated_at'>;
-export type NovoProcesso = Omit<Processo, 'id' | 'user_id' | 'deletado' | 'deletado_pendente' | 'created_at' | 'updated_at'>;
+export type NovoCliente = Omit<Cliente, 'id' | 'user_id' | 'office_id' | 'deletado' | 'deletado_pendente' | 'created_at' | 'updated_at' | 'notion_page_id'>;
+export type NovoProcesso = Omit<Processo, 'id' | 'user_id' | 'deletado' | 'deletado_pendente' | 'created_at' | 'updated_at' | 'notion_page_id'>;
 export type NovaAudiencia = Omit<Audiencia, 'id' | 'user_id' | 'deletado' | 'deletado_pendente' | 'created_at' | 'updated_at'>;
 export type NovoPrazo = Omit<Prazo, 'id' | 'user_id' | 'deletado' | 'deletado_pendente' | 'created_at' | 'updated_at'>;
 export type NovaTarefa = Omit<Tarefa, 'id' | 'user_id' | 'deletado' | 'deletado_pendente' | 'created_at' | 'updated_at'>;
@@ -34,7 +34,7 @@ export type NovaMeta = Omit<Meta, 'id' | 'user_id' | 'deletado' | 'deletado_pend
 export type NovoFinanceiro = Omit<Financeiro, 'id' | 'user_id' | 'deletado' | 'deletado_pendente' | 'created_at' | 'updated_at'>;
 
 // Novos tipos para criação de registros multi-tenancy
-export type NovoOffice = Omit<Office, 'id' | 'created_at' | 'updated_at' | 'created_by'>;
+export type NovoOffice = Omit<Office, 'id' | 'created_at' | 'updated_at' | 'created_by' | 'notion_access'>;
 export type NovoOfficeUser = Omit<OfficeUser, 'id' | 'joined_at'>;
 export type NovaInvitation = Omit<Invitation, 'id' | 'created_at' | 'token' | 'status' | 'accepted_at' | 'office_id' | 'invited_by'>;
 

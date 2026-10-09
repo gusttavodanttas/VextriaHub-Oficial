@@ -48,6 +48,7 @@ const Timesheet = lazy(() => import("./pages/Timesheet"));
 const Correspondentes = lazy(() => import("./pages/Correspondentes"));
 const PoliticaPrivacidade = lazy(() => import("./pages/PoliticaPrivacidade"));
 const GoogleCallback = lazy(() => import("./pages/auth/GoogleCallback"));
+const NotionCallback = lazy(() => import("./pages/auth/NotionCallback"));
 const Pagamento = lazy(() => import("./pages/Pagamento"));
 const Lixeira = lazy(() => import("./pages/Lixeira"));
 
@@ -122,6 +123,7 @@ const AppWithRouter = () => {
         <Route path="/register" element={<Register />} />
         <Route path="/redefinir-senha" element={<RedefinirSenha />} />
         <Route path="/auth/google/callback" element={<GoogleCallback />} />
+        <Route path="/auth/notion/callback" element={<NotionCallback />} />
         <Route
           path="/dashboard"
           element={

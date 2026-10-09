@@ -43,3 +43,11 @@ content_path = "./supabase/templates/convite.html"
 [auth.email.template.reauthentication]
 subject = "Seu código de confirmação do VextriaHub"
 content_path = "./supabase/templates/reautenticacao.html"
+
+# Notion por escritório: o callback é validado pelo `state` (o redirect do Notion
+# não traz sessão) e o sync aceita x-robot-secret (cron) ou JWT checado no código.
+[functions.notion-oauth-callback]
+verify_jwt = false
+
+[functions.notion-sync]
+verify_jwt = false
