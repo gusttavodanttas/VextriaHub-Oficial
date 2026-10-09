@@ -173,6 +173,13 @@ export function fromProp(p: any): string {
   }
 }
 
+/** O VextriaHub guarda o nº CNJ só com dígitos; no Notion ele aparece formatado. */
+export function fmtCNJ(n: string | null | undefined): string {
+  const d = (n || "").replace(/\D/g, "");
+  return d.length === 20 ? `${d.slice(0, 7)}-${d.slice(7, 9)}.${d.slice(9, 13)}.${d.slice(13, 14)}.${d.slice(14, 16)}.${d.slice(16)}` : (n || "");
+}
+export const digitsCNJ = (n: string) => n.replace(/\D/g, "");
+
 export const isEmptyProp = (p: any) => fromProp(p) === "";
 export const normId = (id: string) => id.replace(/-/g, "").toLowerCase();
 
