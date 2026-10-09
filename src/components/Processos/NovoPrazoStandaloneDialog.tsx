@@ -61,43 +61,11 @@ interface NovoPrazoStandaloneDialogProps {
 }
 
 // ─────────────────────────────────────────────
-// Tipos de ato — armazenados no Supabase
+// Tipos de ato — fonte única em src/lib/tiposAtoPrazo.ts (padrões do CPC,
+// conversor e carregamento com semente para escritório novo)
 // ─────────────────────────────────────────────
-export interface TipoAto {
-  id?: string;
-  value: string;
-  label: string;
-  diasUteis: number;
-  corridos: boolean;
-  margem: number;
-  ordem: number;
-}
-
-const TIPOS_ATO_DEFAULT: Omit<TipoAto, 'id'>[] = [
-  { value: 'contestacao',   label: 'Contestação',               diasUteis: 15, corridos: false, margem: 3,  ordem: 0  },
-  { value: 'apelacao',      label: 'Recurso de Apelação',       diasUteis: 15, corridos: false, margem: 3,  ordem: 1  },
-  { value: 'agravo',        label: 'Agravo de Instrumento',     diasUteis: 15, corridos: false, margem: 3,  ordem: 2  },
-  { value: 'embargos',      label: 'Embargos de Declaração',    diasUteis: 5,  corridos: false, margem: 1,  ordem: 3  },
-  { value: 'contrarrazoes', label: 'Contrarrazões',             diasUteis: 15, corridos: false, margem: 3,  ordem: 4  },
-  { value: 'manifestacao',  label: 'Manifestação / Petição',    diasUteis: 5,  corridos: false, margem: 1,  ordem: 5  },
-  { value: 'impugnacao',    label: 'Impugnação ao cumprimento', diasUteis: 15, corridos: false, margem: 3,  ordem: 6  },
-  { value: 'resp_rext',     label: 'REsp / RE',                 diasUteis: 15, corridos: false, margem: 3,  ordem: 7  },
-  { value: 'juizado_5',     label: 'Juizado — 5 dias corridos', diasUteis: 5,  corridos: true,  margem: 1,  ordem: 8  },
-  { value: 'juizado_10',    label: 'Juizado — 10 dias corridos',diasUteis: 10, corridos: true,  margem: 2,  ordem: 9  },
-  { value: 'juizado_15',    label: 'Juizado — 15 dias corridos',diasUteis: 15, corridos: true,  margem: 3,  ordem: 10 },
-];
-
-function dbToTipoAto(row: any): TipoAto {
-  return {
-    id: row.id,
-    value: row.value,
-    label: row.label,
-    diasUteis: row.dias_uteis,
-    corridos: row.corridos,
-    margem: row.margem,
-    ordem: row.ordem,
-  };
-}
+import { carregarTiposAto, tiposAtoDefaultRows, type TipoAto } from "@/lib/tiposAtoPrazo";
+export type { TipoAto } from "@/lib/tiposAtoPrazo";
 
 // ─────────────────────────────────────────────
 // Cálculo de dias úteis
@@ -300,17 +268,15 @@ export function GerenciarTiposModal({ open, onClose, officeId }: GerenciarTiposP
 
   const fetchTipos = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('tipos_ato_prazo')
-      .select('*')
-      .eq('office_id', officeId)
-      .order('ordem', { ascending: true });
-    if (error) {
-      toast({ title: 'Erro ao carregar tipos de prazo', description: getErrorMessage(error), variant: 'destructive' });
-      setLoading(false);
-      return;
+    try {
+      const r = await carregarTiposAto(officeId);
+      setTipos(r.tipos);
+      if (r.fallback) {
+        toast({ title: 'Tipos padrão não puderam ser gravados', description: 'Mostrando os padrões do CPC sem salvar. Tente "Restaurar padrão" ou fale com o administrador.', variant: 'destructive' });
+      }
+    } catch (e) {
+      toast({ title: 'Erro ao carregar tipos de prazo', description: getErrorMessage(e), variant: 'destructive' });
     }
-    setTipos((data || []).map(dbToTipoAto));
     setLoading(false);
   };
 
@@ -363,12 +329,21 @@ export function GerenciarTiposModal({ open, onClose, officeId }: GerenciarTiposP
 
   const resetDefault = async () => {
     setSaving(true);
-    await supabase.from('tipos_ato_prazo').delete().eq('office_id', officeId);
-    const rows = TIPOS_ATO_DEFAULT.map(t => ({ ...t, office_id: officeId, dias_uteis: t.diasUteis }));
-    await supabase.from('tipos_ato_prazo').insert(rows.map(({ diasUteis: _, ...r }) => r));
-    await fetchTipos();
-    setEditingId(null); setAdding(false);
-    toast({ title: 'Tipos restaurados', description: 'Padrões CPC aplicados para o escritório.' });
+    try {
+      // Apaga os atuais e grava os padrões; qualquer falha (inclusive RLS
+      // barrando em silêncio o insert) vira erro visível em vez de "restaurado".
+      const { error: delError } = await supabase.from('tipos_ato_prazo').delete().eq('office_id', officeId);
+      if (delError) throw delError;
+      const rows = tiposAtoDefaultRows(officeId);
+      const { data, error } = await supabase.from('tipos_ato_prazo').insert(rows).select('id');
+      assertRowsAffected(data, error, rows.length);
+      await fetchTipos();
+      setEditingId(null); setAdding(false);
+      toast({ title: 'Tipos restaurados', description: 'Padrões CPC aplicados para o escritório.' });
+    } catch (e) {
+      toast({ title: 'Erro ao restaurar padrão', description: getErrorMessage(e), variant: 'destructive' });
+      await fetchTipos();
+    }
     setSaving(false);
   };
 
@@ -527,22 +502,14 @@ export const NovoPrazoStandaloneDialog = ({
 
   const fetchTipos = async () => {
     if (!user?.office_id) return;
-    const officeId = user.office_id;
-    const { data } = await supabase
-      .from('tipos_ato_prazo')
-      .select('*')
-      .eq('office_id', officeId)
-      .order('ordem', { ascending: true });
-    if (data && data.length > 0) {
-      setTipos(data.map(dbToTipoAto));
-    } else {
-      // Primeiro acesso: seed com padrões
-      const rows = TIPOS_ATO_DEFAULT.map(t => ({
-        office_id: officeId, value: t.value, label: t.label,
-        dias_uteis: t.diasUteis, corridos: t.corridos, margem: t.margem, ordem: t.ordem,
-      }));
-      await supabase.from('tipos_ato_prazo').insert(rows);
-      setTipos(TIPOS_ATO_DEFAULT.map((t, i) => ({ ...t, id: String(i) })));
+    try {
+      // Primeiro acesso do escritório: o loader grava os padrões do CPC. Se a
+      // semente não puder ser gravada, ele devolve os padrões em memória — o
+      // cadastro do prazo continua possível.
+      const r = await carregarTiposAto(user.office_id);
+      setTipos(r.tipos);
+    } catch (e) {
+      toast({ title: 'Erro ao carregar tipos de prazo', description: getErrorMessage(e), variant: 'destructive' });
     }
   };
 

@@ -2412,8 +2412,9 @@ Ficaram de fora, confirmados por leitura:
 - `useProcessShares.tsx` (1): revogar compartilhamento.
 - `useUserPermissions.tsx` (1): remover override de permissão.
 - `useSuperAdminOffices.tsx` (2): ativar/desativar escritório, editar dados.
-- `timesheetService.ts`: `remove` e `pausar/retomar` conferem; `update` e
-  `finalizar` não.
+- (`timesheetService.ts` foi listado por engano na primeira passada: `update`,
+  `pausar`, `retomar` e `finalizar` terminam em `.single()`, que já falha com
+  0 linhas — está coberto.)
 
 Todos passam pela RLS: um bloqueio silencioso vira "sucesso" na tela.
 
@@ -2462,7 +2463,7 @@ parênteses, a nota da Parte 23 para comparação.
 | A | Tarefas | 90 (60) | 85 (65) | `useSubtarefas`/`useTarefaComentarios` sem checagem de linhas (nº 3); 828 linhas |
 | B | Financeiro | 95 (95) | 88 (85) | teste de `useFinanceiro` (só o cálculo tem); confirmação do import por IA em uso real |
 | B | Metas | 92 (92) | 85 (85) | teste de `useMetas`; gate de módulo só para Premium (ok, mas sem aviso de upsell na tela) |
-| B | Timesheet | 88 (70) | 85 (58) | `timesheetService.update/finalizar` sem checagem (nº 3); 855 linhas |
+| B | Timesheet | 88 (70) | 85 (58) | teste de `useTimesheet` cobre pouco; 855 linhas |
 | B | CRM | 78 (50) | 72 (40) | depende do VextriaZap (offline); teste de `useCrmRobot`; Kanban sem paginação |
 | C | Clientes | 95 (95) | 92 (90) | teste de `useClientes` além do dialog |
 | C | Processos | 88 (88) | 80 (78) | `useProcessoSubData` (nº 3); `ProcessoDetailsDrawer` com 1.286 linhas e `JudicialSyncDialog` 973; teste do hook |
@@ -2505,7 +2506,7 @@ parênteses, a nota da Parte 23 para comparação.
    ligar a proteção contra senha vazada (nº 4), no painel.
 2. **Semear tipos de ato de prazo** no escritório novo (nº 2) — bloqueia o
    primeiro prazo de todo cliente novo.
-3. **Fechar o resíduo da Classe 1** (nº 3): 11 mutations em 7 arquivos, com
+3. **Fechar o resíduo da Classe 1** (nº 3): 11 mutations em 6 arquivos, com
    o mesmo `assertRowsAffected` + teste no `supabaseMock` já existente.
 4. **Testes de hook**: um arquivo por hook de dado das 10 abas mais usadas
    (processos, clientes, prazos, tarefas, financeiro, agenda, audiências,

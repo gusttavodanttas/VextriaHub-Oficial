@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { getErrorMessage } from '@/lib/errors';
+import { assertRowsAffected, getErrorMessage } from '@/lib/errors';
 import { useToast } from '@/hooks/use-toast';
 
 export interface AdminOffice {
@@ -165,12 +165,12 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
 
   const updateOfficeStatus = useCallback(async (officeId: string, active: boolean) => {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('offices')
         .update({ active })
-        .eq('id', officeId);
-      
-      if (error) throw error;
+        .eq('id', officeId)
+        .select('id');
+      assertRowsAffected(data, error, 1);
       toast({ title: active ? 'Acesso Liberado' : 'Acesso Suspenso' });
       await fetchAdmins();
       return true;
@@ -219,11 +219,12 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
       if (dbPlan) officeUpdates.plan = dbPlan;
 
       if (Object.keys(officeUpdates).length > 0) {
-        const { error: ofError } = await supabase
+        const { data: ofData, error: ofError } = await supabase
           .from('offices')
           .update(officeUpdates)
-          .eq('id', office_id);
-        if (ofError) throw ofError;
+          .eq('id', office_id)
+          .select('id');
+        assertRowsAffected(ofData, ofError, 1);
       }
 
       toast({
