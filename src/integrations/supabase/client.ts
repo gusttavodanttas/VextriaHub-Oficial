@@ -2,8 +2,15 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// `.trim()` não é cosmético: em 09/10/2026 o secret VITE_SUPABASE_ANON_KEY do
+// GitHub foi salvo com uma quebra de linha no fim. Nos headers (REST/Auth) o
+// navegador descarta o "\n" e tudo funcionava; no websocket do Realtime a chave
+// vai como query param, o "\n" vira "%0A" e o gateway respondia 401
+// UNAUTHORIZED_INVALID_API_KEY para todo cliente — sem nenhuma notificação em
+// tempo real. Ver e2e/jornada-realtime.spec.ts.
+export const SUPABASE_URL: string = (import.meta.env.VITE_SUPABASE_URL ?? '').trim().replace(/\/+$/, '');
+export const SUPABASE_ANON_KEY: string = (import.meta.env.VITE_SUPABASE_ANON_KEY ?? '').trim();
+const SUPABASE_PUBLISHABLE_KEY = SUPABASE_ANON_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
   throw new Error(
