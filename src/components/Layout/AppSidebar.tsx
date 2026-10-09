@@ -3,11 +3,12 @@ import {
   Home, FileText, Users, Calendar, BookOpen, Settings, UserCircle, LogOut,
   ChevronLeft, ChevronRight, UserCheck, BarChart3, UserPlus,
   CalendarDays, DollarSign, Target, UsersIcon, MessageSquareText, Shield,
-  Building2, AlertCircle, Clock, CreditCard, Trash2, Handshake,
+  Building2, AlertCircle, Clock, CreditCard, Trash2, Handshake, Crown,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
+import { usePlanFeatures } from "@/hooks/usePlanFeatures";
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent,
   SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar,
@@ -52,12 +53,16 @@ export function AppSidebar() {
   const { toast } = useToast();
   const { canViewAdmin, canManageOffice, canViewGraficos, canViewFinanceiro, canViewMetas, canViewEquipe } = usePermissions();
   const { isSuperAdmin } = useAuth();
+  const { hasGoalsModule } = usePlanFeatures();
+  // Plano sem o módulo: o admin do escritório ainda vê "Metas" no menu, com a
+  // coroa, e cai na tela de upsell (/metas via MetasGate). Membro comum não vê.
+  const metasUpsell = !hasGoalsModule && !canViewMetas && canManageOffice;
 
   const filteredAdminItems = adminOnlyItems.filter(item => {
     switch (item.url) {
       case '/graficos': return canViewGraficos;
       case '/financeiro': return canViewFinanceiro;
-      case '/metas': return canViewMetas;
+      case '/metas': return canViewMetas || metasUpsell;
       case '/equipe': return canViewEquipe;
       default: return false;
     }
@@ -147,6 +152,9 @@ export function AppSidebar() {
                           <NavLink to={item.url} end={!item.url.includes('?')} className={() => getNavClasses(isActive)}>
                             <item.icon className="h-4 w-4 shrink-0" />
                             {!collapsed && <span className="truncate">{item.title}</span>}
+                            {!collapsed && item.url === '/metas' && metasUpsell && (
+                              <Crown className="h-3 w-3 shrink-0 ml-auto text-amber-500" aria-label="Módulo Premium" />
+                            )}
                           </NavLink>
                         </SidebarMenuButton>
                       </SidebarMenuItem>

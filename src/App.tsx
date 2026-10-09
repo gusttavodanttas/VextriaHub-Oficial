@@ -33,7 +33,8 @@ const Publicacoes = lazy(() => import("./pages/Publicacoes"));
 const Consultivo = lazy(() => import("./pages/Consultivo"));
 const Graficos = lazy(() => import("./pages/Graficos"));
 const Financeiro = lazy(() => import("./pages/Financeiro"));
-const Metas = lazy(() => import("./pages/Metas"));
+// /metas passa pelo MetasGate: plano sem o módulo vê o upsell em vez de "Acesso negado".
+const MetasGate = lazy(() => import("./components/Goals/MetasGate"));
 const Notificacoes = lazy(() => import("./pages/Notificacoes"));
 const Configuracoes = lazy(() => import("./pages/Configuracoes"));
 const Perfil = lazy(() => import("./pages/Perfil"));
@@ -298,9 +299,9 @@ const AppWithRouter = () => {
         <Route
           path="/metas"
           element={
-            <PrivateRoute requirePermission="canViewMetas">
+            <PrivateRoute>
               <AppLayout>
-                <Metas />
+                <MetasGate />
               </AppLayout>
             </PrivateRoute>
           }
