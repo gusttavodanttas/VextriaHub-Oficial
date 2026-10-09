@@ -55,11 +55,16 @@ async function esperarFechar(page: Page, dialog: ReturnType<Page['getByRole']>, 
 /**
  * Navega e espera o app saber o escritório do usuário: logo após o load o
  * AuthContext entrega `user` sem `office_id` até o perfil chegar em background, e
- * um cadastro disparado nesse instante vai sem escritório (RLS → 403). A primeira
- * consulta filtrada por `office_id=eq.` marca o fim dessa janela.
+ * um cadastro disparado nesse instante vai sem escritório (RLS → 403).
+ * O sinal é a consulta de `user_permissions` filtrada por office_id: ela vem de
+ * useMyPermissionOverrides, que só dispara com `user.office_id` preenchido (as de
+ * office_subscriptions/offices saem ANTES, do próprio carregamento do perfil).
  */
 async function irPara(page: Page, url: string) {
-  const escritorioPronto = page.waitForResponse((r) => r.url().includes('office_id=eq.') && r.status() < 400, { timeout: 30_000 });
+  const escritorioPronto = page.waitForResponse(
+    (r) => r.url().includes('/rest/v1/user_permissions?') && r.url().includes('office_id=eq.') && r.status() < 400,
+    { timeout: 30_000 },
+  );
   await page.goto(url);
   await escritorioPronto;
 }
