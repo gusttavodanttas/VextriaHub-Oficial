@@ -14,8 +14,9 @@ que foi corrigido) em [`docs/ANALISE_PLATAFORMA_SET2026.md`](./docs/ANALISE_PLAT
   Query, React Router, React Hook Form + Zod.
 - **Back-end**: Supabase (Postgres com Row Level Security, Auth, Edge
   Functions em Deno, pg_cron para os robôs agendados).
-- **Testes**: Vitest (unitário/componente) e um teste pgTAP standalone de
-  isolamento por escritório/time (RLS).
+- **Testes**: Vitest (unitário/componente), Playwright (E2E no navegador, ver
+  [Testes E2E](#testes-e2e)) e um teste pgTAP standalone de isolamento por
+  escritório/time (RLS).
 - **Observabilidade**: Sentry (opcional, via `VITE_SENTRY_DSN`).
 
 ## Rodando localmente
@@ -40,6 +41,33 @@ projeto. `VITE_SENTRY_DSN` é opcional — deixe em branco para desativar.
 | `npm run lint` | ESLint |
 | `npm test` / `npm run test:watch` | Testes (Vitest) |
 | `npm run test:rls` | Suíte pgTAP de isolamento por escritório/time — sobe um Postgres descartável local (ver `supabase/tests/rls-standalone/README.md`) |
+| `npm run test:e2e` / `npm run test:e2e:smoke` | E2E no navegador (Playwright) — ver [Testes E2E](#testes-e2e) |
+
+## Testes E2E
+
+`e2e/` tem dois projetos do Playwright (`playwright.config.ts`):
+
+- **smoke** — páginas públicas (login, redirecionamento de rota interna). Não
+  precisa de credenciais nem de backend: roda em qualquer PR.
+- **conta-teste** — jornada autenticada com a conta de teste: cadastra cliente →
+  processo manual vinculado → prazo fatal, passando pela RLS e pelas cotas
+  reais. Tudo que cria leva o prefixo `E2E <data hora>` e é apagado no fim
+  (`e2e/limpeza.ts`, com a sessão da própria conta). **Pulada automaticamente**
+  quando `E2E_TEST_EMAIL`/`E2E_TEST_PASSWORD` não existem.
+
+Rodando local (o build precisa das variáveis do Supabase; o Playwright sobe um
+`vite preview` em `127.0.0.1:4173`):
+
+```sh
+npx playwright install chromium          # uma vez
+VITE_SUPABASE_URL=... VITE_SUPABASE_ANON_KEY=... npx vite build
+npm run test:e2e:smoke                   # só as páginas públicas
+E2E_TEST_EMAIL=... E2E_TEST_PASSWORD=... VITE_SUPABASE_URL=... VITE_SUPABASE_ANON_KEY=... npm run test:e2e
+```
+
+`E2E_BASE_URL=https://...` aponta os testes para um ambiente já publicado em
+vez do preview local. `PW_CHROMIUM_PATH` usa um Chromium já instalado fora do
+cache do Playwright (sandboxes).
 
 ## Banco de dados (Supabase)
 
@@ -63,6 +91,10 @@ cabeçalho de `supabase/migrations/20260904160000_crons_vault_secrets.sql`.
 
 - **`.github/workflows/ci.yml`** roda em todo push/PR para `main`: lint,
   type-check, testes e build.
+- **`.github/workflows/e2e.yml`** roda o Playwright todo dia (03:17 BRT) e sob
+  demanda, contra um build local com as mesmas variáveis do deploy. A jornada
+  autenticada precisa dos secrets `E2E_TEST_EMAIL` e `E2E_TEST_PASSWORD` (a
+  conta de teste); sem eles só o smoke roda, com aviso.
 - **`.github/workflows/deploy-oracle.yml`** builda e publica o front no
   servidor Oracle a cada push em `main`. Precisa de dois secrets do repositório
   (`Settings → Secrets and variables → Actions`): `VITE_SUPABASE_ANON_KEY` e

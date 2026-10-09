@@ -28,6 +28,13 @@ npx vite build
 Rodar os quatro antes de cada push, não só no fim da tarefa. Um push que
 quebra CI custa um ciclo de revisão inteiro.
 
+E2E (Playwright, `e2e/`) fica fora dos quatro passos: `npm run test:e2e:smoke`
+roda sem backend (só precisa de um `vite build` com qualquer `VITE_SUPABASE_*`);
+a jornada autenticada exige `E2E_TEST_EMAIL`/`E2E_TEST_PASSWORD` e o projeto
+Supabase alcançável, e cria/apaga dados reais na conta de teste — rode-a só
+quando mexer no fluxo de login, clientes, processos ou prazos. Num sandbox sem
+Chromium do Playwright: `PW_CHROMIUM_PATH=/opt/pw-browsers/chromium`.
+
 ## Padrões estabelecidos no código
 
 - **`captureError(error, context?)`** (`src/lib/monitoring.ts`) — reporta pro

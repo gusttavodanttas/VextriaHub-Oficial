@@ -46,3 +46,8 @@ supabase/.temp/
 # Migração de projeto Supabase: dumps com dados reais e segredos das functions
 .migracao-supabase/
 scripts/migracao-supabase/.env.funcoes
+
+# Playwright (E2E)
+test-results/
+playwright-report/
+e2e/.auth/
