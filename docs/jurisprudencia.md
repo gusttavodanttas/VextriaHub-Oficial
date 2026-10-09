@@ -51,3 +51,17 @@ ou na tabela `juris_sync_config` (chave `sync_secret`), que só o service role l
   oferecer o acervo como funcionalidade paga a terceiros.
 - O cadastro no INLABS é pessoal: a coleta do DOU fica centralizada (conta da Vextria), só o resultado é distribuído.
 - `types.ts` não foi regenerado (depende da conta contato@); os hooks usam `supabase as any` como o resto do código.
+
+## Plano gratuito do Supabase (500 MB): acervo enxuto
+
+Medido em 09/10/2026 com 87,9 mil registros: 645 MB, dos quais ~220 MB eram a coluna `fts` (tsvector
+armazenado), 118 MB ementas, 70 MB metadados dos espelhos e 40 MB do texto do dispositivo. Para caber no
+plano gratuito:
+
+- Espelhos do STJ sobem **sem** o texto do dispositivo e só com metadados úteis (numeroRegistro,
+  registro_formatado, scon_busca, siglaClasse, tema, teseJuridica, tipoDeDecisao, referenciasLegislativas).
+  O kit (`sync/vextriahub_push.py`) já envia assim; o inteiro teor fica no kit e na fonte `stj_integras`.
+- A coluna `fts` saiu; a busca usa o índice GIN de expressão `idx_juris_documents_fts_expr`
+  (função `juris_fts_expr`) e ranqueia só os 3.000 acertos mais recentes com vetor leve (título + ementa).
+- Depois de enxugar, é preciso `vacuum full public.juris_documents;` no SQL Editor (não roda pelo conector).
+- Crescimento: ~2,5 KB por espelho enxuto; ~15 a 20 MB por mês com todas as turmas do STJ.
