@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Tag, Plus, Pencil, Loader2, Link2, Check, Power } from 'lucide-react';
 import { centsToBRL } from "@/lib/currency";
 
-interface Plan { id?: string; plan_type: string; plan_name: string; price_cents: number; cycle: string; trial_days: number | null; is_active: boolean; max_oabs: number; }
+interface Plan { id?: string; plan_type: string; plan_name: string; price_cents: number; cycle: string; trial_days: number | null; is_active: boolean; max_oabs: number; allow_notion?: boolean; }
 
 const CYCLES = [
   { v: 'MONTHLY', label: 'Mensal' },
@@ -22,7 +22,7 @@ const CYCLES = [
 ];
 const cycleLabel = (c: string) => CYCLES.find((x) => x.v === c)?.label || c;
 const brl = (cents: number) => centsToBRL(cents);
-const EMPTY: Plan = { plan_type: '', plan_name: '', price_cents: 0, cycle: 'MONTHLY', trial_days: 7, is_active: true, max_oabs: 1 };
+const EMPTY: Plan = { plan_type: '', plan_name: '', price_cents: 0, cycle: 'MONTHLY', trial_days: 7, is_active: true, max_oabs: 1, allow_notion: false };
 
 export function PlanManagement() {
   const { toast } = useToast();
@@ -60,6 +60,7 @@ export function PlanManagement() {
       plan_name: form.plan_name.trim(), price_cents: cents, cycle: form.cycle,
       trial_days: Number(form.trial_days) || 0, is_active: form.is_active,
       max_oabs: Math.max(0, Number(form.max_oabs) || 0),
+      allow_notion: !!form.allow_notion,
     };
     // .select('id'): a edição bloqueada pela RLS casava 0 linhas sem erro → "Plano atualizado" falso.
     const res = editing?.id
@@ -112,6 +113,7 @@ export function PlanManagement() {
                   <Badge variant="secondary" className="rounded-md text-[10px] font-black">{cycleLabel(p.cycle)}</Badge>
                   <span className="font-mono text-[10px] text-muted-foreground">{p.plan_type}</span>
                   {!p.is_active && <Badge variant="outline" className="text-[9px]">inativo</Badge>}
+                  {p.allow_notion && <Badge variant="outline" className="text-[9px]">Notion</Badge>}
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">{brl(p.price_cents)} · {p.trial_days ? `${p.trial_days} dias de trial` : 'sem trial'} · {p.max_oabs ?? 1} OAB{(p.max_oabs ?? 1) === 1 ? '' : 's'}</p>
               </div>
@@ -166,6 +168,13 @@ export function PlanManagement() {
             <div className="flex items-center justify-between rounded-xl border border-border p-3">
               <Label className="text-sm font-bold">Plano ativo (aparece no cadastro)</Label>
               <Switch checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} />
+            </div>
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-border p-3">
+              <div>
+                <Label className="text-sm font-bold">Inclui integração com o Notion</Label>
+                <p className="text-[11px] text-muted-foreground">Escritórios deste plano podem conectar o Notion. Exceções por escritório ficam em Escritórios → Notion.</p>
+              </div>
+              <Switch checked={!!form.allow_notion} onCheckedChange={(v) => setForm({ ...form, allow_notion: v })} />
             </div>
           </div>
           <DialogFooter>
