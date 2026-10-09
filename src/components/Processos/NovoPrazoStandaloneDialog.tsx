@@ -190,6 +190,9 @@ export const NovoPrazoStandaloneDialog = ({
       toast({ title: "Campos obrigatórios", description: firstZodError(val.error), variant: "destructive" }); return;
     }
     if (!user?.id) { toast({ title: "Erro", description: "Usuário não autenticado.", variant: "destructive" }); return; }
+    // Sem office_id (perfil ainda carregando em background) o insert ia sem escritório
+    // e a RLS (office_paid_gate) devolvia 403 — virava um "Erro ao salvar" opaco.
+    if (!user.office_id) { toast({ title: "Seu escritório ainda está carregando", description: "Aguarde um instante e tente de novo.", variant: "destructive" }); return; }
 
     setIsLoading(true);
     try {
