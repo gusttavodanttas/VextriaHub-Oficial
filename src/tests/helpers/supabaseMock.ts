@@ -42,6 +42,8 @@ export const mockSupabase = {
   channel: vi.fn(() => canal),
   removeChannel: vi.fn(),
   rpc: vi.fn(async () => ({ data: null, error: null })),
+  // Edge functions disparadas "fire-and-forget" (ex.: send-invite-email): resolvem vazio.
+  functions: { invoke: vi.fn(async () => ({ data: null, error: null })) },
 };
 
 /** Enfileira resultados (em ordem) para as próximas consultas à tabela. */
