@@ -1,5 +1,6 @@
 /// <reference types="vitest" />
 import { defineConfig } from "vite";
+import { configDefaults } from "vitest/config";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
@@ -48,6 +49,8 @@ export default defineConfig(({ mode }) => ({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/tests/setup.ts'],
+    // Specs do Playwright (e2e/) não são do vitest.
+    exclude: [...configDefaults.exclude, 'e2e/**'],
     // 5s (default) piscava vermelho no CI (2 núcleos): o NovaAudienciaDialog "abre
     // PREENCHIDO" estourava por CARGA, não por asserção. 15s dá folga sem mascarar
     // bug real (teste travado de verdade ainda falha). (v12)
