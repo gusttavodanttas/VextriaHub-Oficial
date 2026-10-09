@@ -48,8 +48,8 @@ test('3. registra um atendimento vinculado a um cliente novo', async ({ page }) 
   await irPara(page, '/atendimentos');
   await page.getByRole('button', { name: 'Novo Atendimento' }).first().click();
   const dialog = page.getByRole('dialog');
-  // "Tipo *" é o primeiro campo do formulário (TIPOS_FIXOS: Consulta, Reunião, …).
-  await escolherOpcao(page, dialog.getByRole('combobox').first(), 'Reunião');
+  // "Tipo *" é uma grade de botões (TIPOS_FIXOS: Consulta, Reunião, …), não um Select.
+  await dialog.getByRole('button', { name: 'Reunião' }).click();
   await dialog.locator('input[type="date"]').first().fill(emDias(1));
   await dialog.locator('input[type="time"]').first().fill('10:30');
   const cliente = dialog.getByPlaceholder('Selecionar cliente');
