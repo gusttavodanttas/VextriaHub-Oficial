@@ -1,43 +1,26 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { getErrorMessage } from '@/lib/errors';
 import { captureError } from '@/lib/monitoring';
 import { planQuotaMessage } from '@/lib/planQuotaError';
-import { formatCNJ } from '@/utils/formatCNJ';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Checkbox } from '@/components/ui/checkbox';
-import { 
-  Search, 
-  RotateCw, 
-  ShieldCheck, 
-  Gavel, 
-  User, 
-  Users,
-  Loader2, 
+import {
+  Search,
+  RotateCw,
+  ShieldCheck,
+  Loader2,
   ChevronRight,
   Database,
   Info,
   AlertCircle,
-  Clock
 } from 'lucide-react';
 import {
   Select,
@@ -49,66 +32,30 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
 import { useProcessosV2 } from '@/hooks/useProcessosV2';
 import { useMonitoredOabs } from '@/hooks/useMonitoredOabs';
+import {
+  looksLikeContaminatedName,
+  resolverClienteId,
+  somenteDigitos,
+  type Andamento,
+  type JudicialProcessResult,
+  type PoloCliente,
+  type ProcessoParaImportar,
+} from './JudicialSync/types';
+import { ResultadosTable } from './JudicialSync/ResultadosTable';
+import { PreviewProcessoDialog } from './JudicialSync/PreviewProcessoDialog';
 
-export interface Andamento {
-  data: string | null;
-  resumo: string;
-  descricao?: string;
-  fase?: string;
-}
-
-export interface JudicialProcessResult {
-  id: string;
-  fonte?: string;
-  numeroProcesso: string;
-  numeroFormatado?: string;
-  titulo: string;
-  partes: string;
-  tribunal: string;
-  ultimoAndamento: { descricao: string; data: string | null } | null;
-  andamentos?: Andamento[];
-  faseProcessual: string;
-  classe?: string;
-  assunto?: string;
-  dataAjuizamento?: string | null;
-  instancia?: string;
-  valorCausa?: number;
-  vara?: string;
-  comarca?: string;
-  orgaoJulgadorCodigo?: string;
-  nivelSigilo?: number;
-  conteudo?: string;
-  autor: string;
-  reu: string;
-}
+// Sincronização judicial por OAB: este arquivo guarda busca, seleção e
+// importação. Tabela e pasta do processo vivem em ./JudicialSync/.
+export type { Andamento, JudicialProcessResult } from './JudicialSync/types';
 
 interface JudicialSyncContentProps {
-  onImport: (processes: (JudicialProcessResult & { clienteId?: string | null })[]) => Promise<void>;
+  onImport: (processes: ProcessoParaImportar[]) => Promise<void>;
   onCancel: () => void;
 }
 
-// ---------- Utils ----------
-function looksLikeContaminatedName(s: string): boolean {
-  if (!s) return false;
-  if (s.length > 120) return true;
-  if (s.split(' ').length > 12) return true;
-  return /\b(SENTEN[ÇC]A|DECIS[ÃA]O|CERTID[ÃA]O|FINALIDADE|DESTINAT|OBSERVA[ÇC][ÃA]O|INTIMA[ÇC][ÃA]O)\b/i.test(s);
-}
-
-function normalizeClientName(s: string): string {
-  return s.replace(/\s+/g, ' ').trim().split(' ').slice(0, 8).join(' ').slice(0, 100);
-}
-
-interface JudicialSyncContentProps {
-  onImport: (processes: (JudicialProcessResult & { clienteId?: string | null })[]) => Promise<void>;
-  onCancel: () => void;
-}
+const ITEMS_PER_PAGE = 20;
 
 export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
   onImport,
@@ -117,7 +64,6 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
   const { toast } = useToast();
   const { user } = useAuth();
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 20;
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
   const [oab, setOab] = useState('');
@@ -125,7 +71,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
   const [results, setResults] = useState<JudicialProcessResult[]>([]);
   const [searched, setSearched] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [clientPolos, setClientPolos] = useState<Record<string, 'autor' | 'reu'>>({});
+  const [clientPolos, setClientPolos] = useState<Record<string, PoloCliente>>({});
   const [previewProc, setPreviewProc] = useState<JudicialProcessResult | null>(null);
   const [loadingAndamentos, setLoadingAndamentos] = useState(false);
   const { oabs: monitoredOabs, loading: loadingOabs } = useMonitoredOabs();
@@ -162,17 +108,12 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
     }
     const officeId = user.office_id;
 
-    const key = `${cleanOab}-${uf}`;
-
     setLoading(true);
     setResults([]);
     setSelectedIds(new Set());
     setCurrentPage(1);
 
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      
       const { data, error } = await supabase.functions.invoke('fetch-by-oab', {
         body: { oab: cleanOab, uf }
       });
@@ -203,7 +144,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
       }));
 
       // Filtra processos já importados e descartados no escritório
-      const numeros = mappedResults.map(r => (r.numeroProcesso || '').replace(/\D/g, ''));
+      const numeros = mappedResults.map(r => somenteDigitos(r.numeroProcesso));
 
       const [{ data: existentes }, { data: descartados }] = await Promise.all([
         supabase.from('processos').select('numero_processo').eq('office_id', officeId).in('numero_processo', numeros),
@@ -214,7 +155,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
         ...(existentes || []).map(e => e.numero_processo),
         ...(descartados || []).map(d => d.numero_processo),
       ]);
-      const filteredResults = mappedResults.filter(r => !ocultos.has((r.numeroProcesso || '').replace(/\D/g, '')));
+      const filteredResults = mappedResults.filter(r => !ocultos.has(somenteDigitos(r.numeroProcesso)));
 
       setResults(filteredResults);
       setSearched(true);
@@ -223,7 +164,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
       if (filteredResults.length > 0) {
         const rows = filteredResults.map((r) => ({
           office_id: officeId,
-          numero_processo: (r.numeroProcesso || '').replace(/\D/g, ''),
+          numero_processo: somenteDigitos(r.numeroProcesso),
           titulo: r.titulo || null,
           tribunal: r.tribunal || null,
           autor: r.autor || null,
@@ -319,7 +260,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
         await supabase.from('processos_descartados').insert({
           office_id: user.office_id,
           user_id: user.id,
-          numero_processo: (proc.numeroProcesso || '').replace(/\D/g, ''),
+          numero_processo: somenteDigitos(proc.numeroProcesso),
           titulo: proc.titulo,
           tribunal: proc.tribunal,
           motivo: 'descartado_busca_oab',
@@ -351,8 +292,8 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
     setImporting(true);
     try {
       const processesToImport = results.filter(p => selectedIds.has(p.id));
-      
-      const flagged = processesToImport.filter(p => 
+
+      const flagged = processesToImport.filter(p =>
         looksLikeContaminatedName(p.autor) || looksLikeContaminatedName(p.reu)
       );
 
@@ -366,47 +307,10 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
         return;
       }
 
-      const finalProcesses = await Promise.all(processesToImport.map(async (proc) => {
-        let finalClienteId = null;
-        const polo = clientPolos[proc.id];
-        
-        if (polo) {
-          const rawName = polo === 'autor' ? proc.autor : proc.reu;
-          if (rawName) {
-            const nomeCliente = normalizeClientName(rawName);
-            
-            // Verificar se cliente já existe por nome no escritório
-            const { data: existingClient } = await supabase
-              .from('clientes')
-              .select('id')
-              .eq('nome', nomeCliente)
-              .eq('office_id', officeId)
-              .maybeSingle();
-
-            if (existingClient) {
-              finalClienteId = existingClient.id;
-            } else {
-              const { data: novoCliente, error: errCliente } = await supabase
-                .from('clientes')
-                .insert({
-                  nome: nomeCliente,
-                  office_id: officeId,
-                  user_id: user.id
-                })
-                .select('id').single();
-                
-              if (!errCliente && novoCliente) {
-                finalClienteId = novoCliente.id;
-              }
-            }
-          }
-        }
-        
-        return {
-          ...proc,
-          clienteId: finalClienteId
-        };
-      }));
+      const finalProcesses = await Promise.all(processesToImport.map(async (proc) => ({
+        ...proc,
+        clienteId: await resolverClienteId(proc, clientPolos[proc.id], officeId, user.id),
+      })));
 
       await onImport(finalProcesses);
       toast({ title: "Importação concluída", description: `${selectedIds.size} processos foram salvos.` });
@@ -425,9 +329,30 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
     }
   };
 
-  const totalPages = Math.ceil(results.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedResults = results.slice(startIndex, startIndex + itemsPerPage);
+  // Importa só o processo aberto na pasta (botão "Importar Este Processo").
+  const handleImportPreview = async () => {
+    if (!previewProc) return;
+    if (!user?.office_id) {
+      toast({ title: 'Escritório não identificado', description: 'Faça login novamente para importar.', variant: 'destructive' });
+      return;
+    }
+    const officeId = user.office_id;
+    setImporting(true);
+    try {
+      const clienteId = await resolverClienteId(previewProc, clientPolos[previewProc.id], officeId, user.id);
+      await onImport([{ ...previewProc, clienteId }]);
+      toast({ title: 'Processo importado', description: `${previewProc.numeroProcesso} salvo com sucesso.` });
+      setPreviewProc(null);
+    } catch (e: unknown) {
+      toast({ title: 'Erro ao importar', description: getErrorMessage(e), variant: 'destructive' });
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const totalPages = Math.ceil(results.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedResults = results.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   return (
     <div className="flex flex-col flex-1 min-h-0 h-full">
@@ -481,7 +406,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
               </div>
               <span className="text-sm font-black text-foreground uppercase tracking-tight">Encontrados ({results.length})</span>
             </div>
-            
+
             {/* Controles de Paginação */}
             <div className="flex items-center gap-2 border-l border-black/5 dark:border-border ml-2 pl-4">
               <Button
@@ -512,7 +437,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
 
           <div className="flex items-center gap-6">
              <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40">{selectedIds.size} selecionados</span>
-             <button 
+             <button
                onClick={toggleSelectAll}
                className="text-[10px] font-black uppercase tracking-widest text-primary hover:text-primary/80 transition-colors border-b border-primary/20 pb-0.5"
              >
@@ -522,143 +447,25 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
         </div>
       )}
 
-      <div className="flex-1 min-h-[300px] border border-border rounded-[2rem] bg-muted/10 overflow-hidden flex flex-col mb-4 shadow-inner">
-        <div className="flex-1 overflow-y-auto custom-scrollbar">
-          {results.length > 0 ? (
-            <Table>
-              <TableHeader className="bg-muted sticky top-0 z-20 backdrop-blur-md">
-                <TableRow className="border-border hover:bg-transparent">
-                  <TableHead className="w-[40px] px-6">
-                    <Checkbox 
-                      checked={selectedIds.size === results.length && results.length > 0} 
-                      onCheckedChange={toggleSelectAll}
-                      className="border-border data-[state=checked]:bg-primary"
-                    />
-                  </TableHead>
-                  <TableHead className="text-muted-foreground/60 text-[10px] uppercase tracking-widest font-black py-5">Processo</TableHead>
-                  <TableHead className="text-muted-foreground/60 text-[10px] uppercase tracking-widest font-black py-5">Autor</TableHead>
-                  <TableHead className="text-muted-foreground/60 text-[10px] uppercase tracking-widest font-black py-5">Réu</TableHead>
-                  <TableHead className="text-muted-foreground/60 text-[10px] uppercase tracking-widest font-black py-5">Fase</TableHead>
-                  <TableHead className="text-muted-foreground/60 text-[10px] uppercase tracking-widest font-black py-5">Tribunal</TableHead>
-                  <TableHead className="text-muted-foreground/60 text-[10px] uppercase tracking-widest font-black py-5">Último Andamento</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginatedResults.map((proc) => (
-                  <TableRow 
-                    key={proc.id} 
-                    className={cn(
-                       "group border-border transition-colors cursor-pointer",
-                       selectedIds.has(proc.id) ? "bg-primary/[0.04] dark:bg-primary/[0.08]" : "hover:bg-muted/30"
-                    )}
-                    onClick={(e) => {
-                      if ((e.target as HTMLElement).closest('.checkbox-cell')) return;
-                      openPreview(proc);
-                    }}
-                  >
-                    <TableCell className="px-4 checkbox-cell">
-                      <Checkbox 
-                        checked={selectedIds.has(proc.id)} 
-                        onCheckedChange={() => toggleSelect(proc.id)}
-                        className="border-border data-[state=checked]:bg-primary"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <span className="font-mono text-[10px] font-bold text-primary whitespace-nowrap">
-                        {proc.numeroProcesso.replace(/[.-]/g, '').length === 20 
-                          ? proc.numeroProcesso.replace(/[.-]/g, '').replace(/^(\d{7})(\d{2})(\d{4})(\d)(\d{2})(\d{4})$/, '$1-$2.$3.$4.$5.$6')
-                          : proc.numeroProcesso}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="text-[10px] font-black line-clamp-1 text-foreground cursor-default max-w-[200px]">
-                              {proc.autor || 'Não identificado'}
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent className="bg-background border-border text-foreground max-w-sm">
-                            {proc.autor || 'Não identificado'}
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </TableCell>
-                    <TableCell>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="text-[10px] font-medium line-clamp-2 text-foreground/80 cursor-default max-w-[200px]">
-                              {proc.reu || 'Não identificada'}
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent className="bg-background border-border text-foreground max-w-sm">
-                            {proc.reu || 'Não identificada'}
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-[8px] h-5 uppercase font-black bg-muted border-border text-muted-foreground/60 whitespace-nowrap rounded-md">
-                        {proc.faseProcessual}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-[10px] text-muted-foreground/60 truncate max-w-[120px] inline-block font-bold">
-                        {proc.tribunal} {proc.vara && `• ${proc.vara}`}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      {proc.ultimoAndamento ? (
-                        <div className="flex flex-col gap-0.5 max-w-[200px]">
-                          <span className="text-[9px] text-primary/70 font-black uppercase">
-                            {proc.ultimoAndamento.data ? new Date(proc.ultimoAndamento.data).toLocaleDateString() : ''}
-                          </span>
-                          <span className="text-[10px] line-clamp-1 italic text-muted-foreground/40 font-medium">{proc.ultimoAndamento.descricao}</span>
-                        </div>
-                      ) : <span className="text-muted-foreground/20 italic text-[10px] font-medium">Sem andamento</span>}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="flex flex-col items-center justify-center p-12 text-center text-muted-foreground/30 h-full">
-              {loading ? (
-                <>
-                  <Loader2 className="h-10 w-10 animate-spin mb-4 text-primary" />
-                  <p className="text-muted-foreground animate-pulse">Sincronizando com tribunais...</p>
-                  <p className="text-[10px] text-muted-foreground/60 mt-2">Isso pode levar alguns segundos.</p>
-                </>
-              ) : searched ? (
-                <>
-                  <AlertCircle className="h-12 w-12 mb-4 text-orange-500 opacity-60" />
-                  <p className="text-lg font-medium text-foreground">Nenhum processo encontrado</p>
-                  <p className="text-xs mt-2 max-w-[300px] mx-auto text-muted-foreground italic">
-                    Não encontramos processos vinculados à OAB {oab}/{uf} nos tribunais integrados. 
-                    Confira se o número está correto ou tente buscar por outros critérios.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <Database className="h-12 w-12 mb-4 opacity-10" />
-                  <p className="text-lg font-medium text-muted-foreground">Busca pronta</p>
-                  <p className="text-xs mt-2 max-w-[240px] mx-auto text-muted-foreground">
-                    Informe sua OAB e Estado para sincronizar processos diretamente dos tribunais.
-                  </p>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
+      <ResultadosTable
+        results={results}
+        paginatedResults={paginatedResults}
+        selectedIds={selectedIds}
+        onToggleSelect={toggleSelect}
+        onToggleSelectAll={toggleSelectAll}
+        onOpenPreview={openPreview}
+        loading={loading}
+        searched={searched}
+        oab={oab}
+        uf={uf}
+      />
 
       <div className="mt-4 pt-6 border-t border-border flex items-center justify-between bg-transparent">
         <Button variant="ghost" onClick={onCancel} disabled={importing} className="text-muted-foreground hover:text-foreground hover:bg-muted font-black uppercase tracking-widest text-[10px] h-11 px-6 rounded-xl transition-all">
           Cancelar
         </Button>
-        <Button 
-          onClick={handleImport} 
+        <Button
+          onClick={handleImport}
           disabled={selectedIds.size === 0 || importing}
           className={`gap-2 px-8 bg-primary shadow-premium h-11 font-black uppercase tracking-widest text-[10px] rounded-xl transition-all hover:scale-[1.02] ${selectedIds.size === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
@@ -667,215 +474,18 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
         </Button>
       </div>
 
-      <Dialog open={!!previewProc} onOpenChange={(open) => !open && setPreviewProc(null)}>
-        <DialogContent className="max-w-2xl bg-background border border-border p-8 shadow-2xl rounded-2xl max-h-[90vh] flex flex-col gap-0">
-          <DialogTitle className="sr-only">
-            {previewProc ? `Processo ${previewProc.numeroProcesso}` : 'Detalhes do processo'}
-          </DialogTitle>
-          {previewProc && (
-            <div className="flex flex-col flex-1 min-h-0 h-full gap-0">
-              {/* Header Fixo */}
-              <div className="flex items-center gap-4 border-b border-border pb-6 shrink-0">
-                <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20 shrink-0">
-                  <Gavel className="h-6 w-6" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-black font-mono text-primary tracking-tight">
-                    {formatCNJ(previewProc.numeroProcesso)}
-                  </h3>
-                  <p className="text-muted-foreground text-[10px] font-black uppercase tracking-widest mt-1">
-                    {previewProc.tribunal} • {previewProc.faseProcessual}
-                  </p>
-                </div>
-              </div>
-
-              {/* Corpo Rolável */}
-              <div className="flex-1 overflow-y-auto py-6 pr-2 space-y-6 custom-scrollbar max-h-[calc(90vh-220px)]">
-                <div className="grid grid-cols-2 gap-8">
-                  {/* Lado Autor */}
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-muted-foreground/60 text-[10px] font-black uppercase tracking-widest">
-                      <User className="h-4 w-4 text-primary" /> Autor / Requerente
-                    </div>
-                    <div className="space-y-3">
-                      <Input 
-                        className="bg-background border-border text-foreground text-xs h-10 rounded-xl focus:ring-4 focus:ring-primary/10 font-bold"
-                        placeholder="Nome do Autor"
-                        value={previewProc.autor}
-                        onChange={(e) => updateResultLocally(previewProc.id, { autor: e.target.value })}
-                      />
-                      <Button 
-                        variant={clientPolos[previewProc.id] === 'autor' ? 'default' : 'outline'}
-                        size="sm"
-                        className="w-full rounded-xl gap-2 font-black text-[10px] h-9 uppercase tracking-widest shadow-premium"
-                        onClick={() => setClientPolos({...clientPolos, [previewProc.id]: 'autor'})}
-                      >
-                        {clientPolos[previewProc.id] === 'autor' && <ShieldCheck className="h-3 w-3" />}
-                        Este é meu cliente
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Lado Réu */}
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-muted-foreground/60 text-[10px] font-black uppercase tracking-widest">
-                      <Users className="h-4 w-4 text-primary" /> Réu / Requerido
-                    </div>
-                    <div className="space-y-3">
-                      <Input 
-                        className="bg-background border-border text-foreground text-xs h-10 rounded-xl focus:ring-4 focus:ring-primary/10 font-bold"
-                        placeholder="Nome do Réu"
-                        value={previewProc.reu}
-                        onChange={(e) => updateResultLocally(previewProc.id, { reu: e.target.value })}
-                      />
-                      <Button 
-                        variant={clientPolos[previewProc.id] === 'reu' ? 'default' : 'outline'}
-                        size="sm"
-                        className="w-full rounded-xl gap-2 font-black text-[10px] h-9 uppercase tracking-widest shadow-premium"
-                        onClick={() => setClientPolos({...clientPolos, [previewProc.id]: 'reu'})}
-                      >
-                        {clientPolos[previewProc.id] === 'reu' && <ShieldCheck className="h-3 w-3" />}
-                        Este é meu cliente
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Vara e Comarca Premium */}
-                <div className="grid grid-cols-2 gap-4 bg-muted/30 p-5 rounded-[1.5rem] border border-border shadow-inner">
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] text-muted-foreground/40 uppercase font-black tracking-widest ml-1">Vara / Órgão</Label>
-                    <Input 
-                      className="bg-background border-border text-foreground text-xs h-9 font-bold"
-                      value={previewProc.vara}
-                      onChange={(e) => updateResultLocally(previewProc.id, { vara: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] text-muted-foreground/40 uppercase font-black tracking-widest ml-1">Comarca / UF</Label>
-                    <Input 
-                      className="bg-background border-border text-foreground text-xs h-9 font-bold"
-                      value={previewProc.comarca}
-                      onChange={(e) => updateResultLocally(previewProc.id, { comarca: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <Separator className="bg-border" />
-
-                <div className="space-y-4">
-                  <div className="text-muted-foreground/60 text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
-                      <Clock className="h-3 w-3" />
-                    </div>
-                    <span>Linha do Tempo de Movimentações</span>
-                  </div>
-                  
-                  <div className="bg-muted/30 rounded-[1.5rem] p-6 border border-border max-h-[250px] overflow-y-auto custom-scrollbar space-y-6 relative pl-8 shadow-inner">
-                    {/* Linha vertical da timeline */}
-                    <div className="absolute left-[31px] top-6 bottom-6 w-0.5 bg-primary/20" />
-
-                    {loadingAndamentos ? (
-                      <div className="flex flex-col items-center justify-center py-8 gap-3">
-                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                        <p className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">Buscando andamentos...</p>
-                      </div>
-                    ) : previewProc.andamentos && previewProc.andamentos.length > 0 ? (
-                      previewProc.andamentos.map((and, idx) => (
-                        <div key={idx} className="relative">
-                          <div className="absolute -left-[37px] top-1.5 h-3 w-3 rounded-full bg-primary ring-4 ring-card" />
-                          <div className="space-y-1.5">
-                            <span className="text-[10px] font-black text-primary uppercase">
-                              {and.data ? new Date(and.data).toLocaleDateString('pt-BR') : 'Sem data'}
-                            </span>
-                            <p className="text-xs font-bold text-foreground/80 leading-relaxed">
-                              {and.resumo || and.descricao}
-                            </p>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="flex flex-col items-center justify-center py-8 gap-3 opacity-70">
-                        <AlertCircle className="h-8 w-8 text-yellow-500" />
-                        <p className="text-[10px] uppercase font-black tracking-widest text-center text-yellow-500">Nenhum andamento extraído</p>
-                        <p className="text-xs text-muted-foreground text-center max-w-xs">
-                          Movimentos não disponíveis publicamente. Adicione manualmente após importar.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer Fixo */}
-              <DialogFooter className="pt-4 border-t border-border mt-4 shrink-0 flex flex-row items-center justify-between w-full">
-                <Button
-                  variant="ghost"
-                  onClick={() => setPreviewProc(null)}
-                  className="text-muted-foreground text-[10px] font-black uppercase tracking-widest hover:bg-muted h-11 rounded-xl transition-all"
-                >
-                  Sair
-                </Button>
-
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    className="border-red-500/30 text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20 font-black uppercase tracking-widest text-[10px] px-6 h-11 rounded-xl transition-all"
-                    onClick={() => ignorarProcesso(previewProc.id)}
-                  >
-                    Ignorar Processo
-                  </Button>
-                  <Button
-                    className="font-black uppercase tracking-widest text-[10px] px-8 h-11 rounded-xl shadow-premium transition-all bg-primary hover:bg-primary/90 text-primary-foreground"
-                    disabled={importing}
-                    onClick={async () => {
-                      if (!user?.office_id) {
-                        toast({ title: 'Escritório não identificado', description: 'Faça login novamente para importar.', variant: 'destructive' });
-                        return;
-                      }
-                      const officeId = user.office_id;
-                      setImporting(true);
-                      try {
-                        const polo = clientPolos[previewProc.id];
-                        let finalClienteId = null;
-                        if (polo) {
-                          const rawName = polo === 'autor' ? previewProc.autor : previewProc.reu;
-                          if (rawName) {
-                            const nomeCliente = normalizeClientName(rawName);
-                            const { data: existing } = await supabase
-                              .from('clientes').select('id')
-                              .eq('nome', nomeCliente).eq('office_id', officeId).maybeSingle();
-                            if (existing) {
-                              finalClienteId = existing.id;
-                            } else {
-                              const { data: novo } = await supabase.from('clientes')
-                                .insert({ nome: nomeCliente, office_id: officeId, user_id: user.id })
-                                .select('id').single();
-                              if (novo) finalClienteId = novo.id;
-                            }
-                          }
-                        }
-                        await onImport([{ ...previewProc, clienteId: finalClienteId }]);
-                        toast({ title: 'Processo importado', description: `${previewProc.numeroProcesso} salvo com sucesso.` });
-                        setPreviewProc(null);
-                      } catch (e: unknown) {
-                        toast({ title: 'Erro ao importar', description: getErrorMessage(e), variant: 'destructive' });
-                      } finally {
-                        setImporting(false);
-                      }
-                    }}
-                  >
-                    {importing ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Database className="h-4 w-4 mr-1" />}
-                    Importar Este Processo
-                  </Button>
-                </div>
-              </DialogFooter>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <PreviewProcessoDialog
+        proc={previewProc}
+        onClose={() => setPreviewProc(null)}
+        polo={previewProc ? clientPolos[previewProc.id] : undefined}
+        onSetPolo={(polo) => { if (previewProc) setClientPolos({ ...clientPolos, [previewProc.id]: polo }); }}
+        onChange={(updates) => { if (previewProc) updateResultLocally(previewProc.id, updates); }}
+        loadingAndamentos={loadingAndamentos}
+        importing={importing}
+        onIgnorar={() => { if (previewProc) ignorarProcesso(previewProc.id); }}
+        onImportar={handleImportPreview}
+      />
     </div>
-
   );
 };
 
