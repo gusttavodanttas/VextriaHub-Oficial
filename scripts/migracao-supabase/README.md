@@ -28,8 +28,9 @@ secret `project_url` já está no vault. **Não rodar o passo 1/2 do `migrar.sh`
 - [x] edge functions: workflow **Deploy Edge Functions (Supabase)** (seção 1b) — 24 publicadas
 - [ ] segredos das functions (Dashboard → Edge Functions → Manage secrets) — enquanto
       faltarem, os robôs respondem 500 (`RESEND_API_KEY ausente`, `google-nao-configurado`)
-- [ ] arquivos do Storage (seção 2) — conferir antes se já existem abrindo a URL pública de um logo
-- [ ] Auth no painel (seção 3), Asaas (seção 4), virada do site (seção 5)
+- [x] arquivos do Storage (seção 2) — o restore trouxe só os registros; arquivos
+      enviados em 09/10 e hosts de `logo_url`/`avatar_url` trocados
+- [x] Auth no painel (seção 3), Asaas (seção 4), virada do site (seção 5) — concluídos em 08/10
 
 ## Por que não restaurar o backup inteiro nem rodar as migrations do repositório
 
@@ -121,6 +122,34 @@ A chave `service_role` fica em Settings → API. O bucket já existe (veio no
 `02-dados.sql`); o script só sobe os arquivos, com os mesmos caminhos.
 (`copiar-storage.mjs` é a variante para quando o projeto de origem está no ar.)
 
+> **Restore pelo painel:** ele traz os *registros* de `storage.objects`, mas não os
+> arquivos — as URLs públicas respondem 404 e esses registros órfãos barram o
+> upload com o mesmo nome (409). Não dá para apagá-los por SQL
+> (`storage.protect_delete`); apague pela API, com a `service_role`:
+> `DELETE /storage/v1/object/uploads/<caminho>`. Depois suba os arquivos.
+
+**URLs absolutas gravadas no banco.** `offices.logo_url` e `profiles.avatar_url`
+guardam a URL pública completa, com o host do projeto antigo — as imagens só
+voltam a aparecer depois de trocar o host:
+
+```sql
+update public.offices  set logo_url   = replace(logo_url,   'https://<ref-antigo>.supabase.co', 'https://<ref-novo>.supabase.co') where logo_url   like '%<ref-antigo>%';
+update public.profiles set avatar_url = replace(avatar_url, 'https://<ref-antigo>.supabase.co', 'https://<ref-novo>.supabase.co') where avatar_url like '%<ref-antigo>%';
+```
+
+Para garantir que não sobrou referência em outra coluna (texto ou jsonb):
+
+```sql
+create temp table _achados (tabela text, coluna text, n bigint) on commit drop;
+do $$ declare r record; n bigint; begin
+  for r in select table_name, column_name from information_schema.columns
+           where table_schema = 'public' and data_type in ('text','character varying','jsonb','json') loop
+    execute format('select count(*) from public.%I where %I::text like %L', r.table_name, r.column_name, '%<ref-antigo>%') into n;
+    if n > 0 then insert into _achados values (r.table_name, r.column_name, n); end if;
+  end loop; end $$;
+select * from _achados;  -- esperado: nenhuma linha
+```
+
 ## 3. Painel do Supabase (projeto novo)
 
 - [x] **Authentication → URL Configuration:** *Site URL* `https://www.vextriahub.com.br`
@@ -171,7 +200,8 @@ GitHub → Settings → Secrets and variables → Actions:
 - [ ] `select name from vault.decrypted_secrets order by 1;` → `project_url`,
       `robot_secret`, `service_role_key`
 - [ ] Login com uma conta real; abrir Dashboard, Clientes, Financeiro e Publicações
-- [ ] Foto de perfil e logo do escritório aparecem (Storage)
+- [ ] Foto de perfil e logo do escritório aparecem (Storage) — se não, ver "URLs
+      absolutas gravadas no banco" na seção 2
 - [ ] No dia seguinte: `select * from cron.job_run_details order by start_time desc limit 20;`
 
 Só depois disso: apagar `.migracao-supabase/` e, quando quiser, o projeto antigo.
