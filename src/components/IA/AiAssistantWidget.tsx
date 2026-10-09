@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { usePlanFeatures } from '@/hooks/usePlanFeatures';
+import { useAuth } from '@/contexts/AuthContext';
+import { resumoUsoIa, useAiUsoEscritorio } from '@/hooks/useAiLimites';
 import { useAiAdvisor, AdvisorError, type ChatMessage } from '@/hooks/useAiAdvisor';
 import { useSpeech } from '@/hooks/useSpeech';
 import { Markdown } from '@/components/IA/Markdown';
@@ -17,6 +19,9 @@ export const AiAssistantWidget: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { hasIAModule } = usePlanFeatures();
+  const { user } = useAuth();
+  // Consumo do mês (e teto do escritório, se o super admin definiu um) no cabeçalho.
+  const { uso: usoIa, limite: limiteIa, refetch: refetchUsoIa } = useAiUsoEscritorio(hasIAModule ? user?.office_id : null);
   const advisor = useAiAdvisor();
   const speech = useSpeech();
   const [voiceOut, setVoiceOut] = useState<boolean>(() => {
@@ -77,6 +82,7 @@ export const AiAssistantWidget: React.FC = () => {
       const res = await advisor.chat(next);
       setMessages([...next, { role: 'assistant', content: res.reply || '…' }]);
       if (voiceOut) speakReply(res.reply || '');
+      refetchUsoIa();
       // Se a IA criou algo, atualiza as telas correspondentes.
       if (res.actions && res.actions.length > 0) {
         ['prazos', 'audiencias', 'tarefas', 'processos', 'clientes', 'correspondentes', 'diligencias', 'financeiro', 'stats', 'dashboard-stats'].forEach((k) =>
@@ -131,6 +137,7 @@ export const AiAssistantWidget: React.FC = () => {
               <p className="font-black text-sm leading-tight">Conselheiro IA</p>
               <p className="text-[10px] text-muted-foreground flex items-center gap-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Assistente do seu escritório
+                {hasIAModule && <span className="text-muted-foreground/60">· {resumoUsoIa(usoIa, limiteIa)}</span>}
               </p>
             </div>
             {hasIAModule && (

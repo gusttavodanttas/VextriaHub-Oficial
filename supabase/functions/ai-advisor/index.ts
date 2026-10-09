@@ -32,6 +32,16 @@ const OPENAI_MODEL = Deno.env.get("OPENAI_MODEL") || "gpt-4o-mini";
 // Vextria: sem isto, uma aba em loop gera custo ilimitado e ninguém percebe até
 // a fatura. 0 = ilimitado. Ajustável pelo segredo AI_LIMITE_CHAMADAS_MES.
 const LIMITE_CHAMADAS_MES = Number(Deno.env.get("AI_LIMITE_CHAMADAS_MES") ?? 500);
+
+// Teto por escritório (tabela ai_limites, escrita só pelo super admin). NULL ou
+// linha ausente = usa o global acima; 0 = ilimitado. Falha ABERTO para o global:
+// um erro de leitura nunca derruba a IA nem apaga o teto.
+async function limiteDoEscritorio(service: ReturnType<typeof createClient>, officeId: string): Promise<number> {
+  const { data, error } = await service.from("ai_limites").select("limite_chamadas").eq("office_id", officeId).maybeSingle();
+  if (error) { console.error("ai_limites falhou (usando o teto global):", error.message); return LIMITE_CHAMADAS_MES; }
+  const v = (data as { limite_chamadas?: number | null } | null)?.limite_chamadas;
+  return v == null ? LIMITE_CHAMADAS_MES : Number(v);
+}
 const periodDays: Record<string, number> = { hoje: 1, semana: 7, mes: 30, ano: 365 };
 const periodLabel: Record<string, string> = { hoje: "hoje", semana: "esta semana", mes: "este mês", ano: "este ano" };
 
@@ -313,11 +323,12 @@ serve(async (req) => {
     // Falha ABERTO: se a RPC não existir ainda (migration não aplicada) ou o
     // banco tropeçar, a chamada passa e o erro fica logado — um recurso pago não
     // cai por causa do medidor. Por isso a migration vem ANTES do deploy.
+    const limiteChamadas = await limiteDoEscritorio(service, officeId);
     const consumo = await service.rpc("ai_consumir", {
       p_office: officeId,
       p_chamadas: 1,
       p_voz_caracteres: 0,
-      p_limite_chamadas: LIMITE_CHAMADAS_MES,
+      p_limite_chamadas: limiteChamadas,
       p_limite_voz: 0,
     });
     if (consumo.error) {
@@ -327,9 +338,9 @@ serve(async (req) => {
       if (uso && uso.permitido === false) {
         return json({
           error: "limite-ia-atingido",
-          message: `O escritório atingiu o limite de ${LIMITE_CHAMADAS_MES} usos da IA neste mês (${uso.chamadas} até agora). O contador zera no dia 1º.`,
+          message: `O escritório atingiu o limite de ${limiteChamadas} usos da IA neste mês (${uso.chamadas} até agora). O contador zera no dia 1º.`,
           chamadas: uso.chamadas,
-          limite: LIMITE_CHAMADAS_MES,
+          limite: limiteChamadas,
         }, 429);
       }
     }
