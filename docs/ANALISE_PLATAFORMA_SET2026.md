@@ -2625,6 +2625,30 @@ Parte 26 chamou de "regressão do restore", agora por outra via.
 em `norm` + PK em `n_link`; function `notion-sync` em `supabase/functions/`;
 UI) ou desligar o cron e remover os objetos até a integração ficar pronta.
 
+**Errata (09/10, 10:40 UTC).** O achado acima foi medido com a `main`
+em `c94f482`, de antes da PR #125 (merge às 05:09 UTC), que trouxe a
+integração inteira para o repositório: migration
+`notion_integracao_por_escritorio.sql`, as functions `notion-oauth-start`,
+`notion-oauth-callback`, `notion-disconnect` e `notion-sync` (publicadas às
+05:50 pelo deploy automático), UI em `components/Integrations`,
+`pages/auth/NotionCallback` e o painel do super admin. O schema
+`notion_sync` era apoio temporário da importação e a própria migration o
+apaga. O que **continua** valendo, e a PR que acompanha esta errata trata:
+
+- as duas funções `office_notion_allowed`/`office_notion_active` seguem
+  executáveis por `anon` no banco, embora a migration do repositório as
+  revogue — os objetos foram criados pelo SQL Editor, sem registro em
+  `supabase_migrations`, e a ACL não ficou como o arquivo diz;
+- dois arquivos com a mesma versão `20261009040000` (`ai_limites` e
+  `notion_integracao`), o que a CLI do Supabase rejeita; o do Notion passa
+  a `20261009043000`, e o registro em `supabase_migrations` recebe as duas
+  versões.
+
+A nota "Repositório ↔ banco" do panorama transversal sobe de 70% para 90%
+com isso aplicado; o que falta é a feature de jurisprudência (#129/#130),
+que entrou pelo mesmo caminho e tem 4 migrations registradas no banco
+contra 1 arquivo no repositório.
+
 ### 3 — P3 · Resíduo da Classe 1, segunda rodada
 
 Nove mutations ainda sem `.select` + `assertRowsAffected`, e duas sem
