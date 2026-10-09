@@ -2303,3 +2303,207 @@ merge-and-replace) e ganhou toast de erro.
 | ESLint | 0 erros · 682 avisos |
 | Vitest | 227/227 |
 | `vite build` | ok |
+
+
+---
+
+# Parte 26 — auditoria pós-migração: % por aba e o que falta para 100% (outubro/2026)
+
+Sessão do dia seguinte à migração do projeto Supabase (`mzhnlhfxfoigkqgxseeu`,
+pausado → `pvesofbrctfipdyqyloq`). Pedido do usuário: análise completa e
+profunda da plataforma, aba por aba, com % e o que falta para 100%, usando a
+conta de teste quando preciso.
+
+## Método
+
+- **Código** (`main` em `891528b`): releitura das 31 páginas e dos 64 hooks
+  com uma grade fixa e mensurável — por página: estado de erro visível com
+  ação de repetir, estado vazio, confirmação de ação destrutiva em dialog,
+  gate de permissão (`usePermissions`/`requirePermission`), paginação ou cap,
+  bug funcional confirmado por leitura; por hook: `assertRowsAffected` (ou
+  `.select('id')`/`.single()`) em cada `update`/`delete`, `error`/`isError`
+  exposto, teste automatizado.
+- **Banco e infra** (projeto novo, somente leitura, exceto o item do usuário
+  de teste): advisors de segurança e desempenho, ACL das 44 funções de
+  `public`, 48 tabelas com RLS e contagem de policies, logs das 24 edge
+  functions e dos 8 crons nas últimas 24 h, configuração de Auth.
+- **Conta de teste** (`vextriahub@gmail.com`, escritório "VextriaHub", trial
+  até 15/10): simulada no banco com `request.jwt.claims` + `set role
+  authenticated`, do jeito que o PostgREST faz. Leituras em 20 tabelas e
+  escrita de cliente + processo + tarefa passando pela RLS e pelos triggers
+  de cota. Navegação real no site **não** foi possível (o sandbox não alcança
+  o host do projeto), mesma limitação das partes anteriores.
+- Não recomputei do zero o que a Parte 23 já mediu e as Partes 24/25
+  corrigiram (PRs #82–#100); parti daquela base e reavaliei cada critério com
+  as métricas acima, revendo o código onde o número mudava.
+
+## Sinais no momento da análise
+
+| Verificação | Resultado |
+| --- | --- |
+| `tsc -p tsconfig.app.json` | limpo |
+| ESLint | 0 erros · 663 avisos (teto 700) — 391 `any` restantes |
+| Vitest | 248/248 em 32 arquivos |
+| `vite build` | ok (~14 s) |
+| Advisors segurança | **40 funções SECURITY DEFINER executáveis por `anon`** (regressão do restore — ver achado nº 1) · proteção contra senha vazada desligada · 7 tabelas com RLS e sem policy (intencional, só service role) |
+| Advisors desempenho | 71 índices "não usados" — ruído: o restore zerou as estatísticas em 08/10 |
+| Edge functions | 24 do repositório ativas + `restaurar-storage` (temporária, apagar) · 0 erros nas últimas 24 h depois dos segredos cadastrados |
+| Crons | 8 ativos; 26+ execuções desde 10:45 UTC de 08/10 sem falha do agendador |
+| Conta de teste | lê só o próprio escritório (0 linhas dos demais 5 escritórios, 13 planos públicos); cria cliente, processo e tarefa com RLS + cota de trial |
+
+## Achados desta rodada (novos, não cobertos pelas partes anteriores)
+
+### 1 — P1 · O restore descartou as permissões de EXECUTE das funções
+
+As 44 funções de `public` voltaram com a ACL padrão do Supabase: EXECUTE para
+`public`, `anon` e `authenticated`. Os REVOKE/GRANT de **20 migrations**
+(Partes 1, 7 e 14) sumiram — o restore pelo painel não preserva ACL de função.
+Confirmado com `has_function_privilege('anon', …)` nas 40 SECURITY DEFINER:
+todas `true`. Efeito prático: `anon` pode chamar `ai_consumir` (inflar o
+contador de IA de qualquer escritório), `office_plan_limits`,
+`authorize_process_search`, os helpers de RLS e as funções de trigger por
+RPC. As funções que escrevem checam `auth.uid()` por dentro, então não há
+escrita anônima — mas é superfície reaberta e um vazamento de informação
+(limites de plano por escritório, pertencimento a escritório).
+
+**Correção pronta, não aplicada:** `supabase/migrations/20261009010000_reaplicar_acl_funcoes_pos_restore.sql`
+reúne os 19 REVOKE/GRANT em ordem, idempotente. Aplicar no projeto novo
+depende de autorização (regra do CLAUDE.md: nada de mudança no banco em
+produção sem confirmação). Depois, o advisor deve listar só
+`confirm_invited_user` para `anon`, que é intencional.
+
+### 2 — P2 · Escritório novo nasce sem tipos de ato para prazos
+
+`tipos_ato_prazo` e `audiencia_tipos` são por escritório e não têm linhas
+globais. `useAudienciaTipos` cai em `DEFAULT_TIPOS` quando a tabela está
+vazia — correto. Os tipos de ato de prazo, não: o diálogo de novo prazo lê
+`tipos_ato_prazo` por `office_id` e um escritório recém-criado (como o de
+teste) recebe lista vazia até alguém clicar em "restaurar padrão" dentro de
+"Gerenciar tipos". O cadastro orgânico (`ensure_office_for_user`) não semeia
+nada. Correção pequena: semear `TIPOS_ATO_DEFAULT` na criação do escritório
+(trigger ou na própria RPC) ou cair no default em memória como Audiências
+faz.
+
+### 3 — P2 · Mutations ainda sem checagem de linhas afetadas (resíduo da Classe 1)
+
+Depois das PRs #82–#100 o padrão está em 25 dos 32 hooks com `update`/`delete`.
+Ficaram de fora, confirmados por leitura:
+
+- `useProcessoSubData.tsx` (4): concluir tarefa, status e urgência de
+  publicação, `status = 'processada'` ao vincular — dentro do drawer de
+  processo.
+- `useSubtarefas.tsx` (2) e `useTarefaComentarios.tsx` (1): concluir/excluir
+  subtarefa, excluir comentário.
+- `useProcessShares.tsx` (1): revogar compartilhamento.
+- `useUserPermissions.tsx` (1): remover override de permissão.
+- `useSuperAdminOffices.tsx` (2): ativar/desativar escritório, editar dados.
+- `timesheetService.ts`: `remove` e `pausar/retomar` conferem; `update` e
+  `finalizar` não.
+
+Todos passam pela RLS: um bloqueio silencioso vira "sucesso" na tela.
+
+### 4 — P3 · Proteção contra senha vazada desligada
+
+Authentication → Password: "Leaked password protection" (HaveIBeenPwned)
+desligado no projeto novo. Um clique no painel; sem custo.
+
+### 5 — P3 · Resíduos operacionais da migração
+
+- Function `restaurar-storage` e branch `tmp/storage-arquivos`: apagar.
+- VextriaZap: `zap-pull-leads` roda a cada 15 min contra
+  `bceundwkuonueqmgrlyq.supabase.co`, que não resolve mais (DNS). Sem efeito
+  colateral, mas é 96 chamadas/dia para nada até o bridge voltar ou o cron
+  ser desligado.
+- `cron.job_run_details` sem limpeza: 100+ linhas/dia; vale um job de
+  retenção de 30 dias (`cron.schedule('limpar-cron-log', '0 3 * * *', $$delete
+  from cron.job_run_details where end_time < now() - interval '30 days'$$)`).
+- Índices "não usados" (71): reavaliar em novembro com estatísticas reais.
+
+## O que a conta de teste provou
+
+| Ação (como `authenticated`, JWT do usuário de teste) | Resultado |
+| --- | --- |
+| `select` em processos, clientes, tarefas, prazos, audiências, atendimentos, publicações, financeiro, metas, timesheets, consultivos, correspondentes, notificações | 0 linhas — nada de outros escritórios vaza |
+| `select` em offices, profiles, office_users, office_subscriptions | 1 linha cada (as próprias) |
+| `select` em plan_configs | 13 planos ativos (catálogo público) |
+| `insert` cliente → processo → tarefa (encadeados) | 3 linhas criadas; `enforce_plan_quota` não barrou (trial: 1 de cada) |
+| `select` em tipos_ato_prazo / audiencia_tipos | 0 — achado nº 2 |
+
+Os três registros ficaram no escritório de teste para você navegar.
+
+## Tabela por aba
+
+Grade igual à da Parte 23 (Frente 100 = loading 10 · erro+retry 20 · vazio
+10 · confirmação 15 · gate 15 · paginação 10 · sem bug 20; Backend 100 =
+linhas afetadas 35 · catch 20 · office_id 10 · teste 15 · RLS 20). Entre
+parênteses, a nota da Parte 23 para comparação.
+
+| Bloco | Aba | Frente | Backend | O que falta para 100% |
+| --- | --- | --- | --- | --- |
+| A | Atendimentos | 95 (95) | 88 (82) | teste do hook `useAtendimentos`; paginação (hoje cap) |
+| A | Audiências | 90 (80) | 85 (82) | `useAudiencias` expõe `error` só parcialmente; teste do hook; 482 linhas ok |
+| A | Prazos | 85 (80) | 85 (72) | **achado nº 2** (tipos de ato em escritório novo); teste de `usePrazosData`; arquivo de 820 linhas |
+| A | Agenda | 85 (65) | 78 (55) | teste de `useAgendaEvents`; cap de 50 atrasados sem "ver mais" |
+| A | Tarefas | 90 (60) | 85 (65) | `useSubtarefas`/`useTarefaComentarios` sem checagem de linhas (nº 3); 828 linhas |
+| B | Financeiro | 95 (95) | 88 (85) | teste de `useFinanceiro` (só o cálculo tem); confirmação do import por IA em uso real |
+| B | Metas | 92 (92) | 85 (85) | teste de `useMetas`; gate de módulo só para Premium (ok, mas sem aviso de upsell na tela) |
+| B | Timesheet | 88 (70) | 85 (58) | `timesheetService.update/finalizar` sem checagem (nº 3); 855 linhas |
+| B | CRM | 78 (50) | 72 (40) | depende do VextriaZap (offline); teste de `useCrmRobot`; Kanban sem paginação |
+| C | Clientes | 95 (95) | 92 (90) | teste de `useClientes` além do dialog |
+| C | Processos | 88 (88) | 80 (78) | `useProcessoSubData` (nº 3); `ProcessoDetailsDrawer` com 1.286 linhas e `JudicialSyncDialog` 973; teste do hook |
+| C | Consultivo | 88 (85) | 78 (65) | teste de `useConsultivos`; 966 linhas; sem paginação (cap) |
+| C | Correspondentes | 85 (55) | 88 (85) | sem paginação; diligências sem teste |
+| D | Configurações | 85 (85) | 85 (n/a) | `DeadlineConfig`/`MonitoredOabs` sem teste; página delega tudo |
+| D | Escritório | 85 (78) | 85 (70) | página fina sobre `useStats`; nada crítico |
+| D | Perfil | 85 (78) | 78 (62) | 757 linhas; upload de avatar sem teste; `useMyStats` sem teste |
+| D | Admin | 82 (72) | 82 (88) | `useSuperAdminOffices` (nº 3); 7 de 10 subcomponentes sem estado de erro próprio |
+| D | Equipe | 85 (60) | 78 (55) | `useOfficeTeams`/`useInvitations`/`useOfficeUsers` sem teste |
+| D | EquipeDetalhe | 75 (45) | 68 (40) | 959 linhas numa página só; sem paginação; sem teste |
+| E | Login / Cadastro / Redefinir / Pagamento | 92 (90–95) | 90 (85–90) | redirecionamento corrigido hoje (#104/#105/#106); falta só E2E real |
+| E | IA (widget + ai-advisor/ai-voice) | 90 (90) | 88 (88) | teto por escritório (hoje global); confirmação em uso real do import financeiro |
+| F | Dashboard | 92 (90) | 80 (74) | testes de `useStats`/`useMyStats`; cache em localStorage sem `error` em refetch (padrão `!!query.error` já documentado) |
+| F | Gráficos | 90 (93) | 85 (88) | `ChartsTab` com 3 pontos de erro, sem teste |
+| F | Publicações | 88 (65) | 85 (55) | depende do robô diário (1ª execução no projeto novo em 09/10); 867 linhas; teste do hook |
+| F | Notificações | 92 (90) | 88 (68) | preferências por usuário sem teste |
+| F | Lixeira | 85 (72) | 90 (90) | restauração em lote sem paginação |
+
+**Médias:** Frente **88%** (Parte 23: 80%) · Backend **84%** (74%).
+
+## Panorama transversal
+
+| Dimensão | Estado | Nota |
+| --- | --- | --- |
+| RLS | 48/48 tabelas, 213 policies, isolamento provado com a conta de teste | **100%** |
+| Permissões de função (ACL) | 0 de 19 revokes presentes após o restore — **achado nº 1** | **40%** → 100% ao aplicar a migration |
+| Edge functions | 24 ativas, segredos completos, 0 erros em 24 h; 1 temporária a apagar | **95%** |
+| Robôs (pg_cron) | 8 ativos; agendador saudável; zap sem destino | **90%** |
+| Auth | URLs, SMTP (Resend), 6 templates em PT; senha vazada desligada | **90%** |
+| Testes | 248, mas ~6 de 64 hooks com teste direto; pgTAP cobre 1 cenário | **50%** |
+| Código | 0 erros de lint, 663 avisos, 391 `any`, 11 arquivos > 600 linhas | **70%** |
+| Dependências | `npm audit` não rodado nesta rodada; `react-router` v7 pendente desde a Parte 14 | **85%** |
+| Observabilidade | Sentry via `captureError`; sem alerta para cron/robô que falha | **75%** |
+| **Transversal (média)** | | **77%** |
+
+## Plano para chegar a 100%, em ordem de retorno
+
+1. **Aplicar a migration de ACL** (achado nº 1) — 1 comando, fecha 40
+   avisos do advisor e a superfície reaberta. Depois ligar a proteção contra
+   senha vazada (nº 4).
+2. **Semear tipos de ato de prazo** no escritório novo (nº 2) — bloqueia o
+   primeiro prazo de todo cliente novo.
+3. **Fechar o resíduo da Classe 1** (nº 3): 11 mutations em 7 arquivos, com
+   o mesmo `assertRowsAffected` + teste no `supabaseMock` já existente.
+4. **Testes de hook**: um arquivo por hook de dado das 10 abas mais usadas
+   (processos, clientes, prazos, tarefas, financeiro, agenda, audiências,
+   atendimentos, publicações, equipe). É o item que mais sobe o Backend.
+5. **Quebrar os 5 arquivos acima de 900 linhas** (`ProcessoDetailsDrawer`,
+   `JudicialSyncDialog`, `Consultivo`, `EquipeDetalhe`,
+   `NovoPrazoStandaloneDialog`) em subcomponentes — manutenibilidade, não bug.
+6. **Operação**: desligar `zap-pull-leads` até o bridge voltar; retenção de
+   30 dias em `cron.job_run_details`; alerta (e-mail/Slack) quando um robô
+   diário responder 5xx; apagar `restaurar-storage` e o branch temporário.
+7. **Produto**: VextriaZap reativado com `BRIDGE_SECRET` novo; teto de IA por
+   escritório; aviso de upsell em Metas para planos sem o módulo.
+
+Com 1–3 feitos, a plataforma fica em ~92% de Frente e ~90% de Backend; 4–5
+levam o Backend e o transversal acima de 95%.
