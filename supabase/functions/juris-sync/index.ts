@@ -16,6 +16,18 @@ const cors = {
 };
 const REQUIRED = ["doc_id", "source_id", "document_type", "official_url", "content_sha256", "captured_at"];
 const MAX_BATCH = 500;
+const UPSERT_CHUNK = 100;
+const TIMEOUT_RE = /statement timeout|57014/i;
+
+/** Upsert de um sub-lote; em statement timeout divide ao meio e tenta de novo (até lotes de 1). */
+async function gravarLote(service: ReturnType<typeof createClient>, lote: Record<string, unknown>[]): Promise<string | null> {
+  if (!lote.length) return null;
+  const { error } = await service.from("juris_documents").upsert(lote, { onConflict: "doc_id" });
+  if (!error) return null;
+  if (!TIMEOUT_RE.test(error.message) || lote.length === 1) return error.message;
+  const meio = Math.ceil(lote.length / 2);
+  return (await gravarLote(service, lote.slice(0, meio))) ?? (await gravarLote(service, lote.slice(meio)));
+}
 
 interface Doc { [k: string]: unknown; doc_id: string; is_training?: boolean; official_url: string; }
 
@@ -72,10 +84,16 @@ serve(async (req) => {
     const alterados = rows.filter((r) => known.has(r.doc_id as string) && known.get(r.doc_id as string) !== r.content_sha256);
     const iguais = rows.length - novos.length - alterados.length;
 
+    // Um upsert de 500 docs estourava o statement_timeout de 8 s da API (o índice GIN
+    // de expressão calcula o tsvector de cada linha na escrita): 10 lotes em 500 no
+    // dia 09/10/2026. Gravar em sub-lotes mantém cada statement curto; se um ainda
+    // estourar, divide ao meio e tenta de novo antes de desistir.
     const toWrite = [...novos, ...alterados];
-    if (toWrite.length) {
-      const { error } = await service.from("juris_documents").upsert(toWrite, { onConflict: "doc_id" });
-      if (error) return json({ error: "gravacao", detalhe: error.message }, 500);
+    let gravados = 0;
+    for (let i = 0; i < toWrite.length; i += UPSERT_CHUNK) {
+      const erro = await gravarLote(service, toWrite.slice(i, i + UPSERT_CHUNK));
+      if (erro) return json({ error: "gravacao", detalhe: erro, gravados, restantes: toWrite.length - gravados }, 500);
+      gravados += Math.min(UPSERT_CHUNK, toWrite.length - i);
     }
 
     let alertas = 0;
