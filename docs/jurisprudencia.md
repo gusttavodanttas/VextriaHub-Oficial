@@ -31,6 +31,11 @@ auto-fill de `office_id` e `office_paid_gate`). Funções: `juris_search(...)`, 
 
 ## Pôr no ar (uma vez)
 
+Projeto de produção: `pvesofbrctfipdyqyloq` (conta nova). As funções são publicadas pelo workflow
+`deploy-functions.yml` a cada push em `main`; o segredo da sincronização pode ficar no env `JURIS_SYNC_SECRET`
+ou na tabela `juris_sync_config` (chave `sync_secret`), que só o service role lê.
+
+
 1. **Migração**: rodar o SQL no SQL Editor do projeto do Hub (conta contato@) ou `supabase db push` logado nessa conta.
 2. **Função `juris-sync`**: `supabase functions deploy juris-sync` e definir o segredo
    `supabase secrets set JURIS_SYNC_SECRET=<valor longo e aleatório>`.

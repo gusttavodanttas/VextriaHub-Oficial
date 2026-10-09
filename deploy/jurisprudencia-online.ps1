@@ -1,10 +1,10 @@
-# Põe no ar a integração de Jurisprudência no projeto de PRODUÇÃO do VextriaHub (mzhnlhfxfoigkqgxseeu).
+# Põe no ar a integração de Jurisprudência no projeto de PRODUÇÃO do VextriaHub (pvesofbrctfipdyqyloq).
 # Pré-requisito: `supabase login` feito com a conta contato@vextriahub.com.br (a dona do projeto).
 # O que faz: (1) publica as funções juris-sync e ai-advisor; (2) grava o segredo JURIS_SYNC_SECRET lendo
 # a 2ª linha de config\vextriahub.sync do JurisKit (o mesmo segredo que o kit usa para enviar os registros).
 # A MIGRAÇÃO do banco (deploy\jurisprudencia-migracao.sql) é aplicada à parte, no SQL Editor — veja o passo 1 no chat.
 $ErrorActionPreference = "Stop"
-$ref = "mzhnlhfxfoigkqgxseeu"
+$ref = "pvesofbrctfipdyqyloq"
 $repo = Split-Path -Parent $PSScriptRoot
 $kitCfg = "C:\Users\conta\Downloads\juriskit\juris-kit\config\vextriahub.sync"
 

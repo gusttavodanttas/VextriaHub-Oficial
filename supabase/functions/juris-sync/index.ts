@@ -30,10 +30,16 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
   try {
-    const secret = Deno.env.get("JURIS_SYNC_SECRET") || "";
+    if (req.method !== "POST") return json({ error: "metodo" }, 405);
+    const service = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    let secret = Deno.env.get("JURIS_SYNC_SECRET") || "";
+    if (!secret) {
+      // alternativa sem passo manual: segredo guardado em juris_sync_config (tabela sem policies; só o service role lê)
+      const { data: cfg } = await service.from("juris_sync_config").select("valor").eq("chave", "sync_secret").maybeSingle();
+      secret = (cfg?.valor as string) || "";
+    }
     const given = req.headers.get("x-juris-sync-secret") || "";
     if (!secret || !given || !timingSafeEqual(secret, given)) return json({ error: "nao-autorizado" }, 401);
-    if (req.method !== "POST") return json({ error: "metodo" }, 405);
 
     const body = await req.json().catch(() => ({}));
     const docs: Doc[] = Array.isArray(body?.documents) ? body.documents : [];
@@ -59,7 +65,6 @@ serve(async (req) => {
       });
     }
 
-    const service = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const ids = rows.map((r) => r.doc_id as string);
     const { data: existing } = await service.from("juris_documents").select("doc_id, content_sha256").in("doc_id", ids);
     const known = new Map<string, string>((existing || []).map((e: { doc_id: string; content_sha256: string }) => [e.doc_id, e.content_sha256]));

@@ -273,3 +273,12 @@ end $$;
 drop trigger if exists trg_juris_reviews_check_url on public.juris_user_reviews;
 create trigger trg_juris_reviews_check_url before insert or update on public.juris_user_reviews
   for each row execute function public.juris_reviews_check_url();
+
+-- 9) Segredo da sincronização (alternativa ao env JURIS_SYNC_SECRET): tabela sem policies → só o service role lê ----
+create table if not exists public.juris_sync_config (
+  chave text primary key,
+  valor text not null,
+  updated_at timestamptz not null default now()
+);
+alter table public.juris_sync_config enable row level security;
+revoke all on public.juris_sync_config from anon, authenticated;
