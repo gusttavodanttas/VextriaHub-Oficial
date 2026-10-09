@@ -2802,10 +2802,10 @@ Entregue como página HTML: [`ANALISE_PLATAFORMA_PARTE28.html`](./ANALISE_PLATAF
 
 **Resultado:** geral **88%** (Parte 27: 87%) · Frente **90%** (89%) · Backend
 **90%** (85%) · transversal **84%** (82%). 541 testes unitários (313), 60 de
-67 hooks com teste direto (17), E2E no navegador com 9 de 10 cenários verdes
+67 hooks com teste direto (17), E2E no navegador com 10 de 10 cenários verdes
 (não existia). A conta de teste fez login de verdade pela primeira vez, pelo
-Playwright no CI, e cadastrou cliente, processo, prazo, audiência e tarefa
-pelas telas.
+Playwright no CI, e cadastrou cliente, processo, prazo, audiência, tarefa e
+atendimento pelas telas (PR #146).
 
 **Achados novos (logs de 24 h):**
 

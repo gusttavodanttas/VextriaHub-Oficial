@@ -124,7 +124,7 @@
   </div>
   <div class="tiles" style="margin-top:12px">
     <div class="tile"><div class="k">Testes unitários</div><div class="v">541</div><div class="d up">313 na Parte 27 · 60 de 67 hooks com teste direto</div></div>
-    <div class="tile"><div class="k">E2E no navegador</div><div class="v">9/10</div><div class="d">3 smoke + login + 6 passos de jornada; 1 passo ajustando seletor</div></div>
+    <div class="tile"><div class="k">E2E no navegador</div><div class="v">10/10</div><div class="d up">3 smoke + login + 6 passos de jornada, todos verdes no CI</div></div>
     <div class="tile"><div class="k">Robôs em 24 h</div><div class="v">290/290</div><div class="d up">execuções do pg_cron, 101 respostas HTTP, todas 200</div></div>
     <div class="tile"><div class="k">Banco (Free)</div><div class="v">321 MB</div><div class="d">de 500 MB; 301 MB só em juris_documents</div></div>
   </div>
@@ -221,7 +221,7 @@
   <div class="tabela"><table>
     <thead><tr><th>Bloco</th><th>Aba</th><th>Frente</th><th>Backend</th><th>E2E</th><th>O que falta para 100%</th></tr></thead>
     <tbody>
-      <tr><td class="bloco">A</td><td>Atendimentos</td><td><div class="cell-bar"><div class="bar"><i style="width:94%"></i></div><span class="pct">94 (93)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:94%"></i></div><span class="pct">94 (92)</span></div></td><td><span class="chip warn">ajustando</span></td><td class="falta">Paginação (hoje cap); passo E2E "registrar atendimento" falhou no seletor do campo Tipo, em correção; FollowUp já corrigido e testado.</td></tr>
+      <tr><td class="bloco">A</td><td>Atendimentos</td><td><div class="cell-bar"><div class="bar"><i style="width:94%"></i></div><span class="pct">94 (93)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:94%"></i></div><span class="pct">94 (92)</span></div></td><td><span class="chip ok">verde</span></td><td class="falta">Paginação (hoje cap); registrar atendimento pela tela passou no CI; FollowUp corrigido e testado.</td></tr>
       <tr><td class="bloco">A</td><td>Audiências</td><td><div class="cell-bar"><div class="bar"><i style="width:93%"></i></div><span class="pct">93 (92)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:95%"></i></div><span class="pct">95 (92)</span></div></td><td><span class="chip ok">verde</span></td><td class="falta">Paginação; agendar pela tela passou no CI com o primeiro tipo do escritório.</td></tr>
       <tr><td class="bloco">A</td><td>Prazos</td><td><div class="cell-bar"><div class="bar"><i style="width:92%"></i></div><span class="pct">92 (90)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:95%"></i></div><span class="pct">95 (92)</span></div></td><td><span class="chip ok">verde</span></td><td class="falta">Página com 820 linhas; paginação. Corrida do escritório corrigida (#144); tipos de ato e feriados testados.</td></tr>
       <tr><td class="bloco">A</td><td>Agenda</td><td><div class="cell-bar"><div class="bar"><i style="width:88%"></i></div><span class="pct">88 (88)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:90%"></i></div><span class="pct">90 (88)</span></div></td><td><span class="chip off">não</span></td><td class="falta">Cap de 50 atrasados sem "ver mais"; sincronização com o Google não está acontecendo (achado dos 401); sem E2E.</td></tr>
@@ -263,7 +263,7 @@
       <tr><td>Edge functions</td><td>29 no repositório; <code>juris-sync</code> 10 × 500; Google, Zap e Notion com 401 interno</td><td><div class="cell-bar"><div class="bar warn"><i style="width:80%"></i></div><span class="pct">80</span></div></td></tr>
       <tr><td>Robôs (pg_cron)</td><td>10 ativos + zap pausado; 290/290 em 24 h; 101 respostas, todas 200; alerta horário ativo</td><td><div class="cell-bar"><div class="bar ok"><i style="width:95%"></i></div><span class="pct">95</span></div></td></tr>
       <tr><td>Auth</td><td>Login real provado; URLs, SMTP e templates ok; senha vazada depende do Pro; 1 × 500 em recover</td><td><div class="cell-bar"><div class="bar"><i style="width:90%"></i></div><span class="pct">90</span></div></td></tr>
-      <tr><td>Testes</td><td>541 unitários; 60/67 hooks; 7 componentes; E2E com 9 de 10 cenários verdes; pgTAP cobre 1 cenário</td><td><div class="cell-bar"><div class="bar"><i style="width:90%"></i></div><span class="pct">90</span></div></td></tr>
+      <tr><td>Testes</td><td>541 unitários; 60/67 hooks; 7 componentes; E2E com 10 de 10 cenários verdes; pgTAP cobre 1 cenário</td><td><div class="cell-bar"><div class="bar"><i style="width:90%"></i></div><span class="pct">90</span></div></td></tr>
       <tr><td>Código</td><td>10 arquivos acima de 600 linhas; 678 avisos (teto 700); 418 ocorrências de <code>any</code></td><td><div class="cell-bar"><div class="bar warn"><i style="width:80%"></i></div><span class="pct">80</span></div></td></tr>
       <tr><td>Dependências</td><td>17 altas e 4 moderadas no audit de produção; <code>lovable-tagger</code> em dependencies; <code>react-router</code> v6</td><td><div class="cell-bar"><div class="bar warn"><i style="width:70%"></i></div><span class="pct">70</span></div></td></tr>
       <tr><td>Observabilidade</td><td>Sentry, alerta de robô por hora, retenção do log; os 401 internos passam como sucesso</td><td><div class="cell-bar"><div class="bar"><i style="width:85%"></i></div><span class="pct">85</span></div></td></tr>
@@ -287,7 +287,7 @@
       <tr><td>Prazo fatal (input obrigatório)</td><td><span class="chip ok">ok</span> 3,1 s, depois de corrigir a corrida do escritório</td><td class="num">37950992419</td></tr>
       <tr><td>Audiência com data, hora e tipo do escritório</td><td><span class="chip ok">ok</span></td><td class="num">37952252471</td></tr>
       <tr><td>Tarefa com vencimento</td><td><span class="chip ok">ok</span></td><td class="num">37952252471</td></tr>
-      <tr><td>Atendimento do tipo Reunião vinculado a cliente novo</td><td><span class="chip warn">seletor</span> o campo Tipo não é o primeiro combobox do formulário; em correção na branch <code>claude/e2e-jornada-2</code></td><td class="num">37952252471</td></tr>
+      <tr><td>Atendimento do tipo Reunião vinculado a cliente novo</td><td><span class="chip ok">ok</span> 4,3 s, depois de trocar o seletor (o campo Tipo é uma grade de botões)</td><td class="num">37957824040</td></tr>
       <tr><td>Limpeza dos rastros com a sessão da própria conta</td><td><span class="chip ok">ok</span> delete passou pela RLS em todas as tabelas</td><td class="num">todos</td></tr>
     </tbody>
   </table></div>
@@ -301,7 +301,7 @@
     <li><b>Decidir o acervo de jurisprudência antes do limite do Free</b><span><code>juris-sync</code> falhando com 500 e 301 MB em uma tabela. Ou reduzir o acervo de verdade (menos fontes, sem inteiro teor) ou subir para o Pro. Enquanto isso, pausar o cron da sincronização para não gastar cota.</span><span class="ganho">Jurisprudência +20 · Plano +25</span></li>
     <li><b>Realtime autenticado</b><span>Revisar a chave e o token enviados ao canal; 242 × 401 em 24 h. Fecha as notificações ao vivo.</span><span class="ganho">Notificações +8</span></li>
     <li><b>Investigar o 404 de clientes e o 403 de metas</b><span>Ambos intermitentes e fora da conta de teste; pegar o statement no log do Postgres no horário e reproduzir com o escritório afetado.</span><span class="ganho">Clientes +3 · Metas +5</span></li>
-    <li><b>Completar o E2E</b><span>Fechar o passo do atendimento, adicionar cadastro de conta, redefinição de senha, consultivo, financeiro e timesheet. O workflow diário já existe; cada passo novo custa minutos.</span><span class="ganho">Testes +5 · abas sem E2E +2 cada</span></li>
+    <li><b>Completar o E2E</b><span>Adicionar cadastro de conta, redefinição de senha, consultivo, financeiro e timesheet. O workflow diário já existe; cada passo novo custa minutos.</span><span class="ganho">Testes +5 · abas sem E2E +2 cada</span></li>
     <li><b>Carregar o perfil antes de renderizar as páginas</b><span>A #144 avisou as duas telas que falharam; a raiz está no <code>AuthContext</code>, que libera a UI com o usuário sem <code>office_id</code>. Manter <code>isLoading</code> até o perfil chegar elimina a classe inteira.</span><span class="ganho">todas as abas com cadastro +1 · Backend transversal</span></li>
     <li><b>Limpar as URLs órfãs de logo e avatar</b><span>Reenviar os arquivos ou zerar os campos; evita 400 no storage e imagem quebrada no perfil.</span><span class="ganho">Perfil +5 · Escritório +4</span></li>
     <li><b>Reconciliar as migrations da jurisprudência</b><span>Registrar no repositório as 3 que só existem no banco, fixar <code>search_path</code> em <code>f_unaccent</code> e <code>juris_fts_expr</code>, mover <code>unaccent</code> para fora de <code>public</code>.</span><span class="ganho">Repositório ↔ banco +10 · ACL +5</span></li>
