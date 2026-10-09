@@ -21,7 +21,7 @@ fluxo de contribuição humano, ver [`CONTRIBUTING.md`](./CONTRIBUTING.md).
 ```sh
 npx tsc --noEmit -p tsconfig.app.json   # tsc --noEmit sem -p é um no-op neste repo
 npx eslint . --ext .ts,.tsx             # orçamento: ≤700 warnings, 0 erros
-npx vitest run                          # hoje: 397 testes
+npx vitest run                          # hoje: 433 testes
 npx vite build
 ```
 

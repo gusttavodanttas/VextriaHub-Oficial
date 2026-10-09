@@ -17,7 +17,7 @@ type RespostaMock = { data: unknown; error: unknown };
 const METODOS = [
   'select', 'insert', 'update', 'delete', 'upsert',
   'eq', 'neq', 'in', 'is', 'not', 'or', 'gte', 'lte', 'lt', 'gt', 'ilike',
-  'order', 'limit', 'range', 'single', 'maybeSingle',
+  'like', 'order', 'limit', 'range', 'single', 'maybeSingle',
 ] as const;
 
 const filas: Record<string, MockResult[]> = {};
