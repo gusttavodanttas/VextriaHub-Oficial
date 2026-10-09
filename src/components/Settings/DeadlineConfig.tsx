@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Clock, Settings2, Loader2, AlertTriangle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { carregarTiposAto } from "@/lib/tiposAtoPrazo";
 import { useAuth } from "@/contexts/AuthContext";
 import { GerenciarTiposModal } from "@/components/Processos/NovoPrazoStandaloneDialog";
 import { getErrorMessage } from "@/lib/errors";
@@ -24,22 +24,20 @@ export function DeadlineConfig() {
     if (!officeId) { setLoading(false); return; }
     let cancel = false;
     setLoading(true);
-    supabase
-      .from("tipos_ato_prazo")
-      .select("label, dias_uteis, corridos")
-      .eq("office_id", officeId)
-      .order("ordem", { ascending: true })
-      .then(({ data, error: fetchError }) => {
+    // carregarTiposAto grava os padrões do CPC num escritório novo (antes esta
+    // tela dizia "nenhum tipo cadastrado" até alguém abrir o diálogo de prazo).
+    carregarTiposAto(officeId)
+      .then((r) => {
         if (cancel) return;
-        if (fetchError) {
-          // Sem isto, uma falha na busca caía como lista vazia — a tela dizia "nenhum
-          // tipo cadastrado" mesmo quando o escritório tinha tipos configurados.
-          setError(getErrorMessage(fetchError, "Não foi possível carregar os tipos de prazo."));
-          setLoading(false);
-          return;
-        }
         setError(null);
-        setTipos((data as TipoRow[]) || []);
+        setTipos(r.tipos.map(t => ({ label: t.label, dias_uteis: t.diasUteis, corridos: t.corridos })));
+        setLoading(false);
+      })
+      .catch((fetchError: unknown) => {
+        if (cancel) return;
+        // Sem isto, uma falha na busca caía como lista vazia — a tela dizia "nenhum
+        // tipo cadastrado" mesmo quando o escritório tinha tipos configurados.
+        setError(getErrorMessage(fetchError, "Não foi possível carregar os tipos de prazo."));
         setLoading(false);
       });
     return () => { cancel = true; };

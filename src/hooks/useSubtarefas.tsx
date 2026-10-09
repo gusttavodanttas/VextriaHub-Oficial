@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { isMissingTableError } from "@/lib/errors";
+import { assertRowsAffected, isMissingTableError } from "@/lib/errors";
 
 export interface Subtarefa {
   id: string;
@@ -59,8 +59,8 @@ export function useSubtarefas(tarefaId: string | null | undefined) {
 
   const toggle = useMutation({
     mutationFn: async ({ id, concluida }: { id: string; concluida: boolean }) => {
-      const { error } = await supabase.from("tarefa_subtarefas").update({ concluida }).eq("id", id);
-      if (error) throw error;
+      const { data, error } = await supabase.from("tarefa_subtarefas").update({ concluida }).eq("id", id).select("id");
+      assertRowsAffected(data, error, 1);
     },
     onSuccess: invalidate,
     onError: (e) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
@@ -68,8 +68,8 @@ export function useSubtarefas(tarefaId: string | null | undefined) {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("tarefa_subtarefas").update({ deletado: true }).eq("id", id);
-      if (error) throw error;
+      const { data, error } = await supabase.from("tarefa_subtarefas").update({ deletado: true }).eq("id", id).select("id");
+      assertRowsAffected(data, error, 1);
     },
     onSuccess: invalidate,
     onError: (e) => toast({ title: "Erro ao excluir", description: e.message, variant: "destructive" }),
