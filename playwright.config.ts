@@ -4,6 +4,8 @@
 //  - smoke:       páginas públicas, sem credenciais nem backend (roda em qualquer lugar).
 //  - conta-teste: jornada autenticada com a conta de teste (E2E_TEST_EMAIL/PASSWORD);
 //                 pulada automaticamente quando as credenciais não existem.
+//                 jornada.spec: cliente → processo → prazo; jornada2.spec: audiência,
+//                 tarefa e atendimento.
 //
 // Alvo: E2E_BASE_URL (ex.: produção) ou, por padrão, um `vite preview` do build local
 // em http://127.0.0.1:4173 — o build precisa de VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY.
@@ -35,7 +37,7 @@ export default defineConfig({
     { name: 'setup', testMatch: /auth\.setup\.ts/, use: { ...devices['Desktop Chrome'] } },
     {
       name: 'conta-teste',
-      testMatch: /jornada\.spec\.ts/,
+      testMatch: /jornada.*\.spec\.ts/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'], storageState: temCredenciais ? 'e2e/.auth/conta-teste.json' : undefined },
     },

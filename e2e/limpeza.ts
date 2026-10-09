@@ -12,8 +12,11 @@ export async function limparRastros(prefixo: string): Promise<void> {
   const { error: loginErr } = await sb.auth.signInWithPassword({ email: CRED.email, password: CRED.password });
   if (loginErr) { console.warn('[e2e/limpeza] login falhou:', loginErr.message); return; }
 
-  // Ordem respeita as FKs: prazos → processos → clientes.
+  // Ordem respeita as FKs: dependentes antes de processos → clientes.
   const alvos: Array<{ tabela: string; coluna: string }> = [
+    { tabela: 'atendimentos', coluna: 'observacoes' },
+    { tabela: 'tarefas', coluna: 'titulo' },
+    { tabela: 'audiencias', coluna: 'titulo' },
     { tabela: 'prazos', coluna: 'titulo' },
     { tabela: 'processos', coluna: 'titulo' },
     { tabela: 'clientes', coluna: 'nome' },
