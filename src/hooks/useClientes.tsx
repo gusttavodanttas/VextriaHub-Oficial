@@ -86,7 +86,13 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
   };
 
   const create = async (newRecord: NovoCliente): Promise<Cliente | null> => {
-    if (!user?.office_id) return null;
+    // Logo após o login/F5 o AuthContext entrega o usuário SEM office_id por um
+    // instante (o perfil chega em background). Sem este aviso, o cadastro só não
+    // acontecia: o diálogo ficava aberto sem dizer nada (visto no E2E).
+    if (!user?.office_id) {
+      toast({ title: 'Seu escritório ainda está carregando', description: 'Aguarde um instante e tente de novo.', variant: 'destructive' });
+      return null;
+    }
     const officeId = user.office_id;
 
     try {

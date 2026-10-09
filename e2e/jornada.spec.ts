@@ -52,6 +52,18 @@ async function esperarFechar(page: Page, dialog: ReturnType<Page['getByRole']>, 
   throw new Error(`Diálogo continuou aberto.\n  toasts: ${JSON.stringify([...toasts])}\n  erros da API: ${JSON.stringify(errosApi)}\n  inválidos: ${JSON.stringify(invalidos)}`);
 }
 
+/**
+ * Navega e espera o app saber o escritório do usuário: logo após o load o
+ * AuthContext entrega `user` sem `office_id` até o perfil chegar em background, e
+ * um cadastro disparado nesse instante vai sem escritório (RLS → 403). A primeira
+ * consulta filtrada por `office_id=eq.` marca o fim dessa janela.
+ */
+async function irPara(page: Page, url: string) {
+  const escritorioPronto = page.waitForResponse((r) => r.url().includes('office_id=eq.') && r.status() < 400, { timeout: 30_000 });
+  await page.goto(url);
+  await escritorioPronto;
+}
+
 async function fecharToasts(page: Page) {
   // Toasts do shadcn ficam por cima de botões em telas baixas — fecha o que estiver aberto.
   for (const b of await page.locator('[data-radix-toast-announce-exclude] button, [role="status"] button').all()) {
@@ -60,7 +72,7 @@ async function fecharToasts(page: Page) {
 }
 
 test('1. cadastra um cliente', async ({ page }) => {
-  await page.goto('/clientes');
+  await irPara(page, '/clientes');
   await page.getByRole('button', { name: 'Novo Cliente' }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByPlaceholder('Nome do cliente').fill(nomeCliente);
@@ -72,7 +84,7 @@ test('1. cadastra um cliente', async ({ page }) => {
 });
 
 test('2. cadastra um processo manual vinculado ao cliente', async ({ page }) => {
-  await page.goto('/processos');
+  await irPara(page, '/processos');
   await page.getByRole('button', { name: 'Novo Processo' }).first().click();
   const dialog = page.getByRole('dialog');
   await dialog.getByText('Manual', { exact: true }).click();
@@ -87,7 +99,7 @@ test('2. cadastra um processo manual vinculado ao cliente', async ({ page }) => 
 });
 
 test('3. lança um prazo fatal', async ({ page }) => {
-  await page.goto('/prazos');
+  await irPara(page, '/prazos');
   await page.getByRole('button', { name: 'Novo Prazo' }).first().click();
   const dialog = page.getByRole('dialog');
   await dialog.getByPlaceholder('Ex: Contestação, Recurso, Manifestação...').fill(tituloPrazo);
