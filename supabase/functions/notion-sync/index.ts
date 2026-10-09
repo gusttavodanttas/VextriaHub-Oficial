@@ -1,7 +1,7 @@
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   APP_URL, CLIENTE_FIELDS, PROCESSO_FIELDS, NotionError, PropDef, Schema,
-  faseFromNotion, faseToNotion, fromProp, getSchema, instanciaFromNotion, instanciaToNotion,
+  digitsCNJ, faseFromNotion, faseToNotion, fmtCNJ, fromProp, getSchema, instanciaFromNotion, instanciaToNotion,
   isEmptyProp, normId, notion, pick, statusFromNotion, statusToNotion, toProp,
 } from "../_shared/notion.ts";
 
@@ -268,7 +268,7 @@ async function applyProcesso(ctx: Ctx, page: any) {
   if (!row) {
     if (!titulo) return;
     const data: Record<string, unknown> = {
-      numero_processo: CNJ.test(titulo) ? titulo : "",
+      numero_processo: CNJ.test(titulo) ? digitsCNJ(titulo) : "",
       titulo,
       status: statusFromNotion(val("status"), "processo") || "ativo",
       notion_page_id: normId(page.id),
@@ -297,7 +297,7 @@ async function applyProcesso(ctx: Ctx, page: any) {
     const s = statusFromNotion(st, "processo");
     if (s) patch.status = s;
   }
-  if (titulo && CNJ.test(titulo) && !row.numero_processo) patch.numero_processo = titulo;
+  if (titulo && CNJ.test(titulo) && !row.numero_processo) patch.numero_processo = digitsCNJ(titulo);
   if (rel.ids.length && (!row.cliente_id || !rel.ids.includes(row.cliente_id))) patch.cliente_id = rel.first;
   if (row.notion_page_id !== normId(page.id)) patch.notion_page_id = normId(page.id);
 
@@ -388,7 +388,7 @@ async function pushOne(ctx: Ctx, q: any) {
 
   const schema = ctx.schemas[entity];
   const fields = entity === "processo" ? PROCESSO_FIELDS : CLIENTE_FIELDS;
-  const title = entity === "processo" ? (row.numero_processo || row.titulo || "") : (row.nome || "");
+  const title = entity === "processo" ? (fmtCNJ(row.numero_processo) || row.titulo || "") : (row.nome || "");
 
   // Página existente?
   let page: any = row.notion_page_id ? await getPage(ctx, row.notion_page_id) : null;
