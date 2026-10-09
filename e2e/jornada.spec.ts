@@ -13,29 +13,43 @@ test.describe.configure({ mode: 'serial' });
 test.beforeAll(() => { exigirCredenciais(); });
 test.afterAll(async () => { await limparRastros(PREFIXO); });
 
+// Respostas de erro da API (REST/Auth) durante o teste — vão pra mensagem de falha.
+const errosApi: string[] = [];
+test.beforeEach(({ page }) => {
+  errosApi.length = 0;
+  page.on('response', async (r) => {
+    if (r.status() < 400 || !/\/(rest|auth)\/v1\//.test(r.url())) return;
+    const corpo = await r.text().catch(() => '');
+    errosApi.push(`${r.request().method()} ${r.url().replace(/^https?:\/\/[^/]+/, '')} → ${r.status()} ${corpo.slice(0, 300)}`);
+  });
+});
+
 /**
  * Espera o diálogo fechar. Se ele continuar aberto, levanta um erro dizendo POR QUÊ:
- * campos inválidos pela validação nativa do navegador (que bloqueia o submit em
- * silêncio) e o texto dos toasts na tela — senão a falha fica muda no CI.
+ * toasts que apareceram nesse meio-tempo (somem sozinhos, por isso são colhidos a
+ * cada volta), respostas de erro da API e campos que a validação nativa do navegador
+ * considera inválidos (ela bloqueia o submit em silêncio).
  */
 async function esperarFechar(page: Page, dialog: ReturnType<Page['getByRole']>, timeout = 30_000) {
   const inicio = Date.now();
+  const toasts = new Set<string>();
+  const colherToasts = async () => {
+    const textos = await page.locator('[role="status"]').allInnerTexts().catch(() => [] as string[]);
+    for (const t of textos) if (t.trim()) toasts.add(t.trim().replace(/\s+/g, ' '));
+  };
   while (Date.now() - inicio < timeout) {
+    await colherToasts();
     if (!(await dialog.isVisible().catch(() => false))) return;
     await page.waitForTimeout(500);
   }
-  const diag = await page.evaluate(() => {
+  const invalidos = await page.evaluate(() => {
     const form = document.querySelector('[role="dialog"] form') as HTMLFormElement | null;
-    const invalidos = form
-      ? Array.from(form.querySelectorAll<HTMLInputElement>('input, select, textarea'))
-          .filter((el) => !el.checkValidity())
-          .map((el) => `${el.tagName.toLowerCase()}[type=${el.type} name=${el.name || '-'} placeholder=${el.placeholder || '-'}] → ${el.validationMessage}`)
-      : ['(form não encontrado)'];
-    const toasts = Array.from(document.querySelectorAll('[role="status"], [data-state="open"][class*="toast"], li[data-radix-collection-item]'))
-      .map((el) => (el as HTMLElement).innerText.trim()).filter(Boolean);
-    return { formValido: form ? form.checkValidity() : null, invalidos, toasts };
+    if (!form) return ['(sem <form>)'];
+    return Array.from(form.querySelectorAll<HTMLInputElement>('input, select, textarea'))
+      .filter((el) => !el.checkValidity())
+      .map((el) => `${el.tagName.toLowerCase()}[type=${el.type} placeholder=${el.placeholder || '-'}] → ${el.validationMessage}`);
   });
-  throw new Error(`Diálogo continuou aberto. form.checkValidity=${diag.formValido}; inválidos: ${JSON.stringify(diag.invalidos)}; toasts: ${JSON.stringify(diag.toasts)}`);
+  throw new Error(`Diálogo continuou aberto.\n  toasts: ${JSON.stringify([...toasts])}\n  erros da API: ${JSON.stringify(errosApi)}\n  inválidos: ${JSON.stringify(invalidos)}`);
 }
 
 async function fecharToasts(page: Page) {
