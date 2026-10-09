@@ -18,11 +18,15 @@ import {
 import { Trash2, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PRIORIDADES, STATUS_MAP, getColorCfg, getIconEl, type CatCfg, type ConsultivoForm } from "./consultivoConfig";
+import { PrecedentesRelacionados } from "@/components/Jurisprudencia/PrecedentesRelacionados";
+import { sugerirTermos } from "@/lib/juris";
 
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   isEdit: boolean;
+  /** id do consultivo em edição — habilita os Fundamentos (precedentes/normas fixados, privados do usuário). */
+  editId?: string | null;
   form: ConsultivoForm;
   setForm: React.Dispatch<React.SetStateAction<ConsultivoForm>>;
   categorias: CatCfg[];
@@ -37,7 +41,7 @@ interface Props {
 
 /** Diálogo de criar/editar consultivo. O estado do formulário fica na página. */
 export function ConsultivoFormDialog({
-  open, onOpenChange, isEdit, form, setForm, categorias, membros, canManage, saving, onSave, onDelete, onGerenciarCategorias,
+  open, onOpenChange, isEdit, editId, form, setForm, categorias, membros, canManage, saving, onSave, onDelete, onGerenciarCategorias,
 }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -148,6 +152,12 @@ export function ConsultivoFormDialog({
               value={form.observacoes} onChange={e => setForm(f => ({ ...f, observacoes: e.target.value }))}
               rows={2} className="rounded-xl border-black/8 dark:border-border resize-none" />
           </div>
+
+          {isEdit && editId && (
+            <div className="rounded-2xl border border-black/5 dark:border-border p-3">
+              <PrecedentesRelacionados alvoTipo="consultivo" alvoId={editId} titulo="Fundamentos (precedentes e normas)" sugestao={sugerirTermos(`${form.titulo} ${form.descricao}`)} />
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground">

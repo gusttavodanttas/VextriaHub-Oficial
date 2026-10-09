@@ -30,6 +30,7 @@ const Agenda = lazy(() => import("./pages/Agenda"));
 const Tarefas = lazy(() => import("./pages/Tarefas"));
 const Prazos = lazy(() => import("./pages/Prazos"));
 const Publicacoes = lazy(() => import("./pages/Publicacoes"));
+const Jurisprudencia = lazy(() => import("./pages/Jurisprudencia"));
 const Consultivo = lazy(() => import("./pages/Consultivo"));
 const Graficos = lazy(() => import("./pages/Graficos"));
 const Financeiro = lazy(() => import("./pages/Financeiro"));
@@ -264,6 +265,16 @@ const AppWithRouter = () => {
             <PrivateRoute requirePermission="canViewPublicacoes">
               <AppLayout>
                 <Publicacoes />
+              </AppLayout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/jurisprudencia"
+          element={
+            <PrivateRoute>
+              <AppLayout>
+                <Jurisprudencia />
               </AppLayout>
             </PrivateRoute>
           }

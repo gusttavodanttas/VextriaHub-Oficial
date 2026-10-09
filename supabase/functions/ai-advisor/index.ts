@@ -51,7 +51,7 @@ interface OAIUsage { prompt_tokens?: number; completion_tokens?: number; }
 interface OAIResp { choices?: { message?: OAIMsg }[]; error?: { message?: string }; usage?: OAIUsage; }
 // Acumula o custo real de UMA requisição (o chat pode chamar a OpenAI até 4x).
 interface TokenAcc { prompt: number; resposta: number; }
-interface ToolArgs { titulo?: string; data?: string; hora?: string; local?: string; prioridade?: string; processo_numero?: string; numero?: string; parte_autora?: string; requerido?: string; termo?: string; nome?: string; telefone?: string; email?: string; descricao?: string; oab?: string; uf?: string; cidades?: string; tipo?: string; valor?: number; fin_tipo?: string; correspondente_nome?: string; dias?: number; comarca?: string; }
+interface ToolArgs { titulo?: string; data?: string; hora?: string; local?: string; prioridade?: string; processo_numero?: string; numero?: string; parte_autora?: string; requerido?: string; termo?: string; nome?: string; telefone?: string; email?: string; descricao?: string; oab?: string; uf?: string; cidades?: string; tipo?: string; valor?: number; fin_tipo?: string; correspondente_nome?: string; dias?: number; comarca?: string; tema?: string; }
 
 async function openaiRaw(messages: OAIMsg[], opts: { tools?: unknown[]; json?: boolean; acc?: TokenAcc } = {}): Promise<OAIResp> {
   const body: Record<string, unknown> = { model: OPENAI_MODEL, temperature: 0.4, messages };
@@ -108,8 +108,33 @@ const TOOLS = [
   { type: "function", function: { name: "criar_diligencia", description: "Cria uma diligência para um correspondente.", parameters: { type: "object", properties: { tipo: { type: "string", enum: ["audiencia", "protocolo", "copia", "carga", "despacho", "sustentacao", "outro"] }, comarca: { type: "string" }, uf: { type: "string" }, data: { type: "string", description: "YYYY-MM-DD" }, valor: { type: "number" }, correspondente_nome: { type: "string" } }, required: [] } } },
   { type: "function", function: { name: "criar_lancamento_financeiro", description: "Lança uma receita ou despesa no financeiro.", parameters: { type: "object", properties: { fin_tipo: { type: "string", enum: ["receita", "despesa"] }, descricao: { type: "string" }, valor: { type: "number" }, data: { type: "string", description: "vencimento YYYY-MM-DD" } }, required: ["fin_tipo", "descricao", "valor", "data"] } } },
   { type: "function", function: { name: "listar_prazos", description: "Lista os próximos prazos (e vencidos) do escritório.", parameters: { type: "object", properties: { dias: { type: "number", description: "janela em dias (padrão 14)" } } } } },
+  { type: "function", function: { name: "buscar_precedentes_conferidos", description: "Busca, entre os precedentes e normas que ESTE usuário já conferiu na fonte oficial (menu Jurisprudência), os relacionados a um tema. Use quando pedirem jurisprudência, precedente, fundamentação ou norma. Nunca cite julgado que não venha desta ferramenta.", parameters: { type: "object", properties: { tema: { type: "string", description: "tema ou palavras-chave" } }, required: ["tema"] } } },
   { type: "function", function: { name: "listar_audiencias", description: "Lista as próximas audiências do escritório.", parameters: { type: "object", properties: { dias: { type: "number", description: "janela em dias (padrão 30)" } } } } },
 ];
+
+// Precedentes/normas CONFERIDOS pelo próprio usuário (juris_user_reviews.status = VERIFIED, RLS por user_id),
+// filtrados por tema. A restrição é feita na consulta ao banco, não no prompt: o modelo só vê o que foi conferido.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function precedentesConferidos(db: any, tema: string, limit = 8) {
+  const { data } = await db.from("juris_user_reviews")
+    .select("doc_id, nota, created_at, juris_documents(doc_id, title, case_number, decision_number, court, organ, rapporteur, judgment_date, publication_date, summary, official_url, document_type, source_id)")
+    .eq("status", "VERIFIED").limit(400);
+  const norm = (s: string) => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const termos = norm(tema).split(/[^a-z0-9]+/).filter((w) => w.length >= 4);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const docs = (data || []).map((r: any) => ({ ...(r.juris_documents || {}), nota_conferencia: r.nota })).filter((d: any) => d.doc_id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const score = (d: any) => { const t = norm(`${d.title || ""} ${d.case_number || ""} ${d.summary || ""} ${d.organ || ""}`); return termos.reduce((s, w) => s + (t.includes(w) ? 1 : 0), 0); };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ranked = termos.length ? docs.map((d: any) => ({ d, s: score(d) })).filter((x: any) => x.s > 0).sort((a: any, b: any) => b.s - a.s).map((x: any) => x.d) : docs;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return ranked.slice(0, limit).map((d: any) => ({
+    doc_id: d.doc_id, tipo: d.document_type, precedente: !["ato_normativo", "metadado_processual"].includes(d.document_type),
+    tribunal: d.court, orgao: d.organ, identificacao: d.case_number || d.decision_number || d.title, relator: d.rapporteur,
+    julgamento: d.judgment_date, publicacao: d.publication_date, ementa: String(d.summary || "").slice(0, 1200), url_oficial: d.official_url,
+    nota_conferencia: d.nota_conferencia,
+  }));
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function executeTool(db: any, officeId: string, uid: string, name: string, args: ToolArgs) {
@@ -241,6 +266,10 @@ async function executeTool(db: any, officeId: string, uid: string, name: string,
       const ate = new Date(Date.now() + dias * 86400000).toISOString().slice(0, 10);
       const { data } = await db.from("prazos").select("titulo, data_fim_prazo").eq("office_id", officeId).neq("status", "concluido").lte("data_fim_prazo", ate).order("data_fim_prazo").limit(20);
       return { ok: true, tipo: "lista_prazos", hoje, prazos: (data || []).map((p: { titulo?: string; data_fim_prazo?: string }) => ({ titulo: p.titulo, data: p.data_fim_prazo, vencido: (p.data_fim_prazo || "") < hoje })) };
+    }
+    if (name === "buscar_precedentes_conferidos") {
+      const itens = await precedentesConferidos(db, String(args.tema || ""));
+      return { ok: true, total: itens.length, aviso: itens.length ? "Cite SOMENTE estes; indique a URL oficial de cada um." : "Nenhum precedente conferido sobre o tema. Oriente a pesquisar em Jurisprudência e conferir na fonte oficial.", itens };
     }
     if (name === "listar_audiencias") {
       const dias = Number(args.dias) || 30;
@@ -470,6 +499,23 @@ serve(async (req) => {
       await registrarTokens();
       const itens = Array.isArray(out.itens) ? out.itens : [];
       return json({ ok: true, mode, total_linhas: capped.length, itens });
+    }
+
+    // ── FUNDAMENTAÇÃO (só com precedentes CONFERIDOS pelo usuário) ──
+    if (mode === "fundamentacao") {
+      const tema = String(body?.tema || "").trim();
+      if (tema.length < 3) return json({ error: "tema-obrigatorio" }, 400);
+      const contexto = String(body?.contexto || "").slice(0, 4000);
+      const itens = await precedentesConferidos(anon, tema, 10);
+      if (!itens.length) return json({ ok: true, mode, data: { vazio: true, fundamentacao: null, precedentes_usados: [] } });
+      const out = parseJson(await chatCompletion([
+        { role: "system", content: "Você é um advogado sênior redigindo a fundamentação jurisprudencial/normativa de uma peça. REGRA ABSOLUTA: use SOMENTE os registros fornecidos em 'conferidos' (todos já conferidos na fonte oficial pelo advogado). É PROIBIDO citar qualquer outro julgado, súmula, tema, número de processo ou norma, mesmo que você os conheça. Para cada registro usado, cite tribunal, identificação, órgão, relator, data e a URL oficial. Itens com precedente=false são atos normativos: trate-os como norma aplicável, nunca como precedente. Se os registros não sustentarem a tese, diga isso com franqueza. Responda SEMPRE em JSON com as chaves: fundamentacao (string, em português do Brasil, 2 a 6 parágrafos, sem títulos markdown), precedentes_usados (array de objetos {doc_id, citacao})." },
+        { role: "user", content: JSON.stringify({ tema, contexto, conferidos: itens }) },
+      ], true, tokens));
+      await registrarTokens();
+      const permitidos = new Set(itens.map((i) => i.doc_id));
+      const usados = Array.isArray(out.precedentes_usados) ? (out.precedentes_usados as Array<{ doc_id?: string; citacao?: string }>).filter((p) => p?.doc_id && permitidos.has(p.doc_id)) : [];
+      return json({ ok: true, mode, data: { fundamentacao: String(out.fundamentacao || ""), precedentes_usados: usados, vazio: false } });
     }
 
     // ── INSIGHTS ──
