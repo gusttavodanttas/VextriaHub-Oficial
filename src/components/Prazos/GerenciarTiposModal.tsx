@@ -136,19 +136,27 @@ export function GerenciarTiposModal({ open, onClose, officeId }: GerenciarTiposP
   const applyEdit = async () => {
     if (!editingId) return;
     setSaving(true);
-    const { error } = await supabase.from('tipos_ato_prazo').update({
+    const { data, error } = await supabase.from('tipos_ato_prazo').update({
       label: draft.label, dias_uteis: draft.diasUteis, corridos: draft.corridos, margem: draft.margem,
-    }).eq('id', editingId);
-    if (error) { toast({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' }); }
-    else { await fetchTipos(); setEditingId(null); }
+    }).eq('id', editingId).select('id');
+    try {
+      assertRowsAffected(data, error, 1);
+      await fetchTipos(); setEditingId(null);
+    } catch (e) {
+      toast({ title: 'Erro ao salvar', description: getErrorMessage(e), variant: 'destructive' });
+    }
     setSaving(false);
   };
 
   const deleteItem = async (t: TipoAto) => {
     setSaving(true);
-    const { error } = await supabase.from('tipos_ato_prazo').delete().eq('id', t.id!);
-    if (error) { toast({ title: 'Erro ao excluir', description: error.message, variant: 'destructive' }); }
-    else { await fetchTipos(); if (editingId === t.id) setEditingId(null); }
+    const { data, error } = await supabase.from('tipos_ato_prazo').delete().eq('id', t.id!).select('id');
+    try {
+      assertRowsAffected(data, error, 1);
+      await fetchTipos(); if (editingId === t.id) setEditingId(null);
+    } catch (e) {
+      toast({ title: 'Erro ao excluir', description: getErrorMessage(e), variant: 'destructive' });
+    }
     setSaving(false);
   };
 
@@ -175,8 +183,10 @@ export function GerenciarTiposModal({ open, onClose, officeId }: GerenciarTiposP
     try {
       // Apaga os atuais e grava os padrões; qualquer falha (inclusive RLS
       // barrando em silêncio o insert) vira erro visível em vez de "restaurado".
-      const { error: delError } = await supabase.from('tipos_ato_prazo').delete().eq('office_id', officeId);
-      if (delError) throw delError;
+      // Apaga tudo do escritório: a RLS barrando devolve 0 linhas sem erro e o
+      // insert dos padrões viraria duplicata em cima dos atuais.
+      const { data: del, error: delError } = await supabase.from('tipos_ato_prazo').delete().eq('office_id', officeId).select('id');
+      assertRowsAffected(del, delError, tipos.length);
       const rows = tiposAtoDefaultRows(officeId);
       const { data, error } = await supabase.from('tipos_ato_prazo').insert(rows).select('id');
       assertRowsAffected(data, error, rows.length);

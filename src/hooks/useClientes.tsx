@@ -38,8 +38,12 @@ export function useClientes(): DatabaseHookResult<ClienteComProcessos, NovoClien
   // Pedido de exclusão que não conseguiu registrar a solicitação: desfaz o
   // deletado_pendente para o cliente não sumir sem nada para o admin aprovar.
   const reverterPendente = async (ids: string[], officeId: string) => {
-    const { error } = await supabase.from('clientes').update({ deletado_pendente: false }).in('id', ids).eq('office_id', officeId);
-    if (error) throw new Error(`A solicitação não foi registrada e os clientes ficaram ocultos — peça ao administrador para restaurá-los na Lixeira. (${getErrorMessage(error)})`);
+    const { data, error } = await supabase.from('clientes').update({ deletado_pendente: false }).in('id', ids).eq('office_id', officeId).select('id');
+    try {
+      assertRowsAffected(data, error, ids.length);
+    } catch (e) {
+      throw new Error(`A solicitação não foi registrada e os clientes ficaram ocultos — peça ao administrador para restaurá-los na Lixeira. (${getErrorMessage(e)})`);
+    }
   };
 
   const fetchData = async () => {

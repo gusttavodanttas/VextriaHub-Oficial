@@ -82,6 +82,23 @@ describe('useClientes', () => {
     expect(result.current.data).toHaveLength(1);
   });
 
+  it('comum: pedido de exclusão falha e a reversão do deletado_pendente é barrada → erro cita a Lixeira', async () => {
+    auth.isOfficeAdmin = false;
+    enfileirar('clientes', { data: [cli()] });
+    const { result } = renderHook(() => useClientes(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    enfileirar('clientes', { data: [{ id: 'c1' }] });            // marca deletado_pendente
+    enfileirar('exclusoes_pendentes', { error: { message: 'boom' } }); // registro da solicitação falha
+    enfileirar('clientes', { data: [] });                          // reversão barrada pela RLS (0 linhas)
+    let ok: boolean | undefined;
+    await act(async () => { ok = await result.current.requestDelete('c1', 'motivo'); });
+    expect(ok).toBe(false);
+    expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({ variant: 'destructive', description: expect.stringContaining('Lixeira') }));
+    const reversao = chamadasCom('clientes', 'update').at(-1)!;
+    expect(reversao.ops).toEqual(expect.arrayContaining([['update', [{ deletado_pendente: false }]], ['in', ['id', ['c1']]]]));
+    expect(reversao.ops.some(([m]) => m === 'select')).toBe(true);
+  });
+
   it('sem permissão canDeleteClients não chama o banco e devolve false', async () => {
     perms.canDeleteClients = false;
     enfileirar('clientes', { data: [cli()] });
