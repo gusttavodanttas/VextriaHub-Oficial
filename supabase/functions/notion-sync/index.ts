@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serviceClientDoRobo, comRetryDeJwt } from "../_shared/robo.ts";
 import {
   APP_URL, CLIENTE_FIELDS, PROCESSO_FIELDS, NotionError, PropDef, Schema,
   digitsCNJ, faseFromNotion, faseToNotion, fmtCNJ, fromProp, getSchema, instanciaFromNotion, instanciaToNotion,
@@ -49,15 +50,22 @@ Deno.serve(async (req) => {
   const started = Date.now();
   try {
     const body = await req.json().catch(() => ({}));
-    const service = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const robot = req.headers.get("x-robot-secret");
+    const ehRobo = !!robot && robot === Deno.env.get("ROBOT_SECRET");
+    // Robô: service_role legado que o cron manda no Bearer (ver _shared/robo.ts).
+    const service = ehRobo
+      ? serviceClientDoRobo(req)
+      : createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     let offices: string[] = [];
-    const robot = req.headers.get("x-robot-secret");
-    if (robot && robot === Deno.env.get("ROBOT_SECRET")) {
+    if (ehRobo) {
       if (body?.office_id) offices = [String(body.office_id)];
       else {
-        const { data } = await service.from("office_integrations").select("office_id")
-          .eq("provider", "notion").eq("enabled", true).eq("status", "conectado");
+        const { data, error: listErr } = await comRetryDeJwt(() =>
+          service.from("office_integrations").select("office_id")
+            .eq("provider", "notion").eq("enabled", true).eq("status", "conectado"));
+        // Erro aqui virava "nenhum escritório" e 200 pro cron; agora o alerta enxerga.
+        if (listErr) return json({ error: `office_integrations: ${listErr.message ?? listErr.code ?? "erro"}` }, 500);
         offices = (data || []).map((r: { office_id: string }) => r.office_id);
       }
     } else {
