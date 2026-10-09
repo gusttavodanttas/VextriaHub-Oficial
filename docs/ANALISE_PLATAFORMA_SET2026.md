@@ -2791,3 +2791,37 @@ de Backend** assim que o grant do achado nº 1 for aplicado.
 
 Com 1–3 feitos: Frente ~91%, Backend ~90%, transversal ~87%. Com 4–5:
 Backend e transversal acima de 95%.
+
+---
+
+# Parte 28 — reauditoria com navegação real pela conta de teste (09/10/2026, 15:40 UTC)
+
+Entregue como página HTML: [`ANALISE_PLATAFORMA_PARTE28.html`](./ANALISE_PLATAFORMA_PARTE28.html)
+(abrir no navegador). Mesma grade das Partes 23–27, `main` em `357e2d2`, PRs
+#128–#144 desde a Parte 27.
+
+**Resultado:** geral **88%** (Parte 27: 87%) · Frente **90%** (89%) · Backend
+**90%** (85%) · transversal **84%** (82%). 541 testes unitários (313), 60 de
+67 hooks com teste direto (17), E2E no navegador com 10 de 10 cenários verdes
+(não existia). A conta de teste fez login de verdade pela primeira vez, pelo
+Playwright no CI, e cadastrou cliente, processo, prazo, audiência, tarefa e
+atendimento pelas telas (PR #146).
+
+**Achados novos (logs de 24 h):**
+
+1. P1 · corrigido (#144): cadastro disparado antes do escritório carregar ia
+   sem `office_id` (RLS 403 no prazo; cliente sem aviso).
+2. P1: Google, Zap e Notion respondem 200 ao cron mas recebem 401 do REST por
+   dentro (25 ocorrências) — a sincronização do Google Agenda não acontece.
+3. P1: `juris-sync` com 10 × 500 no upsert de `juris_documents`; 301 MB de
+   500 MB do Free.
+4. P2: Realtime com 242 × 401 no websocket — notificações ao vivo não conectam.
+5. P2: 18 × 404 na lista paginada de clientes e 3 × 403 em metas (escritório
+   `f220b1b5`), intermitentes, a investigar.
+6. P3: logos e avatares com URL órfã (400 no storage); jurisprudência com 7
+   migrations no banco e 4 no repositório.
+
+**Plano para 100%** (11 itens, na página): integrações com 401 → acervo de
+jurisprudência/plano → realtime → intermitentes → E2E completo → perfil antes
+de renderizar → URLs órfãs → migrations da jurisprudência → código →
+dependências → Supabase Pro. Com 1–4: ~92% geral.
