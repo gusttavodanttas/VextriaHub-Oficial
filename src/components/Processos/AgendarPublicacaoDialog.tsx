@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
 import { CalendarClock, CheckSquare, Gavel } from "lucide-react";
 import { agendarPublicacaoSchema, firstZodError } from "@/lib/validation";
+import { assertRowsAffected, getErrorMessage } from "@/lib/errors";
 
 export type AcaoTipo = "prazo" | "tarefa" | "audiencia";
 
@@ -198,8 +199,14 @@ export const AgendarPublicacaoDialog = ({
       // origem, senão ele continua "pendente" na agenda como se nada tivesse acontecido
       const descartouOrigem = !!prazoOrigemId && tipo !== "prazo";
       if (descartouOrigem) {
-        const { error: descErr } = await supabase.from("prazos").update({ deletado: true }).eq("id", prazoOrigemId);
-        if (descErr) console.warn("Falha ao descartar prazo de origem:", descErr.message);
+        // O item novo já foi criado; se o descarte falhar (erro ou RLS barrando em
+        // silêncio), avisa em vez de deixar o prazo "pendente" sem ninguém saber.
+        const { data: desc, error: descErr } = await supabase.from("prazos").update({ deletado: true }).eq("id", prazoOrigemId).select("id");
+        try {
+          assertRowsAffected(desc, descErr, 1);
+        } catch (e) {
+          toast({ title: "Criado, mas o prazo de origem continua na agenda", description: getErrorMessage(e), variant: "destructive" });
+        }
       }
 
       if (!processoId && numeroProcesso) {

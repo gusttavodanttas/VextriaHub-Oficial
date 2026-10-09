@@ -123,10 +123,17 @@ export function useProcessoMovimentacoes(processo: Processo | null, open: boolea
       if (data.titulo && data.titulo !== 'Processo' && (!processo.titulo || processo.titulo.includes('(Auto)'))) updatePayload.titulo = data.titulo;
       if (data.autor && data.autor !== 'Não identificado' && !processo.parteAutora) updatePayload.parte_autora = data.autor;
       if (data.reu && data.reu !== 'Não identificado' && !processo.requerido) updatePayload.requerido = data.reu;
-      await supabase.from('processos').update(updatePayload).eq('id', processo.id);
+      // Antes o `await` sem ler o erro deixava o carimbo (sincronizado_em, título,
+      // partes) cair em silêncio quando a RLS barrava; os andamentos já tinham sido
+      // gravados, então o usuário via "atualizado" com o processo intocado.
+      const { data: upd, error: updError } = await supabase.from('processos').update(updatePayload).eq('id', processo.id).select('id');
+      assertRowsAffected(upd, updError, 1);
       queryClient.invalidateQueries({ queryKey: ['processos'] });
       await fetchMovements();
       toast({ title: 'Histórico atualizado', description: `${inseridos} movimentação(ões) adicionada(s).` });
+    } catch (e) {
+      toast({ title: 'Andamentos salvos, mas o processo não foi atualizado', description: getErrorMessage(e), variant: 'destructive' });
+      await fetchMovements();
     } finally {
       setSyncing(false);
       setAndamentoConfirm(null);

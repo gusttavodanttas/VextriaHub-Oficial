@@ -345,8 +345,13 @@ export const usePublicacoes = () => {
             patch.processo_id = processoIdVinculado;
           }
           if (Object.keys(patch).length > 0) {
-            const { error: patchError } = await supabase.from('publicacoes').update(patch as TablesUpdate<'publicacoes'>).eq('id', existing.id);
-            if (patchError) captureError(patchError, { context: 'usePublicacoes.syncByOab: atualizar existente', id: existing.id });
+            const { data: patched, error: patchError } = await supabase.from('publicacoes').update(patch as TablesUpdate<'publicacoes'>).eq('id', existing.id).select('id');
+            try {
+              assertRowsAffected(patched, patchError, 1);
+            } catch (e) {
+              // Sync em lote: reporta e segue para o próximo item.
+              captureError(e, { context: 'usePublicacoes.syncByOab: atualizar existente', id: existing.id });
+            }
           }
         } else {
           const saved = await createPublication(newRecord as any);

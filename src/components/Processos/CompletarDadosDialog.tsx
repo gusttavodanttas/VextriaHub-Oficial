@@ -5,7 +5,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Sparkles, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { captureError } from "@/lib/monitoring";
-import { getErrorMessage } from "@/lib/errors";
+import { assertRowsAffected, getErrorMessage } from "@/lib/errors";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { tribunalFromCNJ } from "@/utils/tribunalCNJ";
@@ -101,9 +101,14 @@ export function CompletarDadosDialog({ open, onOpenChange, processoId, numeroPro
     diffs.forEach((d) => { if (checked[d.col]) payload[d.col] = d.novo; });
     if (Object.keys(payload).length === 0) { onOpenChange(false); return; }
     setSaving(true);
-    const { error } = await supabase.from("processos").update(payload as TablesUpdate<"processos">).eq("id", processoId);
+    const { data, error } = await supabase.from("processos").update(payload as TablesUpdate<"processos">).eq("id", processoId).select("id");
     setSaving(false);
-    if (error) { toast({ variant: "destructive", title: "Erro ao salvar", description: error.message }); return; }
+    try {
+      assertRowsAffected(data, error, 1);
+    } catch (e) {
+      toast({ variant: "destructive", title: "Erro ao salvar", description: getErrorMessage(e) });
+      return;
+    }
     toast({ title: "Dados completados", description: `${Object.keys(payload).length} campo(s) preenchido(s).` });
     onApplied?.();
     onOpenChange(false);
