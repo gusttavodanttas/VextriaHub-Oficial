@@ -33,6 +33,9 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: latest
+          # Sem token, a resolução de "latest" usa a API anônima do GitHub e cai no
+          # rate limit do runner compartilhado (run 4 do deploy falhou assim).
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Conferir token e nome
         run: |
