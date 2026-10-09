@@ -51,3 +51,5 @@ verify_jwt = false
 
 [functions.notion-sync]
 verify_jwt = false
+[functions.juris-sync]
+verify_jwt = false
