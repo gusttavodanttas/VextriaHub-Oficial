@@ -384,6 +384,7 @@ export default function ConsultivoPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         isEdit={!!editItem}
+        editId={editItem?.id ?? null}
         form={form}
         setForm={setForm}
         categorias={effectiveCats}

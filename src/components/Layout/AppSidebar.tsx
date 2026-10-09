@@ -3,7 +3,7 @@ import {
   Home, FileText, Users, Calendar, BookOpen, Settings, UserCircle, LogOut,
   ChevronLeft, ChevronRight, UserCheck, BarChart3, UserPlus,
   CalendarDays, DollarSign, Target, UsersIcon, MessageSquareText, Shield,
-  Building2, AlertCircle, Clock, CreditCard, Trash2, Handshake, Crown,
+  Building2, AlertCircle, Clock, CreditCard, Trash2, Handshake, Crown, Scale,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -31,6 +31,7 @@ const menuItems = [
   { title: "Timesheet", url: "/timesheet", icon: Clock },
   { title: "Prazos", url: "/prazos", icon: AlertCircle },
   { title: "Publicações", url: "/publicacoes", icon: BookOpen },
+  { title: "Jurisprudência", url: "/jurisprudencia", icon: Scale },
   { title: "Consultivo", url: "/consultivo", icon: MessageSquareText },
 ];
 

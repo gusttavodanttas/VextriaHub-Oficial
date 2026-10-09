@@ -79,6 +79,8 @@ export function useAiAdvisor() {
       invoke<{ ok: boolean; total_linhas: number; itens: ItemImportadoFinanceiro[] }>('ai-advisor', {
         mode: 'importar_financeiro', rows, categoriasReceita, categoriasDespesa,
       }),
+    fundamentacao: (tema: string, contexto?: string) =>
+      invoke<{ ok: boolean; data: { fundamentacao?: string; precedentes_usados?: Array<{ doc_id?: string; citacao?: string }>; vazio?: boolean } }>('ai-advisor', { mode: 'fundamentacao', tema, contexto }),
     tts: (text: string, voice?: string) =>
       invoke<{ ok: boolean; audio: string; mime: string }>('ai-voice', { text, voice }),
   };
