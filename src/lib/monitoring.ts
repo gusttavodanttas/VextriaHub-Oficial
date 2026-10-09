@@ -12,7 +12,7 @@ const DEFAULT_DSN = "https://0fb3ff25a1385243709b7bae44fa4b65@o4511643111522304.
 let enabled = false;
 
 export function initMonitoring() {
-  const dsn = (import.meta.env.VITE_SENTRY_DSN as string | undefined)
+  const dsn = (import.meta.env.VITE_SENTRY_DSN as string | undefined)?.trim()
     || (import.meta.env.PROD ? DEFAULT_DSN : undefined);
   if (!dsn) return; // sem DSN → desativado (ex.: localhost)
 
