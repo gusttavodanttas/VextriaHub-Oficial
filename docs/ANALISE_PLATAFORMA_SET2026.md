@@ -2366,11 +2366,26 @@ RPC. As funções que escrevem checam `auth.uid()` por dentro, então não há
 escrita anônima — mas é superfície reaberta e um vazamento de informação
 (limites de plano por escritório, pertencimento a escritório).
 
-**Correção pronta, não aplicada:** `supabase/migrations/20261009010000_reaplicar_acl_funcoes_pos_restore.sql`
-reúne os 19 REVOKE/GRANT em ordem, idempotente. Aplicar no projeto novo
-depende de autorização (regra do CLAUDE.md: nada de mudança no banco em
-produção sem confirmação). Depois, o advisor deve listar só
-`confirm_invited_user` para `anon`, que é intencional.
+**Correção aplicada em 09/10 (autorizada pelo usuário):**
+`supabase/migrations/20261009010000_reaplicar_acl_funcoes_pos_restore.sql`
+reúne os 19 REVOKE/GRANT em ordem, idempotente; aplicada no projeto novo
+como `20261009015702`. Conferido depois: `anon` executa só
+`confirm_invited_user`; `authenticated` 19; `service_role` 40. Fumaça como a
+conta de teste: helpers de RLS, cota de OAB, status do Google e leitura das
+tabelas continuam funcionando.
+
+**Efeito colateral descoberto na conferência, corrigido na hora:** a policy
+de SELECT de `plan_configs` é `(is_active = true) OR is_super_admin()`. Sem
+EXECUTE para `anon` em `is_super_admin`, a leitura do catálogo público falha
+com 42501 — o Postgres avalia a função mesmo com o outro lado do OR
+verdadeiro. A tela de cadastro aberta por link de plano (`/cadastro?plano=…`)
+perdia o selo de preço (o `apply_signup_plan` pós-login seguia aplicando o
+plano certo; o dano era de exibição). O dump do projeto antigo mostra a mesma
+ACL, então o bug existia desde a Parte 14 (09/09). Migration
+`20261009020000_is_super_admin_executavel_por_anon.sql` (aplicada): a função
+é STABLE, SECURITY DEFINER e devolve `false` para `auth.uid()` nulo, então
+liberar `anon` não vaza nada. O advisor passa a listar 2 funções para `anon`
+(`confirm_invited_user` e `is_super_admin`), ambas intencionais.
 
 ### 2 — P2 · Escritório novo nasce sem tipos de ato para prazos
 
@@ -2474,7 +2489,7 @@ parênteses, a nota da Parte 23 para comparação.
 | Dimensão | Estado | Nota |
 | --- | --- | --- |
 | RLS | 48/48 tabelas, 213 policies, isolamento provado com a conta de teste | **100%** |
-| Permissões de função (ACL) | 0 de 19 revokes presentes após o restore — **achado nº 1** | **40%** → 100% ao aplicar a migration |
+| Permissões de função (ACL) | 19 revokes reaplicados em 09/10; catálogo público corrigido — **achado nº 1** | **100%** |
 | Edge functions | 24 ativas, segredos completos, 0 erros em 24 h; 1 temporária a apagar | **95%** |
 | Robôs (pg_cron) | 8 ativos; agendador saudável; zap sem destino | **90%** |
 | Auth | URLs, SMTP (Resend), 6 templates em PT; senha vazada desligada | **90%** |
@@ -2486,9 +2501,8 @@ parênteses, a nota da Parte 23 para comparação.
 
 ## Plano para chegar a 100%, em ordem de retorno
 
-1. **Aplicar a migration de ACL** (achado nº 1) — 1 comando, fecha 40
-   avisos do advisor e a superfície reaberta. Depois ligar a proteção contra
-   senha vazada (nº 4).
+1. ~~Aplicar a migration de ACL~~ (achado nº 1) — **feito em 09/10**. Falta
+   ligar a proteção contra senha vazada (nº 4), no painel.
 2. **Semear tipos de ato de prazo** no escritório novo (nº 2) — bloqueia o
    primeiro prazo de todo cliente novo.
 3. **Fechar o resíduo da Classe 1** (nº 3): 11 mutations em 7 arquivos, com
