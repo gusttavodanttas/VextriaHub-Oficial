@@ -206,6 +206,23 @@ GitHub → Settings → Secrets and variables → Actions:
 
 Só depois disso: apagar `.migracao-supabase/` e, quando quiser, o projeto antigo.
 
+## 7. Operação depois da migração (09/10/2026)
+
+Migration `20261009030000_operacao_pos_migracao.sql` (aplicada):
+
+- `zap-pull-leads` **pausado** (`active = false`) enquanto o bridge do VextriaZap
+  não existe; reativar com
+  `select cron.alter_job(jobid, active := true) from cron.job where jobname = 'zap-pull-leads';`
+- `limpar-cron-log` (03:00 UTC): apaga `cron.job_run_details` com mais de 30 dias.
+- `robo-alertas-horario` (xx:05): toda resposta de pg_net com status ≥ 400, sem
+  status, timeout ou erro de transporte vira uma notificação in-app ("Robô com
+  erro", tipo `error`) para cada super admin, registrada em `robo_alertas_log`
+  para não repetir. `pg_net.ttl` é 6 h, por isso a varredura é horária.
+
+Function temporária `restaurar-storage`: apagar pelo workflow **Apagar Edge
+Function (Supabase)** (Actions → Run workflow → `restaurar-storage`). O workflow
+recusa nomes que existam em `supabase/functions/`.
+
 ## Crons agendados mas sem executar (restore pelo painel)
 
 Sintoma: `cron.job` lista os 8 robôs, mas `cron.job_run_details` não ganha
