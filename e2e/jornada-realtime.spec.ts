@@ -37,12 +37,18 @@ test('websocket do Realtime conecta com a chave do build', async ({ page }) => {
     ws.on('framereceived', (f) => { recebeuFrame = true; eventos.push(`frame recebido: ${String(f.payload).slice(0, 120)}`); });
   });
 
-  // Resposta do handshake não aparece como `response`; buscamos a mesma URL por fetch
-  // para ler o corpo/erro que o gateway devolve ao navegador.
-  await irPara(page, '/notificacoes');
+  // O sino do cabeçalho (NotificationCenter) assina o canal em qualquer rota interna.
+  // Tudo o que foi coletado é impresso mesmo se a espera falhar.
+  try {
+    await irPara(page, '/clientes');
+  } catch (e) {
+    eventos.push(`irPara falhou: ${String(e).split('\n')[0]}`);
+  }
   await page.waitForTimeout(6_000);
 
   eventos.unshift(descreverChave('VITE_SUPABASE_ANON_KEY no CI', chaveEnv));
+  // Resposta do handshake não aparece como `response`; buscamos a mesma URL por fetch
+  // para ler o corpo/erro que o gateway devolve ao navegador.
   const url = process.env.VITE_SUPABASE_URL ?? '';
   if (url && chaveEnv) {
     const resposta = await page.evaluate(async ({ url, chave }) => {
