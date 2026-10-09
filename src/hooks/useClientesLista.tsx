@@ -136,7 +136,13 @@ export function useClientesStats() {
 }
 
 /** Aniversariantes do mês corrente — busca leve e separada (não paginada),
- * já que precisa varrer todos os clientes, não só a página atual. */
+ * já que precisa varrer todos os clientes, não só a página atual.
+ *
+ * `data_aniversario` é coluna `date`: filtrar por mês com `like('____-MM-__')`
+ * dava "operator does not exist: date ~~ unknown" no Postgres (404 do PostgREST),
+ * e como o erro era ignorado a lista de aniversariantes simplesmente nunca
+ * aparecia. O PostgREST não extrai mês de uma data no filtro, então buscamos só
+ * quem tem data e filtramos o mês aqui (a data vem como "AAAA-MM-DD"). */
 export function useClientesAniversariantesDoMes() {
   const { user } = useAuth();
   const mes = String(new Date().getMonth() + 1).padStart(2, "0");
@@ -145,18 +151,22 @@ export function useClientesAniversariantesDoMes() {
     queryKey: ["clientes", "aniversariantes", user?.office_id, mes],
     queryFn: async () => {
       if (!user?.office_id) return [] as ClienteComProcessos[];
-      const { data: rows } = await supabase
+      const { data: rows, error } = await supabase
         .from("clientes")
         .select("*, processos!processos_cliente_id_fkey(count)")
         .eq("office_id", user.office_id)
         .eq("deletado", false)
         .eq("deletado_pendente", false)
         .or(FILTRO_SEM_LEAD)
-        .like("data_aniversario", `____-${mes}-__`);
-      return (rows as ClienteComProcessos[]) || [];
+        .not("data_aniversario", "is", null);
+      if (error) throw error;
+      return ((rows as ClienteComProcessos[]) || []).filter(
+        (c) => String(c.data_aniversario ?? "").slice(5, 7) === mes,
+      );
     },
     enabled: !!user?.office_id,
     staleTime: 5 * 60_000,
+    retry: 1,
   });
 
   return data ?? [];

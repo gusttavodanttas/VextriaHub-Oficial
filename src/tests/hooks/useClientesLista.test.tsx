@@ -91,12 +91,26 @@ describe('useClientesStats', () => {
 describe('useClientesAniversariantesDoMes', () => {
   beforeEach(() => { resetSupabaseMock(); auth.user = { id: 'u1', office_id: 'o1' }; });
 
-  it('filtra pelo mês corrente com like no padrão ____-MM-__', async () => {
-    enfileirar('clientes', { data: [{ id: 'c1', nome: 'Ana' }] });
+  it('busca quem tem data (coluna date: sem like) e filtra o mês corrente em memória', async () => {
+    const mes = String(new Date().getMonth() + 1).padStart(2, '0');
+    const outroMes = mes === '01' ? '02' : '01';
+    enfileirar('clientes', { data: [
+      { id: 'c1', nome: 'Ana', data_aniversario: `1990-${mes}-15` },
+      { id: 'c2', nome: 'Bia', data_aniversario: `1985-${outroMes}-03` },
+      { id: 'c3', nome: 'Caio', data_aniversario: null },
+    ] });
     const { result } = renderHook(() => useClientesAniversariantesDoMes(), { wrapper });
     await waitFor(() => expect(result.current).toHaveLength(1));
-    const mes = String(new Date().getMonth() + 1).padStart(2, '0');
+    expect(result.current[0].id).toBe('c1');
     const sel = chamadasCom('clientes', 'select')[0];
-    expect(sel.ops).toEqual(expect.arrayContaining([['like', ['data_aniversario', `____-${mes}-__`]], ['or', [SEM_LEAD]]]));
+    expect(sel.ops).toEqual(expect.arrayContaining([['not', ['data_aniversario', 'is', null]], ['or', [SEM_LEAD]]]));
+    expect(sel.ops.some(([m]) => m === 'like')).toBe(false);
+  });
+
+  it('erro da consulta não vira lista vazia silenciosa: fica em erro e não quebra a tela', async () => {
+    enfileirar('clientes', { error: { message: 'operator does not exist: date ~~ unknown' } }, { error: { message: 'de novo' } });
+    const { result } = renderHook(() => useClientesAniversariantesDoMes(), { wrapper });
+    await waitFor(() => expect(chamadasCom('clientes', 'select').length).toBeGreaterThanOrEqual(1));
+    expect(result.current).toEqual([]);
   });
 });
