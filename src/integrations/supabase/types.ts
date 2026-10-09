@@ -14,6 +14,82 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_limites: {
+        Row: {
+          atualizado_em: string
+          atualizado_por: string | null
+          limite_chamadas: number | null
+          limite_voz_caracteres: number | null
+          observacao: string | null
+          office_id: string
+        }
+        Insert: {
+          atualizado_em?: string
+          atualizado_por?: string | null
+          limite_chamadas?: number | null
+          limite_voz_caracteres?: number | null
+          observacao?: string | null
+          office_id: string
+        }
+        Update: {
+          atualizado_em?: string
+          atualizado_por?: string | null
+          limite_chamadas?: number | null
+          limite_voz_caracteres?: number | null
+          observacao?: string | null
+          office_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_limites_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: true
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_usage: {
+        Row: {
+          atualizado_em: string
+          chamadas: number
+          criado_em: string
+          mes: string
+          office_id: string
+          tokens_prompt: number
+          tokens_resposta: number
+          voz_caracteres: number
+        }
+        Insert: {
+          atualizado_em?: string
+          chamadas?: number
+          criado_em?: string
+          mes: string
+          office_id: string
+          tokens_prompt?: number
+          tokens_resposta?: number
+          voz_caracteres?: number
+        }
+        Update: {
+          atualizado_em?: string
+          chamadas?: number
+          criado_em?: string
+          mes?: string
+          office_id?: string
+          tokens_prompt?: number
+          tokens_resposta?: number
+          voz_caracteres?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_office_id_fkey"
+            columns: ["office_id"]
+            isOneToOne: false
+            referencedRelation: "offices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       atendimentos: {
         Row: {
           avisos_dias: number[] | null
