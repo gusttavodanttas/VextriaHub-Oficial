@@ -43,9 +43,9 @@ export const mockSupabase = {
   from: vi.fn((table: string) => builder(table)),
   channel: vi.fn(() => canal),
   removeChannel: vi.fn(),
-  rpc: vi.fn(async (): Promise<RespostaMock> => ({ data: null, error: null })),
+  rpc: vi.fn(async (_fn?: string, _params?: unknown): Promise<RespostaMock> => ({ data: null, error: null })),
   // Edge functions disparadas "fire-and-forget" (ex.: send-invite-email): resolvem vazio.
-  functions: { invoke: vi.fn(async (): Promise<RespostaMock> => ({ data: null, error: null })) },
+  functions: { invoke: vi.fn(async (_fn?: string, _opts?: { body?: unknown }): Promise<RespostaMock> => ({ data: null, error: null })) },
 };
 
 /** Enfileira resultados (em ordem) para as próximas consultas à tabela. */
