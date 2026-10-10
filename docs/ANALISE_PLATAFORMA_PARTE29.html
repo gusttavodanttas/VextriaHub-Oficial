@@ -1,0 +1,318 @@
+<title>VextriaHub Parte 29</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  /* Layout: relatório de auditoria em coluna única (72ch), seções numeradas pela ordem de leitura,
+     tabelas largas com rolagem própria, barras de progresso como marca da página (mesma identidade da Parte 28). */
+  :root {
+    --bg: #f6f7f4;
+    --panel: #ffffff;
+    --ink: #17201f;
+    --ink-2: #4b5755;
+    --ink-3: #7b8785;
+    --line: #dde3df;
+    --accent: #0f6e63;
+    --accent-soft: #d9efe9;
+    --ok: #1f7a4d;
+    --warn: #b7791f;
+    --crit: #b4352b;
+    --crit-soft: #f8e2df;
+    --warn-soft: #fbeed3;
+    --ok-soft: #dcefe3;
+    --font-display: "Manrope", "Segoe UI", system-ui, sans-serif;
+    --font-body: "Manrope", "Segoe UI", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121716; --panel: #1a2120; --ink: #e8ece9; --ink-2: #b4bdba; --ink-3: #8a9491; --line: #2b3533;
+      --accent: #4fc3b1; --accent-soft: #163631; --ok: #5fcf8f; --warn: #e2b05a; --crit: #ef7a6f;
+      --crit-soft: #40201d; --warn-soft: #3d2f12; --ok-soft: #173126; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121716; --panel: #1a2120; --ink: #e8ece9; --ink-2: #b4bdba; --ink-3: #8a9491; --line: #2b3533;
+    --accent: #4fc3b1; --accent-soft: #163631; --ok: #5fcf8f; --warn: #e2b05a; --crit: #ef7a6f;
+    --crit-soft: #40201d; --warn-soft: #3d2f12; --ok-soft: #173126; color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.55; padding-inline: 16px; padding-block: 0 48px; }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  header.topo { padding-block: 40px 24px; border-bottom: 1px solid var(--line); }
+  .eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  h1 { font-family: var(--font-display); font-weight: 800; font-size: clamp(26px, 4vw, 38px); line-height: 1.1; margin: 8px 0 10px; text-wrap: balance; letter-spacing: -.01em; }
+  .sub { color: var(--ink-2); max-width: 72ch; margin: 0; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 14px; font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-3); }
+  .meta span b { color: var(--ink-2); font-weight: 500; }
+  h2 { font-family: var(--font-display); font-weight: 800; font-size: 22px; margin: 40px 0 6px; letter-spacing: -.01em; text-wrap: balance; }
+  h2 .n { font-family: var(--font-mono); color: var(--accent); font-size: 13px; font-weight: 600; margin-right: 10px; vertical-align: 3px; }
+  h3 { font-family: var(--font-display); font-weight: 700; font-size: 16px; margin: 22px 0 6px; }
+  p { max-width: 72ch; }
+  .lead { color: var(--ink-2); margin-top: 0; }
+  .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 20px; }
+  @media (max-width: 760px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+  .tile .k { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  .tile .v { font-family: var(--font-display); font-weight: 800; font-size: 34px; line-height: 1; margin: 8px 0 6px; font-variant-numeric: tabular-nums; }
+  .tile .d { font-size: 12.5px; color: var(--ink-2); }
+  .tile .d.up { color: var(--ok); }
+  .tile.main { border-color: var(--accent); background: var(--accent-soft); }
+  .bar { position: relative; height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; min-width: 90px; }
+  .bar i { position: absolute; inset: 0 auto 0 0; border-radius: 4px; background: var(--accent); }
+  .bar.warn i { background: var(--warn); } .bar.crit i { background: var(--crit); } .bar.ok i { background: var(--ok); }
+  .pct { font-family: var(--font-mono); font-size: 12.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .cell-bar { display: grid; grid-template-columns: 1fr 42px; align-items: center; gap: 8px; min-width: 140px; }
+  .tabela { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); margin-top: 14px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; background: var(--bg); position: sticky; top: 0; }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.falta { min-width: 300px; max-width: 520px; color: var(--ink-2); }
+  .chip { display: inline-block; font-family: var(--font-mono); font-size: 11px; letter-spacing: .04em; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-2); white-space: nowrap; }
+  .chip.ok { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+  .chip.warn { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+  .chip.crit { background: var(--crit-soft); color: var(--crit); border-color: transparent; }
+  .chip.off { opacity: .7; }
+  .bloco { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-3); }
+  .achados { display: grid; gap: 12px; margin-top: 14px; }
+  .achado { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--warn); border-radius: 10px; padding: 14px 16px; }
+  .achado.crit { border-left-color: var(--crit); } .achado.ok { border-left-color: var(--ok); } .achado.info { border-left-color: var(--accent); }
+  .achado h3 { margin: 0 0 6px; font-size: 15.5px; }
+  .achado h3 .sev { font-family: var(--font-mono); font-size: 11px; letter-spacing: .06em; margin-right: 8px; color: var(--ink-3); }
+  .achado p { margin: 6px 0; color: var(--ink-2); font-size: 14px; max-width: none; }
+  .achado p b { color: var(--ink); }
+  code { font-family: var(--font-mono); font-size: .92em; background: var(--accent-soft); color: var(--ink); padding: 1px 5px; border-radius: 4px; }
+  .plano { counter-reset: p; list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 10px; }
+  .plano li { counter-increment: p; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px 12px 54px; position: relative; }
+  .plano li::before { content: counter(p); position: absolute; left: 14px; top: 11px; width: 28px; height: 28px; border-radius: 8px; background: var(--accent); color: #fff; font-family: var(--font-mono); font-weight: 600; font-size: 13px; display: grid; place-items: center; }
+  .plano li b { display: block; margin-bottom: 2px; }
+  .plano li span { color: var(--ink-2); font-size: 14px; }
+  .plano li .ganho { display: inline-block; margin-top: 6px; font-family: var(--font-mono); font-size: 11.5px; color: var(--accent); }
+  .legenda { font-size: 12.5px; color: var(--ink-3); margin: 8px 0 0; }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
+  @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
+  .painel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+  .painel h3 { margin-top: 0; }
+  .painel ul { margin: 6px 0 0; padding-left: 18px; color: var(--ink-2); font-size: 14px; }
+  .painel li { margin: 3px 0; }
+  footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--ink-3); font-size: 12.5px; }
+  a { color: var(--accent); }
+  @media (prefers-reduced-motion: no-preference) { .bar i { transition: width .4s ease; } }
+</style>
+
+<div class="wrap">
+<header class="topo">
+  <div class="eyebrow">Análise da plataforma · Parte 29</div>
+  <h1>VextriaHub: onde cada aba está e o que falta para 100%</h1>
+  <p class="sub">Reauditoria completa um dia depois da Parte 28, depois de fechar os sete achados dela: robôs, Realtime, 404 de clientes, acervo de jurisprudência, migrations, carregamento do escritório e primeiro carregamento do site. Medido na produção, nos logs e no CI.</p>
+  <div class="meta">
+    <span><b>Data</b> 10/10/2026, 14:30 UTC</span>
+    <span><b>main</b> 63c034e</span>
+    <span><b>Projeto Supabase</b> pvesofbrctfipdyqyloq (Free, sa-east-1)</span>
+    <span><b>PRs desde a Parte 28</b> #145 a #152 mergeadas · #153 a #156 abertas</span>
+  </div>
+</header>
+
+<section>
+  <h2><span class="n">01</span>Resumo</h2>
+  <p class="lead">A plataforma passou de 88% para <b>90% de conclusão geral</b>, e chega a <b>91%</b> com as quatro PRs abertas. Pela primeira vez na série, as últimas 18 horas de logs não têm nenhum erro de integração: os robôs do Google e do Notion deixaram de receber 401 por dentro, o websocket do Realtime conecta em todo navegador, a lista de aniversariantes voltou a aparecer, o acervo de jurisprudência sincroniza sem estourar o tempo e o banco caiu de 321 MB para 214 MB. O repositório e o banco voltaram a bater migration por migration. O que segura a nota agora é dívida de código e o plano gratuito, não bug de produto.</p>
+  <div class="tiles">
+    <div class="tile main"><div class="k">Geral</div><div class="v">90%</div><div class="d up">+2 pt sobre a Parte 28 (88%) · 91% com as PRs abertas</div></div>
+    <div class="tile"><div class="k">Frente (27 abas)</div><div class="v">91%</div><div class="d up">+1 pt (90%)</div></div>
+    <div class="tile"><div class="k">Backend (27 abas)</div><div class="v">92%</div><div class="d up">+2 pt (90%)</div></div>
+    <div class="tile"><div class="k">Transversal (11 dimensões)</div><div class="v">87%</div><div class="d up">+3 pt (84%)</div></div>
+  </div>
+  <div class="tiles" style="margin-top:12px">
+    <div class="tile"><div class="k">Erros de API desde as correções</div><div class="v">0</div><div class="d up">18 h de logs; antes: 242 × 401 Realtime, 36 × 404, 25 × 401 dos robôs por dia</div></div>
+    <div class="tile"><div class="k">Testes</div><div class="v">542</div><div class="d up">545 com a #153 · E2E 11/11 no CI · 63 de 67 hooks</div></div>
+    <div class="tile"><div class="k">Robôs em 24 h</div><div class="v">415/415</div><div class="d up">pg_cron sem falha; google-sync 96 × ok, notion-sync 288 × ok</div></div>
+    <div class="tile"><div class="k">Banco (Free)</div><div class="v">214 MB</div><div class="d up">era 321 MB; 43% dos 500 MB; 53.482 docs de jurisprudência</div></div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="n">02</span>Método</h2>
+  <div class="grid2">
+    <div class="painel">
+      <h3>Código</h3>
+      <ul>
+        <li>32 páginas e 67 hooks pela mesma grade das Partes 23 a 28. Frente 100 = loading 10 · erro+retry 20 · vazio 10 · confirmação 15 · gate 15 · paginação 10 · sem bug 20. Backend 100 = linhas afetadas 35 · catch 20 · office_id 10 · teste 15 · RLS 20.</li>
+        <li>Sinais mecânicos recomputados na <code>main</code>: tamanho dos arquivos, hooks com teste direto, avisos de lint por regra, <code>npm audit</code>, tamanho dos chunks do build e o que o <code>index.html</code> pré-carrega.</li>
+        <li>Os quatro passos de validação do CLAUDE.md rodaram limpos em cada PR: tsc, eslint (0 erros, 679 avisos), vitest, build. Smoke E2E local contra o build novo nas PRs de bundle e dependências.</li>
+      </ul>
+    </div>
+    <div class="painel">
+      <h3>Banco, infra e navegação real</h3>
+      <ul>
+        <li>Advisors de segurança e desempenho, 60 tabelas e 212 policies, 64 funções (50 SECURITY DEFINER, 2 executáveis por anon), 10 crons ativos, 415 execuções em 24 h, 154 migrations registradas.</li>
+        <li>Logs: censo de toda resposta 4xx/5xx nas 24 h anteriores às correções e nas 18 h posteriores; linhas de erro do Postgres cruzadas com os horários; latência e corpo das chamadas das edge functions.</li>
+        <li>Navegação real pelo Playwright no GitHub Actions, com a conta de teste, em 4 rodadas desta parte: foi ela que mediu, com exatidão de 1 caractere, a causa do 401 do Realtime.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="n">03</span>O que mudou desde a Parte 28</h2>
+  <div class="tabela"><table>
+    <thead><tr><th>Verificação</th><th>Parte 28</th><th>Agora</th></tr></thead>
+    <tbody>
+      <tr><td>Robôs com 401 interno (Google, Notion)</td><td class="num">16 + 2 em 24 h, invisíveis ao alerta</td><td class="num">0 em 18 h; a function responde 500 se o REST falhar (#147)</td></tr>
+      <tr><td>Realtime (websocket)</td><td class="num">242 × 401, 100% dos navegadores</td><td class="num">101 em todo handshake; teste E2E de regressão (#148)</td></tr>
+      <tr><td>Clientes 404 / Metas 403</td><td class="num">36 / 3 em 24 h</td><td class="num">0 / 0; causa: <code>like</code> em coluna <code>date</code> (#149); metas já resolvido pelo grant</td></tr>
+      <tr><td><code>juris-sync</code></td><td class="num">10 × 500 em 1.141 lotes</td><td class="num">upsert em sub-lotes de 100 com retry pela metade (#150)</td></tr>
+      <tr><td>Tamanho do banco</td><td class="num">321 MB (301 em juris_documents)</td><td class="num">214 MB (193); STJ limitado a 12 meses, 34.269 docs apagados, vacuum full</td></tr>
+      <tr><td>Migrations: repositório × banco</td><td class="num">150 arquivos × 82 linhas, 70 divergentes</td><td class="num">154 × 154, diff zerado (#151)</td></tr>
+      <tr><td>Carregamento do escritório antes da tela</td><td class="num">corrida mitigada tela a tela (#144)</td><td class="num">raiz corrigida no AuthContext, 3 testes (#153, aberta)</td></tr>
+      <tr><td>JS no primeiro carregamento</td><td class="num">1.506 kB (charts e Sentry pré-carregados em toda página)</td><td class="num">825 kB; Sentry lazy, charts só nas páginas com gráfico (#155, aberta)</td></tr>
+      <tr><td><code>npm audit</code></td><td class="num">30 vulnerabilidades (22 altas)</td><td class="num">12 (5 altas), todas em tooling, só saem com react-router 7 (#156, aberta)</td></tr>
+      <tr><td>Testes unitários / E2E</td><td class="num">541 / 10 cenários</td><td class="num">542 (545 com #153) / 11 cenários, 63 de 67 hooks</td></tr>
+      <tr><td>Storage com URL órfã</td><td class="num">4 × 400 em 24 h</td><td class="num">0 × 4xx em 24 h; logo e avatar existem no bucket. Encerrado.</td></tr>
+      <tr><td>ESLint</td><td class="num">0 erros · 678 avisos</td><td class="num">0 erros · 679 avisos (607 <code>any</code>, 51 deps de hook, 20 react-refresh); 673 com #156</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2><span class="n">04</span>Achados desta rodada</h2>
+  <p class="lead">Seis dos sete achados da Parte 28 fecharam com causa raiz identificada, não com paliativo. Os três abaixo marcados como abertos são novos ou são decisões suas.</p>
+  <div class="achados">
+    <div class="achado ok">
+      <h3><span class="sev">P1 · CORRIGIDO</span>Robôs recebiam 401 por dentro: a chave nova <code>sb_secret_</code> virava um JWT curto que chegava vencido</h3>
+      <p>A plataforma injeta em <code>SUPABASE_SERVICE_ROLE_KEY</code> a chave de formato novo. O gateway a troca por um JWT de curta duração antes do PostgREST, e esse JWT chegava expirado de vez em quando (<code>PGRST303</code>): 16 de 95 chamadas do google-sync, 2 do notion-sync. <b>Correção (#147)</b>: no caminho do robô as functions usam o service_role legado que o cron manda no Bearer (JWT do vault, sem troca no gateway), com uma repetição em erro de JWT, e respondem 500 em vez de "synced: 0" para o alerta horário enxergar. Verificado: 96 execuções seguidas sem erro.</p>
+    </div>
+    <div class="achado ok">
+      <h3><span class="sev">P1 · CORRIGIDO</span>Realtime: o secret da anon key tinha uma quebra de linha no fim</h3>
+      <p>O E2E no GitHub mediu a chave em 209 caracteres em vez de 208, o último com código 10. Nos headers de REST e Auth o navegador descarta esse caractere, por isso tudo o mais funcionava. No handshake do Realtime a chave vai como parâmetro da URL, a quebra vira <code>%0A</code> e o gateway rejeita: 100% dos navegadores, inclusive o do escritório e os runners do CI. <b>Correção (#148)</b>: o client apara URL e chave; teste E2E de regressão descreve o formato da chave enviada sem imprimir o valor. Os 6 × 401 que sobraram no log são de uma aba aberta com o build antigo, antes de recarregar.</p>
+    </div>
+    <div class="achado ok">
+      <h3><span class="sev">P2 · CORRIGIDO</span>Aniversariantes do mês nunca apareciam: <code>like</code> em coluna <code>date</code></h3>
+      <p>Os 36 × 404 de clientes eram a consulta de aniversariantes filtrando <code>data_aniversario</code> com <code>like('____-MM-__')</code>; o Postgres recusa a comparação e o PostgREST devolve 404. O hook ignorava o erro, então o bloco simplesmente não aparecia para ninguém. <b>Correção (#149)</b>: busca quem tem data e filtra o mês em memória; erro agora sobe para o React Query. Os 3 × 403 de metas eram a ACL de <code>office_has_goals_module</code>, resolvida às 05:59 de 09/10.</p>
+    </div>
+    <div class="achado ok">
+      <h3><span class="sev">P1 · CORRIGIDO</span>Jurisprudência: timeout de 8 s no upsert e 60% do plano gratuito</h3>
+      <p>Os 10 × 500 eram <code>statement timeout</code>: um upsert de 500 documentos com o índice GIN de expressão não cabe nos 8 s da API. <b>#150</b> grava em sub-lotes de 100 com retry pela metade. O acervo do STJ foi cortado trimestre a trimestre para os últimos 12 meses (34.269 documentos, nenhum com conferência ou fixado) e a tabela passou por <code>vacuum full</code>: 301 MB para 193 MB; banco de 321 MB para 214 MB. A function recusa carga fora da janela (#152, #154) para o kit não repor o que saiu.</p>
+    </div>
+    <div class="achado ok">
+      <h3><span class="sev">P2 · CORRIGIDO</span>Repositório e banco divergiam em 70 migrations, não em 3</h3>
+      <p>O banco restaurado tinha 82 linhas de controle para 150 arquivos: 75 migrations antigas sem registro, 50 com o carimbo de hora do dashboard em vez da versão do arquivo, 5 pedaços redundantes, 1 migration (coluna <code>valor_pago</code>) nunca versionada e 1 versão duplicada no repositório. <b>#151</b> acerta o registro no banco (sem tocar em objeto de schema), recupera o arquivo perdido e renomeia o duplicado: 154 × 154, diff programático zerado. <code>supabase db push</code> volta a ser possível.</p>
+    </div>
+    <div class="achado ok">
+      <h3><span class="sev">P3 · ENCERRADO</span>URLs órfãs no storage não reproduzem</h3>
+      <p>Nenhuma resposta 4xx do storage em 24 h, e os dois arquivos referenciados (logo do escritório e avatar do usuário) existem no bucket <code>uploads</code>. Os 4 × 400 da Parte 28 foram transitórios. Item fechado sem mudança.</p>
+    </div>
+    <div class="achado info">
+      <h3><span class="sev">ABERTO</span>Quatro PRs validadas aguardando merge</h3>
+      <p><b>#153</b> AuthContext: a tela só abre com perfil e escritório carregados (teto de 6 s, abaixo dos 8 s do PrivateRoute); refresh do mesmo usuário não zera o <code>user</code>. <b>#154</b> janela de 12 meses do STJ versionada. <b>#155</b> bundle: Sentry lazy e chunk de gráficos só onde há gráfico, 1.506 kB para 825 kB no primeiro carregamento. <b>#156</b> dependências compatíveis, 30 para 12 vulnerabilidades. Cada uma passou nos quatro passos; as de bundle e dependências também no smoke E2E.</p>
+    </div>
+    <div class="achado">
+      <h3><span class="sev">P3</span>Advisors: o que ainda aponta</h3>
+      <p>Segurança: <code>f_unaccent</code> e <code>juris_fts_expr</code> sem <code>search_path</code> fixo; extensão <code>unaccent</code> no schema <code>public</code>; 12 tabelas de serviço com RLS sem policy (esperado); senha vazada depende do Pro. Uma regra nova lista 26 funções SECURITY DEFINER executáveis por <code>authenticated</code>: são os RPCs que o app chama de propósito (<code>ensure_office_for_user</code>, <code>delete_office</code>, <code>notion_status</code>…), vale só uma revisão de quais poderiam ser INVOKER. Desempenho: 59 índices nunca usados e 1 FK sem índice (<code>office_integrations.connected_by</code>).</p>
+    </div>
+    <div class="achado">
+      <h3><span class="sev">P3</span>Dívida de código é o que segura a nota agora</h3>
+      <p>11 arquivos acima de 600 linhas (Publicações 867, Timesheet 855, Tarefas 828, Prazos 820, Perfil 757, NovoProcessoDialog 718, Financeiro 694, usePublicacoes 653, Landing 610, AuthContext 603, Equipe 601). 607 ocorrências de <code>any</code> contam no teto de 700 avisos, 146 delas em edge functions Deno que o ESLint do app lê mas não deveria pontuar; 51 dependências de hook incompletas. Teto a 21 de folga.</p>
+    </div>
+    <div class="achado info">
+      <h3><span class="sev">INFO</span>Plano Free continua sendo o teto estrutural, mas sem urgência</h3>
+      <p>Com 214 MB de 500, o espaço deixou de ser risco imediato. Seguem dependentes do Pro: proteção contra senha vazada, pausa do projeto após 7 dias sem uso, backup diário e o <code>statement_timeout</code> configurável para cargas grandes. O VextriaZap segue pausado à espera do bridge.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="n">05</span>Tabela por aba</h2>
+  <p class="lead">Mesma grade das partes anteriores. "E2E" marca o que a conta de teste exercita pelo navegador no CI. Entre parênteses, a nota da Parte 28.</p>
+  <div class="tabela"><table>
+    <thead><tr><th>Bloco</th><th>Aba</th><th>Frente</th><th>Backend</th><th>E2E</th><th>O que falta para 100%</th></tr></thead>
+    <tbody>
+      <tr><td class="bloco">A</td><td>Atendimentos</td><td><div class="cell-bar"><div class="bar"><i style="width:94%"></i></div><span class="pct">94 (94)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:94%"></i></div><span class="pct">94 (94)</span></div></td><td><span class="chip ok">verde</span></td><td class="falta">Paginação (hoje cap). Sobe 1 ponto no backend com a #153.</td></tr>
+      <tr><td class="bloco">A</td><td>Audiências</td><td><div class="cell-bar"><div class="bar"><i style="width:93%"></i></div><span class="pct">93 (93)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:95%"></i></div><span class="pct">95 (95)</span></div></td><td><span class="chip ok">verde</span></td><td class="falta">Paginação.</td></tr>
+      <tr><td class="bloco">A</td><td>Prazos</td><td><div class="cell-bar"><div class="bar"><i style="width:92%"></i></div><span class="pct">92 (92)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:95%"></i></div><span class="pct">95 (95)</span></div></td><td><span class="chip ok">verde</span></td><td class="falta">Página com 820 linhas; paginação. O guard de escritório vira defesa em profundidade com a #153.</td></tr>
+      <tr><td class="bloco">A</td><td>Agenda</td><td><div class="cell-bar"><div class="bar"><i style="width:92%"></i></div><span class="pct">92 (88)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:94%"></i></div><span class="pct">94 (90)</span></div></td><td><span class="chip off">não</span></td><td class="falta">Sincronização com o Google voltou a rodar sem erro (96 × 15 min); cap de 50 atrasados sem "ver mais"; sem E2E.</td></tr>
+      <tr><td class="bloco">A</td><td>Tarefas</td><td><div class="cell-bar"><div class="bar"><i style="width:92%"></i></div><span class="pct">92 (92)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:94%"></i></div><span class="pct">94 (94)</span></div></td><td><span class="chip ok">verde</span></td><td class="falta">Página com 828 linhas.</td></tr>
+      <tr><td class="bloco">B</td><td>Financeiro</td><td><div class="cell-bar"><div class="bar"><i style="width:95%"></i></div><span class="pct">95 (95)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:93%"></i></div><span class="pct">93 (93)</span></div></td><td><span class="chip off">não</span></td><td class="falta">Confirmação em uso real do import por IA; 694 linhas; E2E de lançamento. Migration de <code>valor_pago</code> agora versionada.</td></tr>
+      <tr><td class="bloco">B</td><td>Metas</td><td><div class="cell-bar"><div class="bar"><i style="width:95%"></i></div><span class="pct">95 (95)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:94%"></i></div><span class="pct">94 (92)</span></div></td><td><span class="chip off">não</span></td><td class="falta">Os 403 eram a ACL já corrigida; 0 erros desde então. E2E.</td></tr>
+      <tr><td class="bloco">B</td><td>Timesheet</td><td><div class="cell-bar"><div class="bar"><i style="width:90%"></i></div><span class="pct">90 (90)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:92%"></i></div><span class="pct">92 (92)</span></div></td><td><span class="chip off">não</span></td><td class="falta">855 linhas; E2E de timer.</td></tr>
+      <tr><td class="bloco">B</td><td>CRM</td><td><div class="cell-bar"><div class="bar warn"><i style="width:82%"></i></div><span class="pct">82 (82)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:85%"></i></div><span class="pct">85 (85)</span></div></td><td><span class="chip off">não</span></td><td class="falta">VextriaZap pausado (bridge offline); Kanban sem paginação. O 401 do robô do Zap só volta a ser medido quando o cron for religado.</td></tr>
+      <tr><td class="bloco">C</td><td>Clientes</td><td><div class="cell-bar"><div class="bar"><i style="width:97%"></i></div><span class="pct">97 (96)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:97%"></i></div><span class="pct">97 (97)</span></div></td><td><span class="chip ok">verde</span></td><td class="falta">Aniversariantes do mês voltaram (#149); 0 × 404 desde então.</td></tr>
+      <tr><td class="bloco">C</td><td>Processos</td><td><div class="cell-bar"><div class="bar"><i style="width:94%"></i></div><span class="pct">94 (94)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:94%"></i></div><span class="pct">94 (94)</span></div></td><td><span class="chip ok">verde</span></td><td class="falta">E2E só do cadastro manual; busca por CNJ e sync sem E2E; <code>NovoProcessoDialog</code> 718 linhas e 38 <code>any</code>.</td></tr>
+      <tr><td class="bloco">C</td><td>Consultivo</td><td><div class="cell-bar"><div class="bar"><i style="width:92%"></i></div><span class="pct">92 (92)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:90%"></i></div><span class="pct">90 (90)</span></div></td><td><span class="chip off">não</span></td><td class="falta">Sem paginação (cap); E2E.</td></tr>
+      <tr><td class="bloco">C</td><td>Correspondentes</td><td><div class="cell-bar"><div class="bar"><i style="width:88%"></i></div><span class="pct">88 (88)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:90%"></i></div><span class="pct">90 (90)</span></div></td><td><span class="chip off">não</span></td><td class="falta">Sem paginação; diligências sem teste de componente.</td></tr>
+      <tr><td class="bloco">C</td><td>Jurisprudência</td><td><div class="cell-bar"><div class="bar"><i style="width:88%"></i></div><span class="pct">88 (85)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:85%"></i></div><span class="pct">85 (70)</span></div></td><td><span class="chip off">não</span></td><td class="falta">Sync em sub-lotes (#150), acervo em 193 MB com janela de 12 meses, migrations reconciliadas. Faltam <code>search_path</code> em 2 funções, <code>unaccent</code> fora de <code>public</code>, E2E de busca.</td></tr>
+      <tr><td class="bloco">D</td><td>Configurações e integrações</td><td><div class="cell-bar"><div class="bar"><i style="width:88%"></i></div><span class="pct">88 (86)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:88%"></i></div><span class="pct">88 (78)</span></div></td><td><span class="chip off">não</span></td><td class="falta">Google e Notion sem 401 interno (#147); Zap pausado. <code>DeadlineConfig</code>/<code>MonitoredOabs</code> sem teste de UI.</td></tr>
+      <tr><td class="bloco">D</td><td>Escritório</td><td><div class="cell-bar"><div class="bar"><i style="width:90%"></i></div><span class="pct">90 (88)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:90%"></i></div><span class="pct">90 (88)</span></div></td><td><span class="chip off">não</span></td><td class="falta">Logo confere no storage; página fina sobre hooks já testados. E2E.</td></tr>
+      <tr><td class="bloco">D</td><td>Perfil</td><td><div class="cell-bar"><div class="bar"><i style="width:86%"></i></div><span class="pct">86 (85)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:84%"></i></div><span class="pct">84 (82)</span></div></td><td><span class="chip off">não</span></td><td class="falta">757 linhas; upload de avatar sem teste; troca de senha usa as constantes do client (#148).</td></tr>
+      <tr><td class="bloco">D</td><td>Admin (super admin)</td><td><div class="cell-bar"><div class="bar"><i style="width:90%"></i></div><span class="pct">90 (90)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:92%"></i></div><span class="pct">92 (92)</span></div></td><td><span class="chip off">não</span></td><td class="falta">Subcomponentes sem estado de erro próprio.</td></tr>
+      <tr><td class="bloco">D</td><td>Equipe</td><td><div class="cell-bar"><div class="bar"><i style="width:88%"></i></div><span class="pct">88 (88)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:90%"></i></div><span class="pct">90 (90)</span></div></td><td><span class="chip off">não</span></td><td class="falta">601 linhas.</td></tr>
+      <tr><td class="bloco">D</td><td>Equipe (detalhe)</td><td><div class="cell-bar"><div class="bar"><i style="width:90%"></i></div><span class="pct">90 (90)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:90%"></i></div><span class="pct">90 (90)</span></div></td><td><span class="chip off">não</span></td><td class="falta">Sem paginação.</td></tr>
+      <tr><td class="bloco">E</td><td>Login, Cadastro, Redefinir, Pagamento</td><td><div class="cell-bar"><div class="bar"><i style="width:95%"></i></div><span class="pct">95 (95)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:93%"></i></div><span class="pct">93 (93)</span></div></td><td><span class="chip ok">login</span></td><td class="falta">Cadastro e redefinição sem E2E; senha vazada depende do Pro. Login passa a esperar o escritório com a #153.</td></tr>
+      <tr><td class="bloco">E</td><td>IA (widget, ai-advisor, ai-voice)</td><td><div class="cell-bar"><div class="bar"><i style="width:96%"></i></div><span class="pct">96 (96)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:96%"></i></div><span class="pct">96 (96)</span></div></td><td><span class="chip off">não</span></td><td class="falta">Confirmação em uso real do import financeiro.</td></tr>
+      <tr><td class="bloco">F</td><td>Dashboard</td><td><div class="cell-bar"><div class="bar"><i style="width:94%"></i></div><span class="pct">94 (94)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:92%"></i></div><span class="pct">92 (92)</span></div></td><td><span class="chip off">não</span></td><td class="falta">E2E de leitura; chunk de gráficos só aqui, em Gráficos e Perfil com a #155.</td></tr>
+      <tr><td class="bloco">F</td><td>Gráficos</td><td><div class="cell-bar"><div class="bar"><i style="width:92%"></i></div><span class="pct">92 (92)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:92%"></i></div><span class="pct">92 (92)</span></div></td><td><span class="chip off">não</span></td><td class="falta"><code>ChartsTab</code> sem teste de componente; <code>useChartsData</code> com 26 <code>any</code>.</td></tr>
+      <tr><td class="bloco">F</td><td>Publicações</td><td><div class="cell-bar"><div class="bar"><i style="width:92%"></i></div><span class="pct">92 (92)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:90%"></i></div><span class="pct">90 (90)</span></div></td><td><span class="chip off">não</span></td><td class="falta">867 linhas na página e 653 no hook; robô diário ok (07:00 UTC).</td></tr>
+      <tr><td class="bloco">F</td><td>Notificações</td><td><div class="cell-bar"><div class="bar"><i style="width:93%"></i></div><span class="pct">93 (92)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:92%"></i></div><span class="pct">92 (84)</span></div></td><td><span class="chip ok">realtime</span></td><td class="falta">Websocket conecta (#148) e tem E2E de regressão; preferências por usuário sem E2E.</td></tr>
+      <tr><td class="bloco">F</td><td>Lixeira</td><td><div class="cell-bar"><div class="bar"><i style="width:86%"></i></div><span class="pct">86 (86)</span></div></td><td><div class="cell-bar"><div class="bar"><i style="width:90%"></i></div><span class="pct">90 (90)</span></div></td><td><span class="chip off">não</span></td><td class="falta">Restauração em lote sem paginação.</td></tr>
+    </tbody>
+  </table></div>
+  <p class="legenda">Médias: Frente <b>91%</b> (Parte 28: 90%) · Backend <b>92%</b> (90%). Blocos: A agenda e prazos · B gestão · C cadastros · D administração · E acesso e IA · F visão e apoio.</p>
+</section>
+
+<section>
+  <h2><span class="n">06</span>Panorama transversal</h2>
+  <div class="tabela"><table>
+    <thead><tr><th>Dimensão</th><th>Estado</th><th>Nota</th></tr></thead>
+    <tbody>
+      <tr><td>RLS</td><td>60/60 tabelas, 212 policies; isolamento provado pelo banco e pelo navegador; 12 tabelas de serviço sem policy (esperado)</td><td><div class="cell-bar"><div class="bar ok"><i style="width:95%"></i></div><span class="pct">95</span></div></td></tr>
+      <tr><td>Permissões de função (ACL)</td><td>50 SECURITY DEFINER; só 2 executáveis por anon, as intencionais; 2 funções da jurisprudência sem <code>search_path</code>; revisar as 26 executáveis por authenticated</td><td><div class="cell-bar"><div class="bar"><i style="width:90%"></i></div><span class="pct">90</span></div></td></tr>
+      <tr><td>Edge functions</td><td>29 no repositório; 0 erros internos em 18 h; <code>juris-sync</code> em sub-lotes; robôs devolvem 500 quando o REST falha</td><td><div class="cell-bar"><div class="bar"><i style="width:90%"></i></div><span class="pct">90</span></div></td></tr>
+      <tr><td>Robôs (pg_cron)</td><td>10 ativos + zap pausado; 415/415 em 24 h; alerta horário ativo e agora enxerga falha interna</td><td><div class="cell-bar"><div class="bar ok"><i style="width:95%"></i></div><span class="pct">95</span></div></td></tr>
+      <tr><td>Auth</td><td>Login real provado; secret da anon key aparado no código (vale re-salvar sem a linha extra); senha vazada depende do Pro</td><td><div class="cell-bar"><div class="bar"><i style="width:90%"></i></div><span class="pct">90</span></div></td></tr>
+      <tr><td>Testes</td><td>542 unitários (545 com #153); 63/67 hooks; E2E 11/11 incluindo regressão do Realtime; contexto de auth testado</td><td><div class="cell-bar"><div class="bar"><i style="width:90%"></i></div><span class="pct">90</span></div></td></tr>
+      <tr><td>Código</td><td>11 arquivos acima de 600 linhas; 679 avisos (teto 700), 607 <code>any</code>; bundle inicial 825 kB com a #155</td><td><div class="cell-bar"><div class="bar warn"><i style="width:80%"></i></div><span class="pct">80</span></div></td></tr>
+      <tr><td>Dependências</td><td>30 vulnerabilidades na <code>main</code>, 12 com a #156, todas em tooling; <code>react-router</code> v6; <code>lovable-tagger</code> ainda em dependencies</td><td><div class="cell-bar"><div class="bar warn"><i style="width:70%"></i></div><span class="pct">70</span></div></td></tr>
+      <tr><td>Observabilidade</td><td>Sentry (lazy com a #155), alerta de robô por hora que agora vê o 401 interno, retenção do log, E2E diário com regressões</td><td><div class="cell-bar"><div class="bar"><i style="width:90%"></i></div><span class="pct">90</span></div></td></tr>
+      <tr><td>Repositório ↔ banco</td><td>154 arquivos × 154 linhas de <code>schema_migrations</code>, diff zerado; 21 arquivos legados fora do padrão de nome que o CLI ignora</td><td><div class="cell-bar"><div class="bar ok"><i style="width:95%"></i></div><span class="pct">95</span></div></td></tr>
+      <tr><td>Plano do Supabase</td><td>Free: 214/500 MB (era 321), pausa por inatividade, sem senha vazada, sem backup diário, timeout de 8 s fixo</td><td><div class="cell-bar"><div class="bar warn"><i style="width:70%"></i></div><span class="pct">70</span></div></td></tr>
+    </tbody>
+  </table></div>
+  <p class="legenda">Transversal (média): <b>87%</b> (Parte 28: 84%). Com as PRs #155 e #156: Código 85, Dependências 80, transversal 88.</p>
+</section>
+
+<section>
+  <h2><span class="n">07</span>O que os logs provaram depois das correções</h2>
+  <p class="lead">Censo de toda resposta 4xx/5xx da API entre 09/10 20:00 UTC (depois do deploy da #148) e 10/10 14:30 UTC.</p>
+  <div class="tabela"><table>
+    <thead><tr><th>Serviço</th><th>Antes (24 h até 09/10 15:40)</th><th>Depois (18 h)</th><th>Leitura</th></tr></thead>
+    <tbody>
+      <tr><td>Realtime websocket</td><td class="num">242 × 401</td><td class="num">6 × 401 às 21:20, depois 0</td><td>os 6 vieram de uma aba com o build anterior ao deploy; todo handshake posterior foi 101</td></tr>
+      <tr><td>REST google_integrations / office_integrations</td><td class="num">16 + 2 × 401</td><td class="num">0</td><td>96 execuções do google-sync e 288 do notion-sync, todas 200 com leitura ok</td></tr>
+      <tr><td>REST clientes</td><td class="num">36 × 404</td><td class="num">0</td><td>consulta de aniversariantes corrigida (#149)</td></tr>
+      <tr><td>REST metas</td><td class="num">3 × 403</td><td class="num">0</td><td>ACL corrigida às 05:59 de 09/10</td></tr>
+      <tr><td>Edge function juris-sync</td><td class="num">10 × 500</td><td class="num">0 (sem carga nova do kit no período)</td><td>a próxima carga é a prova real dos sub-lotes</td></tr>
+      <tr><td>Storage</td><td class="num">4 × 400</td><td class="num">0</td><td>arquivos existem; encerrado</td></tr>
+      <tr><td>Postgres: statement timeout</td><td class="num">16</td><td class="num">0</td><td>todos eram do upsert da jurisprudência</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2><span class="n">08</span>Plano para chegar a 100%, em ordem de retorno</h2>
+  <ol class="plano">
+    <li><b>Mergear as quatro PRs abertas</b><span>#153 (escritório antes da tela), #154 (janela de 12 meses), #155 (bundle) e #156 (dependências). Todas validadas; a de bundle e a de dependências também no smoke E2E.</span><span class="ganho">Geral +1 · Código +5 · Dependências +10 · abas com cadastro +1</span></li>
+    <li><b>Completar o E2E</b><span>Cadastro de conta, redefinição de senha, financeiro, consultivo, timesheet, upload de avatar e logo, busca de jurisprudência. O workflow diário já existe e o spec do Realtime mostrou o valor: cada regressão de infraestrutura vira um teste.</span><span class="ganho">Testes +5 · abas sem E2E +2 cada</span></li>
+    <li><b>Dívida de código</b><span>Quebrar os 11 arquivos acima de 600 linhas; tipar os 461 <code>any</code> do app começando por <code>NovoProcessoDialog</code> (38) e <code>useChartsData</code> (26); tirar as edge functions Deno do orçamento do ESLint do app (146 avisos que não são do app); fechar as 51 dependências de hook.</span><span class="ganho">Código +15</span></li>
+    <li><b>react-router 7 e Tailwind typography</b><span>Únicas mudanças breaking que faltam para zerar o <code>npm audit</code>; remover <code>lovable-tagger</code> de dependencies.</span><span class="ganho">Dependências +20</span></li>
+    <li><b>Advisors</b><span><code>search_path</code> em <code>f_unaccent</code> e <code>juris_fts_expr</code>; mover <code>unaccent</code> para <code>extensions</code>; índice na FK <code>office_integrations.connected_by</code>; revisar os 59 índices nunca usados (a maioria é de FK em tabelas pequenas, pode esperar o volume) e quais das 26 funções SECURITY DEFINER podem virar INVOKER.</span><span class="ganho">ACL +5 · Jurisprudência +5</span></li>
+    <li><b>Paginação onde ainda há cap</b><span>Agenda (50 atrasados), Consultivo, Correspondentes, CRM, Lixeira, Equipe (detalhe). Mesmo padrão da lista de clientes.</span><span class="ganho">6 abas +3 a +5 cada</span></li>
+    <li><b>VextriaZap</b><span>Religar o cron só depois do bridge com <code>BRIDGE_SECRET</code> novo; o robô agora responderia 500 em vez de 200 silencioso se o REST falhar.</span><span class="ganho">CRM +10 · Configurações +5</span></li>
+    <li><b>Supabase Pro</b><span>Senha vazada, sem pausa por inatividade, backup diário, timeout configurável e espaço para voltar a guardar inteiro teor do STJ se for parte do produto. Deixou de ser urgente com o banco em 43%.</span><span class="ganho">Plano +30 · Auth +5</span></li>
+    <li><b>Re-salvar o secret da anon key sem a quebra de linha</b><span>O código apara, então nada quebra; mas o secret limpo evita a mesma surpresa em qualquer outro consumidor futuro (scripts, kit).</span><span class="ganho">Auth +2</span></li>
+  </ol>
+  <p class="legenda">Com o item 1: ~91% geral. Com 1 a 3: Frente e Backend acima de 93%, transversal ~90%. Com 4 a 8: transversal acima de 95%.</p>
+</section>
+
+<footer>
+  Parte 29 da série <code>docs/ANALISE_PLATAFORMA_SET2026.md</code>. Medições na <code>main</code> 63c034e, projeto Supabase pvesofbrctfipdyqyloq, logs de 09/10 15:40 a 10/10 14:30 UTC. O sandbox desta sessão não alcança o host do projeto; a navegação real foi feita pelo GitHub Actions e o banco foi lido pela API de gerenciamento.
+</footer>
+</div>
