@@ -7,6 +7,12 @@ import { usePaymentValidation, type PaymentValidationResult } from '@/hooks/useP
 import { officeService } from '@/services/officeService';
 import { setMonitoringUser, captureError } from '@/lib/monitoring';
 
+// Teto para esperar perfil + escritório antes de liberar a tela. Precisa ficar abaixo
+// dos 8 s em que o PrivateRoute desiste e manda para /login (ver processUserData).
+export const OFFICE_LOAD_CAP_MS = 6000;
+/** Só para testes encurtarem o teto; em produção vale OFFICE_LOAD_CAP_MS. */
+export const AUTH_TIMING = { officeLoadCapMs: OFFICE_LOAD_CAP_MS };
+
 export const SUPER_ADMIN_EMAILS = (
   import.meta.env.VITE_SUPER_ADMIN_EMAILS || 'contato@vextriahub.com.br'
 ).split(',').map((e: string) => e.toLowerCase().trim());
@@ -194,18 +200,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!mountedRef.current) return;
     
     try {
-      // Set fallback user immediately to unlock UI
       const initialUser: User = {
         id: sessionUser.id,
         name: sessionUser.user_metadata?.full_name || sessionUser.user_metadata?.name || sessionUser.email?.split('@')[0] || 'Usuário',
         email: sessionUser.email || '',
         role: (sessionUser.email && SUPER_ADMIN_EMAILS.includes(sessionUser.email.toLowerCase().trim())) ? 'super_admin' : 'user'
       };
-      
-      setUser(initialUser);
-      setIsLoading(false);
-      
-      // Fetch real data in background
+
+      // Usuário provisório (sem office_id) só quando ainda não há ninguém carregado.
+      // No refreshProfile/relogin do MESMO usuário, trocar por este objeto zerava por
+      // um instante tudo que depende de user.office_id ("zera e volta").
+      if (userRef.current?.id !== sessionUser.id) setUser(initialUser);
+
+      // isLoading NÃO é liberado aqui. Antes era: a tela abria com user sem office_id
+      // e qualquer cadastro feito nesse intervalo ia sem escritório (RLS → 403, achado
+      // no E2E de 09/10/2026). Agora espera o perfil + escritório (com teto, abaixo do
+      // redirecionamento do PrivateRoute) — ver o await no fim desta função.
       const backgroundTask = async () => {
         try {
           let profileData = await fetchProfile(sessionUser.id);
@@ -278,12 +288,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setIsFirstLogin(profileAge < 60000 && profileData.role !== 'super_admin');
           }
         } catch (bgError) {
-          console.error('Background sync error:', bgError);
+          captureError(bgError, { context: 'AuthContext.processUserData (perfil/escritório)' });
         }
       };
-      
-      backgroundTask();
-      
+
+      await Promise.race([
+        backgroundTask(),
+        new Promise<void>((resolve) => setTimeout(resolve, AUTH_TIMING.officeLoadCapMs)),
+      ]);
+      if (mountedRef.current) setIsLoading(false);
+
     } catch (error) {
       console.error('Critical error in processUserData:', error);
       setIsLoading(false);
