@@ -17,15 +17,15 @@ const cors = {
 const REQUIRED = ["doc_id", "source_id", "document_type", "official_url", "content_sha256", "captured_at"];
 const MAX_BATCH = 500;
 const UPSERT_CHUNK = 100;
-// Janela do acervo do STJ (espelhos e inteiros teor): só os últimos 2 anos pela data de
+// Janela do acervo do STJ (espelhos e inteiros teor): só os últimos 12 meses pela data de
 // julgamento (ou publicação). O que é mais antigo é recusado aqui e, no banco, a migration
-// 20261010000000_juris_stj_janela_2_anos apaga o que já estava — plano gratuito (500 MB).
-const JANELA_STJ_ANOS = 2;
+// 20261010120000_juris_stj_janela_12_meses apaga o que já estava — plano gratuito (500 MB).
+const JANELA_STJ_MESES = 12;
 function foraDaJanelaStj(d: Doc): boolean {
   if (!String(d.source_id ?? "").startsWith("stj")) return false;
   const data = String(d.judgment_date ?? d.publication_date ?? "");
   if (!data) return false;
-  const limite = new Date(); limite.setFullYear(limite.getFullYear() - JANELA_STJ_ANOS);
+  const limite = new Date(); limite.setMonth(limite.getMonth() - JANELA_STJ_MESES);
   return new Date(data) < limite;
 }
 const TIMEOUT_RE = /statement timeout|57014/i;
@@ -75,7 +75,7 @@ serve(async (req) => {
       const missing = REQUIRED.filter((k) => !d[k]);
       if (missing.length) { rejected.push({ doc_id: d.doc_id, motivo: `faltam: ${missing.join(",")}` }); continue; }
       if (d.is_training) { rejected.push({ doc_id: d.doc_id, motivo: "treinamento nunca sobe" }); continue; }
-      if (foraDaJanelaStj(d)) { rejected.push({ doc_id: d.doc_id, motivo: `stj fora da janela de ${JANELA_STJ_ANOS} anos` }); continue; }
+      if (foraDaJanelaStj(d)) { rejected.push({ doc_id: d.doc_id, motivo: `stj fora da janela de ${JANELA_STJ_MESES} meses` }); continue; }
       if (!String(d.official_url).startsWith("https://")) { rejected.push({ doc_id: d.doc_id, motivo: "official_url sem https" }); continue; }
       rows.push({
         doc_id: d.doc_id, source_id: d.source_id, court: d.court ?? null, document_type: d.document_type,
