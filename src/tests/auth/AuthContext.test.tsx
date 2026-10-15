@@ -16,8 +16,8 @@ import { MemoryRouter, useLocation } from 'react-router-dom';
 // (o vi.mock é hoisted acima de qualquer import/const normal do arquivo — variáveis
 // declaradas fora disso não existem ainda quando a factory roda).
 const hoisted = vi.hoisted(() => ({
-  mockTableData: {} as Record<string, any>,
-  authChangeCallback: null as ((event: string, session: any) => void) | null,
+  mockTableData: {} as Record<string, unknown>,
+  authChangeCallback: null as ((event: string, session: unknown) => void) | null,
   mockSignInWithPassword: vi.fn(),
   mockSignOut: vi.fn(async () => ({ error: null })),
   mockRpc: vi.fn(async () => ({ data: null, error: null })),
@@ -27,7 +27,7 @@ const { mockTableData, mockSignInWithPassword, mockSignOut, mockRpc, mockGetSess
 
 vi.mock('@/integrations/supabase/client', () => {
   const makeBuilder = (table: string) => {
-    const b: any = {};
+    const b: Record<string, unknown> = {};
     for (const m of ['select', 'eq', 'order', 'in', 'or']) b[m] = vi.fn(() => b);
     b.maybeSingle = vi.fn(() => Promise.resolve({ data: hoisted.mockTableData[table] ?? null, error: null }));
     b.single = vi.fn(() => Promise.resolve({ data: hoisted.mockTableData[table] ?? null, error: null }));
@@ -40,7 +40,7 @@ vi.mock('@/integrations/supabase/client', () => {
     supabase: {
       auth: {
         getSession: hoisted.mockGetSession,
-        onAuthStateChange: vi.fn((cb: any) => {
+        onAuthStateChange: vi.fn((cb: (event: string, session: unknown) => void) => {
           hoisted.authChangeCallback = cb;
           return { data: { subscription: { unsubscribe: vi.fn() } } };
         }),
@@ -57,7 +57,7 @@ import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-function makeSupabaseUser(overrides: Record<string, any> = {}) {
+function makeSupabaseUser(overrides: Record<string, unknown> = {}) {
   return {
     id: 'user-1',
     email: 'joao@escritorio.com',
@@ -66,7 +66,7 @@ function makeSupabaseUser(overrides: Record<string, any> = {}) {
   };
 }
 
-function makeSession(user: any) {
+function makeSession(user: unknown) {
   return { user, access_token: 'tok-1' };
 }
 
@@ -346,7 +346,7 @@ describe('AuthContext', () => {
       renderAuth();
       await waitFor(() => expect(latestAuth?.isLoading).toBe(false));
 
-      let result: { error: any } | undefined;
+      let result: { error: Error | null } | undefined;
       await act(async () => {
         result = await latestAuth!.login('joao@escritorio.com', 'senha123');
       });
@@ -364,7 +364,7 @@ describe('AuthContext', () => {
       renderAuth();
       await waitFor(() => expect(latestAuth?.isLoading).toBe(false));
 
-      let result: { error: any } | undefined;
+      let result: { error: Error | null } | undefined;
       await act(async () => {
         result = await latestAuth!.login('joao@escritorio.com', 'senha-errada');
       });

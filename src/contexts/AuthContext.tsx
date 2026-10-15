@@ -17,6 +17,11 @@ export const SUPER_ADMIN_EMAILS = (
   import.meta.env.VITE_SUPER_ADMIN_EMAILS || 'contato@vextriahub.com.br'
 ).split(',').map((e: string) => e.toLowerCase().trim());
 
+// Promise.race com um timeout rejeitado — mantém o tipo do resultado (antes era `as any`).
+const comTimeout = <T,>(p: PromiseLike<T>, ms: number, msg: string): Promise<T> =>
+  Promise.race([p, new Promise<never>((_, reject) => setTimeout(() => reject(new Error(msg)), ms))]);
+const comoError = (e: unknown): Error => (e instanceof Error ? e : new Error(String(e)));
+
 interface User {
   id: string;
   name: string;
@@ -40,14 +45,14 @@ interface AuthContextType {
   isOfficeAdmin: boolean;
   paymentValidation: PaymentValidationResult | null;
   showPaymentModal: boolean;
-  login: (email: string, password: string) => Promise<{ error: any }>;
-  register: (email: string, password: string, fullName: string, metadata?: Record<string, string | undefined>) => Promise<{ error: any }>;
+  login: (email: string, password: string) => Promise<{ error: Error | null }>;
+  register: (email: string, password: string, fullName: string, metadata?: Record<string, string | undefined>) => Promise<{ error: Error | null }>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   resetFirstLogin: () => void;
-  resendConfirmation: (email: string) => Promise<{ error: any }>;
-  loginAsSuperAdmin: (email: string, password: string) => Promise<{ error: any }>;
-  updateUserRole: (userId: string, newRole: 'user' | 'admin' | 'super_admin') => Promise<{ data?: any; error?: any }>;
+  resendConfirmation: (email: string) => Promise<{ error: Error | null }>;
+  loginAsSuperAdmin: (email: string, password: string) => Promise<{ error: Error | null }>;
+  updateUserRole: (userId: string, newRole: 'user' | 'admin' | 'super_admin') => Promise<{ data?: Profile; error: Error | null }>;
   debugUserStatus: () => void;
   getRedirectPath: (userRole: string | undefined, userEmail: string | undefined) => string;
   validatePayment: (userId?: string) => Promise<PaymentValidationResult>;
@@ -94,16 +99,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!mountedRef.current) return null;
     
     try {
-      const { data, error } = await Promise.race([
-        supabase
-          .from('profiles')
-          .select('*')
-          .eq('user_id', userId)
-          .maybeSingle(),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Profile fetch timeout')), 45000)
-        )
-      ]) as any;
+      const { data, error } = await comTimeout(
+        supabase.from('profiles').select('*').eq('user_id', userId).maybeSingle(),
+        45000, 'Profile fetch timeout',
+      );
 
       if (error) {
         console.error('Error fetching profile:', error.message);
@@ -396,13 +395,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       loginInProgressRef.current = true;
       
-      const { data, error } = await Promise.race([
-        supabase.auth.signInWithPassword({
-          email,
-          password,
-        }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Login attempt timeout')), 20000))
-      ]) as any;
+      const { data, error } = await comTimeout(
+        supabase.auth.signInWithPassword({ email, password }),
+        20000, 'Login attempt timeout',
+      );
 
       if (error) {
         console.error('Login error:', error.message);
@@ -416,7 +412,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { error: null };
     } catch (err) {
       console.error('Unexpected login error:', err);
-      return { error: err };
+      return { error: comoError(err) };
     } finally {
       setTimeout(() => {
         loginInProgressRef.current = false;
@@ -480,7 +476,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { error: null };
     } catch (error) {
       console.error('Super admin login exception:', error);
-      return { error };
+      return { error: comoError(error) };
     }
   };
 
@@ -514,7 +510,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { data, error: null };
     } catch (error) {
       console.error('Error in updateUserRole:', error);
-      return { error };
+      return { error: comoError(error) };
     }
   }, [user?.id, fetchProfile]);
 

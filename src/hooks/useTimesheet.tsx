@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { timesheetService, Timesheet } from '@/services/timesheetService';
-import { TimesheetCategoria } from '@/types/timesheet';
+import { TimesheetCategoria, type AtualizarTimesheet } from '@/types/timesheet';
 import { assertRowsAffected, getErrorMessage } from '@/lib/errors';
 
 export type TimesheetScope = 'me' | 'office';
@@ -231,7 +231,7 @@ export function useTimesheet() {
     }
   };
 
-  const update = async (id: string, updates: any): Promise<boolean> => {
+  const update = async (id: string, updates: AtualizarTimesheet): Promise<boolean> => {
     if (!user) return false;
     try {
       await timesheetService.update(id, user.id, updates);

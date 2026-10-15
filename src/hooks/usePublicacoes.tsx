@@ -8,6 +8,22 @@ import { captureError } from "@/lib/monitoring";
 import { localYmd } from "@/lib/dates";
 import type { TablesUpdate } from "@/integrations/supabase/rows";
 
+/** Item devolvido pela edge function fetch-by-oab (PJE Comunica / DataJud) — só o que o sync lê. */
+interface ItemOab {
+  numeroProcesso?: string | null;
+  fonte?: string | null;
+  conteudo?: string | null;
+  data_disponibilizacao?: string | null;
+  titulo?: string | null;
+  tribunal?: string | null;
+  comarca?: string | null;
+  vara?: string | null;
+  nome_orgao?: string | null;
+  tipo_comunicacao?: string | null;
+  tipo_documento?: string | null;
+  ultimoAndamento?: { descricao?: string | null; data?: string | null } | null;
+}
+
 export interface Publication {
   id: string;
   created_at: string;
@@ -263,12 +279,12 @@ export const usePublicacoes = () => {
         throw new Error(`Erro na API de busca: ${invokeError.message}`);
       }
 
-      const items = results?.items || results;
+      const items = (results?.items || results) as ItemOab[] | null;
       if (!items || !Array.isArray(items)) return [];
 
       // Mapa de processos já cadastrados (numero_processo -> id) para vínculo automático
       const numerosBusca = items
-        .map((it: any) => (it.numeroProcesso || '').replace(/\D/g, ''))
+        .map((it) => (it.numeroProcesso || '').replace(/\D/g, ''))
         .filter(Boolean);
       const processoMap = new Map<string, string>();
       if (numerosBusca.length > 0) {
@@ -278,7 +294,7 @@ export const usePublicacoes = () => {
           .eq('office_id', user.office_id)
           .in('numero_processo', numerosBusca);
         if (procsError) throw procsError;
-        (procs || []).forEach((p: any) => processoMap.set(p.numero_processo, p.id));
+        (procs || []).forEach((p) => { if (p.numero_processo) processoMap.set(p.numero_processo, p.id); });
       }
 
       const savedResults = [];
@@ -326,7 +342,7 @@ export const usePublicacoes = () => {
           .from('publicacoes')
           .select('id, conteudo, processo_id')
           .eq('office_id', user.office_id)
-          .eq('numero_processo', newRecord.numero_processo)
+          .eq('numero_processo', newRecord.numero_processo ?? '')
           .eq('data_publicacao', newRecord.data_publicacao)
           .maybeSingle();
         // Falha no dedup virava "não existe" → publicação duplicada. Pula o item (a
@@ -335,7 +351,7 @@ export const usePublicacoes = () => {
 
         if (existing) {
           // Atualiza se o novo conteúdo for mais completo e/ou vincula se ainda não vinculado
-          const patch: Record<string, any> = {};
+          const patch: TablesUpdate<'publicacoes'> = {};
           if (conteudo.length > (existing.conteudo?.length || 0)) {
             patch.conteudo = conteudo;
             patch.tipo_documento = newRecord.tipo_documento;
@@ -345,7 +361,7 @@ export const usePublicacoes = () => {
             patch.processo_id = processoIdVinculado;
           }
           if (Object.keys(patch).length > 0) {
-            const { data: patched, error: patchError } = await supabase.from('publicacoes').update(patch as TablesUpdate<'publicacoes'>).eq('id', existing.id).select('id');
+            const { data: patched, error: patchError } = await supabase.from('publicacoes').update(patch).eq('id', existing.id).select('id');
             try {
               assertRowsAffected(patched, patchError, 1);
             } catch (e) {
@@ -354,7 +370,7 @@ export const usePublicacoes = () => {
             }
           }
         } else {
-          const saved = await createPublication(newRecord as any);
+          const saved = await createPublication(newRecord as Omit<Publication, 'id' | 'created_at' | 'office_id'>);
           if (saved) {
             savedResults.push(saved);
             await calcularEPersistirPrazo(saved.id, newRecord as Partial<Publication>);
@@ -397,8 +413,8 @@ export const usePublicacoes = () => {
   useEffect(() => {
     // Auto-sync ao abrir: usa a OAB do USUÁRIO LOGADO (o robô server-side cobre o resto).
     // Evita ler o perfil do dono (que dava 406 por RLS) e funciona para cada advogado.
-    const oab = (profile as any)?.oab;
-    const uf = (profile as any)?.oab_uf;
+    const oab = profile?.oab;
+    const uf = profile?.oab_uf;
     if (!user?.office_id || !oab || !uf) return;
 
     const runAutoSync = async () => {
@@ -414,7 +430,7 @@ export const usePublicacoes = () => {
 
     runAutoSync();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.office_id, (profile as any)?.oab, (profile as any)?.oab_uf]);
+  }, [user?.office_id, profile?.oab, profile?.oab_uf]);
 
   // Vincula uma publicação a um processo já existente (e marca como tratada)
   const linkPublicacaoToProcesso = async (publicacaoId: string, processoId: string) => {

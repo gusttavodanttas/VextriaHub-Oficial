@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { Tables } from '@/integrations/supabase/types';
+import { Tables, TablesUpdate } from '@/integrations/supabase/types';
 import { assertRowsAffected } from '@/lib/errors';
 
 export type Timesheet = Tables<'timesheets'> & {
@@ -64,7 +64,7 @@ export const timesheetService = {
     return data as Timesheet;
   },
 
-  async update(id: string, userId: string, updates: any) {
+  async update(id: string, userId: string, updates: TablesUpdate<'timesheets'>) {
     const { data, error } = await supabase
       .from('timesheets')
       .update({ ...updates, updated_at: new Date().toISOString() })

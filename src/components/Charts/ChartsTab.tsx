@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import type { LucideIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -37,7 +38,7 @@ function TrendBadge({ delta }: { delta: number | null }) {
 }
 
 function KpiMini({ icon: Icon, label, value, color, bg, trend, sub }: {
-  icon: any; label: string; value: string | number; color: string; bg: string; trend?: number | null; sub?: string;
+  icon: LucideIcon; label: string; value: string | number; color: string; bg: string; trend?: number | null; sub?: string;
 }) {
   return (
     <div className="group flex items-center gap-3 rounded-2xl border border-black/5 dark:border-border bg-card/40 p-4 transition-all hover:shadow-md hover:-translate-y-0.5">
@@ -54,7 +55,7 @@ function KpiMini({ icon: Icon, label, value, color, bg, trend, sub }: {
   );
 }
 
-const pctDelta = (arr: any[], key: string): number | null => {
+const pctDelta = <K extends string>(arr: Record<K, number>[], key: K): number | null => {
   if (!arr || arr.length < 2) return null;
   const a = Number(arr[arr.length - 1][key]) || 0;
   const b = Number(arr[arr.length - 2][key]) || 0;
@@ -241,7 +242,7 @@ export function ChartsTab() {
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
                 <XAxis type="number" fontSize={11} allowDecimals={false} unit="d" />
                 <YAxis type="category" dataKey="name" fontSize={11} width={120} />
-                <Tooltip {...tooltipStyle} formatter={(v: any, _n: any, p: any) => [`${v} dias · ${p?.payload?.qtd} processos`, "Média"]} />
+                <Tooltip {...tooltipStyle} formatter={(v, _n, p) => [`${v} dias · ${p?.payload?.qtd} processos`, "Média"]} />
                 <Bar dataKey="dias" name="Duração média" radius={[0, 4, 4, 0]} fill="#6366f1" />
               </BarChart>
             </ResponsiveContainer>
@@ -375,7 +376,7 @@ export function ChartsTab() {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="mes" fontSize={11} /><YAxis fontSize={11} tickFormatter={(v) => `${v}h`} />
-                <Tooltip {...tooltipStyle} formatter={(v: any) => `${v}h`} />
+                <Tooltip {...tooltipStyle} formatter={(v) => `${v}h`} />
                 <Area type="monotone" dataKey="horas" stroke="#ec4899" strokeWidth={2} fill="url(#ts)" name="Horas" />
               </AreaChart>
             </ResponsiveContainer>
@@ -437,7 +438,7 @@ export function ChartsTab() {
                 <LineChart data={d.financeiroPorMes}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="mes" fontSize={11} /><YAxis fontSize={11} tickFormatter={(v) => `${(v / 1000)}k`} />
-                  <Tooltip {...tooltipStyle} formatter={(v: any) => brl(Number(v))} /><Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Tooltip {...tooltipStyle} formatter={(v) => brl(Number(v))} /><Legend wrapperStyle={{ fontSize: 11 }} />
                   <Line type="monotone" dataKey="receita" stroke="#10b981" strokeWidth={2.5} name="Receita" dot={false} />
                   <Line type="monotone" dataKey="despesa" stroke="#ef4444" strokeWidth={2.5} name="Despesa" dot={false} />
                 </LineChart>
@@ -449,7 +450,7 @@ export function ChartsTab() {
                   <Pie data={d.honorariosPorCategoria} cx="50%" cy="50%" outerRadius={90} dataKey="value" nameKey="name" label={(e) => e.name} labelLine={false} fontSize={11}>
                     {d.honorariosPorCategoria.map((e, i) => <Cell key={i} fill={e.fill} />)}
                   </Pie>
-                  <Tooltip {...tooltipStyle} formatter={(v: any) => brl(Number(v))} />
+                  <Tooltip {...tooltipStyle} formatter={(v) => brl(Number(v))} />
                 </PieChart>
               </ResponsiveContainer>
             </ChartCard>

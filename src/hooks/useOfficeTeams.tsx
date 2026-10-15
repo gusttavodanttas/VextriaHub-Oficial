@@ -46,17 +46,17 @@ export function useOfficeTeams() {
     const { data: countsData, error: countsError } = await supabase
       .from("office_team_members")
       .select("team_id")
-      .in("team_id", (teamsData || []).map((t: any) => t.id));
+      .in("team_id", (teamsData || []).map((t) => t.id));
     // Contagem é secundária: mostra as equipes, mas avisa que o nº de membros pode estar errado.
     setError(countsError ? getErrorMessage(countsError, "Não foi possível contar os membros das equipes.") : null);
 
     const countMap: Record<string, number> = {};
-    (countsData || []).forEach((m: any) => {
+    (countsData || []).forEach((m) => {
       countMap[m.team_id] = (countMap[m.team_id] || 0) + 1;
     });
 
     setTeams(
-      (teamsData || []).map((t: any) => ({
+      (teamsData || []).map((t) => ({
         ...t,
         member_count: countMap[t.id] ?? 0,
       }))
@@ -119,7 +119,7 @@ export function useTeamMembers(teamId: string | null) {
 
     if (!membersData?.length) { setMembers([]); setLoading(false); return; }
 
-    const userIds = membersData.map((m: any) => m.user_id);
+    const userIds = membersData.map((m) => m.user_id);
     const { data: profilesData, error: profilesError } = await supabase
       .from("profiles")
       .select("user_id, full_name, email")
@@ -127,12 +127,13 @@ export function useTeamMembers(teamId: string | null) {
     // Nomes são secundários: mostra os membros sem nome, mas avisa.
     if (profilesError) setError(getErrorMessage(profilesError, "Não foi possível carregar os nomes dos membros."));
 
-    const profileMap: Record<string, any> = {};
-    (profilesData || []).forEach((p: any) => { profileMap[p.user_id] = p; });
+    const profileMap: Record<string, NonNullable<TeamMember['profile']>> = {};
+    (profilesData || []).forEach((p) => { profileMap[p.user_id] = p; });
 
     setMembers(
-      membersData.map((m: any) => ({
+      membersData.map((m) => ({
         ...m,
+        role: m.role as TeamMember['role'],
         profile: profileMap[m.user_id] || null,
       }))
     );
