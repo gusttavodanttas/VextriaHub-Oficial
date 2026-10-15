@@ -1,35 +1,22 @@
-
+// Provider de autenticação: estado da sessão/perfil/escritório e as ações de
+// login. As regras puras (papéis, redirecionamento, usuário provisório/final)
+// estão em lib/auth.ts; o acesso a perfil/escritório em services/profileService.ts.
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { Profile, OfficeUser, Office } from '@/types/database';
 import { usePaymentValidation, type PaymentValidationResult } from '@/hooks/usePaymentValidation';
 import { officeService } from '@/services/officeService';
+import { profileService } from '@/services/profileService';
 import { setMonitoringUser, captureError } from '@/lib/monitoring';
+import {
+  AUTH_TIMING, OLD_LOCAL_STORAGE_KEYS, comTimeout, comoError,
+  usuarioInicial, usuarioFinal, ehPrimeiroLogin, derivarPapeis, getRedirectPath as getRedirectPathPuro,
+  type User,
+} from '@/lib/auth';
 
-// Teto para esperar perfil + escritório antes de liberar a tela. Precisa ficar abaixo
-// dos 8 s em que o PrivateRoute desiste e manda para /login (ver processUserData).
-export const OFFICE_LOAD_CAP_MS = 6000;
-/** Só para testes encurtarem o teto; em produção vale OFFICE_LOAD_CAP_MS. */
-export const AUTH_TIMING = { officeLoadCapMs: OFFICE_LOAD_CAP_MS };
-
-export const SUPER_ADMIN_EMAILS = (
-  import.meta.env.VITE_SUPER_ADMIN_EMAILS || 'contato@vextriahub.com.br'
-).split(',').map((e: string) => e.toLowerCase().trim());
-
-// Promise.race com um timeout rejeitado — mantém o tipo do resultado (antes era `as any`).
-const comTimeout = <T,>(p: PromiseLike<T>, ms: number, msg: string): Promise<T> =>
-  Promise.race([p, new Promise<never>((_, reject) => setTimeout(() => reject(new Error(msg)), ms))]);
-const comoError = (e: unknown): Error => (e instanceof Error ? e : new Error(String(e)));
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: 'user' | 'admin' | 'super_admin';
-  office_id?: string | null;
-  office_role?: 'user' | 'admin' | 'owner' | 'super_admin' | null;
-}
+// Re-exportados daqui porque hooks (usePermissions) e testes importam deste módulo.
+export { SUPER_ADMIN_EMAILS, OFFICE_LOAD_CAP_MS, AUTH_TIMING } from '@/lib/auth';
 
 interface AuthContextType {
   user: User | null;
@@ -97,23 +84,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Fetch user profile from database with timeout
   const fetchProfile = useCallback(async (userId: string) => {
     if (!mountedRef.current) return null;
-    
-    try {
-      const { data, error } = await comTimeout(
-        supabase.from('profiles').select('*').eq('user_id', userId).maybeSingle(),
-        45000, 'Profile fetch timeout',
-      );
-
-      if (error) {
-        console.error('Error fetching profile:', error.message);
-        return null;
-      }
-
-      return data;
-    } catch (error) {
-      console.error('Error in fetchProfile:', error);
-      return null;
-    }
+    return profileService.fetchProfile(userId);
   }, []);
 
   const { validatePayment: validatePaymentInternal } = usePaymentValidation();
@@ -148,45 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Create user profile in database
   const createProfile = useCallback(async (userId: string, email: string, fullName: string) => {
     if (!mountedRef.current) return null;
-    
-    try {
-      // Verifica se o email deve ter role de super_admin baseado na lista global
-      const role = SUPER_ADMIN_EMAILS.includes(email.toLowerCase().trim()) ? 'super_admin' : 'user';
-      
-      const { data, error } = await supabase
-        .from('profiles')
-        .insert({
-          user_id: userId,
-          email: email,
-          full_name: fullName,
-          role: role,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .select()
-        .single();
-
-      if (error) {
-        if (error.code === '23505' || (error as { status?: number }).status === 409) {
-          const { data: existing } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('user_id', userId)
-            .maybeSingle();
-          if (existing) return existing;
-        }
-        console.error('Error creating profile:', error);
-        return null;
-      }
-
-      // O escritório é criado/garantido pela RPC ensure_office_for_user() no
-      // login (atômico no banco), não mais aqui no cliente — evita o órfão por
-      // falha silenciosa que a auditoria de 2026-08 encontrou. Ver processUserData.
-      return data;
-    } catch (error) {
-      console.error('Error in createProfile:', error);
-      return null;
-    }
+    return profileService.createProfile(userId, email, fullName);
   }, []);
 
   // Fetch office data (Delegado ao serviço)
@@ -199,12 +132,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!mountedRef.current) return;
     
     try {
-      const initialUser: User = {
-        id: sessionUser.id,
-        name: sessionUser.user_metadata?.full_name || sessionUser.user_metadata?.name || sessionUser.email?.split('@')[0] || 'Usuário',
-        email: sessionUser.email || '',
-        role: (sessionUser.email && SUPER_ADMIN_EMAILS.includes(sessionUser.email.toLowerCase().trim())) ? 'super_admin' : 'user'
-      };
+      const initialUser = usuarioInicial(sessionUser);
 
       // Usuário provisório (sem office_id) só quando ainda não há ninguém carregado.
       // No refreshProfile/relogin do MESMO usuário, trocar por este objeto zerava por
@@ -237,30 +165,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (profileData) {
             // Garante o escritório no banco antes de ler (atômico, idempotente,
             // self-healing). Substitui a criação frágil de escritório no cliente.
-            // .rpc() não lança em erro de aplicação (só devolve { error }) — o try/catch
-            // sozinho só pegava falha de rede.
-            try {
-              const { error: ensureErr } = await supabase.rpc('ensure_office_for_user');
-              if (ensureErr) captureError(ensureErr, { context: 'AuthContext.ensure_office_for_user' });
-            } catch (rpcErr) { captureError(rpcErr, { context: 'AuthContext.ensure_office_for_user' }); }
-            // Cadastro por link de plano com confirmação de e-mail: o apply_signup_plan não roda no
-            // Register (o auto-login falha). Aplica o plano guardado agora, no 1º login pós-confirmação.
-            // Idempotente (guard plan_claimed no RPC); roda uma vez e limpa a flag.
-            const pendingPlan = localStorage.getItem('pending_signup_plan');
-            if (pendingPlan) {
-              try {
-                const { error: planErr } = await supabase.rpc('apply_signup_plan', { p_plan_type: pendingPlan });
-                // Só limpa a flag se APLICOU: o RPC devolve { error } sem lançar, então sem
-                // esta checagem o removeItem rodava mesmo na falha e o plano pago escolhido
-                // se perdia para sempre. Idempotente (no-op quando já reivindicado), então
-                // repetir no próximo login é seguro.
-                if (planErr) throw planErr;
-                localStorage.removeItem('pending_signup_plan');
-              } catch (planErr) {
-                captureError(planErr, { context: 'AuthContext.apply_signup_plan (pós-confirmação)' });
-                // mantém a flag para tentar de novo no próximo login
-              }
-            }
+            await profileService.garantirEscritorioEPlano();
             const officeData = await fetchOfficeData(sessionUser.id);
             officeUser = officeData.officeUser;
             office = officeData.office;
@@ -268,14 +173,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           if (!mountedRef.current) return;
           
-          const finalUser: User = {
-            id: sessionUser.id,
-            name: profileData?.full_name || initialUser.name,
-            email: sessionUser.email || profileData?.email || initialUser.email,
-            role: profileData?.role || initialUser.role,
-            office_id: profileData?.office_id || officeUser?.office_id || null,
-            office_role: officeUser?.role || null
-          };
+          const finalUser = usuarioFinal(sessionUser, initialUser, profileData, officeUser);
           
           setProfile(profileData);
           setOfficeUser(officeUser);
@@ -283,8 +181,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(finalUser);
           
           if (profileData) {
-            const profileAge = Date.now() - new Date(profileData.created_at).getTime();
-            setIsFirstLogin(profileAge < 60000 && profileData.role !== 'super_admin');
+            setIsFirstLogin(ehPrimeiroLogin(profileData));
           }
         } catch (bgError) {
           captureError(bgError, { context: 'AuthContext.processUserData (perfil/escritório)' });
@@ -379,11 +276,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initializeAuth();
 
     // Cleanup old localStorage data
-    const oldKeys = [
-      'authToken', 'userData', 'loginTimestamp', 'isFirstLogin',
-      'nublex_token', 'nublex_user', 'nublex_data'
-    ];
-    oldKeys.forEach(key => localStorage.removeItem(key));
+    OLD_LOCAL_STORAGE_KEYS.forEach(key => localStorage.removeItem(key));
 
     return () => {
       mountedRef.current = false;
@@ -463,7 +356,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginAsSuperAdmin = async (email: string, password: string) => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password
       });
@@ -483,15 +376,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Função para forçar atualização do role do usuário
   const updateUserRole = useCallback(async (userId: string, newRole: 'user' | 'admin' | 'super_admin') => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .update({ 
-          role: newRole,
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', userId)
-        .select()
-        .single();
+      const { data, error } = await profileService.updateRole(userId, newRole);
 
       if (error) {
         console.error('Error updating user role:', error);
@@ -517,29 +402,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Função de debug para verificar status do usuário
   const debugUserStatus = useCallback(() => {
     // Debug function kept for development use if needed
-  }, [user, profile, session]);
-
-  // Função para determinar redirecionamento baseado no role do usuário
-  // Destino após o login. Só o super admin do sistema (lista global de e-mails)
-  // cai no painel de administração; admin de escritório e usuário comum vão
-  // para o Dashboard, que é a tela de trabalho — o /admin continua acessível
-  // pelo menu. (O role 'super_admin' no profile é derivado da mesma lista.)
-  const getRedirectPath = useCallback((userRole: string | undefined, userEmail: string | undefined) => {
-    const isSystemAdmin = userEmail && SUPER_ADMIN_EMAILS.includes(userEmail.toLowerCase().trim());
-    if (isSystemAdmin || userRole === 'super_admin') {
-      return '/admin';
-    }
-    return '/dashboard';
   }, []);
+
+  // Função para determinar redirecionamento baseado no role do usuário (ver lib/auth)
+  const getRedirectPath = useCallback(getRedirectPathPuro, []);
 
   const logout = async () => {
     try {
-      await Promise.race([
-        supabase.auth.signOut(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Logout timeout')), 2000))
-      ]);
-    } catch (err) {
-      console.error('Exception during supabase.auth.signOut:', err);
+      await profileService.signOutLimpando();
     } finally {
       setUser(null);
       setProfile(null);
@@ -547,12 +417,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setOffice(null);
       setOfficeUser(null);
       setIsFirstLogin(false);
-      
-      for (const key in localStorage) {
-        if (key.includes('supabase.auth.token') || key.includes('sb-')) {
-          localStorage.removeItem(key);
-        }
-      }
 
       // Recarga completa, não navegação da SPA: a aba segue rodando o JS que
       // carregou antes do último deploy até recarregar, e um "Sair" + "Entrar"
@@ -573,12 +437,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsFirstLogin(false);
   }, []);
 
-  const isUserSuperAdmin = Boolean(
-    user?.role === 'super_admin' || 
-    profile?.role === 'super_admin' ||
-    (user?.email && SUPER_ADMIN_EMAILS.includes(user.email.toLowerCase().trim())) ||
-    (session?.user?.email && SUPER_ADMIN_EMAILS.includes(session.user.email.toLowerCase().trim()))
-  );
+  const papeis = derivarPapeis(user, profile, session?.user?.email);
 
   const value = {
     user,
@@ -589,9 +448,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isAuthenticated: !!session,
     isLoading,
     isFirstLogin,
-    isSuperAdmin: isUserSuperAdmin,
-    isAdmin: user?.role === 'admin' || user?.role === 'super_admin' || profile?.role === 'admin' || profile?.role === 'super_admin' || isUserSuperAdmin,
-    isOfficeAdmin: user?.office_role === 'admin' || user?.office_role === 'owner' || user?.office_role === 'super_admin' || user?.role === 'super_admin' || profile?.role === 'super_admin',
+    ...papeis,
     paymentValidation,
     showPaymentModal,
     setShowPaymentModal,
