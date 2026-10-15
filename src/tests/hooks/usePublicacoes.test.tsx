@@ -15,7 +15,8 @@ vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 'u1', o
 const mockToast = vi.fn();
 vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: mockToast }) }));
 
-import { usePublicacoesLista, usePublicacoes } from '@/hooks/usePublicacoes';
+import { usePublicacoes } from '@/hooks/usePublicacoes';
+import { usePublicacoesLista } from '@/hooks/usePublicacoesLista';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });

@@ -17,7 +17,8 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { getErrorMessage } from "@/lib/errors";
 import { Separator } from "@/components/ui/separator";
 
-import { usePublicacoes, usePublicacoesLista, usePublicacoesStats, fetchAllPublicacoesForExport } from "@/hooks/usePublicacoes";
+import { usePublicacoes } from "@/hooks/usePublicacoes";
+import { usePublicacoesLista, usePublicacoesStats, fetchAllPublicacoesForExport } from "@/hooks/usePublicacoesLista";
 import { useMonitoredOabs } from "@/hooks/useMonitoredOabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
