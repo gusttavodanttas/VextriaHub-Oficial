@@ -3108,3 +3108,39 @@ gráficos só onde há gráfico (#155); dependências compatíveis, `npm audit` 
 dívida de código (11 arquivos > 600 linhas, 607 `any`, Deno fora do orçamento do
 lint) → react-router 7 → advisors (search_path, unaccent, FK, índices) →
 paginação em 6 abas → Zap → Supabase Pro → re-salvar o secret limpo.
+
+# Parte 30 — reauditoria ao fim da rodada de estrutura (15/10/2026, 23:30 UTC)
+
+Entregue como página HTML: [`ANALISE_PLATAFORMA_PARTE30.html`](./ANALISE_PLATAFORMA_PARTE30.html)
+(abrir no navegador). Mesma grade das Partes 23–29, `main` em `e412011`, PRs
+#153–#179 mergeadas desde a Parte 29 (27), nenhuma aberta.
+
+**Resultado:** geral **92%** (Parte 29: 90%) · Frente **93%** (91%) · Backend
+**92%** (92%; 92,4 contra 91,5) · transversal **90%** (87%). 604 testes unitários
+(542), 65 de 70 hooks, E2E 13 cenários diários, 7 execuções verdes seguidas.
+**24 h de logs com um único erro de API: um 400 de senha errada no login.** 0 erros
+de Postgres, functions e Realtime; 415/415 robôs.
+
+**O que mudou:**
+
+1. Dívida de código fechada: 0 arquivos de aplicação acima de 600 linhas (eram 11;
+   #168–#179, um por PR, blocos viraram componentes e lógica virou função pura com
+   teste). Lint 679 → 250 avisos (teto 700 → 300), `any` 607 → 188 (Deno fora do
+   orçamento, #160; cinco PRs de tipagem #162, #164–#167).
+2. Tetos silenciosos viraram histórico paginado com contagem exata em Atendimentos,
+   Audiências, Prazos (#161), Correspondentes, CRM (base própria) e Lixeira (#163).
+3. Terceira jornada E2E: financeiro, consultivo e timesheet (#159).
+4. #153–#156 mergeadas: escritório antes da tela, janela do STJ, bundle (787 kB no
+   primeiro carregamento), dependências (audit 30 → 12).
+5. Advisors fechados (#158): `search_path` fixo, `unaccent` em `extensions`, índice
+   na FK. Restam os 26 SECURITY DEFINER por authenticated (RPCs intencionais) e a
+   senha vazada (Pro).
+
+**Achados abertos (todos P3/INFO):** `useJurisprudencia` com 4 mutations sem
+`assertRowsAffected` e página sem banner de erro; componentes sem teste de UI em
+8 módulos; tetos restantes em Tarefas (`limit(1000)`), atrasados da Agenda, Equipe
+(detalhe) e Kanban; Zap pausado; plano Free (219/500 MB).
+
+**Plano para 100%** (9 itens, na página): E2E das 13 abas sem jornada → testes de
+UI → Jurisprudência no padrão → últimos tetos → fechar o lint (177 `any`, 46 deps)
+→ react-router 7 → advisors → Zap → Supabase Pro. Com 1–3: geral ~94%.
