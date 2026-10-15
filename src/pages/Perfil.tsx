@@ -96,14 +96,15 @@ const Perfil = () => {
         endereco: profile?.address || prev.endereco,
         oab: profile?.oab || prev.oab,
         oab_uf: profile?.oab_uf || prev.oab_uf,
-        cpf_cnpj: (profile as any)?.cpf_cnpj || prev.cpf_cnpj,
+        cpf_cnpj: profile?.cpf_cnpj || prev.cpf_cnpj,
       }));
     }
   }, [user, profile]);
 
   const myStats = useMyStats();
 
-  const createdAt = (profile as any)?.created_at || (user as any)?.created_at;
+  // O usuário do AuthContext não carrega created_at — a data vem do perfil.
+  const createdAt = profile?.created_at;
   const memberSince = createdAt
     ? new Date(createdAt).toLocaleDateString("pt-BR", { month: "short", year: "numeric" })
     : null;
@@ -117,7 +118,7 @@ const Perfil = () => {
   }, []);
 
   // Papel real: prioriza o papel no escritório (owner/admin) sobre o profiles.role
-  const officeRole = (user as any)?.office_role as string | undefined;
+  const officeRole = user?.office_role ?? undefined;
   const roleLabel =
     officeRole === "owner" ? "Proprietário" :
     (officeRole === "super_admin" || profile?.role === "super_admin") ? "Super Admin" :
@@ -125,8 +126,8 @@ const Perfil = () => {
     isTeamCoordinator ? "Coordenador" : "Membro";
 
   useEffect(() => {
-    if ((profile as any)?.avatar_url) setAvatarUrl((profile as any).avatar_url);
-  }, [(profile as any)?.avatar_url]);
+    if (profile?.avatar_url) setAvatarUrl(profile.avatar_url);
+  }, [profile?.avatar_url]);
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -268,9 +269,9 @@ const Perfil = () => {
           <div className="glass-card rounded-[2.5rem] border-border bg-card/40 shadow-premium relative overflow-hidden">
             {/* Cover */}
             <div className="h-28 md:h-36 relative overflow-hidden bg-gradient-to-br from-primary via-primary/70 to-primary/30">
-              {(office as any)?.logo_url ? (
+              {office?.logo_url ? (
                 <>
-                  <img src={(office as any).logo_url} alt="Logo do escritório" className="absolute inset-0 h-full w-full object-cover" />
+                  <img src={office.logo_url} alt="Logo do escritório" className="absolute inset-0 h-full w-full object-cover" />
                   {/* escurece a base para manter avatar/nome legíveis */}
                   <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/20 to-transparent" />
                 </>
@@ -658,7 +659,7 @@ function SecurityCard() {
         body: JSON.stringify({ password: novaSenha, current_password: senhaAtual }),
       });
       if (!res.ok) {
-        const body = await res.json().catch(() => ({} as any));
+        const body: Record<string, unknown> = await res.json().catch(() => ({}));
         const msg = String(body?.msg || body?.error_description || body?.error || body?.message || "");
         if (/current password|incorrect|invalid.*credential/i.test(msg)) {
           throw new Error("A senha atual está incorreta.");

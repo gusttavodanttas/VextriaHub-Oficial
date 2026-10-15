@@ -4,7 +4,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useProcessosV2 } from '@/hooks/useProcessosV2';
 import { useQueryClient } from '@tanstack/react-query';
-import { Processo } from '@/types/processo';
+import { Processo, type AndamentoInput } from '@/types/processo';
+import type { TablesUpdate } from '@/integrations/supabase/rows';
 import { usePermissions } from '@/hooks/usePermissions';
 import { getErrorMessage, assertRowsAffected } from '@/lib/errors';
 
@@ -17,8 +18,11 @@ export interface Movimentacao {
   metadata?: Record<string, unknown>;
 }
 
-// A confirmação vem da API externa (fetch-processo) — shape dinâmico, mantido flexível.
-interface AndamentoConfirmState { all: any[]; novos: any[]; meta: any; processoId: string; }
+// O que este hook lê da resposta da edge function fetch-processo.
+interface FetchProcessoResposta { error?: string; titulo?: string; autor?: string; reu?: string; andamentos?: AndamentoInput[] }
+
+// A confirmação vem da API externa (fetch-processo); `meta` é a resposta inteira.
+interface AndamentoConfirmState { all: AndamentoInput[]; novos: AndamentoInput[]; meta: FetchProcessoResposta; processoId: string; }
 
 /**
  * Movimentações/andamentos de um processo: busca, exclusão, sincronização com a
@@ -80,27 +84,28 @@ export function useProcessoMovimentacoes(processo: Processo | null, open: boolea
     setSyncing(true);
     try {
       const { data, error } = await supabase.functions.invoke('fetch-processo', {
-        body: { numeroProcesso: processo.numeroProcesso, oab: (profile as any)?.oab, uf: (profile as any)?.oab_uf },
+        body: { numeroProcesso: processo.numeroProcesso, oab: profile?.oab, uf: profile?.oab_uf },
       });
-      if (error || !data || data.error) {
+      const resposta = data as FetchProcessoResposta | null;
+      if (error || !resposta || resposta.error) {
         toast({ title: 'Sem dados disponíveis', description: 'Não foi possível buscar andamentos no momento.', variant: 'destructive' });
         return;
       }
-      const andamentos = Array.isArray(data.andamentos) ? data.andamentos : [];
+      const andamentos: AndamentoInput[] = Array.isArray(resposta.andamentos) ? resposta.andamentos : [];
       // Detecta apenas os andamentos NOVOS (não pede pra adicionar o que já existe).
       // Busca os existentes direto do banco DESTE processo (não do estado, que é limpo ao trocar).
-      const keyOf = (dt: any, tx: any) => `${String(dt || '').slice(0, 10)}|${String(tx || '').toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 60)}`;
+      const keyOf = (dt: string | null | undefined, tx: string | null | undefined) => `${String(dt || '').slice(0, 10)}|${String(tx || '').toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 60)}`;
       const { data: existingRows } = await supabase
         .from('movimentacoes_processo')
         .select('data_movimentacao, descricao')
         .eq('processo_id', processo.id);
-      const existing = new Set((existingRows || []).map((m: any) => keyOf(m.data_movimentacao, m.descricao)));
-      const novos = andamentos.filter((a: any) => !existing.has(keyOf(a.data, a.descricao || a.resumo)));
+      const existing = new Set((existingRows || []).map((m) => keyOf(m.data_movimentacao, m.descricao)));
+      const novos = andamentos.filter((a) => !existing.has(keyOf(a.data, a.descricao || a.resumo)));
       if (novos.length === 0) {
         toast({ title: 'Já atualizado', description: 'Nenhum andamento novo encontrado.' });
       } else {
         // Não salva automático: abre confirmação com os novos andamentos (amarrada ao processo atual)
-        setAndamentoConfirm({ all: andamentos, novos, meta: data, processoId: processo.id });
+        setAndamentoConfirm({ all: andamentos, novos, meta: resposta, processoId: processo.id });
       }
       await fetchMovements();
     } catch (err) {
@@ -119,7 +124,7 @@ export function useProcessoMovimentacoes(processo: Processo | null, open: boolea
     try {
       const data = andamentoConfirm.meta;
       const inseridos = await persistAndamentos(processo.id, user?.office_id ?? undefined, andamentoConfirm.all, 'datajud');
-      const updatePayload: any = { sincronizado_em: new Date().toISOString() };
+      const updatePayload: TablesUpdate<'processos'> = { sincronizado_em: new Date().toISOString() };
       if (data.titulo && data.titulo !== 'Processo' && (!processo.titulo || processo.titulo.includes('(Auto)'))) updatePayload.titulo = data.titulo;
       if (data.autor && data.autor !== 'Não identificado' && !processo.parteAutora) updatePayload.parte_autora = data.autor;
       if (data.reu && data.reu !== 'Não identificado' && !processo.requerido) updatePayload.requerido = data.reu;

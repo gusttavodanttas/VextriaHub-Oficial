@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/usePermissions";
 import { assertRowsAffected, getErrorMessage } from "@/lib/errors";
 import { concluirTarefaDb, gerarProximaOcorrenciaTarefa } from "@/lib/concluirItens";
+import type { Tables } from "@/integrations/supabase/rows";
 
 export type SheetView = "prazos" | "audiencias" | "processos" | "tarefas" | "clientes" | null;
 
@@ -60,9 +61,12 @@ function LoadingRows() {
 
 /* ─── Prazos ───────────────────────────────────────────── */
 
+type PrazoItem = { id: string; titulo: string; data_fim_prazo: string; prioridade: "alta" | "media" | "baixa" };
+type ProcessoItem = Pick<Tables<"processos">, "id" | "titulo" | "numero_processo" | "status" | "tipo_processo"> & { cliente: string | null; area: string | null };
+
 function PrazosView({ officeId }: { officeId: string }) {
   const navigate = useNavigate();
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<PrazoItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [reload, setReload] = useState(0);
@@ -86,8 +90,8 @@ function PrazosView({ officeId }: { officeId: string }) {
       if (qErr) { setLoadError(true); setLoading(false); return; }
       setLoadError(false);
       setItems((data || [])
-        .filter((p: any) => !p.deletado && p.status !== "concluido" && p.data_fim_prazo)
-        .map((p: any) => {
+        .filter((p): p is typeof p & { data_fim_prazo: string } => !p.deletado && p.status !== "concluido" && !!p.data_fim_prazo)
+        .map((p): PrazoItem => {
         const diff = Math.ceil((new Date(p.data_fim_prazo).getTime() - new Date().setHours(0,0,0,0)) / 86400000);
         return {
           id: p.id,
@@ -157,7 +161,7 @@ function PrazosView({ officeId }: { officeId: string }) {
 
 function AudienciasView({ officeId }: { officeId: string }) {
   const navigate = useNavigate();
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<Pick<Tables<"audiencias">, "id" | "titulo" | "data_audiencia" | "local" | "processo_id">[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [reload, setReload] = useState(0);
@@ -232,7 +236,7 @@ function AudienciasView({ officeId }: { officeId: string }) {
 
 function ProcessosView({ officeId }: { officeId: string }) {
   const navigate = useNavigate();
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<ProcessoItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [reload, setReload] = useState(0);
@@ -252,7 +256,7 @@ function ProcessosView({ officeId }: { officeId: string }) {
       // Antes a falha caía no estado vazio ("Nenhum ...") — confundia com "tudo em dia".
       if (qErr) { setLoadError(true); setLoading(false); return; }
       setLoadError(false);
-      setItems((data || []).map((p: any) => ({
+      setItems((data || []).map((p) => ({
         ...p,
         cliente: p.clientes?.nome || null,
         area: p.tipo_processo || null,
@@ -303,7 +307,7 @@ function TarefasView({ officeId }: { officeId: string }) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const { canManageTarefas } = usePermissions();
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<Tables<"tarefas">[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [reload, setReload] = useState(0);
@@ -323,7 +327,7 @@ function TarefasView({ officeId }: { officeId: string }) {
       // Antes a falha caía no estado vazio ("Nenhum ...") — confundia com "tudo em dia".
       if (qErr) { setLoadError(true); setLoading(false); return; }
       setLoadError(false);
-      setItems((data || []) as any[]);
+      setItems(data || []);
       setLoading(false);
     };
     fetch();
@@ -365,7 +369,7 @@ function TarefasView({ officeId }: { officeId: string }) {
   return (
     <div className="space-y-2">
       {items.map((t) => {
-        const pc = prioColor[t.prioridade] || prioColor.media;
+        const pc = prioColor[t.prioridade ?? "media"] || prioColor.media;
         return (
           <div key={t.id}
             onClick={() => navigate(`/tarefas?openId=${t.id}`)}
@@ -406,7 +410,7 @@ function TarefasView({ officeId }: { officeId: string }) {
 
 function ClientesView({ officeId }: { officeId: string }) {
   const navigate = useNavigate();
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<Pick<Tables<"clientes">, "id" | "nome" | "email" | "telefone" | "tipo_pessoa" | "status">[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [reload, setReload] = useState(0);
