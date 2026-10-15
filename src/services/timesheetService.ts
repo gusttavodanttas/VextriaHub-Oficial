@@ -5,6 +5,8 @@ import { assertRowsAffected } from '@/lib/errors';
 export type Timesheet = Tables<'timesheets'> & {
   valor_hora?: number | null;
   faturavel?: boolean | null;
+  /** Join `clientes(nome)` dos selects abaixo. */
+  clientes?: { nome: string | null } | null;
 };
 
 interface FetchOpts { userId: string; officeId?: string | null; days?: number; scope?: 'me' | 'office'; }

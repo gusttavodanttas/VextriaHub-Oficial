@@ -4,11 +4,13 @@ import { fmtDataBR } from '@/lib/dates';
 import { getErrorMessage } from '@/lib/errors';
 import { TimesheetCategoria } from '@/types/timesheet';
 import type { TimesheetConfig } from '@/hooks/useTimesheetConfig';
+import type { Timesheet } from '@/services/timesheetService';
+import type { useTimesheet } from '@/hooks/useTimesheet';
 import { REFERENCIA_CONFIG, CATEGORIA_TO_REF, type ReferenciaTipo, type ReferenciaItem } from '@/components/Timesheet/shared';
 
 interface TimerDeps {
-  activeTimer: any;
-  startTimer: (...args: any[]) => Promise<any>;
+  activeTimer: Timesheet | null;
+  startTimer: ReturnType<typeof useTimesheet>['startTimer'];
   config: TimesheetConfig;
   user: { id: string } | null;
   navigate: (path: string) => void;
