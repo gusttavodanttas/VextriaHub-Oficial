@@ -1,4 +1,7 @@
 import { useState, useEffect } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import type { Tables, TablesUpdate } from '@/integrations/supabase/rows';
+import type { Correspondente, Diligencia } from '@/hooks/useCorrespondentes';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -52,10 +55,10 @@ interface LixeiraItem {
   office_id?: string;
   office_name?: string;
   user_id?: string;
-  dados: any;
+  dados: object;
 }
 
-const TABELA_CONFIG: Record<string, { label: string; icon: any; color: string }> = {
+const TABELA_CONFIG: Record<string, { label: string; icon: LucideIcon; color: string }> = {
   processos: { label: 'Processo', icon: FileText, color: 'text-blue-600 bg-blue-500/10 border-blue-500/20' },
   publicacoes: { label: 'Publicação', icon: Megaphone, color: 'text-violet-600 bg-violet-500/10 border-violet-500/20' },
   prazos: { label: 'Prazo', icon: CalendarClock, color: 'text-amber-600 bg-amber-500/10 border-amber-500/20' },
@@ -212,7 +215,7 @@ export default function Lixeira() {
         id: c.id, tabela: 'clientes',
         titulo: c.nome,
         descricao: c.email || c.telefone || '',
-        excluido_em: c.updated_at, office_id: c.office_id, office_name: officeMap[c.office_id] || '—', user_id: (c as any).user_id, dados: c,
+        excluido_em: c.updated_at, office_id: c.office_id, office_name: officeMap[c.office_id] || '—', user_id: c.user_id, dados: c,
       }));
 
       const { data: metasRows, error: metasRowsErr } = await applyTenantFilter(supabase.from('metas').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(limiteDe('metas'));
@@ -236,11 +239,11 @@ export default function Lixeira() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tabela dinâmica: o genérico estoura o limite de instanciação do Supabase só aqui
       const { data: desc, error: descErr } = await applyTenantFilter<any>(supabase.from('processos_descartados').select('*')).order('created_at', { ascending: false }).limit(limiteDe('processos_descartados'));
       anotarFalha('processos_descartados', descErr);
-      (desc || []).forEach((d: any) => results.push({
+      (desc || []).forEach((d: Tables<'processos_descartados'>) => results.push({
         id: d.id, tabela: 'processos_descartados',
-        titulo: d.titulo || formatCNJ(d.numero_processo),
-        descricao: `CNJ: ${formatCNJ(d.numero_processo)} · ${d.tribunal || ''}`,
-        excluido_em: d.created_at, office_id: d.office_id, office_name: officeMap[d.office_id] || '—', user_id: d.user_id, dados: d,
+        titulo: d.titulo || formatCNJ(d.numero_processo ?? ''),
+        descricao: `CNJ: ${formatCNJ(d.numero_processo ?? '')} · ${d.tribunal || ''}`,
+        excluido_em: d.created_at ?? '', office_id: d.office_id, office_name: officeMap[d.office_id] || '—', user_id: d.user_id, dados: d,
       }));
 
       // correspondentes/diligencias ainda não estão nos tipos gerados do Supabase
@@ -248,21 +251,21 @@ export default function Lixeira() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: corrs, error: corrsErr } = await applyTenantFilter<any>((supabase as any).from('correspondentes').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(limiteDe('correspondentes'));
       anotarFalha('correspondentes', corrsErr);
-      (corrs || []).forEach((c: any) => results.push({
+      (corrs || []).forEach((c: Correspondente) => results.push({
         id: c.id, tabela: 'correspondentes',
         titulo: c.nome,
         descricao: c.oab ? `OAB ${c.oab}${c.uf ? '/' + c.uf : ''}` : (c.email || c.telefone || ''),
-        excluido_em: c.updated_at, office_id: c.office_id, office_name: officeMap[c.office_id] || '—', user_id: c.user_id, dados: c,
+        excluido_em: c.updated_at, office_id: c.office_id, office_name: officeMap[c.office_id] || '—', user_id: c.user_id ?? undefined, dados: c,
       }));
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: dils, error: dilsErr } = await applyTenantFilter<any>((supabase as any).from('diligencias').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(limiteDe('diligencias'));
       anotarFalha('diligencias', dilsErr);
-      (dils || []).forEach((d: any) => results.push({
+      (dils || []).forEach((d: Diligencia) => results.push({
         id: d.id, tabela: 'diligencias',
         titulo: d.descricao || `Diligência (${d.tipo || 'outro'})`,
         descricao: `${d.comarca || ''}${d.uf ? '/' + d.uf : ''} · R$ ${Number(d.valor || 0).toFixed(2)}`.trim(),
-        excluido_em: d.updated_at, office_id: d.office_id, office_name: officeMap[d.office_id] || '—', user_id: d.user_id, dados: d,
+        excluido_em: d.updated_at, office_id: d.office_id, office_name: officeMap[d.office_id] || '—', user_id: d.user_id ?? undefined, dados: d,
       }));
 
       results.sort((a, b) => new Date(b.excluido_em).getTime() - new Date(a.excluido_em).getTime());
@@ -313,12 +316,13 @@ export default function Lixeira() {
         if (!TABELAS_PERMITIDAS.has(item.tabela)) throw new Error('Tabela não permitida');
         // prazos/correspondentes/diligencias não têm a coluna deletado_pendente —
         // enviar o campo faz o restore inteiro falhar (item fica preso na lixeira).
-        const restorePatch: Record<string, unknown> = { deletado: false };
+        // O builder é tipado como 'processos' (fromTabela); o patch só usa colunas comuns.
+        const restorePatch: TablesUpdate<'processos'> = { deletado: false };
         if (!['prazos', 'correspondentes', 'diligencias'].includes(item.tabela)) restorePatch.deletado_pendente = false;
         // item.tabela é dinâmico (guardado só em runtime por TABELAS_PERMITIDAS) --
         // não dá pra tipar estaticamente o shape exato do update pra uma tabela
         // que só se conhece em tempo de execução.
-        ({ data, error } = await tenantGuard(fromTabela(item.tabela).update(restorePatch as any).eq('id', item.id), item).select('id'));
+        ({ data, error } = await tenantGuard(fromTabela(item.tabela).update(restorePatch).eq('id', item.id), item).select('id'));
       }
       assertRowsAffected(data, error, 1);
       toast({ title: 'Restaurado', description: `${TABELA_CONFIG[item.tabela]?.label || item.tabela} restaurado com sucesso.` });

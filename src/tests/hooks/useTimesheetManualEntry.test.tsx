@@ -70,7 +70,7 @@ describe('useTimesheetManualEntry', () => {
   it('fim antes do início = turno que vira a meia-noite (dia seguinte); campos vazios não salvam', async () => {
     const update: Fn = vi.fn(async () => true);
     const { result } = montar(update);
-    act(() => { result.current.openEdit({ id: 't1', data_inicio: new Date(2026, 9, 9, 23, 0).toISOString(), data_fim: new Date(2026, 9, 10, 0, 0).toISOString() }); });
+    act(() => { result.current.openEdit({ id: 't1', data_inicio: new Date(2026, 9, 9, 23, 0).toISOString(), data_fim: new Date(2026, 9, 10, 0, 0).toISOString(), duracao_minutos: 60, tarefa_descricao: '', categoria: 'outro', cliente_id: null, faturavel: true, valor_hora: null, observacoes: null }); });
     act(() => { result.current.setMDesc('Plantão'); result.current.setMCat('outro' as never); result.current.setMInicio('23:00'); result.current.setMFim('01:00'); result.current.setMValor('100'); });
     await act(async () => { await result.current.saveManual(); });
     expect(update).toHaveBeenCalledTimes(1);

@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { TablesInsert } from "@/integrations/supabase/rows";
 import { useAuth } from "@/contexts/AuthContext";
 import { format, startOfDay } from "date-fns";
 import { diasAte, proxLabel, marcosDe, deveAvisar, dataFatalPrazo } from "@/lib/proximityAlert";
@@ -33,7 +34,7 @@ export function useProximityNotifications() {
       const startDate = format(start, "yyyy-MM-dd");
       const endDate = format(end, "yyyy-MM-dd");
 
-      const candidatos: any[] = [];
+      const candidatos: TablesInsert<"notifications">[] = [];
 
       if (prefs.audiencias) {
         const { data } = await supabase.from("audiencias")
@@ -41,7 +42,7 @@ export function useProximityNotifications() {
           .eq("office_id", officeId).eq("deletado", false)
           .not("status", "in", "(realizada,cancelada)")
           .gte("data_audiencia", start.toISOString()).lte("data_audiencia", end.toISOString());
-        (data || []).forEach((a: any) => {
+        (data || []).forEach((a) => {
           const d = diasAte(a.data_audiencia);
           marcosDe(a, padrao).forEach((D) => {
             if (d < 0 || d > D) return;
@@ -62,7 +63,7 @@ export function useProximityNotifications() {
         const { data } = await supabase.from("prazos")
           .select("*, publicacoes(titulo)")
           .eq("office_id", officeId).neq("status", "concluido");
-        (data || []).forEach((p: any) => {
+        (data || []).forEach((p) => {
           if (p.deletado) return; // prazo na lixeira não gera aviso no sino (v11)
           if (p.titular === "contraria") return; // prazo da parte contrária: só monitoramento
           const fatal = dataFatalPrazo(p);
@@ -86,14 +87,16 @@ export function useProximityNotifications() {
           .select("*")
           .eq("office_id", officeId).eq("deletado", false).eq("concluida", false)
           .gte("data_vencimento", startDate).lte("data_vencimento", endDate);
-        (data || []).forEach((t: any) => {
-          const d = diasAte(t.data_vencimento);
+        (data || []).forEach((t) => {
+          if (!t.data_vencimento) return;
+          const venc = t.data_vencimento;
+          const d = diasAte(venc);
           marcosDe(t, padrao).forEach((D) => {
             if (d < 0 || d > D) return;
             candidatos.push({
               user_id: user.id, type: "info",
-              title: `Tarefa ${proxLabel(t.data_vencimento)}`,
-              message: `${t.titulo} — vence ${proxLabel(t.data_vencimento)}`,
+              title: `Tarefa ${proxLabel(venc)}`,
+              message: `${t.titulo} — vence ${proxLabel(venc)}`,
               data: { action_url: `/tarefas?openId=${t.id}&d=${D}`, action_label: "Ver tarefa" }, read: false,
             });
           });
@@ -106,7 +109,7 @@ export function useProximityNotifications() {
           .eq("office_id", officeId).eq("deletado", false)
           .in("status", ["agendado", "pendente"])
           .gte("data_atendimento", start.toISOString()).lte("data_atendimento", end.toISOString());
-        (data || []).forEach((a: any) => {
+        (data || []).forEach((a) => {
           const d = diasAte(a.data_atendimento);
           marcosDe(a, padrao).forEach((D) => {
             if (d < 0 || d > D) return;
@@ -128,9 +131,10 @@ export function useProximityNotifications() {
           .eq("office_id", officeId).eq("deletado", false)
           .in("status", ["pendente", "vencido"])
           .gte("data_vencimento", startDate).lte("data_vencimento", endDate);
-        (data || []).forEach((f: any) => {
+        (data || []).forEach((f) => {
           const d = diasAte(f.data_vencimento);
-          marcosDe(f, padrao).forEach((D) => {
+          // financeiro não tem aviso_dias por lançamento — vale o padrão global do usuário.
+          marcosDe({}, padrao).forEach((D) => {
             if (d < 0 || d > D) return;
             const kind = f.tipo === "receita" ? "Recebimento" : "Conta a pagar";
             candidatos.push({
@@ -146,8 +150,9 @@ export function useProximityNotifications() {
       if (candidatos.length === 0) return;
 
       const { data: existentes } = await supabase.from("notifications").select("data").eq("user_id", user.id);
-      const jaTem = new Set((existentes || []).map((n: any) => n.data?.action_url));
-      const novos = candidatos.filter((c) => !jaTem.has(c.data?.action_url));
+      const urlDe = (data: unknown) => (data as { action_url?: string } | null)?.action_url;
+      const jaTem = new Set((existentes || []).map((n) => urlDe(n.data)));
+      const novos = candidatos.filter((c) => !jaTem.has(urlDe(c.data)));
       if (novos.length > 0) await supabase.from("notifications").insert(novos);
     };
 

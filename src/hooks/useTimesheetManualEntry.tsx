@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { TimesheetCategoria } from '@/types/timesheet';
+import { TimesheetCategoria, type AtualizarTimesheet } from '@/types/timesheet';
 import type { TimesheetConfig } from '@/hooks/useTimesheetConfig';
+import type { ManualEntry } from '@/hooks/useTimesheet';
+import type { Timesheet } from '@/services/timesheetService';
 
 interface ManualEntryDeps {
   config: TimesheetConfig;
-  update: (id: string, payload: any) => Promise<any>;
-  addManual: (payload: any) => Promise<any>;
+  update: (id: string, payload: AtualizarTimesheet) => Promise<boolean>;
+  addManual: (payload: ManualEntry) => Promise<boolean>;
 }
 
 // Data em fuso LOCAL — evita o bug do +1 dia que `toISOString()` (UTC) causava em
@@ -19,7 +21,9 @@ const toLocalYmd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).p
  */
 export function useTimesheetManualEntry({ config, update, addManual }: ManualEntryDeps) {
   const [manualOpen, setManualOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<any | null>(null);
+  // Só o que a edição lê do lançamento (Pick): o resto do registro não entra no formulário.
+  type Editavel = Pick<Timesheet, 'id' | 'data_inicio' | 'data_fim' | 'duracao_minutos' | 'tarefa_descricao' | 'categoria' | 'cliente_id' | 'faturavel' | 'valor_hora' | 'observacoes'>;
+  const [editTarget, setEditTarget] = useState<Editavel | null>(null);
   const [mDesc, setMDesc] = useState("");
   const [mCat, setMCat] = useState<TimesheetCategoria | "">("");
   const [mCli, setMCli] = useState("");
@@ -41,7 +45,7 @@ export function useTimesheetManualEntry({ config, update, addManual }: ManualEnt
     setManualOpen(true);
   };
 
-  const openEdit = (t: any) => {
+  const openEdit = (t: Editavel) => {
     setEditTarget(t);
     const ini = new Date(t.data_inicio);
     const fim = t.data_fim ? new Date(t.data_fim) : new Date(ini.getTime() + (t.duracao_minutos || 0) * 60000);
@@ -71,7 +75,7 @@ export function useTimesheetManualEntry({ config, update, addManual }: ManualEnt
     const dur = Math.round((fimDate.getTime() - inicioDate.getTime()) / 60000);
     if (dur <= 0) return;
     setMSaving(true);
-    const billingFields: any = { faturavel: mFat };
+    const billingFields: Pick<AtualizarTimesheet, 'faturavel' | 'valor_hora'> = { faturavel: mFat };
     if (mValor) billingFields.valor_hora = Number(mValor);
     const ok = editTarget
       ? await update(editTarget.id, {

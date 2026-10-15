@@ -8,15 +8,13 @@ class ResizeObserverStub {
   unobserve() {}
   disconnect() {}
 }
-(globalThis as any).ResizeObserver = (globalThis as any).ResizeObserver ?? ResizeObserverStub;
+globalThis.ResizeObserver = globalThis.ResizeObserver ?? (ResizeObserverStub as unknown as typeof ResizeObserver);
 
 if (typeof window !== 'undefined') {
   window.HTMLElement.prototype.scrollIntoView =
     window.HTMLElement.prototype.scrollIntoView ?? (() => {});
-  (window.HTMLElement.prototype as any).hasPointerCapture =
-    (window.HTMLElement.prototype as any).hasPointerCapture ?? (() => false);
-  (window.HTMLElement.prototype as any).releasePointerCapture =
-    (window.HTMLElement.prototype as any).releasePointerCapture ?? (() => {});
-  (window.HTMLElement.prototype as any).setPointerCapture =
-    (window.HTMLElement.prototype as any).setPointerCapture ?? (() => {});
+  const proto = window.HTMLElement.prototype;
+  proto.hasPointerCapture = proto.hasPointerCapture ?? (() => false);
+  proto.releasePointerCapture = proto.releasePointerCapture ?? (() => {});
+  proto.setPointerCapture = proto.setPointerCapture ?? (() => {});
 }
