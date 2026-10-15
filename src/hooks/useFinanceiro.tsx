@@ -11,6 +11,7 @@ import {
   type FinanceiroItem, type PrioridadeGrupo,
 } from "@/components/Financeiro/shared";
 import { assertRowsAffected, getErrorMessage } from "@/lib/errors";
+import { patchOfficeSettings } from "@/lib/officeSettings";
 import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/rows";
 
 // ─── Hook financeiro ─────────────────────────────────────────────────────────
@@ -99,11 +100,14 @@ const useFinanceiro = (officeId: string | null | undefined) => {
       // Conta ANTES de atualizar: 0 linhas afetadas é legítimo quando o grupo já não
       // tem lançamento futuro pendente — só é bloqueio de permissão quando o filtro
       // casava alguma coisa e a RLS impediu o UPDATE de tocar nela.
-      const { count } = await supabase.from("financeiro")
+      const { count, error: countError } = await supabase.from("financeiro")
         .select("id", { count: "exact", head: true })
         .eq("grupo_id", grupoId)
         .eq("status", "pendente")
         .gte("data_vencimento", hoje);
+      // Sem isto, uma contagem falha virava `count ?? 0` e o assertRowsAffected abaixo
+      // passava a aceitar 0 linhas — um UPDATE 100% bloqueado dizia "cancelados".
+      if (countError) throw countError;
       const { data, error } = await supabase.from("financeiro")
         .update({ deletado: true })
         .eq("grupo_id", grupoId)
@@ -150,13 +154,10 @@ const useFinanceiroCategorias = (officeId: string) => {
       toast({ title: "Não foi possível salvar", description: "As categorias não carregaram — recarregue antes de editar.", variant: "destructive" });
       return false;
     }
-    const { data: cur } = await supabase.from("offices").select("settings").eq("id", officeId).maybeSingle();
-    const merged = { ...(cur?.settings as any ?? {}), fin_categorias_receita: receita, fin_categorias_despesa: despesa };
-    const { data: updated, error } = await supabase.from("offices").update({ settings: merged }).eq("id", officeId).select("id");
     try {
-      assertRowsAffected(updated, error, 1);
+      await patchOfficeSettings(officeId, { fin_categorias_receita: receita, fin_categorias_despesa: despesa });
     } catch (e) {
-      toast({ title: "Erro ao salvar", description: e instanceof Error ? e.message : "Não foi possível salvar.", variant: "destructive" });
+      toast({ title: "Erro ao salvar", description: getErrorMessage(e, "Não foi possível salvar."), variant: "destructive" });
       return false;
     }
     queryClient.invalidateQueries({ queryKey: ["office-settings", officeId] });
@@ -202,13 +203,10 @@ const useFinanceiroGruposPrioridade = (officeId: string) => {
       toast({ title: "Não foi possível salvar", description: "Os grupos de prioridade não carregaram — recarregue antes de editar.", variant: "destructive" });
       return false;
     }
-    const { data: cur } = await supabase.from("offices").select("settings").eq("id", officeId).maybeSingle();
-    const merged = { ...(cur?.settings as any ?? {}), fin_grupos_prioridade: grupos };
-    const { data: updated, error } = await supabase.from("offices").update({ settings: merged }).eq("id", officeId).select("id");
     try {
-      assertRowsAffected(updated, error, 1);
+      await patchOfficeSettings(officeId, { fin_grupos_prioridade: grupos });
     } catch (e) {
-      toast({ title: "Erro ao salvar", description: e instanceof Error ? e.message : "Não foi possível salvar.", variant: "destructive" });
+      toast({ title: "Erro ao salvar", description: getErrorMessage(e, "Não foi possível salvar."), variant: "destructive" });
       return false;
     }
     queryClient.invalidateQueries({ queryKey: ["office-settings-prioridade", officeId] });

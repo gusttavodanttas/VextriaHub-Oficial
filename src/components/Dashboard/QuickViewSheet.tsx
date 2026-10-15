@@ -14,6 +14,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { usePermissions } from "@/hooks/usePermissions";
+import { assertRowsAffected, getErrorMessage } from "@/lib/errors";
+import { concluirTarefaDb, gerarProximaOcorrenciaTarefa } from "@/lib/concluirItens";
 
 export type SheetView = "prazos" | "audiencias" | "processos" | "tarefas" | "clientes" | null;
 
@@ -29,6 +34,16 @@ function EmptyItem({ label }: { label: string }) {
     <div className="flex flex-col items-center justify-center py-12 text-center gap-2">
       <CheckCircle2 className="h-8 w-8 text-emerald-500/40" />
       <p className="text-sm text-muted-foreground font-semibold">{label}</p>
+    </div>
+  );
+}
+
+function ErrorItem({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-12 text-center gap-2">
+      <AlertCircle className="h-8 w-8 text-destructive/50" />
+      <p className="text-sm font-semibold text-destructive">Não foi possível carregar.</p>
+      <Button variant="outline" size="sm" className="rounded-xl" onClick={onRetry}>Tentar novamente</Button>
     </div>
   );
 }
@@ -49,6 +64,8 @@ function PrazosView({ officeId }: { officeId: string }) {
   const navigate = useNavigate();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     const fetch = async () => {
@@ -56,7 +73,7 @@ function PrazosView({ officeId }: { officeId: string }) {
       // fatal até hoje+3, INCLUINDO os vencidos. Antes o .gte(hoje) escondia os
       // atrasados — o card contava 3 e o vencido sumia da lista ao clicar. (v12)
       const horizonte = new Date(Date.now() + 3 * 86400000).toISOString().split("T")[0];
-      const { data } = await supabase
+      const { data, error: qErr } = await supabase
         .from("prazos")
         .select("id, titulo, tipo_prazo, numero_processo, data_fim_prazo, status, deletado, publicacoes(titulo)")
         .eq("office_id", officeId)
@@ -65,6 +82,9 @@ function PrazosView({ officeId }: { officeId: string }) {
         .lte("data_fim_prazo", horizonte)
         .order("data_fim_prazo", { ascending: true })
         .limit(20);
+      // Antes a falha caía no estado vazio ("Nenhum ...") — confundia com "tudo em dia".
+      if (qErr) { setLoadError(true); setLoading(false); return; }
+      setLoadError(false);
       setItems((data || [])
         .filter((p: any) => !p.deletado && p.status !== "concluido" && p.data_fim_prazo)
         .map((p: any) => {
@@ -80,7 +100,7 @@ function PrazosView({ officeId }: { officeId: string }) {
       setLoading(false);
     };
     fetch();
-  }, [officeId]);
+  }, [officeId, reload]);
 
   const prioColor: Record<string, string> = {
     alta: "text-rose-500 bg-rose-500/10",
@@ -97,6 +117,7 @@ function PrazosView({ officeId }: { officeId: string }) {
   };
 
   if (loading) return <LoadingRows />;
+  if (loadError) return <ErrorItem onRetry={() => { setLoading(true); setReload((r) => r + 1); }} />;
   if (!items.length) return <EmptyItem label="Nenhum prazo vencido ou vencendo" />;
 
   return (
@@ -138,24 +159,34 @@ function AudienciasView({ officeId }: { officeId: string }) {
   const navigate = useNavigate();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     const fetch = async () => {
-      const { data } = await supabase
+      const { data, error: qErr } = await supabase
         .from("audiencias")
         .select("id, titulo, data_audiencia, local, processo_id")
         .eq("office_id", officeId)
         .eq("deletado", false)
+        // Mesmo recorte do KPI "Audiências" (useStats): próximos 7 dias, sem canceladas/
+        // realizadas — antes o card dizia 2 e a lista abria com todas as futuras.
+        .not("status", "in", "(cancelada,realizada)")
         .gte("data_audiencia", new Date().toISOString())
+        .lte("data_audiencia", new Date(Date.now() + 7 * 86400000).toISOString())
         .order("data_audiencia", { ascending: true })
         .limit(20);
+      // Antes a falha caía no estado vazio ("Nenhum ...") — confundia com "tudo em dia".
+      if (qErr) { setLoadError(true); setLoading(false); return; }
+      setLoadError(false);
       setItems(data || []);
       setLoading(false);
     };
     fetch();
-  }, [officeId]);
+  }, [officeId, reload]);
 
   if (loading) return <LoadingRows />;
+  if (loadError) return <ErrorItem onRetry={() => { setLoading(true); setReload((r) => r + 1); }} />;
   if (!items.length) return <EmptyItem label="Nenhuma audiência agendada" />;
 
   return (
@@ -203,17 +234,24 @@ function ProcessosView({ officeId }: { officeId: string }) {
   const navigate = useNavigate();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     const fetch = async () => {
-      const { data } = await supabase
+      const { data, error: qErr } = await supabase
         .from("processos")
         .select("id, titulo, numero_processo, status, tipo_processo, clientes!cliente_id(nome)")
         .eq("office_id", officeId)
         .eq("deletado", false)
-        .neq("status", "encerrado")
+        // Mesmo critério do KPI "Processos ativos" (useStats: status 'ativo') — antes a
+        // lista incluía suspensos e o número do card não batia com o que abria.
+        .eq("status", "ativo")
         .order("created_at", { ascending: false })
         .limit(20);
+      // Antes a falha caía no estado vazio ("Nenhum ...") — confundia com "tudo em dia".
+      if (qErr) { setLoadError(true); setLoading(false); return; }
+      setLoadError(false);
       setItems((data || []).map((p: any) => ({
         ...p,
         cliente: p.clientes?.nome || null,
@@ -222,9 +260,10 @@ function ProcessosView({ officeId }: { officeId: string }) {
       setLoading(false);
     };
     fetch();
-  }, [officeId]);
+  }, [officeId, reload]);
 
   if (loading) return <LoadingRows />;
+  if (loadError) return <ErrorItem onRetry={() => { setLoading(true); setReload((r) => r + 1); }} />;
   if (!items.length) return <EmptyItem label="Nenhum processo em andamento" />;
 
   return (
@@ -260,31 +299,57 @@ function ProcessosView({ officeId }: { officeId: string }) {
 
 function TarefasView({ officeId }: { officeId: string }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const { canManageTarefas } = usePermissions();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reload, setReload] = useState(0);
   const [concluindo, setConcluindo] = useState<string | null>(null);
 
   useEffect(() => {
     const fetch = async () => {
-      const { data } = await supabase
+      const { data, error: qErr } = await supabase
         .from("tarefas")
-        .select("id, titulo, prioridade, data_vencimento, concluida")
+        // * : os campos de recorrência são necessários para gerar a próxima ocorrência.
+        .select("*")
         .eq("office_id", officeId)
         .eq("deletado", false)
         .eq("concluida", false)
         .order("data_vencimento", { ascending: true, nullsFirst: false })
         .limit(20);
+      // Antes a falha caía no estado vazio ("Nenhum ...") — confundia com "tudo em dia".
+      if (qErr) { setLoadError(true); setLoading(false); return; }
+      setLoadError(false);
       setItems((data || []) as any[]);
       setLoading(false);
     };
     fetch();
-  }, [officeId]);
+  }, [officeId, reload]);
 
+  // Mesma lógica compartilhada de "concluir" (status/auditoria/recorrência) e
+  // conferência de linhas: antes só `concluida: true`, sem checar nada — a tarefa
+  // sumia da lista mesmo quando a RLS barrava, e a série recorrente morria.
   const concluir = async (id: string) => {
+    if (!canManageTarefas) return;
     setConcluindo(id);
-    await supabase.from("tarefas").update({ concluida: true }).eq("id", id);
-    setItems(prev => prev.filter(t => t.id !== id));
-    setConcluindo(null);
+    try {
+      const { data, error } = await concluirTarefaDb(id, user?.id);
+      assertRowsAffected(data, error, 1);
+      const t = items.find(x => x.id === id);
+      // Antes a próxima ocorrência de uma tarefa recorrente nem era gerada aqui.
+      if (t && user?.id) await gerarProximaOcorrenciaTarefa(t, officeId, user.id);
+      setItems(prev => prev.filter(t2 => t2.id !== id));
+      qc.invalidateQueries({ queryKey: ["tarefas"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-tarefas"] });
+    } catch (e) {
+      toast({ title: "Não foi possível concluir", description: getErrorMessage(e), variant: "destructive" });
+    } finally {
+      setConcluindo(null);
+    }
   };
 
   const prioColor: Record<string, string> = {
@@ -294,6 +359,7 @@ function TarefasView({ officeId }: { officeId: string }) {
   };
 
   if (loading) return <LoadingRows />;
+  if (loadError) return <ErrorItem onRetry={() => { setLoading(true); setReload((r) => r + 1); }} />;
   if (!items.length) return <EmptyItem label="Nenhuma tarefa pendente" />;
 
   return (
@@ -307,7 +373,7 @@ function TarefasView({ officeId }: { officeId: string }) {
           >
             <button
               onClick={(e) => { e.stopPropagation(); concluir(t.id); }}
-              disabled={concluindo === t.id}
+              disabled={concluindo === t.id || !canManageTarefas}
               className="shrink-0 h-5 w-5 rounded border border-muted-foreground/30 hover:border-emerald-500 hover:bg-emerald-500/10 transition-all flex items-center justify-center"
             >
               {concluindo === t.id && (
@@ -342,10 +408,12 @@ function ClientesView({ officeId }: { officeId: string }) {
   const navigate = useNavigate();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     const fetch = async () => {
-      const { data } = await supabase
+      const { data, error: qErr } = await supabase
         .from("clientes")
         .select("id, nome, email, telefone, tipo_pessoa, status")
         .eq("office_id", officeId)
@@ -354,13 +422,17 @@ function ClientesView({ officeId }: { officeId: string }) {
         .or("status.ilike.ativo,status.ilike.convertido")
         .order("nome", { ascending: true })
         .limit(20);
+      // Antes a falha caía no estado vazio ("Nenhum ...") — confundia com "tudo em dia".
+      if (qErr) { setLoadError(true); setLoading(false); return; }
+      setLoadError(false);
       setItems(data || []);
       setLoading(false);
     };
     fetch();
-  }, [officeId]);
+  }, [officeId, reload]);
 
   if (loading) return <LoadingRows />;
+  if (loadError) return <ErrorItem onRetry={() => { setLoading(true); setReload((r) => r + 1); }} />;
   if (!items.length) return <EmptyItem label="Nenhum cliente ativo encontrado" />;
 
   return (

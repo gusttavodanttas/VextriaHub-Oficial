@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { getErrorMessage } from '@/lib/errors';
+import { assertRowsAffected, getErrorMessage } from '@/lib/errors';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 // process_shares ainda não está no types.ts gerado (a regeneração depende da conta
@@ -117,8 +117,8 @@ export function useProcessoShareManager(processoId: string | undefined, enabled 
 
   const revokeMutation = useMutation({
     mutationFn: async (shareId: string) => {
-      const { error } = await sb.from('process_shares').delete().eq('id', shareId);
-      if (error) throw error;
+      const { data, error } = await sb.from('process_shares').delete().eq('id', shareId).select('id');
+      assertRowsAffected(data, error, 1);
       return shareId;
     },
     onSuccess: () => {

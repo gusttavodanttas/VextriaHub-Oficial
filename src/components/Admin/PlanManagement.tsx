@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Tag, Plus, Pencil, Loader2, Link2, Check, Power } from 'lucide-react';
 import { centsToBRL } from "@/lib/currency";
 
-interface Plan { id?: string; plan_type: string; plan_name: string; price_cents: number; cycle: string; trial_days: number | null; is_active: boolean; max_oabs: number; }
+interface Plan { id?: string; plan_type: string; plan_name: string; price_cents: number; cycle: string; trial_days: number | null; is_active: boolean; max_oabs: number; allow_notion?: boolean; }
 
 const CYCLES = [
   { v: 'MONTHLY', label: 'Mensal' },
@@ -22,12 +22,13 @@ const CYCLES = [
 ];
 const cycleLabel = (c: string) => CYCLES.find((x) => x.v === c)?.label || c;
 const brl = (cents: number) => centsToBRL(cents);
-const EMPTY: Plan = { plan_type: '', plan_name: '', price_cents: 0, cycle: 'MONTHLY', trial_days: 7, is_active: true, max_oabs: 1 };
+const EMPTY: Plan = { plan_type: '', plan_name: '', price_cents: 0, cycle: 'MONTHLY', trial_days: 7, is_active: true, max_oabs: 1, allow_notion: false };
 
 export function PlanManagement() {
   const { toast } = useToast();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Plan | null>(null);
   const [form, setForm] = useState<Plan>(EMPTY);
@@ -37,8 +38,10 @@ export function PlanManagement() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from('plan_configs').select('*').order('price_cents');
-    setPlans((data as Plan[]) || []);
+    const { data, error } = await supabase.from('plan_configs').select('*').order('price_cents');
+    // Antes: "Nenhum plano cadastrado" numa falha — convite a criar um plano duplicado.
+    setLoadError(error ? error.message : null);
+    setPlans(error ? [] : ((data as Plan[]) || []));
     setLoading(false);
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -57,14 +60,17 @@ export function PlanManagement() {
       plan_name: form.plan_name.trim(), price_cents: cents, cycle: form.cycle,
       trial_days: Number(form.trial_days) || 0, is_active: form.is_active,
       max_oabs: Math.max(0, Number(form.max_oabs) || 0),
+      allow_notion: !!form.allow_notion,
     };
+    // .select('id'): a edição bloqueada pela RLS casava 0 linhas sem erro → "Plano atualizado" falso.
     const res = editing?.id
-      ? await supabase.from('plan_configs').update(row).eq('id', editing.id)
-      : await supabase.from('plan_configs').insert(row);
+      ? await supabase.from('plan_configs').update(row).eq('id', editing.id).select('id')
+      : await supabase.from('plan_configs').insert(row).select('id');
     setSaving(false);
-    if (res.error) {
-      const dup = /duplicate|unique/i.test(res.error.message);
-      toast({ title: 'Erro ao salvar', description: dup ? 'Já existe um plano ATIVO com esse código. Use outro código ou desative o antigo.' : res.error.message, variant: 'destructive' });
+    if (res.error || !res.data?.length) {
+      const msg = res.error?.message ?? 'Sem permissão para alterar este plano.';
+      const dup = /duplicate|unique/i.test(msg);
+      toast({ title: 'Erro ao salvar', description: dup ? 'Já existe um plano ATIVO com esse código. Use outro código ou desative o antigo.' : msg, variant: 'destructive' });
       return;
     }
     toast({ title: editing ? 'Plano atualizado' : 'Plano criado' });
@@ -72,8 +78,8 @@ export function PlanManagement() {
   };
 
   const toggle = async (p: Plan) => {
-    const { error } = await supabase.from('plan_configs').update({ is_active: !p.is_active }).eq('id', p.id!);
-    if (error) toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+    const { data, error } = await supabase.from('plan_configs').update({ is_active: !p.is_active }).eq('id', p.id!).select('id');
+    if (error || !data?.length) toast({ title: 'Erro', description: error?.message ?? 'Sem permissão para alterar este plano.', variant: 'destructive' });
     else load();
   };
 
@@ -97,6 +103,7 @@ export function PlanManagement() {
       </CardHeader>
       <CardContent className="p-4 md:p-5 space-y-2.5">
         {loading ? <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-primary/40" /></div>
+          : loadError ? <div className="text-center py-10 space-y-2"><p className="text-sm font-bold text-destructive">Não foi possível carregar os planos: {loadError}</p><Button size="sm" variant="outline" onClick={load}>Tentar novamente</Button></div>
           : plans.length === 0 ? <p className="text-center py-10 text-sm text-muted-foreground">Nenhum plano cadastrado. Clique em "Novo plano".</p>
           : plans.map((p) => (
             <div key={p.id} className={`flex flex-wrap items-center gap-3 p-4 rounded-2xl border ${p.is_active ? 'border-black/5 dark:border-border bg-black/[0.01] dark:bg-white/[0.01]' : 'border-dashed border-black/10 dark:border-border opacity-60'}`}>
@@ -106,6 +113,7 @@ export function PlanManagement() {
                   <Badge variant="secondary" className="rounded-md text-[10px] font-black">{cycleLabel(p.cycle)}</Badge>
                   <span className="font-mono text-[10px] text-muted-foreground">{p.plan_type}</span>
                   {!p.is_active && <Badge variant="outline" className="text-[9px]">inativo</Badge>}
+                  {p.allow_notion && <Badge variant="outline" className="text-[9px]">Notion</Badge>}
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">{brl(p.price_cents)} · {p.trial_days ? `${p.trial_days} dias de trial` : 'sem trial'} · {p.max_oabs ?? 1} OAB{(p.max_oabs ?? 1) === 1 ? '' : 's'}</p>
               </div>
@@ -160,6 +168,13 @@ export function PlanManagement() {
             <div className="flex items-center justify-between rounded-xl border border-border p-3">
               <Label className="text-sm font-bold">Plano ativo (aparece no cadastro)</Label>
               <Switch checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} />
+            </div>
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-border p-3">
+              <div>
+                <Label className="text-sm font-bold">Inclui integração com o Notion</Label>
+                <p className="text-[11px] text-muted-foreground">Escritórios deste plano podem conectar o Notion. Exceções por escritório ficam em Escritórios → Notion.</p>
+              </div>
+              <Switch checked={!!form.allow_notion} onCheckedChange={(v) => setForm({ ...form, allow_notion: v })} />
             </div>
           </div>
           <DialogFooter>

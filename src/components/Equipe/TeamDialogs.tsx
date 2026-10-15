@@ -1,5 +1,6 @@
 // Dialogs de times (criar/editar e detalhe com membros) — extraídos de pages/Equipe.tsx.
 import { useState, useMemo, useEffect } from "react";
+import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
 import { useNavigate } from "react-router-dom";
 import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 import { useInvitations } from "@/hooks/useInvitations";
@@ -117,8 +118,10 @@ function TeamDetailDialog({ open, onOpenChange, team, allUsers }: {
   open: boolean; onOpenChange: (v: boolean) => void;
   team: OfficeTeam; allUsers: any[];
 }) {
-  const { members, loading, addMember, removeMember, setMemberRole } = useTeamMembers(open ? team.id : null);
+  const { members, loading, error: membersError, refetch: refetchMembers, addMember, removeMember, setMemberRole } = useTeamMembers(open ? team.id : null);
   const { toast } = useToast();
+  // Remover membro era 1 clique sem confirmação (e o botão só aparece no hover).
+  const [removeTarget, setRemoveTarget] = useState<typeof members[0] | null>(null);
 
   const memberIds = new Set(members.map(m => m.user_id));
   const availableToAdd = allUsers.filter(u => !memberIds.has(u.user_id));
@@ -158,10 +161,7 @@ function TeamDetailDialog({ open, onOpenChange, team, allUsers }: {
               isCoord ? "text-amber-500 bg-amber-500/10 hover:bg-amber-500/20" : "text-muted-foreground/40 hover:text-amber-500 hover:bg-amber-500/10")}>
             <Crown className="h-3.5 w-3.5" />
           </Button>
-          <Button size="sm" variant="ghost" onClick={async () => {
-            const ok = await removeMember(m.user_id);
-            toast(ok ? { title: "Removido da equipe" } : { title: "Sem permissão", description: "Você não pode alterar esta equipe.", variant: "destructive" });
-          }}
+          <Button size="sm" variant="ghost" onClick={() => setRemoveTarget(m)} aria-label="Remover da equipe"
             className="h-7 w-7 rounded-lg text-muted-foreground/40 hover:text-rose-500 hover:bg-rose-500/10">
             <UserMinus className="h-3.5 w-3.5" />
           </Button>
@@ -171,6 +171,7 @@ function TeamDetailDialog({ open, onOpenChange, team, allUsers }: {
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md rounded-2xl p-0 overflow-hidden max-h-[85vh] flex flex-col">
         <DialogHeader className="px-6 pt-5 pb-4 border-b border-border shrink-0">
@@ -189,9 +190,15 @@ function TeamDetailDialog({ open, onOpenChange, team, allUsers }: {
         </DialogHeader>
 
         <div className="overflow-y-auto flex-1 px-6 py-4 space-y-4">
+          {membersError && (
+            <div className="flex items-center gap-2 rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-xs text-destructive">
+              <span className="flex-1">{membersError}</span>
+              <Button size="sm" variant="outline" className="h-7 rounded-lg text-xs" onClick={() => refetchMembers()}>Tentar de novo</Button>
+            </div>
+          )}
           {loading ? (
             <div className="space-y-2">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-12 rounded-xl" />)}</div>
-          ) : members.length === 0 ? (
+          ) : membersError && members.length === 0 ? null : members.length === 0 ? (
             <p className="text-sm text-muted-foreground py-3">Nenhum membro ainda. Adicione abaixo.</p>
           ) : (
             <>
@@ -212,7 +219,9 @@ function TeamDetailDialog({ open, onOpenChange, team, allUsers }: {
             </>
           )}
 
-          {availableToAdd.length > 0 && (
+          {/* Com a lista de membros sem carregar, "disponíveis" seria todo mundo —
+              adicionar de novo quem já é membro. */}
+          {!membersError && availableToAdd.length > 0 && (
             <div>
               <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 mb-2">Adicionar à equipe</p>
               <div className="space-y-1.5">
@@ -262,6 +271,21 @@ function TeamDetailDialog({ open, onOpenChange, team, allUsers }: {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <DeleteConfirmDialog
+      open={!!removeTarget}
+      onOpenChange={(o) => { if (!o) setRemoveTarget(null); }}
+      title="Remover da equipe"
+      description={`${removeTarget?.profile?.full_name || removeTarget?.profile?.email || "Este membro"} deixa de fazer parte de ${team.name}. Metas e indicadores da equipe deixam de contar os dados dele.`}
+      confirmText="Remover"
+      onConfirm={async () => {
+        const alvo = removeTarget;
+        setRemoveTarget(null);
+        if (!alvo) return;
+        const ok = await removeMember(alvo.user_id);
+        toast(ok ? { title: "Removido da equipe" } : { title: "Sem permissão", description: "Você não pode alterar esta equipe.", variant: "destructive" });
+      }}
+    />
+    </>
   );
 }
 

@@ -1,0 +1,75 @@
+# E2E (Playwright) com a conta de teste, contra um build local apontando pro
+# projeto Supabase do repositório (vars.VITE_SUPABASE_URL + secrets.VITE_SUPABASE_ANON_KEY).
+#
+# Roda todo dia e sob demanda — NÃO em cada PR: a jornada cria e apaga dados reais
+# na conta de teste, e o smoke (páginas públicas) já cobre o que faz sentido por PR.
+#
+# Precisa de dois secrets do repositório (Settings → Secrets and variables → Actions):
+#   E2E_TEST_EMAIL     e-mail da conta de teste (vextriahub@gmail.com)
+#   E2E_TEST_PASSWORD  senha dela
+# Sem eles, a jornada autenticada é pulada e só o smoke roda.
+name: E2E
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 6 * * *'   # 03:17 BRT, antes do expediente
+
+jobs:
+  playwright:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Build de produção (mesmas variáveis do deploy)
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          test -n "$VITE_SUPABASE_URL" || { echo "::error::vars.VITE_SUPABASE_URL não definida"; exit 1; }
+          test -n "$VITE_SUPABASE_ANON_KEY" || { echo "::error::secrets.VITE_SUPABASE_ANON_KEY não definido"; exit 1; }
+          npx vite build
+
+      - name: Instalar Chromium do Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Conferir a conta de teste
+        id: creds
+        env:
+          E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+        run: |
+          if [ -n "$E2E_TEST_EMAIL" ] && [ -n "$E2E_TEST_PASSWORD" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::E2E_TEST_EMAIL/E2E_TEST_PASSWORD não configurados — só o smoke vai rodar"
+          fi
+
+      - name: Playwright
+        env:
+          CI: 'true'
+          E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: npx playwright test
+
+      - name: Relatório (em falha)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7

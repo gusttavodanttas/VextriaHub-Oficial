@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { fmtDataBR } from "@/lib/dates";
+import { assertRowsAffected, getErrorMessage } from "@/lib/errors";
 import type { Processo } from "@/types/processo";
 
 const fmtPub = (d: string | null | undefined) => fmtDataBR(d) || "—";
@@ -215,16 +216,23 @@ export function useProcessoSubData(processo: Processo | null) {
 
   const toggleTarefa = async (t: any) => {
     const newStatus = !t.concluida;
-    const { error } = await supabase.from('tarefas').update({ concluida: newStatus, status: newStatus ? 'concluida' : 'pendente' }).eq('id', t.id);
-    if (!error) fetchSubData('tarefas');
-    else toast({ title: 'Erro ao atualizar tarefa', variant: 'destructive' });
+    // RLS barrando o update não gera erro, só 0 linhas — sem conferir, a aba
+    // dizia "concluída" com a tarefa intocada no banco.
+    const { data, error } = await supabase.from('tarefas').update({ concluida: newStatus, status: newStatus ? 'concluida' : 'pendente' }).eq('id', t.id).select('id');
+    try {
+      assertRowsAffected(data, error, 1);
+      fetchSubData('tarefas');
+    } catch (e) {
+      toast({ title: 'Erro ao atualizar tarefa', description: getErrorMessage(e), variant: 'destructive' });
+    }
   };
 
   // ── Publicações ──
 
   const pubStatus = async (id: string, status: string) => {
-    const { error } = await supabase.from('publicacoes').update({ status }).eq('id', id);
-    if (error) { toast({ title: 'Erro ao atualizar publicação', description: error.message, variant: 'destructive' }); return; }
+    const { data, error } = await supabase.from('publicacoes').update({ status }).eq('id', id).select('id');
+    try { assertRowsAffected(data, error, 1); }
+    catch (e) { toast({ title: 'Erro ao atualizar publicação', description: getErrorMessage(e), variant: 'destructive' }); return; }
     setPublicacoes(prev => prev.map(p => p.id === id ? { ...p, status } : p));
     toast({ title: status === 'lida' ? 'Marcada como lida' : status === 'arquivada' ? 'Arquivada' : 'Atualizada' });
   };
@@ -240,8 +248,9 @@ export function useProcessoSubData(processo: Processo | null) {
   };
 
   const pubUrgencia = async (id: string, urgencia: string) => {
-    const { error } = await supabase.from('publicacoes').update({ urgencia }).eq('id', id);
-    if (error) { toast({ title: 'Erro ao atualizar urgência', description: error.message, variant: 'destructive' }); return; }
+    const { data, error } = await supabase.from('publicacoes').update({ urgencia }).eq('id', id).select('id');
+    try { assertRowsAffected(data, error, 1); }
+    catch (e) { toast({ title: 'Erro ao atualizar urgência', description: getErrorMessage(e), variant: 'destructive' }); return; }
     setPublicacoes(prev => prev.map(p => p.id === id ? { ...p, urgencia } : p));
     toast({ title: `Urgência: ${urgencia}` });
   };
@@ -292,8 +301,15 @@ export function useProcessoSubData(processo: Processo | null) {
     if (insertError) {
       toast({ title: 'Erro ao salvar', description: insertError.message, variant: 'destructive' });
     } else {
-      await supabase.from('publicacoes').update({ status: 'processada' }).eq('id', pub.id);
-      setPublicacoes(prev => prev.map(p => p.id === pub.id ? { ...p, status: 'processada' } : p));
+      // O item (prazo/tarefa/audiência) já foi criado; se a publicação não puder
+      // ser marcada como processada, avisa em vez de fingir que foi.
+      const { data: pubData, error: pubError } = await supabase.from('publicacoes').update({ status: 'processada' }).eq('id', pub.id).select('id');
+      try {
+        assertRowsAffected(pubData, pubError, 1);
+        setPublicacoes(prev => prev.map(p => p.id === pub.id ? { ...p, status: 'processada' } : p));
+      } catch (e) {
+        toast({ title: 'Item criado, mas a publicação não foi marcada como processada', description: getErrorMessage(e), variant: 'destructive' });
+      }
       setTratandoPubId(null);
     }
     setAddLoading(false);

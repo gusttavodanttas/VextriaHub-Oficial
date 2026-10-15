@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { getErrorMessage } from '@/lib/errors';
 import {
   fetchNotificationPrefs,
   saveNotificationPrefs,
@@ -19,13 +20,8 @@ export function useNotificationPrefs() {
   const [prefs, setPrefs] = useState<Record<string, boolean>>(DEFAULT_PREFS);
   const [leadDias, setLeadDias] = useState<number>(DEFAULT_LEAD_DIAS);
   const [loading, setLoading] = useState(true);
-
-  // Salva e avisa se o banco recusar (não deixa a UI dizer "salvo" só no localStorage).
-  const persist = useCallback((uid: string, p: { prefs: Record<string, boolean>; leadDias: number }) => {
-    saveNotificationPrefs(uid, p).then(({ error }) => {
-      if (error) toast({ title: 'Não foi possível salvar a preferência', description: 'Verifique a conexão e tente de novo.', variant: 'destructive' });
-    });
-  }, [toast]);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let alive = true;
@@ -35,25 +31,46 @@ export function useNotificationPrefs() {
       if (!alive) return;
       setPrefs(p.prefs);
       setLeadDias(p.leadDias);
+      setLoadFailed(!!p.loadFailed);
       setLoading(false);
     });
     return () => { alive = false; };
-  }, [user?.id]);
+  }, [user?.id, reloadKey]);
 
-  const toggle = useCallback((key: string, value: boolean) => {
-    if (!user?.id) return;
-    setPrefs((prev) => {
-      const next = { ...prev, [key]: value };
-      persist(user.id, { prefs: next, leadDias });
-      return next;
-    });
-  }, [user?.id, leadDias, persist]);
+  // O upsert grava o objeto inteiro: com o load falho, a tela mostra o cache local/
+  // defaults, e salvar um toggle gravaria esses valores por cima das preferências reais.
+  const blocked = useCallback(() => {
+    if (!loadFailed) return false;
+    toast({ title: 'Não foi possível salvar', description: 'Suas preferências não carregaram — tente de novo antes de editar.', variant: 'destructive' });
+    return true;
+  }, [loadFailed, toast]);
 
-  const saveLead = useCallback((v: number) => {
-    if (!user?.id) return;
+  const toggle = useCallback(async (key: string, value: boolean) => {
+    if (!user?.id || blocked()) return;
+    const previous = prefs;
+    const next = { ...prefs, [key]: value };
+    setPrefs(next);
+    const { error } = await saveNotificationPrefs(user.id, { prefs: next, leadDias });
+    if (error) {
+      setPrefs(previous); // reverte o otimista — antes a chave ficava trocada na tela
+      toast({ title: 'Não foi possível salvar a preferência', description: getErrorMessage(error, 'Verifique a conexão e tente de novo.'), variant: 'destructive' });
+    }
+  }, [user?.id, prefs, leadDias, toast, blocked]);
+
+  const saveLead = useCallback(async (v: number) => {
+    if (!user?.id || blocked()) return;
+    const previous = leadDias;
     setLeadDias(v);
-    persist(user.id, { prefs, leadDias: v });
-  }, [user?.id, prefs, persist]);
+    const { error } = await saveNotificationPrefs(user.id, { prefs, leadDias: v });
+    if (error) {
+      setLeadDias(previous);
+      toast({ title: 'Não foi possível salvar a preferência', description: getErrorMessage(error, 'Verifique a conexão e tente de novo.'), variant: 'destructive' });
+    }
+  }, [user?.id, prefs, leadDias, toast, blocked]);
 
-  return { prefs, leadDias, toggle, saveLead, loading };
+  return {
+    prefs, leadDias, toggle, saveLead, loading,
+    error: loadFailed ? 'Não foi possível carregar suas preferências do servidor.' : null,
+    refetch: () => setReloadKey((k) => k + 1),
+  };
 }

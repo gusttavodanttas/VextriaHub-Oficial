@@ -16,6 +16,8 @@ export function MiniFinanceChart({ refreshKey }: { refreshKey?: number }) {
   const navigate = useNavigate();
   const [data, setData] = useState<Bucket[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reload, setReload] = useState(0);
   const [meses, setMeses] = useState(6);
 
   useEffect(() => {
@@ -29,13 +31,18 @@ export function MiniFinanceChart({ refreshKey }: { refreshKey?: number }) {
       // estoura pro mês seguinte quando o mês alvo tem menos dias (ex.: hoje=31/jul,
       // -5 meses vira 3/mar em vez de 1/fev) — duplicava/sumia mês inteiro no gráfico.
       const start = new Date(now.getFullYear(), now.getMonth() - (meses - 1), 1);
-      const { data: rows } = await supabase
+      const { data: rows, error } = await supabase
         .from("financeiro")
         .select("tipo, valor, data_vencimento")
         .eq("office_id", officeId)
         .eq("deletado", false)
+        // Mesmo critério do KPI e da tela Financeiro: cancelado não é receita/despesa.
+        .or("status.is.null,status.neq.cancelado")
         .gte("data_vencimento", start.toISOString().slice(0, 10));
       if (cancel) return;
+      // Antes a falha virava gráfico zerado ("Sem lançamentos").
+      if (error) { setLoadError(true); setLoading(false); return; }
+      setLoadError(false);
 
       const buckets: Record<string, Bucket> = {};
       const order: string[] = [];
@@ -57,7 +64,7 @@ export function MiniFinanceChart({ refreshKey }: { refreshKey?: number }) {
       setLoading(false);
     })();
     return () => { cancel = true; };
-  }, [user?.office_id, meses, refreshKey]);
+  }, [user?.office_id, meses, refreshKey, reload]);
 
   const totais = useMemo(() => {
     const receita = data.reduce((s, d) => s + d.receita, 0);
@@ -106,6 +113,11 @@ export function MiniFinanceChart({ refreshKey }: { refreshKey?: number }) {
       <div className="flex-1 min-h-[160px] mt-3">
         {loading ? (
           <div className="flex items-center justify-center h-full"><Loader2 className="h-5 w-5 animate-spin text-primary/40" /></div>
+        ) : loadError ? (
+          <div className="flex flex-col items-center justify-center h-full gap-2">
+            <p className="text-sm font-bold text-destructive">Não foi possível carregar o financeiro.</p>
+            <button onClick={() => setReload((r) => r + 1)} className="text-[11px] font-black uppercase tracking-widest text-primary/70 hover:text-primary">Tentar novamente</button>
+          </div>
         ) : !temDados ? (
           <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground/40">
             <TrendingUp className="h-7 w-7 opacity-40" />

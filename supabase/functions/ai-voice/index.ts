@@ -10,6 +10,18 @@ const OPENAI_KEY = Deno.env.get("OPENAI_API_KEY") || "";
 // 0 = ilimitado. Segredos: AI_LIMITE_CHAMADAS_MES e AI_LIMITE_VOZ_CARACTERES_MES.
 const LIMITE_CHAMADAS_MES = Number(Deno.env.get("AI_LIMITE_CHAMADAS_MES") ?? 500);
 const LIMITE_VOZ_MES = Number(Deno.env.get("AI_LIMITE_VOZ_CARACTERES_MES") ?? 200000);
+
+// Teto por escritório (tabela ai_limites). NULL/ausente = global; 0 = ilimitado.
+// Falha ABERTO para o global.
+async function limitesDoEscritorio(service: ReturnType<typeof createClient>, officeId: string): Promise<{ chamadas: number; voz: number }> {
+  const { data, error } = await service.from("ai_limites").select("limite_chamadas, limite_voz_caracteres").eq("office_id", officeId).maybeSingle();
+  if (error) { console.error("ai_limites falhou (usando o teto global):", error.message); return { chamadas: LIMITE_CHAMADAS_MES, voz: LIMITE_VOZ_MES }; }
+  const row = data as { limite_chamadas?: number | null; limite_voz_caracteres?: number | null } | null;
+  return {
+    chamadas: row?.limite_chamadas == null ? LIMITE_CHAMADAS_MES : Number(row.limite_chamadas),
+    voz: row?.limite_voz_caracteres == null ? LIMITE_VOZ_MES : Number(row.limite_voz_caracteres),
+  };
+}
 // A OpenAI só aceita este conjunto de vozes; qualquer outra string vira 400.
 const VOZES = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
 
@@ -43,12 +55,13 @@ serve(async (req) => {
     // ── Teto de consumo (check + incremento atômicos no banco) ──
     // Falha ABERTO se a RPC não existir/o banco tropeçar: um recurso pago não cai
     // por causa do medidor. Aplique a migration ANTES de dar deploy nesta função.
+    const limites = await limitesDoEscritorio(service, officeId);
     const consumo = await service.rpc("ai_consumir", {
       p_office: officeId,
       p_chamadas: 1,
       p_voz_caracteres: text.length,
-      p_limite_chamadas: LIMITE_CHAMADAS_MES,
-      p_limite_voz: LIMITE_VOZ_MES,
+      p_limite_chamadas: limites.chamadas,
+      p_limite_voz: limites.voz,
     });
     if (consumo.error) {
       console.error("ai_consumir falhou (liberando a chamada):", consumo.error.message);

@@ -113,6 +113,7 @@ export const useAgendaEvents = (targetDate: Date) => {
   const { user } = useAuth();
   const [events, setEvents] = useState<AgendaEvent[]>([]);
   const [atrasados, setAtrasados] = useState<AgendaEvent[]>([]);
+  const [atrasadosTotal, setAtrasadosTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [eventsError, setEventsError] = useState<string | null>(null);
   const [atrasadosError, setAtrasadosError] = useState<string | null>(null);
@@ -220,27 +221,31 @@ export const useAgendaEvents = (targetDate: Date) => {
 
     try {
       const [aud, pra, ate, tar, con] = await Promise.all([
-        supabase.from("audiencias").select("*, clientes!cliente_id(nome)")
+        // count: "exact" → total real para o card "Atrasados"; a LISTA continua
+        // limitada a LIMITE_ATRASADOS (antes o card mostrava o total já cortado).
+        supabase.from("audiencias").select("*, clientes!cliente_id(nome)", { count: "exact" })
           .eq("office_id", user.office_id).eq("deletado", false)
           .not("status", "in", "(cancelada,realizada)")
           .lt("data_audiencia", inicioDeHoje)
           .order("data_audiencia", { ascending: false }).limit(LIMITE_ATRASADOS),
-        supabase.from("prazos").select("*, publicacoes(titulo)")
+        supabase.from("prazos").select("*, publicacoes(titulo)", { count: "exact" })
           .eq("office_id", user.office_id).eq("deletado", false)
           .neq("status", "concluido")
           .or(`data_fim_prazo.lt.${hoje},and(data_fim_prazo.is.null,data_vencimento.lt.${hoje})`)
           .order("data_fim_prazo", { ascending: false, nullsFirst: false }).limit(LIMITE_ATRASADOS),
-        supabase.from("atendimentos").select("*, clientes!cliente_id(nome)")
+        supabase.from("atendimentos").select("*, clientes!cliente_id(nome)", { count: "exact" })
           .eq("office_id", user.office_id).eq("deletado", false)
-          .not("status", "in", "(cancelado,realizado)")
+          // Inclui as variantes legadas (ver useAtendimentos) — senão um atendimento
+          // "realizada" antigo aparecia como atrasado para sempre.
+          .not("status", "in", "(cancelado,realizado,cancelada,realizada,concluido,concluida)")
           .lt("data_atendimento", inicioDeHoje)
           .order("data_atendimento", { ascending: false }).limit(LIMITE_ATRASADOS),
-        supabase.from("tarefas").select("*, clientes!cliente_id(nome)")
+        supabase.from("tarefas").select("*, clientes!cliente_id(nome)", { count: "exact" })
           .eq("office_id", user.office_id).eq("deletado", false)
           .eq("concluida", false)
           .lt("data_vencimento", hoje)
           .order("data_vencimento", { ascending: false }).limit(LIMITE_ATRASADOS),
-        supabase.from("consultivos").select("*, clientes!cliente_id(nome)")
+        supabase.from("consultivos").select("*, clientes!cliente_id(nome)", { count: "exact" })
           .eq("office_id", user.office_id).eq("deletado", false)
           .neq("status", "concluido")
           .lt("prazo", hoje)
@@ -263,6 +268,7 @@ export const useAgendaEvents = (targetDate: Date) => {
         ...rows<ConsultivoRow>(con.data).map(toConsultivo),
       ];
 
+      setAtrasadosTotal([aud, pra, ate, tar, con].reduce((n, r) => n + (r.count ?? r.data?.length ?? 0), 0));
       // Mais recente primeiro: "venceu ontem" no topo, o resto abaixo.
       setAtrasados(lista.sort((a, b) => porData(b, a)).slice(0, LIMITE_ATRASADOS));
     } catch (err) {
@@ -290,6 +296,7 @@ export const useAgendaEvents = (targetDate: Date) => {
   return {
     events,
     atrasados,
+    atrasadosTotal,
     loading,
     error: eventsError || atrasadosError,
     isError: !!(eventsError || atrasadosError),

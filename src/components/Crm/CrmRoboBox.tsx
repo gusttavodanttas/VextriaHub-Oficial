@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bot, CalendarClock, Snowflake, MessageCircle, Mail, Copy, Check, Settings2, CheckCircle2 } from "lucide-react";
+import { Bot, CalendarClock, Snowflake, MessageCircle, Mail, Copy, Check, Settings2, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useCrmRobot } from "@/hooks/useCrmRobot";
 import { useOfficeSettingValue } from "@/hooks/useOfficeSettingValue";
@@ -7,6 +7,7 @@ import { gerarMensagemContato, linkWhatsapp, linkEmail } from "@/lib/crmMessage"
 import { useToast } from "@/hooks/use-toast";
 import { formatBRL } from "@/lib/currency";
 import { getErrorMessage } from "@/lib/errors";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const brl = (v: number) => formatBRL(v, { decimals: 0 });
 
@@ -64,10 +65,13 @@ function LeadRow({ lead, motivo, remetente, onContatado, onOpen }: { lead: any; 
 export function CrmRoboBox({ data, refresh, remetente, onOpenLead }: Props) {
   const { value: followupDias, save: saveFollowup } = useOfficeSettingValue<number>("crm_followup_dias", 3);
   const { value: esfriandoDias, save: saveEsfriando } = useOfficeSettingValue<number>("crm_esfriando_dias", 7);
-  const { contatosHoje, esfriando, marcarContatado } = useCrmRobot(data, refresh, { followupDias, esfriandoDias });
+  const { contatosHoje, esfriando, loading, error, refetch, marcarContatado } = useCrmRobot(data, refresh, { followupDias, esfriandoDias });
+  const { canManageCRM, canManageOfficeSettings } = usePermissions();
   const [showConfig, setShowConfig] = useState(false);
+  const onContatado = (id: string) => canManageCRM ? () => marcarContatado(id) : undefined;
 
-  const vazio = contatosHoje.length === 0 && esfriando.length === 0;
+  // "CRM em dia" só quando os dados carregaram — antes aparecia durante o load e no erro.
+  const vazio = !loading && !error && contatosHoje.length === 0 && esfriando.length === 0;
   const hojeStr = new Date().toISOString().slice(0, 10);
 
   return (
@@ -78,13 +82,28 @@ export function CrmRoboBox({ data, refresh, remetente, onOpenLead }: Props) {
           <p className="font-black text-lg leading-tight">Robô do CRM</p>
           <p className="text-xs text-muted-foreground">Quem você precisa contatar — com mensagem pronta para enviar.</p>
         </div>
-        <button onClick={() => setShowConfig(s => !s)} title="Configurar prazos"
-          className="h-9 w-9 rounded-xl border border-black/5 dark:border-border text-muted-foreground hover:text-primary hover:bg-primary/5 inline-flex items-center justify-center transition-colors">
-          <Settings2 className="h-4 w-4" />
-        </button>
+        {/* Os prazos do robô gravam em offices.settings (só admin do escritório). */}
+        {canManageOfficeSettings && (
+          <button onClick={() => setShowConfig(s => !s)} title="Configurar prazos"
+            className="h-9 w-9 rounded-xl border border-black/5 dark:border-border text-muted-foreground hover:text-primary hover:bg-primary/5 inline-flex items-center justify-center transition-colors">
+            <Settings2 className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
-      {showConfig && (
+      {error && (
+        <div className="flex items-center gap-3 p-3 rounded-xl border border-destructive/20 bg-destructive/5 text-xs text-destructive">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span className="flex-1">{error} A lista de leads esfriando fica oculta até carregar.</span>
+          <button onClick={refetch} className="h-7 px-2.5 rounded-lg border border-destructive/30 font-bold hover:bg-destructive/10">Tentar de novo</button>
+        </div>
+      )}
+
+      {loading && !error && contatosHoje.length === 0 && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Analisando leads…</div>
+      )}
+
+      {canManageOfficeSettings && showConfig && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl border border-black/5 dark:border-border bg-card">
           <label className="space-y-1.5">
             <span className="text-[11px] font-black uppercase tracking-widest text-muted-foreground/60">Reagendar follow-up em (dias)</span>
@@ -115,7 +134,7 @@ export function CrmRoboBox({ data, refresh, remetente, onOpenLead }: Props) {
                 {contatosHoje.map((lead) => (
                   <LeadRow key={lead.id} lead={lead} remetente={remetente}
                     motivo={`Follow-up ${lead.proximo_contato < hojeStr ? "atrasado" : "para hoje"}`}
-                    onContatado={() => marcarContatado(lead.id)} onOpen={() => onOpenLead?.(lead)} />
+                    onContatado={onContatado(lead.id)} onOpen={() => onOpenLead?.(lead)} />
                 ))}
               </div>
             </div>
@@ -130,7 +149,7 @@ export function CrmRoboBox({ data, refresh, remetente, onOpenLead }: Props) {
                 {esfriando.map((lead) => (
                   <LeadRow key={lead.id} lead={lead} remetente={remetente}
                     motivo={`${lead.status} · sem atendimento recente`}
-                    onContatado={() => marcarContatado(lead.id)} onOpen={() => onOpenLead?.(lead)} />
+                    onContatado={onContatado(lead.id)} onOpen={() => onOpenLead?.(lead)} />
                 ))}
               </div>
             </div>

@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { cn } from "@/lib/utils";
 import {
   Settings, Sun, Moon, Palette, Monitor,
-  Users, FileText, Clock, Plug, Check, ChevronRight, Bell, Radar, SearchCheck,
+  Users, FileText, Clock, Plug, Check, ChevronRight, Bell, Radar, SearchCheck, BellRing,
 } from "lucide-react";
 
 import { ProcessTypeSimple } from "@/components/Settings/ProcessTypeSimple";
@@ -12,6 +12,7 @@ import { DeadlineConfig } from "@/components/Settings/DeadlineConfig";
 import { ClientOriginConfig } from "@/components/Settings/ClientOriginConfig";
 import { NotificationPrefs } from "@/components/Settings/NotificationPrefs";
 import { MonitoredOabs } from "@/components/Settings/MonitoredOabs";
+import { NormaAlertasConfig } from "@/components/Settings/NormaAlertasConfig";
 import { MonitoramentoTermos } from "@/components/Settings/MonitoramentoTermos";
 import { IntegrationsPanel } from "@/components/Integrations/IntegrationsPanel";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -37,6 +38,7 @@ interface Section {
 const SECTIONS: Section[] = [
   { id: "geral", label: "Aparência", desc: "Tema da plataforma", icon: Palette, group: "Preferências" },
   { id: "notificacoes", label: "Notificações", desc: "Alertas que você recebe", icon: Bell, group: "Preferências" },
+  { id: "normas", label: "Alertas de normas", desc: "ANS, CFO, CROs e termos", icon: BellRing, group: "Preferências" },
   // Estas seções gravam em offices.settings (só admin escreve, via RLS). Sem adminOnly,
   // o usuário comum via a tela, editava e levava "Salvo" falso (UPDATE de 0 linhas). (v12)
   { id: "clientes", label: "Clientes", desc: "Origens de captação", icon: Users, group: "Operação", adminOnly: true },
@@ -74,6 +76,7 @@ const Configuracoes = () => {
       case "oabs": return <MonitoredOabs />;
       case "termos": return <MonitoramentoTermos />;
       case "notificacoes": return <NotificationPrefs />;
+      case "normas": return <NormaAlertasConfig />;
       case "integracao": return <IntegrationsPanel />;
       default: return <AparenciaSection theme={theme} setTheme={setTheme} />;
     }

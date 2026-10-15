@@ -3,6 +3,7 @@ import { Bell, Check, X, AlertCircle, Info, CheckCircle, AlertTriangle } from 'l
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -70,13 +71,12 @@ export const NotificationCenter: React.FC = () => {
     deleteNotification(id);
   };
 
-  const clearAllNotifications = () => {
-    if (window.confirm('Limpar todas as notificações? Esta ação não pode ser desfeita.')) {
-      clearAll();
-    }
-  };
+  // AlertDialog no padrão do app, em vez do window.confirm() nativo.
+  const [confirmClear, setConfirmClear] = useState(false);
+  const clearAllNotifications = () => setConfirmClear(true);
 
   return (
+    <>
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="relative">
@@ -240,5 +240,14 @@ export const NotificationCenter: React.FC = () => {
         )}
       </PopoverContent>
     </Popover>
+    <DeleteConfirmDialog
+      open={confirmClear}
+      onOpenChange={setConfirmClear}
+      title="Limpar notificações"
+      description="Todas as notificações serão removidas. Esta ação não pode ser desfeita."
+      confirmText="Limpar"
+      onConfirm={() => { setConfirmClear(false); clearAll(); }}
+    />
+    </>
   );
 };

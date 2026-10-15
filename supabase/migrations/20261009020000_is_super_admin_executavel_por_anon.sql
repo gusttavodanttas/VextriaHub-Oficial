@@ -1,0 +1,18 @@
+-- ============================================================================
+-- is_super_admin() executável por anon — o catálogo público de planos depende dela
+-- ============================================================================
+-- A policy de SELECT de plan_configs é `(is_active = true) OR is_super_admin()`.
+-- Desde a 20260909040000 (que tirou anon de is_super_admin), qualquer leitura
+-- de plan_configs SEM sessão falha com 42501 "permission denied for function
+-- is_super_admin" — o Postgres avalia a função mesmo quando o outro lado do OR
+-- já é verdadeiro. Efeito real: a tela de cadastro aberta por link de plano
+-- (`/cadastro?plano=…`) não conseguia ler o plano e perdia o selo de preço
+-- (o `apply_signup_plan` pós-login continuava aplicando o plano certo, então
+-- o dano era só de exibição). O dump do projeto antigo confirma que a ACL lá
+-- era a mesma: o bug é anterior à migração.
+--
+-- A função é STABLE, SECURITY DEFINER e só consulta profiles por auth.uid():
+-- para anon, auth.uid() é NULL e ela devolve false — nada vaza. Liberar a
+-- execução é a correção robusta; reescrever a policy com `auth.uid() is not
+-- null and …` não garante curto-circuito.
+grant execute on function public.is_super_admin() to anon;

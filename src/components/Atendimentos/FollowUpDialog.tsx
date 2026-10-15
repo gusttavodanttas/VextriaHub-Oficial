@@ -5,6 +5,7 @@ import { format, addDays } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { assertRowsAffected, getErrorMessage } from "@/lib/errors";
 import { useTarefas } from "@/hooks/useTarefas";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -43,21 +44,30 @@ export const FollowUpDialog: React.FC<{
 
   if (!item) return null;
 
-  // Salva o desfecho no atendimento (best-effort) se houve mudança
-  const persistResultado = async () => {
+  // Salva o desfecho no atendimento se houve mudança. Devolve false quando não
+  // gravou: antes o `await` ignorava o erro e a RLS barrando em silêncio (0 linhas)
+  // fechava o diálogo como se o desfecho estivesse salvo.
+  const persistResultado = async (): Promise<boolean> => {
     const val = resultado.trim();
-    if (val === (item.resultado ?? "").trim()) return;
-    await supabase.from("atendimentos").update({ resultado: val || null }).eq("id", item.id);
-    queryClient.invalidateQueries({ queryKey: ["atendimentos"] });
+    if (val === (item.resultado ?? "").trim()) return true;
+    try {
+      const { data, error } = await supabase.from("atendimentos").update({ resultado: val || null }).eq("id", item.id).select("id");
+      assertRowsAffected(data, error, 1);
+      queryClient.invalidateQueries({ queryKey: ["atendimentos"] });
+      return true;
+    } catch (e) {
+      toast({ title: "Não foi possível salvar o desfecho", description: getErrorMessage(e), variant: "destructive" });
+      return false;
+    }
   };
 
-  const fechar = async () => { await persistResultado(); onClose(); };
-  const irProximo = async () => { await persistResultado(); onAgendarProximo(item); };
+  const fechar = async () => { if (await persistResultado()) onClose(); };
+  const irProximo = async () => { if (await persistResultado()) onAgendarProximo(item); };
 
   const salvarTarefa = async () => {
     if (!tarefaTitulo.trim()) return;
     setSaving(true);
-    await persistResultado();
+    if (!(await persistResultado())) { setSaving(false); return; }
     createTarefa.mutate(
       {
         titulo: tarefaTitulo.trim(),
@@ -76,11 +86,16 @@ export const FollowUpDialog: React.FC<{
   const salvarContato = async () => {
     if (!item.cliente_id || !contatoData) return;
     setSaving(true);
-    await persistResultado();
-    const { error } = await supabase.from("clientes")
-      .update({ proximo_contato: contatoData }).eq("id", item.cliente_id);
+    if (!(await persistResultado())) { setSaving(false); return; }
+    const { data, error } = await supabase.from("clientes")
+      .update({ proximo_contato: contatoData }).eq("id", item.cliente_id).select("id");
     setSaving(false);
-    if (error) { toast({ title: "Erro ao salvar contato", description: error.message, variant: "destructive" }); return; }
+    try {
+      assertRowsAffected(data, error, 1);
+    } catch (e) {
+      toast({ title: "Erro ao salvar contato", description: getErrorMessage(e), variant: "destructive" });
+      return;
+    }
     toast({ title: "Próximo contato definido!" });
     onClose();
   };

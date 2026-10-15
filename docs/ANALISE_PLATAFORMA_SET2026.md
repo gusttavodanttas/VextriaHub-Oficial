@@ -2545,3 +2545,566 @@ impeça a recorrência (não só mais um PR pontual):
 Nenhuma correção desta lista foi aplicada nesta rodada — esta parte é
 só o diagnóstico e o plano; a decisão de quais frentes atacar e em que
 ordem foi deixada para o usuário confirmar antes de abrir PRs.
+
+---
+
+# Parte 26 — auditoria pós-migração: % por aba e o que falta para 100% (outubro/2026)
+
+Sessão do dia seguinte à migração do projeto Supabase (`mzhnlhfxfoigkqgxseeu`,
+pausado → `pvesofbrctfipdyqyloq`). Pedido do usuário: análise completa e
+profunda da plataforma, aba por aba, com % e o que falta para 100%, usando a
+conta de teste quando preciso.
+
+## Método
+
+- **Código** (`main` em `891528b`): releitura das 31 páginas e dos 64 hooks
+  com uma grade fixa e mensurável — por página: estado de erro visível com
+  ação de repetir, estado vazio, confirmação de ação destrutiva em dialog,
+  gate de permissão (`usePermissions`/`requirePermission`), paginação ou cap,
+  bug funcional confirmado por leitura; por hook: `assertRowsAffected` (ou
+  `.select('id')`/`.single()`) em cada `update`/`delete`, `error`/`isError`
+  exposto, teste automatizado.
+- **Banco e infra** (projeto novo, somente leitura, exceto o item do usuário
+  de teste): advisors de segurança e desempenho, ACL das 44 funções de
+  `public`, 48 tabelas com RLS e contagem de policies, logs das 24 edge
+  functions e dos 8 crons nas últimas 24 h, configuração de Auth.
+- **Conta de teste** (`vextriahub@gmail.com`, escritório "VextriaHub", trial
+  até 15/10): simulada no banco com `request.jwt.claims` + `set role
+  authenticated`, do jeito que o PostgREST faz. Leituras em 20 tabelas e
+  escrita de cliente + processo + tarefa passando pela RLS e pelos triggers
+  de cota. Navegação real no site **não** foi possível (o sandbox não alcança
+  o host do projeto), mesma limitação das partes anteriores.
+- Não recomputei do zero o que a Parte 23 já mediu e as Partes 24/25
+  corrigiram (PRs #82–#100); parti daquela base e reavaliei cada critério com
+  as métricas acima, revendo o código onde o número mudava.
+
+## Sinais no momento da análise
+
+| Verificação | Resultado |
+| --- | --- |
+| `tsc -p tsconfig.app.json` | limpo |
+| ESLint | 0 erros · 663 avisos (teto 700) — 391 `any` restantes |
+| Vitest | 248/248 em 32 arquivos |
+| `vite build` | ok (~14 s) |
+| Advisors segurança | **40 funções SECURITY DEFINER executáveis por `anon`** (regressão do restore — ver achado nº 1) · proteção contra senha vazada desligada · 7 tabelas com RLS e sem policy (intencional, só service role) |
+| Advisors desempenho | 71 índices "não usados" — ruído: o restore zerou as estatísticas em 08/10 |
+| Edge functions | 24 do repositório ativas + `restaurar-storage` (temporária, apagar) · 0 erros nas últimas 24 h depois dos segredos cadastrados |
+| Crons | 8 ativos; 26+ execuções desde 10:45 UTC de 08/10 sem falha do agendador |
+| Conta de teste | lê só o próprio escritório (0 linhas dos demais 5 escritórios, 13 planos públicos); cria cliente, processo e tarefa com RLS + cota de trial |
+
+## Achados desta rodada (novos, não cobertos pelas partes anteriores)
+
+### 1 — P1 · O restore descartou as permissões de EXECUTE das funções
+
+As 44 funções de `public` voltaram com a ACL padrão do Supabase: EXECUTE para
+`public`, `anon` e `authenticated`. Os REVOKE/GRANT de **20 migrations**
+(Partes 1, 7 e 14) sumiram — o restore pelo painel não preserva ACL de função.
+Confirmado com `has_function_privilege('anon', …)` nas 40 SECURITY DEFINER:
+todas `true`. Efeito prático: `anon` pode chamar `ai_consumir` (inflar o
+contador de IA de qualquer escritório), `office_plan_limits`,
+`authorize_process_search`, os helpers de RLS e as funções de trigger por
+RPC. As funções que escrevem checam `auth.uid()` por dentro, então não há
+escrita anônima — mas é superfície reaberta e um vazamento de informação
+(limites de plano por escritório, pertencimento a escritório).
+
+**Correção aplicada em 09/10 (autorizada pelo usuário):**
+`supabase/migrations/20261009010000_reaplicar_acl_funcoes_pos_restore.sql`
+reúne os 19 REVOKE/GRANT em ordem, idempotente; aplicada no projeto novo
+como `20261009015702`. Conferido depois: `anon` executa só
+`confirm_invited_user`; `authenticated` 19; `service_role` 40. Fumaça como a
+conta de teste: helpers de RLS, cota de OAB, status do Google e leitura das
+tabelas continuam funcionando.
+
+**Efeito colateral descoberto na conferência, corrigido na hora:** a policy
+de SELECT de `plan_configs` é `(is_active = true) OR is_super_admin()`. Sem
+EXECUTE para `anon` em `is_super_admin`, a leitura do catálogo público falha
+com 42501 — o Postgres avalia a função mesmo com o outro lado do OR
+verdadeiro. A tela de cadastro aberta por link de plano (`/cadastro?plano=…`)
+perdia o selo de preço (o `apply_signup_plan` pós-login seguia aplicando o
+plano certo; o dano era de exibição). O dump do projeto antigo mostra a mesma
+ACL, então o bug existia desde a Parte 14 (09/09). Migration
+`20261009020000_is_super_admin_executavel_por_anon.sql` (aplicada): a função
+é STABLE, SECURITY DEFINER e devolve `false` para `auth.uid()` nulo, então
+liberar `anon` não vaza nada. O advisor passa a listar 2 funções para `anon`
+(`confirm_invited_user` e `is_super_admin`), ambas intencionais.
+
+### 2 — P2 · Escritório novo nasce sem tipos de ato para prazos
+
+`tipos_ato_prazo` e `audiencia_tipos` são por escritório e não têm linhas
+globais. `useAudienciaTipos` cai em `DEFAULT_TIPOS` quando a tabela está
+vazia — correto. Os tipos de ato de prazo, não: o diálogo de novo prazo lê
+`tipos_ato_prazo` por `office_id` e um escritório recém-criado (como o de
+teste) recebe lista vazia até alguém clicar em "restaurar padrão" dentro de
+"Gerenciar tipos". O cadastro orgânico (`ensure_office_for_user`) não semeia
+nada. Correção pequena: semear `TIPOS_ATO_DEFAULT` na criação do escritório
+(trigger ou na própria RPC) ou cair no default em memória como Audiências
+faz.
+
+### 3 — P2 · Mutations ainda sem checagem de linhas afetadas (resíduo da Classe 1)
+
+Depois das PRs #82–#100 o padrão está em 25 dos 32 hooks com `update`/`delete`.
+Ficaram de fora, confirmados por leitura:
+
+- `useProcessoSubData.tsx` (4): concluir tarefa, status e urgência de
+  publicação, `status = 'processada'` ao vincular — dentro do drawer de
+  processo.
+- `useSubtarefas.tsx` (2) e `useTarefaComentarios.tsx` (1): concluir/excluir
+  subtarefa, excluir comentário.
+- `useProcessShares.tsx` (1): revogar compartilhamento.
+- `useUserPermissions.tsx` (1): remover override de permissão.
+- `useSuperAdminOffices.tsx` (2): ativar/desativar escritório, editar dados.
+- (`timesheetService.ts` foi listado por engano na primeira passada: `update`,
+  `pausar`, `retomar` e `finalizar` terminam em `.single()`, que já falha com
+  0 linhas — está coberto.)
+
+Todos passam pela RLS: um bloqueio silencioso vira "sucesso" na tela.
+
+### 4 — P3 · Proteção contra senha vazada desligada
+
+Authentication → Password: "Leaked password protection" (HaveIBeenPwned)
+desligado no projeto novo. Um clique no painel; sem custo.
+
+### 5 — P3 · Resíduos operacionais da migração
+
+- Function `restaurar-storage` e branch `tmp/storage-arquivos`: apagar.
+- VextriaZap: `zap-pull-leads` roda a cada 15 min contra
+  `bceundwkuonueqmgrlyq.supabase.co`, que não resolve mais (DNS). Sem efeito
+  colateral, mas é 96 chamadas/dia para nada até o bridge voltar ou o cron
+  ser desligado.
+- `cron.job_run_details` sem limpeza: 100+ linhas/dia; vale um job de
+  retenção de 30 dias (`cron.schedule('limpar-cron-log', '0 3 * * *', $$delete
+  from cron.job_run_details where end_time < now() - interval '30 days'$$)`).
+- Índices "não usados" (71): reavaliar em novembro com estatísticas reais.
+
+## O que a conta de teste provou
+
+| Ação (como `authenticated`, JWT do usuário de teste) | Resultado |
+| --- | --- |
+| `select` em processos, clientes, tarefas, prazos, audiências, atendimentos, publicações, financeiro, metas, timesheets, consultivos, correspondentes, notificações | 0 linhas — nada de outros escritórios vaza |
+| `select` em offices, profiles, office_users, office_subscriptions | 1 linha cada (as próprias) |
+| `select` em plan_configs | 13 planos ativos (catálogo público) |
+| `insert` cliente → processo → tarefa (encadeados) | 3 linhas criadas; `enforce_plan_quota` não barrou (trial: 1 de cada) |
+| `select` em tipos_ato_prazo / audiencia_tipos | 0 — achado nº 2 |
+
+Os três registros ficaram no escritório de teste para você navegar.
+
+## Tabela por aba
+
+Grade igual à da Parte 23 (Frente 100 = loading 10 · erro+retry 20 · vazio
+10 · confirmação 15 · gate 15 · paginação 10 · sem bug 20; Backend 100 =
+linhas afetadas 35 · catch 20 · office_id 10 · teste 15 · RLS 20). Entre
+parênteses, a nota da Parte 23 para comparação.
+
+| Bloco | Aba | Frente | Backend | O que falta para 100% |
+| --- | --- | --- | --- | --- |
+| A | Atendimentos | 95 (95) | 88 (82) | teste do hook `useAtendimentos`; paginação (hoje cap) |
+| A | Audiências | 90 (80) | 85 (82) | `useAudiencias` expõe `error` só parcialmente; teste do hook; 482 linhas ok |
+| A | Prazos | 85 (80) | 85 (72) | **achado nº 2** (tipos de ato em escritório novo); teste de `usePrazosData`; arquivo de 820 linhas |
+| A | Agenda | 85 (65) | 78 (55) | teste de `useAgendaEvents`; cap de 50 atrasados sem "ver mais" |
+| A | Tarefas | 90 (60) | 85 (65) | `useSubtarefas`/`useTarefaComentarios` sem checagem de linhas (nº 3); 828 linhas |
+| B | Financeiro | 95 (95) | 88 (85) | teste de `useFinanceiro` (só o cálculo tem); confirmação do import por IA em uso real |
+| B | Metas | 92 (92) | 85 (85) | teste de `useMetas`; gate de módulo só para Premium (ok, mas sem aviso de upsell na tela) |
+| B | Timesheet | 88 (70) | 85 (58) | teste de `useTimesheet` cobre pouco; 855 linhas |
+| B | CRM | 78 (50) | 72 (40) | depende do VextriaZap (offline); teste de `useCrmRobot`; Kanban sem paginação |
+| C | Clientes | 95 (95) | 92 (90) | teste de `useClientes` além do dialog |
+| C | Processos | 88 (88) | 80 (78) | `useProcessoSubData` (nº 3); `ProcessoDetailsDrawer` com 1.286 linhas e `JudicialSyncDialog` 973; teste do hook |
+| C | Consultivo | 88 (85) | 78 (65) | teste de `useConsultivos`; 966 linhas; sem paginação (cap) |
+| C | Correspondentes | 85 (55) | 88 (85) | sem paginação; diligências sem teste |
+| D | Configurações | 85 (85) | 85 (n/a) | `DeadlineConfig`/`MonitoredOabs` sem teste; página delega tudo |
+| D | Escritório | 85 (78) | 85 (70) | página fina sobre `useStats`; nada crítico |
+| D | Perfil | 85 (78) | 78 (62) | 757 linhas; upload de avatar sem teste; `useMyStats` sem teste |
+| D | Admin | 82 (72) | 82 (88) | `useSuperAdminOffices` (nº 3); 7 de 10 subcomponentes sem estado de erro próprio |
+| D | Equipe | 85 (60) | 78 (55) | `useOfficeTeams`/`useInvitations`/`useOfficeUsers` sem teste |
+| D | EquipeDetalhe | 75 (45) | 68 (40) | 959 linhas numa página só; sem paginação; sem teste |
+| E | Login / Cadastro / Redefinir / Pagamento | 92 (90–95) | 90 (85–90) | redirecionamento corrigido hoje (#104/#105/#106); falta só E2E real |
+| E | IA (widget + ai-advisor/ai-voice) | 90 (90) | 88 (88) | teto por escritório (hoje global); confirmação em uso real do import financeiro |
+| F | Dashboard | 92 (90) | 80 (74) | testes de `useStats`/`useMyStats`; cache em localStorage sem `error` em refetch (padrão `!!query.error` já documentado) |
+| F | Gráficos | 90 (93) | 85 (88) | `ChartsTab` com 3 pontos de erro, sem teste |
+| F | Publicações | 88 (65) | 85 (55) | depende do robô diário (1ª execução no projeto novo em 09/10); 867 linhas; teste do hook |
+| F | Notificações | 92 (90) | 88 (68) | preferências por usuário sem teste |
+| F | Lixeira | 85 (72) | 90 (90) | restauração em lote sem paginação |
+
+**Médias:** Frente **88%** (Parte 23: 80%) · Backend **84%** (74%).
+
+## Panorama transversal
+
+| Dimensão | Estado | Nota |
+| --- | --- | --- |
+| RLS | 48/48 tabelas, 213 policies, isolamento provado com a conta de teste | **100%** |
+| Permissões de função (ACL) | 19 revokes reaplicados em 09/10; catálogo público corrigido — **achado nº 1** | **100%** |
+| Edge functions | 24 ativas, segredos completos, 0 erros em 24 h; 1 temporária a apagar | **95%** |
+| Robôs (pg_cron) | 8 ativos; agendador saudável; zap sem destino | **90%** |
+| Auth | URLs, SMTP (Resend), 6 templates em PT; senha vazada desligada | **90%** |
+| Testes | 248, mas ~6 de 64 hooks com teste direto; pgTAP cobre 1 cenário | **50%** |
+| Código | 0 erros de lint, 663 avisos, 391 `any`, 11 arquivos > 600 linhas | **70%** |
+| Dependências | `npm audit` não rodado nesta rodada; `react-router` v7 pendente desde a Parte 14 | **85%** |
+| Observabilidade | Sentry via `captureError`; sem alerta para cron/robô que falha | **75%** |
+| **Transversal (média)** | | **77%** |
+
+## Plano para chegar a 100%, em ordem de retorno
+
+1. ~~Aplicar a migration de ACL~~ (achado nº 1) — **feito em 09/10**. Falta
+   ligar a proteção contra senha vazada (nº 4), no painel.
+2. **Semear tipos de ato de prazo** no escritório novo (nº 2) — bloqueia o
+   primeiro prazo de todo cliente novo.
+3. **Fechar o resíduo da Classe 1** (nº 3): 11 mutations em 6 arquivos, com
+   o mesmo `assertRowsAffected` + teste no `supabaseMock` já existente.
+4. **Testes de hook**: um arquivo por hook de dado das 10 abas mais usadas
+   (processos, clientes, prazos, tarefas, financeiro, agenda, audiências,
+   atendimentos, publicações, equipe). É o item que mais sobe o Backend.
+5. **Quebrar os 5 arquivos acima de 900 linhas** (`ProcessoDetailsDrawer`,
+   `JudicialSyncDialog`, `Consultivo`, `EquipeDetalhe`,
+   `NovoPrazoStandaloneDialog`) em subcomponentes — manutenibilidade, não bug.
+6. **Operação**: desligar `zap-pull-leads` até o bridge voltar; retenção de
+   30 dias em `cron.job_run_details`; alerta (e-mail/Slack) quando um robô
+   diário responder 5xx; apagar `restaurar-storage` e o branch temporário.
+7. **Produto**: VextriaZap reativado com `BRIDGE_SECRET` novo; teto de IA por
+   escritório; aviso de upsell em Metas para planos sem o módulo.
+
+Com 1–3 feitos, a plataforma fica em ~92% de Frente e ~90% de Backend; 4–5
+levam o Backend e o transversal acima de 95%.
+
+---
+
+# Parte 27 — reauditoria completa depois dos itens 1–7 (09/10/2026, 05:40 UTC)
+
+Mesma pergunta da Parte 26, um dia depois: % por aba, o que falta para
+100%, teste com a conta de teste. Entre as duas partes entraram 15 PRs
+(#110–#124): ACL reaplicada, tipos de ato semeados, resíduo da Classe 1,
+44 testes de hook, os 5 arquivos acima de 900 linhas quebrados, operação
+(zap pausado, retenção do log do cron, alerta de robô com erro, function
+temporária apagada), teto de IA por escritório e upsell de Metas.
+
+## Método
+
+Igual ao da Parte 26, com a `main` em `c94f482`:
+
+- **Código**: 31 páginas e 66 hooks pela mesma grade (erro+retry, vazio,
+  confirmação, gate, paginação, bug por leitura; linhas afetadas, catch,
+  office_id, teste, RLS). Sinais mecânicos recomputados: tamanho dos
+  arquivos, hooks com teste, `update`/`delete` sem `.select`, `any`,
+  `npm audit`.
+- **Banco e infra** (projeto `pvesofbrctfipdyqyloq`, só leitura): advisors,
+  ACL das 49 funções SECURITY DEFINER, 54 tabelas e 203 policies, 11 crons,
+  53 respostas HTTP dos robôs em 24 h, as 24 edge functions.
+- **Conta de teste** (`vextriahub@gmail.com`, escritório "VextriaHub", trial
+  até 15/10): simulada no banco com `request.jwt.claims` + `set role
+  authenticated`, como o PostgREST faz. Leituras em 25 tabelas e escrita de
+  prazo, audiência, consultivo, lançamento financeiro, edição de processo,
+  soft-delete e restauração de tarefa, passando pela RLS e pelos triggers de
+  cota. Navegação real no site segue impossível daqui (o sandbox não alcança
+  o host do projeto). **A conta nunca fez login de verdade**: `last_sign_in_at`
+  está nulo e não há evento de auth nas últimas 48 h.
+
+## Sinais no momento da análise
+
+| Verificação | Parte 26 | Agora |
+| --- | --- | --- |
+| `tsc -p tsconfig.app.json` | limpo | limpo |
+| ESLint | 0 erros · 663 avisos | 0 erros · **643** avisos (387 `any`) |
+| Vitest | 248 em 32 arquivos | **313 em 44 arquivos** |
+| Hooks com teste direto | ~6 de 64 | **17 de 66** |
+| Arquivos > 900 linhas | 5 | **0** (maior: `Publicacoes.tsx`, 867) |
+| Arquivos > 600 linhas | 11 | 12 (os 5 quebrados saíram, nenhum novo; contagem inclui `ui/sidebar.tsx` gerado) |
+| `update`/`delete` sem `.select` | 11 em 6 arquivos | **9 em 7 arquivos** (lista no achado nº 3) |
+| `npm audit --omit=dev` | não rodado | 17 altas · 4 moderadas (achado nº 5) |
+| Funções SECURITY DEFINER executáveis por `anon` | 40 → 2 após #110/#111 | **4** (duas novas, do Notion — achado nº 2) |
+| Tabelas / policies | 48 / 213 | **54 / 203** (6 tabelas do Notion; policies caíram com o `drop if exists` das reaplicações) |
+| Crons | 8 ativos | **10 ativos + `zap-pull-leads` pausado**; 159 execuções em 24 h, todas `succeeded` |
+| Respostas HTTP dos robôs (24 h) | 0 erros | 49 × 200 · 4 × 400 (zap, antes de pausar) · 0 × 5xx |
+| `robo-alertas-horario` | não existia | ativo desde 03:05 UTC; 0 alertas (nada para alertar) |
+| Advisors segurança | 40 secdef anônimas | 4 secdef anônimas · 11 tabelas RLS sem policy (todas de serviço) · `notion_sync.norm` sem `search_path` · senha vazada (precisa do plano Pro) |
+
+## Achados desta rodada
+
+### 1 — P1 · A aba Metas está quebrada para todo usuário logado
+
+Com a conta de teste, `select` em `metas` devolve
+`42501: permission denied for function office_has_goals_module`. A policy
+RESTRITIVA `metas.office_goals_module_gate` (migration
+`20260904150000`) chama `office_has_goals_module(office_id)`, e a mesma
+migration **revogou** EXECUTE dessa função de `authenticated`. Policy roda
+como o usuário que consulta, então ninguém logado consegue ler, criar ou
+editar metas — nem Premium, nem cortesia. O super admin passa porque
+`is_super_admin()` vem antes no `or`.
+
+Não é regressão de hoje: a migration original já nascia assim, e só não
+doeu porque o restore de 08/10 reabriu a ACL de tudo e a Parte 26 mediu
+nesse estado. A reaplicação da ACL (#110) repôs o revoke e reexpôs o bug.
+`office_oab_limit` e `office_plan_limits`, revogadas na mesma lista, estão
+certas: só são chamadas por dentro de triggers SECURITY DEFINER.
+
+**Correção**: `grant execute on function public.office_has_goals_module(uuid)
+to authenticated;` (migration `20261009050000_metas_gate_executavel_por_authenticated.sql`,
+PR própria). A função é SECURITY DEFINER e só devolve um booleano por
+escritório; `anon` continua sem acesso.
+
+### 2 — P2 · Integração com o Notion existe no banco, mas não no repositório
+
+Por outra sessão, entre 03:00 e 03:35 UTC de 09/10, o projeto ganhou:
+coluna `offices.notion_access`, `processos.notion_page_id` e
+`clientes.notion_page_id` (esta última já registrada na #124), tabelas
+`office_integrations`, `office_integration_secrets`, `notion_oauth_states`,
+`notion_sync_queue`, schema `notion_sync` (`n_link`, `n_cli`, `n_proc`,
+`norm`), 8 funções (`admin_notion_overview`, `admin_set_office_notion_access`,
+`notion_apply_change`, `notion_enqueue`, `notion_enqueue_all`,
+`notion_status`, `office_notion_active`, `office_notion_allowed`) e o cron
+`notion-sync-5min`, que chama `/functions/v1/notion-sync` **quando há
+integração conectada** — hoje não há (1 linha em `office_integrations`,
+`desconectado`), e a function `notion-sync` não está entre as 24 publicadas.
+
+Efeitos: o repositório deixou de descrever o schema (69 migrations no banco
+contra 162 arquivos no repositório, porque o banco novo nasceu de restore);
+`office_notion_allowed` e `office_notion_active` são SECURITY DEFINER e
+executáveis por `anon` (revelam, por id de escritório, se o Notion está
+liberado); `notion_sync.norm` sem `search_path` fixo; `n_link` sem chave
+primária. Nada disso é explorável hoje, mas é exatamente o padrão que a
+Parte 26 chamou de "regressão do restore", agora por outra via.
+
+**Correção**: trazer a integração para o repositório (migrations com os
+`create` + `revoke execute … from anon` nas duas funções + `set search_path`
+em `norm` + PK em `n_link`; function `notion-sync` em `supabase/functions/`;
+UI) ou desligar o cron e remover os objetos até a integração ficar pronta.
+
+**Errata (09/10, 10:40 UTC).** O achado acima foi medido com a `main`
+em `c94f482`, de antes da PR #125 (merge às 05:09 UTC), que trouxe a
+integração inteira para o repositório: migration
+`notion_integracao_por_escritorio.sql`, as functions `notion-oauth-start`,
+`notion-oauth-callback`, `notion-disconnect` e `notion-sync` (publicadas às
+05:50 pelo deploy automático), UI em `components/Integrations`,
+`pages/auth/NotionCallback` e o painel do super admin. O schema
+`notion_sync` era apoio temporário da importação e a própria migration o
+apaga. O que **continua** valendo, e a PR que acompanha esta errata trata:
+
+- as duas funções `office_notion_allowed`/`office_notion_active` seguem
+  executáveis por `anon` no banco, embora a migration do repositório as
+  revogue — os objetos foram criados pelo SQL Editor, sem registro em
+  `supabase_migrations`, e a ACL não ficou como o arquivo diz;
+- dois arquivos com a mesma versão `20261009040000` (`ai_limites` e
+  `notion_integracao`), o que a CLI do Supabase rejeita; o do Notion passa
+  a `20261009043000`, e o registro em `supabase_migrations` recebe as duas
+  versões.
+
+A nota "Repositório ↔ banco" do panorama transversal sobe de 70% para 90%
+com isso aplicado; o que falta é a feature de jurisprudência (#129/#130),
+que entrou pelo mesmo caminho e tem 4 migrations registradas no banco
+contra 1 arquivo no repositório.
+
+### 3 — P3 · Resíduo da Classe 1, segunda rodada
+
+Nove mutations ainda sem `.select` + `assertRowsAffected`, e duas sem
+nenhum tratamento de erro:
+
+| Arquivo | Linha | O que faz | Hoje |
+| --- | --- | --- | --- |
+| `components/Atendimentos/FollowUpDialog.tsx` | 50 | grava o desfecho do atendimento | `await` sem ler `error` ("best-effort") |
+| `hooks/useProcessoMovimentacoes.tsx` | 126 | carimba `sincronizado_em`/título/partes depois do sync | `await` sem ler `error` |
+| `components/Processos/AgendarPublicacaoDialog.tsx` | 201 | descarta o prazo de origem ao converter em audiência/tarefa | `console.warn` |
+| `hooks/usePublicacoes.tsx` | 348 | atualiza publicação existente no sync por OAB | `captureError`, sem checar linhas |
+| `hooks/useClientes.tsx` | 41 | desfaz `deletado_pendente` | lança em erro, sem checar linhas |
+| `components/Processos/CompletarDadosDialog.tsx` | 104 | aplica campos do tribunal | toast em erro, sem checar linhas |
+| `components/Prazos/GerenciarTiposModal.tsx` | 139 · 149 · 178 | editar/excluir tipo de ato; apagar todos no "restaurar padrão" | toast em erro, sem checar linhas |
+
+### 4 — P3 · O que a conta de teste ainda não provou
+
+Login real, recuperação de senha pela tela, Conselheiro IA (trial não tem
+o módulo), upload de avatar/logo e as rotas que dependem de edge function
+(`fetch-by-oab`, `fetch-processo`, `calculate-prazo`) continuam sem
+exercício ponta a ponta. A conta nunca entrou pelo site. O que está provado
+é o que o banco garante (RLS, cotas, triggers), não o que o navegador faz.
+
+### 5 — P3 · Dependências
+
+`npm audit --omit=dev`: 17 altas e 4 moderadas. Quase tudo é ferramenta
+de build declarada em `dependencies` (`vite`, `postcss`, `tailwindcss`,
+`lovable-tagger`, `rollup`, `chokidar`, `micromatch`) — não vai para o
+navegador, mas infla o relatório e deveria estar em `devDependencies`. O
+que roda no cliente: `react-router-dom` 6.30 (correção só na v7, pendente
+desde a Parte 14) e `nanoid`. 24 pacotes `@radix-ui` com versão menor
+disponível.
+
+### 6 — Info · Plano Free do Supabase
+
+Proteção contra senha vazada exige Pro (tentativa do usuário em 09/10
+falhou com a mensagem do painel). No Free o projeto pausa após 7 dias sem
+atividade — foi assim que o projeto antigo parou; os robôs chamam a API
+toda hora e devem contar como atividade, mas é um risco estrutural até o
+upgrade.
+
+## O que a conta de teste provou (09/10)
+
+| Ação (como `authenticated`, JWT do usuário de teste) | Resultado |
+| --- | --- |
+| `select` em offices, profiles, office_users, office_subscriptions | 1 linha cada (as próprias) |
+| `select` em plan_configs | 13 planos (catálogo público) |
+| `select` em processos, clientes, tarefas (criados na Parte 26) | 1 linha cada; nada de outros escritórios |
+| `select` em ai_usage, ai_limites, office_integrations, notifications, publicações | 0 linhas, sem erro |
+| **`select` em metas** | **erro 42501 — achado nº 1** |
+| `insert` prazo (vinculado ao processo), audiência, consultivo, lançamento financeiro | 4 linhas; `enforce_plan_quota` não barrou (trial) |
+| `update` status do processo | 1 linha |
+| `update` tarefa → `deletado = true`, depois `deletado = false` em instrução separada | 1 e 1 — soft-delete e restauração funcionam para o dono |
+| `insert` em ai_limites (teto de IA) | erro de RLS — só super admin, como desenhado |
+| `notion_status()` | `permitido: false`, `desconectado`, `pode_gerenciar: true` |
+| `select` em tipos_ato_prazo | 0 — a semente roda no primeiro acesso à tela de prazos (#112), e a conta nunca abriu |
+| Como `anon`: `select` em clientes | erro 42501 em `get_user_office_ids` — a policy chama função que anon não executa; nada vaza |
+
+Os registros de teste ficaram no escritório de teste, marcados "(teste
+Parte 27)".
+
+## Tabela por aba
+
+Mesma grade (Frente 100 = loading 10 · erro+retry 20 · vazio 10 ·
+confirmação 15 · gate 15 · paginação 10 · sem bug 20; Backend 100 = linhas
+afetadas 35 · catch 20 · office_id 10 · teste 15 · RLS 20). Entre
+parênteses, a Parte 26.
+
+| Bloco | Aba | Frente | Backend | O que falta para 100% |
+| --- | --- | --- | --- | --- |
+| A | Atendimentos | 93 (95) | 92 (88) | `FollowUpDialog` grava desfecho sem ler erro (nº 3); paginação (hoje cap) |
+| A | Audiências | 92 (90) | 92 (85) | teste cobre o hook; falta paginação |
+| A | Prazos | 90 (85) | 92 (85) | 820 linhas; `GerenciarTiposModal` (nº 3) |
+| A | Agenda | 88 (85) | 88 (78) | cap de 50 atrasados sem "ver mais" |
+| A | Tarefas | 90 (90) | 90 (85) | 828 linhas; `useSubtarefas`/`useTarefaComentarios` testados só pelo caminho da RLS |
+| B | Financeiro | 95 (95) | 92 (88) | confirmação em uso real do import por IA |
+| B | Metas | 95 (92) | **40** (85) | **achado nº 1**: leitura bloqueada pela ACL; com o grant volta a ~90; teste de `useMetas` |
+| B | Timesheet | 88 (88) | 85 (85) | 855 linhas; teste do hook cobre pouco |
+| B | CRM | 78 (78) | 72 (72) | VextriaZap offline (bridge); teste de `useCrmRobot`; Kanban sem paginação |
+| C | Clientes | 95 (95) | 95 (92) | `reverterPendente` sem checar linhas (nº 3) |
+| C | Processos | 92 (88) | 90 (80) | drawer e sync quebrados em 12 arquivos; `useProcessoMovimentacoes` grava sem ler erro (nº 3) |
+| C | Consultivo | 92 (88) | 82 (78) | página em 5 arquivos; teste de `useConsultivos`; sem paginação (cap) |
+| C | Correspondentes | 85 (85) | 88 (88) | sem paginação; diligências sem teste |
+| D | Configurações | 85 (85) | 85 (85) | `DeadlineConfig`/`MonitoredOabs` sem teste |
+| D | Escritório | 85 (85) | 85 (85) | nada crítico |
+| D | Perfil | 85 (85) | 78 (78) | 757 linhas; upload de avatar e `useMyStats` sem teste |
+| D | Admin | 88 (82) | 88 (82) | seção de IA por escritório entrou; subcomponentes sem estado de erro próprio |
+| D | Equipe | 85 (85) | 78 (78) | `useOfficeTeams`/`useInvitations`/`useOfficeUsers` sem teste |
+| D | EquipeDetalhe | 88 (75) | 80 (68) | página em 6 arquivos + `useEquipeStats`; falta teste do hook |
+| E | Login / Cadastro / Redefinir / Pagamento | 92 (92) | 90 (90) | E2E real (nº 4) |
+| E | IA (widget + ai-advisor/ai-voice) | 95 (90) | 95 (88) | teto por escritório e uso no widget entraram; confirmação em uso real |
+| F | Dashboard | 92 (92) | 80 (80) | testes de `useStats`/`useMyStats` |
+| F | Gráficos | 90 (90) | 85 (85) | `ChartsTab` sem teste |
+| F | Publicações | 90 (88) | 88 (85) | 867 linhas; 1ª execução diária do robô no projeto novo às 07:00 UTC de hoje |
+| F | Notificações | 92 (92) | 88 (88) | preferências por usuário sem teste |
+| F | Lixeira | 85 (85) | 90 (90) | restauração em lote sem paginação |
+
+**Médias:** Frente **89%** (Parte 26: 88%) · Backend **85%** (84%) — **87%
+de Backend** assim que o grant do achado nº 1 for aplicado.
+
+## Panorama transversal
+
+| Dimensão | Estado | Nota |
+| --- | --- | --- |
+| RLS | 54/54 tabelas, 203 policies, isolamento provado; 1 policy inutilizável (metas) | **95%** |
+| Permissões de função (ACL) | 49 secdef; 4 executáveis por anon (2 intencionais, 2 do Notion) | **90%** |
+| Edge functions | 24 ativas, versões 9–10, 0 erros em 24 h; `notion-sync` referenciada por cron e inexistente | **95%** |
+| Robôs (pg_cron) | 10 ativos, 159/159 ok, alerta horário ativo; zap pausado | **90%** |
+| Auth | URLs, SMTP, templates ok; senha vazada depende do Pro; conta de teste nunca logou | **85%** |
+| Testes | 313; 17 de 66 hooks; sem E2E | **65%** |
+| Código | 0 arquivos > 900, 12 > 600; 387 `any`; 643 avisos | **78%** |
+| Dependências | 17 altas (build) + `react-router` v6; tooling em `dependencies` | **70%** |
+| Observabilidade | Sentry + alerta de robô por hora + retenção do log | **85%** |
+| Repositório ↔ banco | Notion fora do repositório (6 tabelas, 8 funções, 1 cron, 1 schema) | **70%** |
+| **Transversal (média)** | | **82%** (Parte 26: 77%) |
+
+## Plano para chegar a 100%, em ordem de retorno
+
+1. **Aplicar o grant de `office_has_goals_module`** (nº 1) — um comando,
+   devolve a aba Metas a todo escritório com o módulo.
+2. **Notion no repositório ou fora do banco** (nº 2): migrations dos
+   objetos, revoke de `anon` nas duas funções, `search_path` em `norm`, PK
+   em `n_link`, function `notion-sync` versionada; ou remover até a entrega.
+3. **Resíduo da Classe 1** (nº 3): 9 sites, começando pelos dois sem
+   tratamento de erro.
+4. **Testes**: 49 hooks sem teste direto. Próximos pelo uso: `useMetas`,
+   `useConsultivos`, `useStats`, `useMyStats`, `useOfficeTeams`,
+   `useOfficeUsers`, `useInvitations`, `useEquipeStats`, `useCorrespondentes`,
+   `useTimesheetTimer`.
+5. **E2E com a conta de teste** (nº 4): um roteiro Playwright contra
+   produção (login, criar prazo pela tela, esqueci-senha, upload de avatar)
+   rodando de uma máquina com rede — fecha o que o banco não prova.
+6. **Dependências** (nº 5): mover tooling para `devDependencies`, remover
+   `lovable-tagger`, subir `vite`/`postcss` de patch, planejar `react-router`
+   v7.
+7. **Código**: `Publicacoes`, `Timesheet`, `Tarefas`, `Prazos`, `Perfil`,
+   `NovoProcessoDialog`, `Financeiro` (694–867 linhas); 387 `any`.
+8. **Produto**: VextriaZap com `BRIDGE_SECRET` novo; Notion (item 2);
+   upgrade do Supabase para Pro (senha vazada, sem pausa, backups).
+
+Com 1–3 feitos: Frente ~91%, Backend ~90%, transversal ~87%. Com 4–5:
+Backend e transversal acima de 95%.
+
+---
+
+# Parte 28 — reauditoria com navegação real pela conta de teste (09/10/2026, 15:40 UTC)
+
+Entregue como página HTML: [`ANALISE_PLATAFORMA_PARTE28.html`](./ANALISE_PLATAFORMA_PARTE28.html)
+(abrir no navegador). Mesma grade das Partes 23–27, `main` em `357e2d2`, PRs
+#128–#144 desde a Parte 27.
+
+**Resultado:** geral **88%** (Parte 27: 87%) · Frente **90%** (89%) · Backend
+**90%** (85%) · transversal **84%** (82%). 541 testes unitários (313), 60 de
+67 hooks com teste direto (17), E2E no navegador com 10 de 10 cenários verdes
+(não existia). A conta de teste fez login de verdade pela primeira vez, pelo
+Playwright no CI, e cadastrou cliente, processo, prazo, audiência, tarefa e
+atendimento pelas telas (PR #146).
+
+**Achados novos (logs de 24 h):**
+
+1. P1 · corrigido (#144): cadastro disparado antes do escritório carregar ia
+   sem `office_id` (RLS 403 no prazo; cliente sem aviso).
+2. P1: Google, Zap e Notion respondem 200 ao cron mas recebem 401 do REST por
+   dentro (25 ocorrências) — a sincronização do Google Agenda não acontece.
+3. P1: `juris-sync` com 10 × 500 no upsert de `juris_documents`; 301 MB de
+   500 MB do Free.
+4. P2: Realtime com 242 × 401 no websocket — notificações ao vivo não conectam.
+5. P2: 18 × 404 na lista paginada de clientes e 3 × 403 em metas (escritório
+   `f220b1b5`), intermitentes, a investigar.
+6. P3: logos e avatares com URL órfã (400 no storage); jurisprudência com 7
+   migrations no banco e 4 no repositório.
+
+**Plano para 100%** (11 itens, na página): integrações com 401 → acervo de
+jurisprudência/plano → realtime → intermitentes → E2E completo → perfil antes
+de renderizar → URLs órfãs → migrations da jurisprudência → código →
+dependências → Supabase Pro. Com 1–4: ~92% geral.
+
+---
+
+# Parte 29 — reauditoria depois de fechar os sete achados da Parte 28 (10/10/2026, 14:30 UTC)
+
+Entregue como página HTML: [`ANALISE_PLATAFORMA_PARTE29.html`](./ANALISE_PLATAFORMA_PARTE29.html)
+(abrir no navegador). Mesma grade das Partes 23–28, `main` em `63c034e`, PRs
+#145–#152 mergeadas e #153–#156 abertas desde a Parte 28.
+
+**Resultado:** geral **90%** (Parte 28: 88%; 91% com as 4 PRs abertas) · Frente
+**91%** (90%) · Backend **92%** (90%) · transversal **87%** (84%). 542 testes
+unitários (545 com #153), 63 de 67 hooks, E2E 11/11 no CI. **Pela primeira vez na
+série, 18 h de logs sem nenhum erro de integração.**
+
+**O que fechou, com causa raiz:**
+
+1. Robôs com 401 interno (#147): a chave `sb_secret_…` injetada pela plataforma
+   vira um JWT curto que chegava vencido (`PGRST303`). Robô usa o service_role do
+   vault e responde 500 quando o REST falha. 96 execuções seguidas sem erro.
+2. Realtime 401 em 100% dos navegadores (#148): o secret `VITE_SUPABASE_ANON_KEY`
+   tinha uma quebra de linha no fim (209 caracteres em vez de 208); nos headers o
+   navegador descarta, no query param do websocket vira `%0A`. Client apara as
+   variáveis; E2E de regressão.
+3. Clientes 404 (#149): `like('____-MM-__')` em coluna `date` na consulta de
+   aniversariantes; o hook engolia o erro. Metas 403: ACL já corrigida às 05:59.
+4. `juris-sync` 500 (#150): statement timeout de 8 s no upsert de 500 docs; sub-lotes
+   de 100 com retry pela metade. STJ cortado trimestre a trimestre para 12 meses
+   (34.269 docs) + vacuum full: banco 321 MB → 214 MB (#152, #154).
+5. Repositório × banco (#151): 70 divergências, não 3 — 75 migrations antigas sem
+   registro, 50 com carimbo do dashboard, 5 redundantes, 1 nunca versionada
+   (`valor_pago`), 1 versão duplicada. Agora 154 × 154, diff zerado.
+6. Storage órfão: não reproduz (0 × 4xx; arquivos existem). Encerrado.
+7. AuthContext (#153, aberta): tela só abre com perfil + escritório, teto de 6 s.
+
+**Também nesta rodada:** bundle inicial 1.506 kB → 825 kB, Sentry lazy e chunk de
+gráficos só onde há gráfico (#155); dependências compatíveis, `npm audit` 30 → 12
+(#156); Zap segue pausado.
+
+**Plano para 100%** (9 itens, na página): mergear as 4 PRs → E2E completo →
+dívida de código (11 arquivos > 600 linhas, 607 `any`, Deno fora do orçamento do
+lint) → react-router 7 → advisors (search_path, unaccent, FK, índices) →
+paginação em 6 abas → Zap → Supabase Pro → re-salvar o secret limpo.

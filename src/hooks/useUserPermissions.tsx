@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { assertRowsAffected, getErrorMessage } from "@/lib/errors";
 
 export type PermissionOverride = { permission_key: string; granted: boolean };
 
@@ -48,14 +49,20 @@ export function useUserPermissions(targetUserId: string | null) {
 
   const resetAll = async () => {
     if (!targetUserId || !user?.office_id) return false;
-    const { error } = await supabase.from("user_permissions")
+    // Sem overrides carregados não há o que apagar — e um delete de 0 linhas
+    // seria indistinguível de RLS barrando. Com overrides, exige apagar todos.
+    if (overrides.length === 0) return true;
+    const { data, error } = await supabase.from("user_permissions")
       .delete()
       .eq("office_id", user.office_id)
-      .eq("user_id", targetUserId);
-    if (error) {
+      .eq("user_id", targetUserId)
+      .select("permission_key");
+    try {
+      assertRowsAffected(data, error, overrides.length);
+    } catch (e) {
       toast({
         title: "Não foi possível redefinir as permissões",
-        description: "Tente novamente em instantes.",
+        description: getErrorMessage(e, "Tente novamente em instantes."),
         variant: "destructive",
       });
       return false;

@@ -4,8 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar, Loader2, RefreshCw, Check, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { captureError } from "@/lib/monitoring";
 
-type Conn = "loading" | "off" | "on" | "revoked";
+type Conn = "loading" | "off" | "on" | "revoked" | "error";
 
 // Card da integração Google Agenda (Config → Integração). Conexão por usuário,
 // mão única: prazos e audiências do escritório viram eventos num calendário
@@ -19,7 +20,9 @@ export function GoogleCalendarCard() {
 
   const loadStatus = useCallback(async () => {
     const { data, error } = await supabase.rpc("google_status");
-    if (error) { setConn("off"); return; }
+    // Antes a falha virava "desconectado" — o usuário já conectado clicava em
+    // "Conectar" de novo achando que tinha perdido a integração.
+    if (error) { captureError(error, { context: "GoogleCalendarCard.google_status" }); setConn("error"); return; }
     const row = Array.isArray(data) ? data[0] : null;
     if (!row) { setConn("off"); setEmail(null); setLastSync(null); return; }
     setConn(row.status === "revoked" ? "revoked" : "on");
@@ -35,6 +38,7 @@ export function GoogleCalendarCard() {
       body: { redirectUri: `${window.location.origin}/auth/google/callback` },
     });
     if (error || !data?.url) {
+      if (error) captureError(error, { context: "GoogleCalendarCard.connect" });
       setBusy(false);
       toast({ title: "Não foi possível iniciar a conexão", description: "Tente novamente em instantes.", variant: "destructive" });
       return;
@@ -47,6 +51,7 @@ export function GoogleCalendarCard() {
     const { data, error } = await supabase.functions.invoke("google-sync");
     setBusy(false);
     if (error || data?.error) {
+      captureError(error ?? data?.error, { context: "GoogleCalendarCard.sync" });
       toast({ title: "Falha ao sincronizar", description: "Tente de novo em instantes.", variant: "destructive" });
       return;
     }
@@ -64,7 +69,7 @@ export function GoogleCalendarCard() {
     setBusy(true);
     const { error } = await supabase.functions.invoke("google-disconnect");
     setBusy(false);
-    if (error) { toast({ title: "Falha ao desconectar", variant: "destructive" }); return; }
+    if (error) { captureError(error, { context: "GoogleCalendarCard.disconnect" }); toast({ title: "Falha ao desconectar", description: "Tente de novo em instantes.", variant: "destructive" }); return; }
     toast({ title: "Google Agenda desconectada" });
     setConn("off"); setEmail(null); setLastSync(null);
   }, [toast]);
@@ -90,7 +95,9 @@ export function GoogleCalendarCard() {
             )}
           </div>
           <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">
-            {conn === "on" && email
+            {conn === "error"
+              ? "Não foi possível verificar o status da integração agora."
+              : conn === "on" && email
               ? `Prazos e audiências sincronizando com ${email}.`
               : conn === "revoked"
               ? "O acesso ao Google expirou. Reconecte para voltar a sincronizar."
@@ -107,6 +114,12 @@ export function GoogleCalendarCard() {
       {conn === "loading" && (
         <Button variant="outline" size="sm" disabled className="rounded-xl font-bold w-full">
           <Loader2 className="h-4 w-4 animate-spin" />
+        </Button>
+      )}
+
+      {conn === "error" && (
+        <Button variant="outline" size="sm" onClick={() => { setConn("loading"); loadStatus(); }} className="rounded-xl font-bold w-full">
+          <RefreshCw className="h-3.5 w-3.5" /> Tentar novamente
         </Button>
       )}
 

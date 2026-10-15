@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { getErrorMessage, assertRowsAffected } from '@/lib/errors';
+import { patchOfficeSettings } from '@/lib/officeSettings';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOfficeManagement } from '@/hooks/useOfficeManagement';
 import { useToast } from '@/hooks/use-toast';
-import { Building2, Save, BarChart3, CreditCard, Loader2, Camera } from 'lucide-react';
+import { Building2, Save, BarChart3, CreditCard, Loader2, Camera, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatPhone, isValidPhone } from '@/lib/phone';
 import { uploadPublicImage, validateImage } from '@/lib/uploadImage';
@@ -47,17 +48,32 @@ export const OfficeSettings: React.FC = () => {
     address: office?.address || '',
   });
 
+  const [loadingData, setLoadingData] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
   // Busca dados frescos do banco ao montar (o office do contexto pode estar desatualizado)
   useEffect(() => {
-    if (!office?.id) return;
+    if (!office?.id) { setLoadingData(false); return; }
     let cancel = false;
+    setLoadingData(true);
     (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('offices')
         .select('name, email, phone, address, logo_url, settings')
         .eq('id', office.id)
         .maybeSingle();
-      if (cancel || !data) return;
+      if (cancel) return;
+      // Sem isto, uma falha deixava fiscal/cor vazios na tela e o próximo "Salvar"
+      // gravava esses campos vazios por cima dos dados fiscais reais.
+      if (error) {
+        setLoadError(getErrorMessage(error, 'Não foi possível carregar os dados do escritório.'));
+        setLoadingData(false);
+        return;
+      }
+      setLoadError(null);
+      setLoadingData(false);
+      if (!data) return;
       setFormData({
         name: data.name || '',
         email: data.email || '',
@@ -75,7 +91,7 @@ export const OfficeSettings: React.FC = () => {
       }
     })();
     return () => { cancel = true; };
-  }, [office?.id]);
+  }, [office?.id, reloadKey]);
 
   const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -113,6 +129,10 @@ export const OfficeSettings: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!office?.id) return;
+    if (loadError || loadingData) {
+      toast({ title: "Não foi possível salvar", description: "Os dados atuais do escritório não carregaram — recarregue antes de editar.", variant: "destructive" });
+      return;
+    }
     if (!isValidPhone(formData.phone)) {
       toast({ title: "Telefone inválido", description: "Use o formato (XX) XXXXX-XXXX.", variant: "destructive" });
       return;
@@ -124,13 +144,9 @@ export const OfficeSettings: React.FC = () => {
     setIsLoading(true);
     try {
       const result = await updateOffice(office.id, formData);
-      // Dados fiscais ficam em offices.settings (jsonb)
-      const { data: cur } = await supabase.from("offices").select("settings").eq("id", office.id).maybeSingle();
-      const merged = { ...((cur?.settings as any) || {}), fiscal, primary_color: brandColor || null };
-      const { error: settingsError } = await supabase.from("offices").update({ settings: merged }).eq("id", office.id);
-      // Supabase não lança em erro/bloqueio de RLS — sem checar, a tela dizia
-      // "salvo com sucesso" mesmo com os dados fiscais/cor intocados no banco.
-      if (settingsError) throw settingsError;
+      // Dados fiscais ficam em offices.settings (jsonb). patchOfficeSettings aborta se a
+      // releitura falhar (senão apagava as outras chaves) e confere as linhas afetadas.
+      await patchOfficeSettings(office.id, { fiscal, primary_color: brandColor || null });
       if (result) {
         toast({ title: "Escritório atualizado", description: "As informações foram salvas com sucesso." });
       }
@@ -170,6 +186,20 @@ export const OfficeSettings: React.FC = () => {
             </div>
           </CardHeader>
           <CardContent className="p-5 md:p-6">
+            {loadError && (
+              <div className="mb-5 flex items-center justify-between gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+                  <p className="text-xs font-bold text-destructive">{loadError} Salvar fica bloqueado até recarregar.</p>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={() => setReloadKey((k) => k + 1)} className="rounded-xl font-bold shrink-0">Tentar novamente</Button>
+              </div>
+            )}
+            {loadingData && !loadError && (
+              <div className="mb-5 flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Carregando dados do escritório…
+              </div>
+            )}
             {/* Logo */}
             <div className="flex items-center gap-4 pb-5 mb-5 border-b border-black/5 dark:border-border">
               <div className="relative group/logo">
@@ -272,7 +302,7 @@ export const OfficeSettings: React.FC = () => {
                 <p className="text-[11px] text-muted-foreground/70">Aplica em botões, destaques e gráficos. Pré-visualiza na hora; clique em Salvar para fixar.</p>
               </div>
 
-              <Button type="submit" disabled={isLoading} className="rounded-xl font-bold gap-2">
+              <Button type="submit" disabled={isLoading || loadingData || !!loadError} className="rounded-xl font-bold gap-2">
                 {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 {isLoading ? 'Salvando…' : 'Salvar Alterações'}
               </Button>

@@ -132,7 +132,7 @@ const Metas = () => {
   const [activeTab, setActiveTab] = useState("individuais");
   const [createGoalOpen, setCreateGoalOpen] = useState(false);
   const [editGoal, setEditGoal] = useState<any | null>(null);
-  const { metas, loading, error, create, update, remove } = useMetas();
+  const { metas, loading, error, create, update, remove, refetch } = useMetas();
   const { teams } = useOfficeTeams();
   const { canManageMetas } = usePermissions();
   // Excluir meta não tinha NENHUMA confirmação — achado do relatório.
@@ -180,7 +180,10 @@ const Metas = () => {
       else if (s.kind === "ontrack") ontrack++;
       else behind++;
     });
-    return { total, media: total > 0 ? Math.round(soma / total) : 0, ontrack, achieved, behind };
+    // "Metas ativas" contava todas (inclusive encerradas e com período vencido).
+    const hojeYmd = new Date().toLocaleDateString("en-CA");
+    const ativas = metas.filter(m => (m.status || "ativa") === "ativa" && (!m.dataFim || m.dataFim >= hojeYmd)).length;
+    return { total, ativas, media: total > 0 ? Math.round(soma / total) : 0, ontrack, achieved, behind };
   }, [metas]);
 
   const consolidado = useMemo(() => {
@@ -237,7 +240,8 @@ const Metas = () => {
       {error && (
         <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-medium">
           <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-          <span>{error}</span>
+          <span className="flex-1">{error}</span>
+          <Button size="sm" variant="outline" onClick={() => refetch()} className="h-7 rounded-lg text-xs border-destructive/30">Tentar novamente</Button>
         </div>
       )}
 
@@ -261,7 +265,7 @@ const Metas = () => {
             {!loading && metas.length > 0 && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {[
-                  { label: "Metas ativas", value: resumo.total, icon: Target, color: "text-primary", bg: "bg-primary/10" },
+                  { label: "Metas ativas", value: resumo.ativas, icon: Target, color: "text-primary", bg: "bg-primary/10" },
                   { label: "Progresso médio", value: `${resumo.media}%`, icon: TrendingUp, color: "text-violet-500", bg: "bg-violet-500/10" },
                   { label: "No ritmo", value: resumo.ontrack + resumo.achieved, icon: Flame, color: "text-blue-500", bg: "bg-blue-500/10" },
                   { label: "Atrasadas", value: resumo.behind, icon: AlertTriangle, color: "text-amber-500", bg: "bg-amber-500/10" },

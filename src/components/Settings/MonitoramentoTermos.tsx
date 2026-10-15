@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { DeleteConfirmDialog } from '@/components/ui/DeleteConfirmDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -63,15 +64,18 @@ export function MonitoramentoTermos() {
     refresh();
   }, [form, user, toast, refresh]);
 
+  // .select('id') nos dois: a RLS barrando casa 0 linhas sem erro — o switch/lista
+  // mostravam a mudança e ela sumia no F5.
   const toggleAtivo = useCallback(async (id: string, ativo: boolean) => {
-    const { error } = await supabase.from('monitoramento_termos').update({ ativo }).eq('id', id);
-    if (error) { toast({ title: 'Erro ao atualizar', description: error.message, variant: 'destructive' }); return; }
+    const { data, error } = await supabase.from('monitoramento_termos').update({ ativo }).eq('id', id).select('id');
+    if (error || !data?.length) { toast({ title: 'Erro ao atualizar', description: error?.message ?? 'Sem permissão para alterar este termo.', variant: 'destructive' }); return; }
     refresh();
   }, [toast, refresh]);
 
+  const [removeTarget, setRemoveTarget] = useState<{ id: string; termo: string } | null>(null);
   const remove = useCallback(async (id: string) => {
-    const { error } = await supabase.from('monitoramento_termos').delete().eq('id', id);
-    if (error) { toast({ title: 'Erro ao remover', description: error.message, variant: 'destructive' }); return; }
+    const { data, error } = await supabase.from('monitoramento_termos').delete().eq('id', id).select('id');
+    if (error || !data?.length) { toast({ title: 'Erro ao remover', description: error?.message ?? 'Sem permissão para remover este termo.', variant: 'destructive' }); return; }
     toast({ title: 'Termo removido do monitoramento' });
     refresh();
   }, [toast, refresh]);
@@ -149,7 +153,7 @@ export function MonitoramentoTermos() {
                         </p>
                       </div>
                       <Switch checked={t.ativo} onCheckedChange={(v) => toggleAtivo(t.id, v)} aria-label={t.ativo ? 'Ativo' : 'Pausado'} />
-                      <Button variant="ghost" size="icon" onClick={() => remove(t.id)} className="h-9 w-9 text-rose-500/70 hover:text-rose-500 shrink-0" title="Remover" aria-label="Remover termo"><Trash2 className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => setRemoveTarget({ id: t.id, termo: t.termo })} className="h-9 w-9 text-rose-500/70 hover:text-rose-500 shrink-0" title="Remover" aria-label="Remover termo"><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   ))}
                 </div>
@@ -157,6 +161,14 @@ export function MonitoramentoTermos() {
           </>
         )}
       </CardContent>
+      <DeleteConfirmDialog
+        open={!!removeTarget}
+        onOpenChange={(o) => { if (!o) setRemoveTarget(null); }}
+        title="Parar de monitorar termo"
+        description={`O robô deixa de buscar publicações com "${removeTarget?.termo ?? ''}".`}
+        confirmText="Remover"
+        onConfirm={() => { const alvo = removeTarget; setRemoveTarget(null); if (alvo) remove(alvo.id); }}
+      />
     </Card>
   );
 }

@@ -10,6 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useSuperAdminOffices, AdminOffice } from '@/hooks/useSuperAdminOffices';
 import { OfficeZapLink } from './OfficeZapLink';
+import { OfficeAiLimite } from './OfficeAiLimite';
 import {
   Dialog,
   DialogContent,
@@ -152,7 +153,11 @@ export const OfficeControlPanel: React.FC = () => {
     return (
       <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
-        <AlertDescription>{error}</AlertDescription>
+        <AlertDescription className="flex items-center justify-between gap-3">
+          <span>{error}</span>
+          {/* Antes não havia como tentar de novo sem recarregar a página inteira. */}
+          <Button type="button" size="sm" variant="outline" onClick={refresh} disabled={loading}>Tentar novamente</Button>
+        </AlertDescription>
       </Alert>
     );
   }
@@ -395,6 +400,8 @@ export const OfficeControlPanel: React.FC = () => {
                                         onClick={() => doAccess('grant_trial', { trial_days: trialDays })} className="h-10 rounded-xl">Estender</Button>
                                     </div>
                                   </div>
+
+                                  {admin.office_id && <OfficeAiLimite officeId={admin.office_id} />}
                                 </div>
                               </div>
                               {admin.office_id && (

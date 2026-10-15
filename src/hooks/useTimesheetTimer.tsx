@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { fmtDataBR } from '@/lib/dates';
+import { getErrorMessage } from '@/lib/errors';
 import { TimesheetCategoria } from '@/types/timesheet';
 import type { TimesheetConfig } from '@/hooks/useTimesheetConfig';
 import { REFERENCIA_CONFIG, CATEGORIA_TO_REF, type ReferenciaTipo, type ReferenciaItem } from '@/components/Timesheet/shared';
@@ -32,6 +33,7 @@ export function useTimesheetTimer({ activeTimer, startTimer, config, user, navig
   const [refLoading, setRefLoading] = useState(false);
   const [refId, setRefId] = useState("");
   const [refLabel, setRefLabel] = useState("");
+  const [refError, setRefError] = useState<string | null>(null);
 
   // Abre o timer via ?new=1 (link direto).
   useEffect(() => {
@@ -54,15 +56,17 @@ export function useTimesheetTimer({ activeTimer, startTimer, config, user, navig
   useEffect(() => {
     if (!refTipo || !user) return;
     const cfg = REFERENCIA_CONFIG[refTipo];
-    setRefItems([]); setRefId(""); setRefLabel(""); setRefLoading(true);
+    setRefItems([]); setRefId(""); setRefLabel(""); setRefError(null); setRefLoading(true);
     const fetchItems = async () => {
       try {
         if (refTipo === "prazo" && clienteId) {
-          const { data: processos } = await supabase.from("processos").select("id").eq("cliente_id", clienteId).eq("deletado", false);
+          const { data: processos, error: procErr } = await supabase.from("processos").select("id").eq("cliente_id", clienteId).eq("deletado", false);
+          if (procErr) throw procErr;
           const ids = (processos || []).map((p: any) => p.id);
           if (ids.length === 0) { setRefItems([]); return; }
-          const { data } = await supabase.from("prazos").select("id, titulo, data_fim_prazo, data_vencimento")
+          const { data, error: przErr } = await supabase.from("prazos").select("id, titulo, data_fim_prazo, data_vencimento")
             .in("processo_id", ids).eq("deletado", false).order("data_fim_prazo", { ascending: true }).limit(50);
+          if (przErr) throw przErr;
           setRefItems((data || []).map((r: any) => { const dt = r.data_fim_prazo || r.data_vencimento; return { id: r.id, label: r.titulo || "Sem título", sublabel: dt ? `Vence ${fmtDataBR(dt)}` : undefined }; }));
           return;
         }
@@ -71,8 +75,13 @@ export function useTimesheetTimer({ activeTimer, startTimer, config, user, navig
           .eq("user_id", user.id).eq("deletado", false)
           .order(cfg.dateField || "created_at", { ascending: false }).limit(50);
         if (clienteId && cfg.clienteField) q = q.eq(cfg.clienteField, clienteId);
-        const { data } = await q;
+        const { data, error: refErr } = await q;
+        if (refErr) throw refErr;
         setRefItems((data || []).map((r: any) => ({ id: r.id, label: r[cfg.labelField] || "Sem título", sublabel: cfg.dateField ? fmtDataBR(r[cfg.dateField]) : undefined })));
+      } catch (e) {
+        // Antes a falha virava "Nenhum item encontrado para este cliente".
+        setRefItems([]);
+        setRefError(getErrorMessage(e, "Não foi possível carregar os itens."));
       } finally { setRefLoading(false); }
     };
     fetchItems();
@@ -96,10 +105,12 @@ export function useTimesheetTimer({ activeTimer, startTimer, config, user, navig
   const handleStart = async () => {
     if (!descricao || !categoria) return;
     setSaving(true);
-    await startTimer(descricao, categoria as TimesheetCategoria, clienteId || undefined, undefined,
+    const started = await startTimer(descricao, categoria as TimesheetCategoria, clienteId || undefined, undefined,
       refTipo || undefined, refId || undefined, refLabel || undefined,
       { faturavel, valor_hora: valorHora ? Number(valorHora) : null });
-    resetDialog(); setDialogOpen(false); setSaving(false);
+    setSaving(false);
+    // startTimer devolve null na falha (e já avisou com toast) — só limpa e fecha no sucesso.
+    if (started) { resetDialog(); setDialogOpen(false); }
   };
 
   const navigateToRef = (tipo: string, refIdArg?: string | null) => {
@@ -112,7 +123,7 @@ export function useTimesheetTimer({ activeTimer, startTimer, config, user, navig
     dialogOpen, setDialogOpen, elapsedTime, saving, setSaving,
     descricao, setDescricao, categoria, setCategoria, clienteId, setClienteId,
     faturavel, setFaturavel, valorHora, setValorHora,
-    refTipo, setRefTipo, refItems, setRefItems, refLoading, refId, setRefId, refLabel, setRefLabel,
+    refTipo, setRefTipo, refItems, setRefItems, refLoading, refError, refId, setRefId, refLabel, setRefLabel,
     handleSetCategoria, resetDialog, openTimer, handleStart, navigateToRef,
   };
 }

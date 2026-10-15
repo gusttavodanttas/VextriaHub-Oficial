@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { captureError } from "@/lib/monitoring";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -10,6 +11,7 @@ export interface MyStats {
   pontos: number;
   loading: boolean;
   isError: boolean;
+  refetch: () => void;
 }
 
 // Pontuação meritocrática (mesma lógica do ranking de produtividade)
@@ -18,7 +20,8 @@ const PT = { tarefa: 10, prazo: 25, audiencia: 15, processo: 40 };
 /** Estatísticas reais do usuário logado (o que é responsabilidade dele). */
 export function useMyStats(): MyStats {
   const { user } = useAuth();
-  const [stats, setStats] = useState<MyStats>({
+  const [reload, setReload] = useState(0);
+  const [stats, setStats] = useState<Omit<MyStats, "refetch">>({
     processosAtivos: 0, processosFinalizados: 0, clientesAtendidos: 0,
     tarefasConcluidas: 0, pontos: 0, loading: true, isError: false,
   });
@@ -28,6 +31,7 @@ export function useMyStats(): MyStats {
     const office = user.office_id;
     const uid = user.id;
     let cancel = false;
+    setStats(s => ({ ...s, loading: true }));
     (async () => {
       const myProc = (q: any) => q.eq("office_id", office).eq("deletado", false).or(`responsavel_id.eq.${uid},user_id.eq.${uid}`);
 
@@ -36,7 +40,7 @@ export function useMyStats(): MyStats {
         myProc(supabase.from("processos").select("id", { count: "exact", head: true })).eq("status", "encerrado"),
         supabase.from("clientes").select("id", { count: "exact", head: true }).eq("office_id", office).eq("deletado", false).eq("user_id", uid),
         supabase.from("tarefas").select("id", { count: "exact", head: true }).eq("office_id", office).eq("deletado", false).eq("concluida", true).eq("user_id", uid),
-        supabase.from("prazos").select("id", { count: "exact", head: true }).eq("office_id", office).eq("status", "concluido").eq("responsavel_id", uid),
+        supabase.from("prazos").select("id", { count: "exact", head: true }).eq("office_id", office).eq("deletado", false).eq("status", "concluido").eq("responsavel_id", uid),
         supabase.from("audiencias").select("id", { count: "exact", head: true }).eq("office_id", office).eq("deletado", false).eq("status", "realizada").eq("user_id", uid),
       ]);
 
@@ -47,7 +51,7 @@ export function useMyStats(): MyStats {
       // "sem atividade real".
       const firstError = [procAtivos, procEnc, clientes, tarefas, prazos, audiencias].find(r => r.error)?.error;
       if (firstError) {
-        console.error('Erro ao buscar estatísticas pessoais:', firstError);
+        captureError(firstError, { context: 'useMyStats' });
         setStats(s => ({ ...s, loading: false, isError: true }));
         return;
       }
@@ -70,7 +74,8 @@ export function useMyStats(): MyStats {
       });
     })();
     return () => { cancel = true; };
-  }, [user?.id, user?.office_id]);
+  }, [user?.id, user?.office_id, reload]);
 
-  return stats;
+  const refetch = useCallback(() => setReload(r => r + 1), []);
+  return { ...stats, refetch };
 }

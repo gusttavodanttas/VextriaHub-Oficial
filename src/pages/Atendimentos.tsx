@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback, useDeferredValue } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useDeferredValue, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +11,7 @@ import { useOfficeUsers } from "@/hooks/useOfficeUsers";
 import { useOpenItemFromSearch } from "@/hooks/useOpenItemFromSearch";
 import { useTarefas } from "@/hooks/useTarefas";
 import { useToast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/lib/errors";
 import { usePermissions } from "@/hooks/usePermissions";
 import { PermissionGuard } from "@/components/Auth/PermissionGuard";
 import { Button } from "@/components/ui/button";
@@ -76,7 +77,7 @@ import {
   NONE, STATUS_CONFIG, ORDEM_GRUPOS, LABEL_GRUPOS, grupoDe, diasAteData,
   defaultForm, tipoInfo, type Atendimento, type FormState, type GrupoKey, type StatusType,
 } from "@/components/Atendimentos/shared";
-import { useAtendimentos, useAtendimentoTipos } from "@/hooks/useAtendimentos";
+import { useAtendimentos, useAtendimentoTipos, normalizarStatusAtendimento } from "@/hooks/useAtendimentos";
 import { AtendimentoFormDialog as FormDialog } from "@/components/Atendimentos/AtendimentoFormDialog";
 import { GerenciarTiposDialog } from "@/components/Atendimentos/GerenciarTiposDialog";
 import { FollowUpDialog } from "@/components/Atendimentos/FollowUpDialog";
@@ -86,10 +87,11 @@ import { AtendimentoCard, StatCard, WeekView } from "@/components/Atendimentos/A
 const Atendimentos = () => {
   const { user, office } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const officeId = office?.id ?? user?.office_id ?? "";
 
   const { query, create, update, remove, markRealizado } = useAtendimentos(officeId);
-  const { canCreateAtendimentos, canEditAtendimentos } = usePermissions();
+  const { canCreateAtendimentos, canEditAtendimentos, canManageOfficeSettings } = usePermissions();
   const { extras, error: extrasError, save: saveExtras } = useAtendimentoTipos(officeId);
   const { users: officeUsers } = useOfficeUsers();
   const membros = useMemo(() => officeUsers.map(u => ({
@@ -206,10 +208,23 @@ const Atendimentos = () => {
   };
 
   // Abre o atendimento específico vindo de ?openId= (ex.: painel da equipe)
-  useOpenItemFromSearch("/atendimentos", !query.isLoading && items.length > 0, (openId) => {
+  // Se o item não estiver nas listas carregadas (histórico além do cap, lista vazia),
+  // busca direto pelo id — antes o link simplesmente não abria nada.
+  const openIdBuscado = useRef<string | null>(null);
+  useOpenItemFromSearch("/atendimentos", !query.isLoading, (openId) => {
     const it = items.find(x => String(x.id) === openId);
     if (it) { openEdit(it); return true; }
-    return false;
+    if (openIdBuscado.current === openId || !officeId) return false;
+    openIdBuscado.current = openId;
+    supabase.from("atendimentos").select("*, clientes(nome)").eq("id", openId).eq("office_id", officeId).maybeSingle()
+      .then(({ data, error }) => {
+        if (error || !data || data.deletado) {
+          toast({ title: "Atendimento não encontrado", description: error ? getErrorMessage(error) : "Ele pode ter sido excluído.", variant: "destructive" });
+          return;
+        }
+        openEdit({ ...data, status: normalizarStatusAtendimento(data.status) } as unknown as Atendimento);
+      });
+    return true;
   });
 
   const handleSave = (data: any) => {
@@ -296,10 +311,13 @@ const Atendimentos = () => {
               <CalendarDays className="h-4 w-4" />
             </Button>
           </div>
-          <Button size="icon" variant="outline" onClick={() => setTiposDialogOpen(true)}
-            className="h-11 w-11 rounded-xl shrink-0" title="Gerenciar tipos de atendimento" aria-label="Gerenciar tipos de atendimento">
-            <Settings2 className="h-4 w-4" />
-          </Button>
+          {/* Os tipos extras gravam em offices.settings (só admin do escritório). */}
+          {canManageOfficeSettings && (
+            <Button size="icon" variant="outline" onClick={() => setTiposDialogOpen(true)}
+              className="h-11 w-11 rounded-xl shrink-0" title="Gerenciar tipos de atendimento" aria-label="Gerenciar tipos de atendimento">
+              <Settings2 className="h-4 w-4" />
+            </Button>
+          )}
           <PermissionGuard permission="canCreateAtendimentos">
             <Button size="lg" onClick={openNew}
               className="flex-1 sm:flex-none rounded-xl h-11 px-3 sm:px-6 font-black uppercase text-xs tracking-widest shadow-premium">
@@ -562,7 +580,7 @@ const Atendimentos = () => {
         onConfirm={() => { if (deleteId) remove.mutate(deleteId); setDeleteId(null); }}
         isLoading={remove.isPending}
         title="Excluir atendimento"
-        description="Esta ação não pode ser desfeita. O atendimento será removido permanentemente."
+        description="O atendimento será movido para a Lixeira, de onde pode ser restaurado."
       />
     </div>
   );

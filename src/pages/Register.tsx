@@ -15,6 +15,20 @@ import { useDefaultBrandOnPublicPage } from '@/lib/brandColor';
 import { formatCpfCnpj, onlyDigits, isValidCpfCnpj } from "@/lib/document";
 import { formatPhone } from "@/lib/phone";
 import { centsToBRL } from "@/lib/currency";
+import { captureError } from "@/lib/monitoring";
+import { getErrorMessage } from "@/lib/errors";
+
+// Mensagens do GoTrue chegam em inglês ("User already registered", "Password should
+// be at least 6 characters"…) e iam cruas para o toast.
+function mensagemErroCadastro(error: unknown): string {
+  const msg = getErrorMessage(error, "Ocorreu um erro durante o cadastro.");
+  if (/already registered|already exists|user_already_exists/i.test(msg)) return "Este e-mail já está cadastrado. Entre pela tela de login ou recupere a senha.";
+  if (/password.*(at least|characters|weak)/i.test(msg)) return "A senha não atende aos requisitos mínimos. Use pelo menos 8 caracteres.";
+  if (/invalid.*email|email.*invalid/i.test(msg)) return "E-mail inválido. Confira o endereço digitado.";
+  if (/rate limit|too many/i.test(msg)) return "Muitas tentativas seguidas. Aguarde alguns minutos e tente de novo.";
+  if (/fetch|network|failed to fetch/i.test(msg)) return "Falha de conexão. Verifique sua internet e tente de novo.";
+  return msg;
+}
 
 const Register = () => {
   const [searchParams] = useSearchParams();
@@ -169,25 +183,30 @@ const Register = () => {
       });
 
       if (error) {
-        console.error('Register error:', error);
+        captureError(error, { context: 'Register.signUp' });
+        // Os outros dois ramos de saída limpam esta flag; sem limpar aqui ela ficava
+        // 'true' neste navegador e travava o auto-redirect do Login.tsx para sempre.
+        localStorage.removeItem('checkout_in_progress');
         toast({
           title: "Erro no cadastro",
-          description: error.message || "Ocorreu um erro durante o cadastro",
+          description: mensagemErroCadastro(error),
           variant: "destructive",
         });
         setIsLoading(false);
         return;
       }
 
-      // Starting checkout
-
       // Convite: auto-confirma o e-mail (só se existe convite pendente pro e-mail)
       // para permitir o login automático abaixo sem clicar no e-mail de confirmação.
+      let inviteConfirmFailed = false;
       if (isInvite && inviteToken) {
         try {
-          await supabase.rpc('confirm_invited_user', { p_email: formData.email.trim(), p_token: inviteToken });
+          // .rpc() devolve { error } sem lançar — o catch sozinho só pegava rede.
+          const { error: confirmErr } = await supabase.rpc('confirm_invited_user', { p_email: formData.email.trim(), p_token: inviteToken });
+          if (confirmErr) throw confirmErr;
         } catch (err) {
-          console.error('confirm_invited_user failed:', err);
+          captureError(err, { context: 'Register.confirm_invited_user' });
+          inviteConfirmFailed = true;
         }
       }
 
@@ -198,8 +217,22 @@ const Register = () => {
         password: formData.password,
       });
 
+      if (loginError && inviteConfirmFailed) {
+        // Convidado cujo e-mail não pôde ser confirmado: o auto-login falha, mas ele NÃO
+        // vai receber e-mail de confirmação (o fluxo de convite pula essa etapa) — a
+        // mensagem genérica abaixo o deixaria esperando um e-mail que nunca chega.
+        localStorage.removeItem('checkout_in_progress');
+        toast({
+          title: "Não foi possível validar o convite",
+          description: "Sua conta foi criada, mas o convite não pôde ser confirmado (talvez tenha expirado). Peça um novo convite ao administrador do escritório.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
       if (loginError) {
-        console.error('Automatic login failed after register:', loginError);
+        captureError(loginError, { context: 'Register.autoLogin' });
         // Confirmação de e-mail LIGADA: o auto-login falha aqui. Guarda o plano escolhido pra
         // aplicar no 1º login pós-confirmação (AuthContext) — senão a escolha se perde e cai no
         // trial genérico de 7 dias (o apply_signup_plan abaixo nunca roda neste caminho).
@@ -239,8 +272,12 @@ const Register = () => {
       // acesso exige o pagamento. Cadastro orgânico (sem ?plano=) mantém os 7 dias de teste.
       let planOutcome: string | null = null;
       let planApplyFailed = false;
+      let officeSetupFailed = false;
       try {
-        await supabase.rpc('ensure_office_for_user');
+        // .rpc() não lança em erro de aplicação: sem checar, uma falha em criar o
+        // escritório passava silenciosa e o usuário caía no dashboard sem escritório.
+        const { error: ensureErr } = await supabase.rpc('ensure_office_for_user');
+        if (ensureErr) throw ensureErr;
         if (planParam) {
           // .rpc() NÃO lança em erro de aplicação (função no banco falhando, plan_type
           // inválido) — só devolve { data: null, error }. Sem checar `error` aqui, uma
@@ -248,21 +285,27 @@ const Register = () => {
           // escolhido tivesse sido aplicado, sem o usuário nunca saber que não foi.
           const { data, error: planError } = await supabase.rpc('apply_signup_plan', { p_plan_type: planParam });
           if (planError) {
-            console.error('apply_signup_plan failed:', planError);
+            captureError(planError, { context: 'Register.apply_signup_plan' });
             planApplyFailed = true;
           } else {
             planOutcome = (data as string | null) ?? null;
           }
         }
       } catch (setupErr) {
-        console.error('signup plan setup:', setupErr);
+        captureError(setupErr, { context: 'Register.setupOffice' });
         if (planParam) planApplyFailed = true;
+        else officeSetupFailed = true;
       }
       localStorage.removeItem('checkout_in_progress');
       if (planParam && planOutcome === 'pendente') {
         // Plano sem trial (ex.: Básico mensal) → precisa pagar para acessar.
         toast({ title: "Cadastro concluído!", description: "Escolha a forma de pagamento para ativar seu acesso." });
         navigate(`/pagamento?plano=${encodeURIComponent(planParam)}`);
+      } else if (officeSetupFailed) {
+        // O AuthContext refaz o ensure_office_for_user (idempotente) a cada login, então
+        // a próxima entrada costuma resolver — mas o usuário precisa saber disso.
+        toast({ title: "Cadastro concluído", description: "Não conseguimos terminar de preparar seu escritório agora. Se algo não aparecer, saia e entre de novo.", variant: "destructive" });
+        navigate("/dashboard");
       } else if (planApplyFailed) {
         // Conta criada normalmente, mas o plano escolhido não foi aplicado — diz isso
         // em vez de fingir que deu tudo certo. Usuário começa no trial padrão.
@@ -277,7 +320,7 @@ const Register = () => {
       return;
 
     } catch (error) {
-      console.error('Unexpected error during register flow:', error);
+      captureError(error, { context: 'Register.handleSubmit' });
       
       localStorage.removeItem('checkout_in_progress');
       
@@ -472,7 +515,7 @@ const Register = () => {
               {/* State Field */}
               <div className="space-y-2">
                 <Label htmlFor="state">Estado de atuação (opcional)</Label>
-                <Select onValueChange={(value) => handleInputChange("state", value)}>
+                <Select value={formData.state || undefined} onValueChange={(value) => handleInputChange("state", value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione seu estado" />
                   </SelectTrigger>

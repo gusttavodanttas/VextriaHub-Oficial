@@ -5,7 +5,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { planQuotaMessage } from "@/lib/planQuotaError";
 import { assertRowsAffected } from "@/lib/errors";
-import { concluirTarefaDb, gerarProximaOcorrenciaTarefa, tarefaConcluidaFields } from "@/lib/concluirItens";
+import { AVISO_RECORRENCIA_FALHOU, concluirTarefaDb, gerarProximaOcorrenciaTarefa, tarefaConcluidaFields } from "@/lib/concluirItens";
+import { captureError } from "@/lib/monitoring";
 import type { TablesUpdate } from "@/integrations/supabase/rows";
 
 export interface Tarefa {
@@ -183,9 +184,15 @@ export function useTarefas() {
   // Gera a PRÓXIMA ocorrência de uma tarefa recorrente concluída (best-effort). Usado
   // tanto na conclusão individual quanto EM MASSA (antes o bulk encerrava a série).
   // Lógica em si mora em lib/concluirItens.ts (compartilhada com AgendaItemDialog).
-  const gerarProximaOcorrencia = async (tarefa: Tarefa) => {
-    if (!officeId || !user?.id) return;
-    await gerarProximaOcorrenciaTarefa(tarefa, officeId, user.id);
+  // Devolve false quando o insert falhou (a conclusão em si já foi gravada).
+  const gerarProximaOcorrencia = async (tarefa: Tarefa): Promise<boolean> => {
+    if (!officeId || !user?.id) return true;
+    const { error } = await gerarProximaOcorrenciaTarefa(tarefa, officeId, user.id);
+    if (error) { captureError(error, { context: "useTarefas.gerarProximaOcorrencia", tarefaId: tarefa.id }); return false; }
+    return true;
+  };
+  const avisarRecorrenciaFalhou = (falhas: number) => {
+    if (falhas > 0) toast({ title: "Série recorrente interrompida", description: falhas > 1 ? `${falhas} tarefas foram concluídas, mas as próximas ocorrências não puderam ser criadas — crie-as manualmente.` : AVISO_RECORRENCIA_FALHOU, variant: "destructive" });
   };
 
   const toggle = useMutation({
@@ -203,7 +210,7 @@ export function useTarefas() {
       assertRowsAffected(data, error, 1);
 
       // 2) recorrência encadeada: ao concluir, gera a PRÓXIMA ocorrência
-      if (concluida && tarefa) await gerarProximaOcorrencia(tarefa);
+      if (concluida && tarefa && !(await gerarProximaOcorrencia(tarefa))) avisarRecorrenciaFalhou(1);
     },
     onSuccess: () => invalidate(),
     onError: (e) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
@@ -225,7 +232,10 @@ export function useTarefas() {
       // (o update zera recorrencia_restantes, então precisa ser antes).
       let recorrentes: Tarefa[] = [];
       if (concluir === true) {
-        const { data } = await supabase.from("tarefas").select("*").in("id", ids);
+        // Falha aqui antes era lida como "nenhuma recorrente" — o update abaixo zerava
+        // recorrencia_restantes e as séries morriam em silêncio. Aborta ANTES de gravar.
+        const { data, error: snapErr } = await supabase.from("tarefas").select("*").in("id", ids);
+        if (snapErr) throw snapErr;
         recorrentes = ((data || []) as Tarefa[]).filter((t) => t.recorrencia_regra && (t.recorrencia_restantes ?? 0) > 0 && t.data_vencimento);
       }
       const payload: Record<string, any> = { ...(patch || {}) };
@@ -234,7 +244,9 @@ export function useTarefas() {
       const { data, error } = await supabase.from("tarefas").update(payload as TablesUpdate<"tarefas">).in("id", ids).select("id");
       assertRowsAffected(data, error, ids.length);
       // Gera a próxima ocorrência de cada recorrente concluída (não deixa a série morrer no bulk).
-      for (const t of recorrentes) await gerarProximaOcorrencia(t);
+      let falhas = 0;
+      for (const t of recorrentes) if (!(await gerarProximaOcorrencia(t))) falhas++;
+      avisarRecorrenciaFalhou(falhas);
     },
     onSuccess: () => { invalidate(); toast({ title: "Tarefas atualizadas" }); },
     onError: (e) => toast({ title: "Erro ao atualizar", description: e.message, variant: "destructive" }),

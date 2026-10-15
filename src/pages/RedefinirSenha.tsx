@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Eye, EyeOff, Shield } from "lucide-react";
+import { Eye, EyeOff, Shield, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,15 +18,20 @@ const RedefinirSenha = () => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [ready, setReady] = useState(false);
+  // Sem este estado, todo usuário que chegava por um link VÁLIDO via primeiro a
+  // mensagem de "link expirado" enquanto getSession() ainda não tinha respondido.
+  const [checking, setChecking] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
     // Sessão de recuperação: via evento PASSWORD_RECOVERY ou sessão já presente.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) setReady(true);
+      if (session) { setReady(true); setChecking(false); }
     });
-    supabase.auth.getSession().then(({ data }) => { if (data.session) setReady(true); });
+    supabase.auth.getSession()
+      .then(({ data }) => { if (data.session) setReady(true); })
+      .finally(() => setChecking(false));
     return () => subscription.unsubscribe();
   }, []);
 
@@ -65,11 +70,20 @@ const RedefinirSenha = () => {
           <CardDescription>Escolha uma nova senha para sua conta.</CardDescription>
         </CardHeader>
         <CardContent>
-          {!ready ? (
-            <p className="text-sm text-muted-foreground text-center">
-              Abra esta página pelo link do e-mail de recuperação. Se o link expirou,
-              solicite um novo em "Esqueceu sua senha?" na tela de login.
-            </p>
+          {checking ? (
+            <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Validando o link…
+            </div>
+          ) : !ready ? (
+            <div className="space-y-4 text-center">
+              <p className="text-sm text-muted-foreground">
+                Este link de recuperação é inválido ou expirou. Solicite um novo em
+                "Esqueceu sua senha?" na tela de login.
+              </p>
+              <Button variant="outline" className="w-full" onClick={() => navigate("/login")}>
+                Ir para o login
+              </Button>
+            </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">

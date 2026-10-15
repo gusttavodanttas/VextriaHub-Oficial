@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2, Plus, X, Scale, Search, Sparkles } from "lucide-react";
 import { useProcessosEncontrados, ProcessoEncontrado } from "@/hooks/useProcessosEncontrados";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
 import { formatCNJ } from "@/utils/formatCNJ";
@@ -33,7 +34,8 @@ function buildInitialData(item: ProcessoEncontrado) {
 }
 
 export function ProcessosEncontradosInbox({ onChange, onBuscar }: { onChange?: () => void; onBuscar?: () => void }) {
-  const { items, loading, descartar, remover } = useProcessosEncontrados();
+  const { items, loading, error, refetch, descartar, remover } = useProcessosEncontrados();
+  const { canCreateProcesses } = usePermissions();
   const { toast } = useToast();
   const [busy, setBusy] = useState<string | null>(null);
   const [addItem, setAddItem] = useState<ProcessoEncontrado | null>(null);
@@ -53,6 +55,15 @@ export function ProcessosEncontradosInbox({ onChange, onBuscar }: { onChange?: (
 
   if (loading) {
     return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary/40" /></div>;
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12 space-y-3">
+        <p className="text-sm font-bold text-destructive">{error}</p>
+        <Button variant="outline" onClick={() => refetch()} className="rounded-xl font-bold">Tentar novamente</Button>
+      </div>
+    );
   }
 
   if (items.length === 0) {
@@ -96,14 +107,14 @@ export function ProcessosEncontradosInbox({ onChange, onBuscar }: { onChange?: (
                 </p>
               )}
             </div>
-            <div className="flex gap-2 shrink-0">
+            {canCreateProcesses && <div className="flex gap-2 shrink-0">
               <Button size="sm" onClick={() => setAddItem(item)} disabled={busy === item.id} className="rounded-xl font-bold gap-1.5">
                 <Plus className="h-4 w-4" /> Adicionar
               </Button>
               <Button size="sm" variant="ghost" onClick={() => handleDescartar(item)} disabled={busy === item.id} className="rounded-xl font-bold text-muted-foreground hover:text-destructive hover:bg-destructive/10 gap-1.5">
                 {busy === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />} Descartar
               </Button>
-            </div>
+            </div>}
           </div>
         );
       })}
@@ -119,7 +130,12 @@ export function ProcessosEncontradosInbox({ onChange, onBuscar }: { onChange?: (
           onSuccess={async () => {
             const current = addItem;
             // Remove da caixa (já foi salvo na base) e atualiza contagem
-            if (current) await remover(current.id);
+            if (current) {
+              try { await remover(current.id); }
+              catch (e) {
+                toast({ variant: "destructive", title: "Processo salvo, mas continua na caixa", description: `Descarte-o manualmente para não adicioná-lo em dobro. (${getErrorMessage(e)})` });
+              }
+            }
             onChange?.();
             setAddItem(null);
           }}

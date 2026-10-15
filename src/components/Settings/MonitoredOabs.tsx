@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Radar, Plus, Trash2, Loader2, ShieldAlert, AlertTriangle } from 'lucide-react';
 import { getErrorMessage } from '@/lib/errors';
+import { DeleteConfirmDialog } from '@/components/ui/DeleteConfirmDialog';
 
 interface MonitoredOab { id: string; oab: string; uf: string; label: string | null; }
 
@@ -26,11 +27,14 @@ export function MonitoredOabs() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ oab: '', uf: '', label: '' });
+  const [removeTarget, setRemoveTarget] = useState<MonitoredOab | null>(null);
 
   const load = useCallback(async () => {
+    if (!user?.office_id) { setRows([]); setLoading(false); return; }
     setLoading(true);
     const [{ data: list, error: listError }, { data: q, error: quotaError }] = await Promise.all([
-      supabase.from('monitored_oabs').select('id, oab, uf, label').order('created_at'),
+      // office_id explícito: a RLS libera todo escritório do qual o usuário é membro.
+      supabase.from('monitored_oabs').select('id, oab, uf, label').eq('office_id', user.office_id).order('created_at'),
       supabase.rpc('my_oab_quota'),
     ]);
     // Sem checar o erro, uma falha de busca caía como "Nenhuma OAB monitorada" —
@@ -48,7 +52,7 @@ export function MonitoredOabs() {
     const qq = (q ?? {}) as { used?: number; limit?: number };
     setQuota({ used: qq.used ?? listRows.length, limit: qq.limit ?? 1 });
     setLoading(false);
-  }, []);
+  }, [user?.office_id]);
   useEffect(() => { load(); }, [load]);
 
   const unlimited = quota.limit >= 9999;
@@ -80,8 +84,10 @@ export function MonitoredOabs() {
   };
 
   const remove = async (id: string) => {
-    const { error } = await supabase.from('monitored_oabs').delete().eq('id', id);
-    if (error) { toast({ title: 'Erro ao remover', description: error.message, variant: 'destructive' }); return; }
+    // .select('id'): DELETE barrado pela RLS casa 0 linhas sem erro — a OAB sumia da
+    // tela ("removida") e voltava no F5, com o robô ainda monitorando.
+    const { data: del, error } = await supabase.from('monitored_oabs').delete().eq('id', id).select('id');
+    if (error || !del?.length) { toast({ title: 'Erro ao remover', description: error?.message ?? 'Sem permissão para remover esta OAB.', variant: 'destructive' }); return; }
     setRows((prev) => prev.filter((r) => r.id !== id));
     setQuota((qq) => ({ ...qq, used: Math.max(0, qq.used - 1) }));
     toast({ title: 'OAB removida do monitoramento' });
@@ -153,7 +159,7 @@ export function MonitoredOabs() {
                         <p className="font-bold text-sm truncate">{r.label || `OAB ${r.oab}/${r.uf}`}</p>
                         <p className="text-xs text-muted-foreground">OAB {r.oab}/{r.uf}</p>
                       </div>
-                      <Button variant="ghost" size="icon" onClick={() => remove(r.id)} className="h-9 w-9 text-rose-500/70 hover:text-rose-500 shrink-0" title="Remover" aria-label="Remover OAB"><Trash2 className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => setRemoveTarget(r)} className="h-9 w-9 text-rose-500/70 hover:text-rose-500 shrink-0" title="Remover" aria-label="Remover OAB"><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   ))}
                 </div>
@@ -161,6 +167,14 @@ export function MonitoredOabs() {
           </>
         )}
       </CardContent>
+      <DeleteConfirmDialog
+        open={!!removeTarget}
+        onOpenChange={(o) => { if (!o) setRemoveTarget(null); }}
+        title="Parar de monitorar OAB"
+        description={`O robô deixa de buscar processos e publicações da OAB ${removeTarget?.oab ?? ''}/${removeTarget?.uf ?? ''}.`}
+        confirmText="Remover"
+        onConfirm={() => { const alvo = removeTarget; setRemoveTarget(null); if (alvo) remove(alvo.id); }}
+      />
     </Card>
   );
 }

@@ -140,6 +140,7 @@ export function ChartsTab() {
     <div className="space-y-5">
       {/* Período + Equipe */}
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        {d.refreshing && <span className="text-[11px] font-bold text-muted-foreground animate-pulse order-last">Atualizando…</span>}
         <Select value={String(period)} onValueChange={(v) => setPeriod(Number(v) as ChartsPeriod)}>
           <SelectTrigger className="h-9 w-full sm:w-44 rounded-xl text-xs font-bold"><SelectValue /></SelectTrigger>
           <SelectContent>

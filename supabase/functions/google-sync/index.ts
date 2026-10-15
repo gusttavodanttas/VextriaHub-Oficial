@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serviceClientDoRobo, comRetryDeJwt } from "../_shared/robo.ts";
 
 // google-sync — empurra prazos e audiências do escritório pro calendário
 // "VextriaHub" do usuário (mão única). Sync por DIFF: cria o que falta, atualiza
@@ -188,14 +189,17 @@ Deno.serve(async (req) => {
   const json = (b: unknown, s = 200) =>
     new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
   try {
-    const service = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-
     // Auth: cron (x-robot-secret) sincroniza todos ou o user_id do body; senão, JWT do usuário.
     let targetUserId: string | null = null;
     let syncAll = false;
     const robot = req.headers.get("x-robot-secret");
     const body = await req.json().catch(() => ({}));
-    if (robot && robot === Deno.env.get("ROBOT_SECRET")) {
+    const ehRobo = !!robot && robot === Deno.env.get("ROBOT_SECRET");
+    // Robô: service_role legado que o cron manda no Bearer (ver _shared/robo.ts).
+    const service = ehRobo
+      ? serviceClientDoRobo(req)
+      : createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    if (ehRobo) {
       if (body?.user_id) targetUserId = String(body.user_id); else syncAll = true;
     } else {
       const supa = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
@@ -206,9 +210,14 @@ Deno.serve(async (req) => {
       targetUserId = user.id;
     }
 
-    let q = service.from("google_integrations").select("*").eq("status", "connected");
-    if (targetUserId) q = q.eq("user_id", targetUserId);
-    const { data: integrations } = await q;
+    const { data: integrations, error: listErr } = await comRetryDeJwt(() => {
+      let q = service.from("google_integrations").select("*").eq("status", "connected");
+      if (targetUserId) q = q.eq("user_id", targetUserId);
+      return q;
+    });
+    // Antes o erro era ignorado e a function respondia 200 "synced: 0" — o cron e o
+    // alerta horário achavam que estava tudo certo enquanto nada sincronizava.
+    if (listErr) return json({ error: `google_integrations: ${listErr.message ?? listErr.code ?? "erro"}` }, 500);
 
     // Nada conectado → nada a fazer (mantém a cron quieta enquanto ninguém usa).
     if (!integrations || integrations.length === 0) return json({ ok: true, synced: 0, syncAll, results: [] });

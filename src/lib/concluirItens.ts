@@ -62,10 +62,11 @@ export interface TarefaRecInfo {
   avisos_dias?: number[] | null;
 }
 
-// Gera a PRÓXIMA ocorrência de uma tarefa recorrente ao concluir a atual
-// (best-effort, não bloqueia a conclusão se o insert falhar).
-export async function gerarProximaOcorrenciaTarefa(tarefa: TarefaRecInfo, officeId: string, userId: string) {
-  if (!(tarefa.recorrencia_regra && (tarefa.recorrencia_restantes ?? 0) > 0 && tarefa.data_vencimento)) return;
+// Gera a PRÓXIMA ocorrência de uma tarefa recorrente ao concluir a atual. Não
+// bloqueia a conclusão (a tarefa já foi concluída), mas devolve o erro do insert:
+// antes ele era descartado e a série morria em silêncio — o chamador avisa.
+export async function gerarProximaOcorrenciaTarefa(tarefa: TarefaRecInfo, officeId: string, userId: string): Promise<{ error: unknown | null }> {
+  if (!(tarefa.recorrencia_regra && (tarefa.recorrencia_restantes ?? 0) > 0 && tarefa.data_vencimento)) return { error: null };
   const base = new Date(`${tarefa.data_vencimento}T12:00:00`);
   const next = continueOccurrences(base, tarefa.recorrencia_regra as RecRule, 1)[0];
   const row: any = {
@@ -86,5 +87,8 @@ export async function gerarProximaOcorrenciaTarefa(tarefa: TarefaRecInfo, office
     deletado: false,
     ...(Array.isArray(tarefa.avisos_dias) ? { avisos_dias: tarefa.avisos_dias } : {}),
   };
-  await supabase.from("tarefas").insert([row]);
+  const { error } = await supabase.from("tarefas").insert([row]);
+  return { error: error ?? null };
 }
+
+export const AVISO_RECORRENCIA_FALHOU = "A tarefa foi concluída, mas a próxima ocorrência da série não pôde ser criada — crie-a manualmente.";

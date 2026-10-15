@@ -4,6 +4,8 @@
 #
 # ── Secrets necessários (repo → Settings → Secrets and variables → Actions → New secret):
 #   VITE_SUPABASE_ANON_KEY  → a chave anon (Supabase → Project Settings → API → "anon public")
+# ── Variável (aba Variables, não Secrets):
+#   VITE_SUPABASE_URL       → https://<ref>.supabase.co do projeto em uso
 #   ORACLE_SSH_KEY          → a CHAVE PRIVADA SSH do servidor (conteúdo do arquivo .pem/id_rsa,
 #                             a mesma que você usa pra entrar no Oracle; cole o texto inteiro)
 #
@@ -39,10 +41,22 @@ jobs:
       - name: Type-check (tsc)
         run: npx tsc --noEmit -p tsconfig.app.json
 
+      # Chave anon errada (de outro projeto, service_role, vazia) só apareceria em
+      # produção como "Invalid API key" no login. O script decodifica o JWT e confere
+      # o ref contra a URL — falha aqui, antes de publicar.
+      - name: Conferir URL e chave anon do Supabase
+        run: node scripts/ci/conferir-chaves-supabase.mjs
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'https://mzhnlhfxfoigkqgxseeu.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
       - name: Build de produção
         run: npm run build
         env:
-          VITE_SUPABASE_URL: https://mzhnlhfxfoigkqgxseeu.supabase.co
+          # URL do projeto Supabase vem da VARIÁVEL do repositório (Settings → Secrets and
+          # variables → Actions → aba Variables). Sem a variável, cai no projeto antigo —
+          # trocar de projeto é só atualizar VITE_SUPABASE_URL + o secret da anon key.
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'https://mzhnlhfxfoigkqgxseeu.supabase.co' }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
       - name: Enviar dist/ para o Oracle (rsync via SSH)

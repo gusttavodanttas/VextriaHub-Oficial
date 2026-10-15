@@ -10,6 +10,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
 import { useDefaultBrandOnPublicPage } from "@/lib/brandColor";
+import { getErrorMessage } from "@/lib/errors";
+import { captureError } from "@/lib/monitoring";
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -27,10 +29,8 @@ const Login = () => {
     login,
     resendConfirmation,
     isAuthenticated,
-    isLoading: authLoading,
     session,
     user,
-    isSuperAdmin,
     getRedirectPath
   } = useAuth();
 
@@ -127,8 +127,7 @@ const Login = () => {
         error
       } = await login(email, password);
       if (error) {
-        console.error('Login failed:', error);
-        const msg = String(error.message || '');
+        const msg = getErrorMessage(error, '');
         if (/not confirmed|n[ãa]o confirmad|email_not_confirmed/i.test(msg)) {
           setUnconfirmedEmail(email.trim());
           toast({
@@ -138,21 +137,29 @@ const Login = () => {
           });
         } else {
           setUnconfirmedEmail(null);
+          // Antes, QUALQUER outra falha (timeout, rede, rate-limit) virava "senha
+          // incorreta" — o usuário era acusado de errar a senha num problema de conexão.
+          const credencialInvalida = /invalid login|invalid credentials|invalid_grant|email ou senha/i.test(msg);
+          if (!credencialInvalida) captureError(error, { context: 'Login.handleSubmit' });
           toast({
             title: "Não foi possível entrar",
-            description: "E-mail ou senha incorretos. Tente novamente.",
+            description: credencialInvalida
+              ? "E-mail ou senha incorretos. Tente novamente."
+              : /timeout|network|fetch/i.test(msg)
+                ? "Falha de conexão com o servidor. Verifique sua internet e tente de novo."
+                : /rate limit|too many/i.test(msg)
+                  ? "Muitas tentativas seguidas. Aguarde alguns minutos e tente de novo."
+                  : getErrorMessage(error, "Ocorreu um erro. Tente novamente."),
             variant: "destructive"
           });
         }
         setLoginInProgress(false);
         return;
       }
-      toast({
-        title: "Login realizado!",
-        description: "Redirecionando..."
-      });
+      // O toast de sucesso sai do efeito de loginInProgress acima — disparar aqui
+      // também duplicava a notificação a cada login.
     } catch (error) {
-      console.error('Unexpected error during login:', error);
+      captureError(error, { context: 'Login.handleSubmit' });
       toast({
         title: "Erro inesperado",
         description: "Ocorreu um erro. Tente novamente.",

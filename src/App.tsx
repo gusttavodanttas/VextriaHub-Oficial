@@ -30,10 +30,12 @@ const Agenda = lazy(() => import("./pages/Agenda"));
 const Tarefas = lazy(() => import("./pages/Tarefas"));
 const Prazos = lazy(() => import("./pages/Prazos"));
 const Publicacoes = lazy(() => import("./pages/Publicacoes"));
+const Jurisprudencia = lazy(() => import("./pages/Jurisprudencia"));
 const Consultivo = lazy(() => import("./pages/Consultivo"));
 const Graficos = lazy(() => import("./pages/Graficos"));
 const Financeiro = lazy(() => import("./pages/Financeiro"));
-const Metas = lazy(() => import("./pages/Metas"));
+// /metas passa pelo MetasGate: plano sem o módulo vê o upsell em vez de "Acesso negado".
+const MetasGate = lazy(() => import("./components/Goals/MetasGate"));
 const Notificacoes = lazy(() => import("./pages/Notificacoes"));
 const Configuracoes = lazy(() => import("./pages/Configuracoes"));
 const Perfil = lazy(() => import("./pages/Perfil"));
@@ -47,6 +49,7 @@ const Timesheet = lazy(() => import("./pages/Timesheet"));
 const Correspondentes = lazy(() => import("./pages/Correspondentes"));
 const PoliticaPrivacidade = lazy(() => import("./pages/PoliticaPrivacidade"));
 const GoogleCallback = lazy(() => import("./pages/auth/GoogleCallback"));
+const NotionCallback = lazy(() => import("./pages/auth/NotionCallback"));
 const Pagamento = lazy(() => import("./pages/Pagamento"));
 const Lixeira = lazy(() => import("./pages/Lixeira"));
 
@@ -121,6 +124,7 @@ const AppWithRouter = () => {
         <Route path="/register" element={<Register />} />
         <Route path="/redefinir-senha" element={<RedefinirSenha />} />
         <Route path="/auth/google/callback" element={<GoogleCallback />} />
+        <Route path="/auth/notion/callback" element={<NotionCallback />} />
         <Route
           path="/dashboard"
           element={
@@ -148,7 +152,7 @@ const AppWithRouter = () => {
         <Route
           path="/atendimentos"
           element={
-            <PrivateRoute>
+            <PrivateRoute requirePermission="canViewAtendimentos">
               <AppLayout>
                 <Atendimentos />
               </AppLayout>
@@ -188,7 +192,7 @@ const AppWithRouter = () => {
         <Route
           path="/agenda"
           element={
-            <PrivateRoute>
+            <PrivateRoute requirePermission="canViewAgenda">
               <AppLayout>
                 <Agenda />
               </AppLayout>
@@ -198,7 +202,7 @@ const AppWithRouter = () => {
         <Route
           path="/audiencias"
           element={
-            <PrivateRoute>
+            <PrivateRoute requirePermission="canViewAudiencias">
               <AppLayout>
                 <Audiencias />
               </AppLayout>
@@ -228,7 +232,7 @@ const AppWithRouter = () => {
         <Route
           path="/tarefas"
           element={
-            <PrivateRoute>
+            <PrivateRoute requirePermission="canViewTarefas">
               <AppLayout>
                 <Tarefas />
               </AppLayout>
@@ -238,7 +242,7 @@ const AppWithRouter = () => {
         <Route
           path="/timesheet"
           element={
-            <PrivateRoute>
+            <PrivateRoute requirePermission="canViewTimesheet">
               <AppLayout>
                 <Timesheet />
               </AppLayout>
@@ -248,7 +252,7 @@ const AppWithRouter = () => {
         <Route
           path="/prazos"
           element={
-            <PrivateRoute>
+            <PrivateRoute requirePermission="canViewPrazos">
               <AppLayout>
                 <Prazos />
               </AppLayout>
@@ -258,9 +262,19 @@ const AppWithRouter = () => {
         <Route
           path="/publicacoes"
           element={
-            <PrivateRoute>
+            <PrivateRoute requirePermission="canViewPublicacoes">
               <AppLayout>
                 <Publicacoes />
+              </AppLayout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/jurisprudencia"
+          element={
+            <PrivateRoute>
+              <AppLayout>
+                <Jurisprudencia />
               </AppLayout>
             </PrivateRoute>
           }
@@ -298,9 +312,9 @@ const AppWithRouter = () => {
         <Route
           path="/metas"
           element={
-            <PrivateRoute requirePermission="canViewMetas">
+            <PrivateRoute>
               <AppLayout>
-                <Metas />
+                <MetasGate />
               </AppLayout>
             </PrivateRoute>
           }
@@ -308,7 +322,7 @@ const AppWithRouter = () => {
         <Route
           path="/notificacoes"
           element={
-            <PrivateRoute>
+            <PrivateRoute requirePermission="canViewNotificacoes">
               <AppLayout>
                 <Notificacoes />
               </AppLayout>
@@ -365,7 +379,11 @@ const AppWithRouter = () => {
           }
         />
         <Route path="/politica-privacidade" element={<PoliticaPrivacidade />} />
-        <Route path="/pagamento" element={<Pagamento />} />
+        {/* Fora do AppLayout de propósito (o escritório pode estar bloqueado por falta de
+            pagamento), mas exige sessão: sem ela o visitante via os planos e todo "Assinar"
+            caía em "Escritório não encontrado". Quem não é admin é tratado dentro da página —
+            o PrivateRoute manda para cá qualquer membro de escritório com pagamento pendente. */}
+        <Route path="/pagamento" element={<PrivateRoute><Pagamento /></PrivateRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
       </Suspense>

@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useToast } from "@/hooks/use-toast";
+import { assertRowsAffected, getErrorMessage } from "@/lib/errors";
 import { Mail, Phone, MessageCircle, GripVertical } from "lucide-react";
 import { formatPhone } from "@/lib/phone";
 import { onlyDigits } from "@/lib/document";
@@ -44,10 +45,13 @@ export function CrmKanban({ data, refresh, onCardClick }: Props) {
     if (!user?.office_id) return;
     // Otimista: move na hora
     setItems(prev => prev.map(i => i.id === id ? { ...i, status: novoStatus } : i));
-    const { error } = await supabase.from("clientes").update({ status: novoStatus }).eq("id", id).eq("office_id", user.office_id);
-    if (error) {
+    const { data: upd, error } = await supabase.from("clientes").update({ status: novoStatus }).eq("id", id).eq("office_id", user.office_id).select("id");
+    try {
+      // RLS bloqueando = 0 linhas sem erro: o card ficava na coluna nova até o F5.
+      assertRowsAffected(upd, error, 1);
+    } catch (e) {
       setItems(prev => prev.map(i => i.id === id ? { ...i, status: atual.status } : i)); // desfaz
-      toast({ title: "Erro ao mover", description: error.message, variant: "destructive" });
+      toast({ title: "Erro ao mover", description: getErrorMessage(e), variant: "destructive" });
       return;
     }
     refresh?.();

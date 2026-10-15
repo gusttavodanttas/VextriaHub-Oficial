@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/errors";
+import { patchOfficeSettings } from "@/lib/officeSettings";
 
 /**
  * Lê e grava uma lista de configuração dentro de offices.settings[key] (jsonb).
@@ -45,29 +46,24 @@ export function useOfficeSettingList<T>(key: string, defaults: T[]) {
       toast({ variant: "destructive", title: "Não foi possível salvar", description: "A configuração atual não carregou — recarregue antes de editar." });
       return false;
     }
-    setItems(next); // atualização otimista
     if (!user?.office_id) return false;
+    const previous = items;
+    setItems(next); // atualização otimista
     setSaving(true);
-    const { data: cur } = await supabase.from("offices").select("settings").eq("id", user.office_id).maybeSingle();
-    const merged = { ...((cur?.settings as any) || {}), [key]: next };
-    // .select() conta as linhas afetadas: uma RLS que barra (ex.: usuário comum sem
-    // permissão de admin) devolve 0 linhas SEM erro — antes isso virava "Salvo" falso
-    // (o item sumia no F5). Agora detecta e reverte o otimista. (v12)
-    const { data: updated, error: updateError } = await supabase.from("offices").update({ settings: merged }).eq("id", user.office_id).select("id");
-    setSaving(false);
-    if (updateError) {
-      toast({ variant: "destructive", title: "Erro ao salvar", description: updateError.message });
+    try {
+      // Releitura com erro checado + contagem de linhas (RLS bloqueando = 0 linhas
+      // sem erro) — ver patchOfficeSettings.
+      await patchOfficeSettings(user.office_id, { [key]: next });
+    } catch (e) {
+      setItems(previous); // reverte o otimista
+      toast({ variant: "destructive", title: "Erro ao salvar", description: getErrorMessage(e) });
       return false;
-    }
-    if (!updated || updated.length === 0) {
-      const stored = (cur?.settings as any)?.[key];
-      setItems(Array.isArray(stored) ? stored : defaults); // reverte o otimista
-      toast({ variant: "destructive", title: "Sem permissão", description: "Só um administrador do escritório pode alterar esta configuração." });
-      return false;
+    } finally {
+      setSaving(false);
     }
     toast({ title: "Salvo", description: "Configuração atualizada." });
     return true;
-  }, [user?.office_id, key, toast, defaults, error]);
+  }, [user?.office_id, key, toast, error, items]);
 
   return { items, setItems, loading, saving, error, refetch: load, persist };
 }

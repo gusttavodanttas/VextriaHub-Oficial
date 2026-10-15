@@ -20,13 +20,20 @@ fluxo de contribuição humano, ver [`CONTRIBUTING.md`](./CONTRIBUTING.md).
 
 ```sh
 npx tsc --noEmit -p tsconfig.app.json   # tsc --noEmit sem -p é um no-op neste repo
-npx eslint . --ext .ts,.tsx             # orçamento: ≤700 warnings, 0 erros
-npx vitest run                          # hoje: 227 testes
+npx eslint . --ext .ts,.tsx             # orçamento: ≤550 warnings, 0 erros (hoje 528)
+npx vitest run                          # hoje: 545 testes
 npx vite build
 ```
 
 Rodar os quatro antes de cada push, não só no fim da tarefa. Um push que
 quebra CI custa um ciclo de revisão inteiro.
+
+E2E (Playwright, `e2e/`) fica fora dos quatro passos: `npm run test:e2e:smoke`
+roda sem backend (só precisa de um `vite build` com qualquer `VITE_SUPABASE_*`);
+a jornada autenticada exige `E2E_TEST_EMAIL`/`E2E_TEST_PASSWORD` e o projeto
+Supabase alcançável, e cria/apaga dados reais na conta de teste — rode-a só
+quando mexer no fluxo de login, clientes, processos ou prazos. Num sandbox sem
+Chromium do Playwright: `PW_CHROMIUM_PATH=/opt/pw-browsers/chromium`.
 
 ## Padrões estabelecidos no código
 
@@ -44,6 +51,18 @@ quebra CI custa um ciclo de revisão inteiro.
   mutation que depende de RLS para permissão precisa encadear `.select('id')`
   e checar a contagem com esse helper, senão a UI mostra "sucesso" com a
   linha intocada no banco.
+  Para testar esse caminho, `src/tests/helpers/supabaseMock.ts` tem um mock
+  encadeável do client: `enfileirar('tabela', { data: [] })` simula a RLS
+  barrando em silêncio (ver `src/tests/hooks/*.rls.test.tsx`).
+
+- **`patchOfficeSettings(officeId, patch)`** (`src/lib/officeSettings.ts`) — o
+  **único** caminho de escrita em `offices.settings`. O jsonb guarda configurações
+  de várias telas; cada uma só conhece as próprias chaves. O helper aborta se a
+  releitura falhar (mesclar em cima de `{}` apagaria as outras chaves) e confere
+  as linhas afetadas. Quem lê `offices.settings` para editar também precisa
+  propagar o erro do load e **bloquear o save enquanto ele não tiver
+  sucesso** — senão os defaults exibidos na tela são gravados por cima da
+  configuração real (ver `useOfficeSettingList`).
 
 - **Hooks de dado expõem `error`/`isError`, não só `loading`.** Página
   correspondente deve mostrar um banner de erro com ação de retry — ver
@@ -67,6 +86,11 @@ quebra CI custa um ciclo de revisão inteiro.
   esse hook (`canView*`), não checagens ad-hoc de papel/role.
 
 ## Deploy
+
+O projeto Supabase em uso vem da **variável** `VITE_SUPABASE_URL` do repositório
+(GitHub → Actions → Variables) + o secret `VITE_SUPABASE_ANON_KEY` — não há URL
+de projeto fixa no código. Os crons dos robôs leem a URL do secret `project_url`
+do vault. Trocar de projeto: roteiro em `scripts/migracao-supabase/README.md`.
 
 Merge em `main` dispara `.github/workflows/deploy-oracle.yml`. Merges
 próximos disparam múltiplas runs; runs intermediárias são canceladas

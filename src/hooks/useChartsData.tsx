@@ -55,6 +55,8 @@ export const PONTOS_DEFAULT: PontosConfig = {
 
 export interface ChartsData {
   loading: boolean;
+  /** Recarregando após trocar período/equipe (os gráficos atuais continuam na tela). */
+  refreshing: boolean;
   isError: boolean;
   error: string | null;
   totals: { processos: number; clientes: number; atendimentos: number; receita: number; despesa: number };
@@ -98,6 +100,7 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
   const refetch = () => setReload(r => r + 1);
   const [data, setData] = useState<ChartsData>({
     loading: true,
+    refreshing: false,
     isError: false,
     error: null,
     totals: { processos: 0, clientes: 0, atendimentos: 0, receita: 0, despesa: 0 },
@@ -114,6 +117,9 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
     if (!user?.office_id) return;
     const officeId = user.office_id;
     let cancel = false;
+    // Ao trocar período/equipe, os gráficos antigos ficavam na tela sem nenhuma
+    // indicação de que estavam recarregando — agora `refreshing` sinaliza isso.
+    setData((prev) => ({ ...prev, refreshing: !prev.loading }));
     (async () => {
       const months = lastMonths(period);
       const since = `${months[0].key}-01T00:00:00`;
@@ -121,7 +127,12 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
       // Se uma equipe foi selecionada, restringe aos membros dela
       let teamMemberIds: string[] | null = null;
       if (teamId) {
-        const { data: tm } = await supabase.from("office_team_members").select("user_id").eq("team_id", teamId);
+        const { data: tm, error: tmError } = await supabase.from("office_team_members").select("user_id").eq("team_id", teamId);
+        // Falha aqui virava "equipe sem membros" → todos os gráficos zerados como se fossem reais.
+        if (tmError) {
+          if (!cancel) setData((prev) => ({ ...prev, loading: false, refreshing: false, isError: true, error: getErrorMessage(tmError, "Não foi possível carregar os membros da equipe.") }));
+          return;
+        }
         teamMemberIds = (tm || []).map((m: any) => m.user_id);
         if (!teamMemberIds.length) teamMemberIds = ["00000000-0000-0000-0000-000000000000"];
       }
@@ -145,18 +156,20 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
             .eq("office_id", officeId).eq("deletado", false),
           teamMemberIds, "responsavel_id", "user_id",
         ),
+        // deletado=false: prazos na Lixeira entravam nos gráficos e no ranking.
         inMembersOrUser(supabase.from("prazos").select("responsavel_id, user_id, data_fim_prazo, created_at, status, tipo_prazo")
-          .eq("office_id", officeId), teamMemberIds, "responsavel_id", "user_id"),
+          .eq("office_id", officeId).eq("deletado", false), teamMemberIds, "responsavel_id", "user_id"),
         supabase.from("clientes").select("tipo_pessoa, status, created_at")
           .eq("office_id", officeId).eq("deletado", false).eq("deletado_pendente", false),
         inMembersOrUser(supabase.from("atendimentos").select("created_at, responsavel_id, user_id")
           .eq("office_id", officeId).eq("deletado", false).gte("created_at", since), teamMemberIds, "responsavel_id", "user_id"),
         inMembers(supabase.from("financeiro").select("tipo, valor, categoria, created_at, user_id")
-          .eq("office_id", officeId).eq("deletado", false).neq("status", "cancelado").gte("created_at", since), "user_id"),
+          .eq("office_id", officeId).eq("deletado", false).or("status.is.null,status.neq.cancelado").gte("created_at", since), "user_id"),
         inMembersOrUser(supabase.from("consultivos").select("created_at, status, user_id, responsavel_id")
           .eq("office_id", officeId).eq("deletado", false).gte("created_at", since), teamMemberIds, "responsavel_id", "user_id"),
+        // office_id: sem ele, horas lançadas em OUTRO escritório do membro entravam aqui.
         inMembers(supabase.from("timesheets").select("created_at, duracao_minutos, user_id")
-          .gte("created_at", since), "user_id"),
+          .eq("office_id", officeId).gte("created_at", since), "user_id"),
         supabase.from("offices").select("settings").eq("id", officeId).maybeSingle(),
       ]);
 
@@ -167,8 +180,7 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
       // escritório genuinamente vazio.
       const firstError = [proc, prz, cli, at, fin, cons, ts, off].find((r) => r.error)?.error;
       if (firstError) {
-        console.error("useChartsData:", firstError);
-        setData((prev) => ({ ...prev, loading: false, isError: true, error: getErrorMessage(firstError, "Não foi possível carregar os gráficos.") }));
+        setData((prev) => ({ ...prev, loading: false, refreshing: false, isError: true, error: getErrorMessage(firstError, "Não foi possível carregar os gráficos.") }));
         return;
       }
 
@@ -262,7 +274,7 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
       const secondError = tarRes.error || audRes.error;
       if (secondError) {
         console.error("useChartsData (tarefas/audiencias):", secondError);
-        setData((prev) => ({ ...prev, loading: false, isError: true, error: getErrorMessage(secondError, "Não foi possível carregar os gráficos.") }));
+        setData((prev) => ({ ...prev, loading: false, refreshing: false, isError: true, error: getErrorMessage(secondError, "Não foi possível carregar os gráficos.") }));
         return;
       }
 
@@ -424,7 +436,7 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
 
       if (cancel) return;
       setData({
-        loading: false, isError: false, error: null, totals, processosPorMes, statusProcessos, clientesPorTipo,
+        loading: false, refreshing: false, isError: false, error: null, totals, processosPorMes, statusProcessos, clientesPorTipo,
         novosClientesPorMes, atendimentosPorMes, financeiroPorMes, honorariosPorCategoria, processosPorArea,
         duracaoMediaDias, duracaoPorTipo, resultadoProcessos,
         prazosPorMes, prazosPorStatus, tarefasPorMes, audienciasPorMes, audienciasPorStatus,

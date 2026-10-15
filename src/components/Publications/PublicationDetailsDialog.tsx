@@ -30,6 +30,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatCNJ } from "@/utils/formatCNJ";
+import { PrecedentesRelacionados } from "@/components/Jurisprudencia/PrecedentesRelacionados";
+import { sugerirTermos } from "@/lib/juris";
 import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/usePermissions";
 
@@ -221,6 +223,10 @@ export const PublicationDetailsDialog = ({
               </p>
             </div>
           </div>
+
+          {/* Precedentes relacionados (privado por usuário) */}
+          <Separator className="bg-border/50" />
+          <PrecedentesRelacionados alvoTipo="publicacao" alvoId={publication.id} sugestao={sugerirTermos(`${publication.titulo} ${cleanContent}`)} />
 
           {/* Tags */}
           {publication.tags?.filter(t => t !== 'auto-sync').length > 0 && (

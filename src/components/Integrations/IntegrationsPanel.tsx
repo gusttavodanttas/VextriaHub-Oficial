@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { MessageCircle, Webhook, Plug, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GoogleCalendarCard } from "./GoogleCalendarCard";
+import { NotionCard } from "./NotionCard";
 
 interface Integration {
   id: string;
@@ -35,6 +36,7 @@ export function IntegrationsPanel() {
       <CardContent className="p-5 md:p-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <GoogleCalendarCard />
+          <NotionCard />
           {INTEGRATIONS.map((it) => {
             const Icon = it.icon;
             const soon = it.status === "em_breve";
