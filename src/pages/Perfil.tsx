@@ -1,59 +1,25 @@
 ﻿
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getErrorMessage, assertRowsAffected } from "@/lib/errors";
 import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  UserCircle,
-  Mail,
-  Phone,
-  MapPin,
-  Award,
-  Edit,
-  Save,
-  Scale,
-  Fingerprint,
-  Lock,
-  Eye,
-  EyeOff,
-  Loader2,
-  CalendarDays,
-  X,
-  Clock,
-  Activity,
-  ChevronRight
-} from "lucide-react";
+import { UserCircle, Mail, Award, Edit, Save, Scale, Loader2, CalendarDays, X, Clock } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
 import { useMyStats } from "@/hooks/useMyStats";
-import { useMyActivity } from "@/hooks/useMyActivity";
+import { ActivityCard } from "@/components/Perfil/ActivityCard";
+import { SecurityCard } from "@/components/Perfil/SecurityCard";
+import { PerformanceHub } from "@/components/Perfil/PerformanceHub";
+import { PerfilCamposForm, type PerfilInfo } from "@/components/Perfil/PerfilCamposForm";
 import { formatPhone, isValidPhone } from "@/lib/phone";
-import { formatCpfCnpj } from "@/lib/document";
 import { uploadPublicImage, validateImage } from "@/lib/uploadImage";
-import { CityCombobox } from "@/components/ui/CityCombobox";
 import { Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const ESTADOS_BRASIL = [
-  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
-  "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"
-];
 
 const Perfil = () => {
   const { user, profile, office, session, isLoading, refreshProfile } = useAuth();
@@ -64,7 +30,7 @@ const Perfil = () => {
   const [avatarUrl, setAvatarUrl] = useState("");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
-  const [userInfo, setUserInfo] = useState({
+  const [userInfo, setUserInfo] = useState<PerfilInfo>({
     nome: "Carregando...",
     email: "Carregando...",
     telefone: "",
@@ -376,170 +342,14 @@ const Perfil = () => {
               </div>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2 px-6 md:px-10 py-8 mt-6 border-t border-border/50 relative z-10">
-              <div className="space-y-3">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50 px-1">Endereço de E-mail</Label>
-                <div className="flex items-center gap-4 p-4 rounded-2xl bg-background/50 border border-border group hover:border-primary/20 transition-all shadow-sm">
-                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-foreground transition-all shadow-inner">
-                    <Mail className="h-5 w-5" />
-                  </div>
-                  {editMode ? (
-                    <Input
-                      className="bg-transparent border-none p-0 h-auto font-black shadow-none focus-visible:ring-0 text-foreground"
-                      value={userInfo.email}
-                      readOnly
-                    />
-                  ) : (
-                    <span className="font-bold truncate text-foreground/80">{userInfo.email}</span>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50 px-1">Telefone / WhatsApp</Label>
-                <div className="flex items-center gap-4 p-4 rounded-2xl bg-background/50 border border-border group hover:border-primary/20 transition-all shadow-sm">
-                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-foreground transition-all shadow-inner">
-                    <Phone className="h-5 w-5" />
-                  </div>
-                  {editMode ? (
-                    <Input
-                      className="bg-transparent border-none p-0 h-auto font-black shadow-none focus-visible:ring-0 text-foreground"
-                      value={userInfo.telefone}
-                      onChange={(e) => setUserInfo({...userInfo, telefone: formatPhone(e.target.value)})}
-                      inputMode="numeric"
-                      placeholder="(11) 91234-5678"
-                    />
-                  ) : userInfo.telefone ? (
-                    <span className="font-bold text-foreground/80">{userInfo.telefone}</span>
-                  ) : (
-                    <button onClick={() => setEditMode(true)} className="font-bold text-sm text-primary/70 hover:text-primary transition-colors">+ Adicionar</button>
-                  )}
-                </div>
-                {editMode && userInfo.telefone && !isValidPhone(userInfo.telefone) && (
-                  <p className="text-[11px] font-bold text-destructive px-1">Telefone incompleto ou inválido.</p>
-                )}
-              </div>
-
-              <div className="space-y-3">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50 px-1">Registro OAB (Número e Estado)</Label>
-                <div className="flex items-center gap-3">
-                  <div className="flex-1 flex items-center gap-4 p-4 rounded-2xl bg-background/50 border border-border group hover:border-primary/20 transition-all shadow-sm">
-                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-foreground transition-all shadow-inner">
-                      <Scale className="h-5 w-5" />
-                    </div>
-                    {editMode ? (
-                      <Input
-                        className="bg-transparent border-none p-0 h-auto font-black shadow-none focus-visible:ring-0 text-foreground"
-                        value={userInfo.oab}
-                        onChange={(e) => setUserInfo({...userInfo, oab: e.target.value})}
-                        placeholder="Número da OAB"
-                      />
-                    ) : userInfo.oab ? (
-                      <span className="font-bold text-foreground/80">{userInfo.oab}</span>
-                    ) : (
-                      <button onClick={() => setEditMode(true)} className="font-bold text-sm text-primary/70 hover:text-primary transition-colors">+ Adicionar</button>
-                    )}
-                  </div>
-                  {editMode && (
-                    <div className="w-32">
-                      <Select 
-                        value={userInfo.oab_uf} 
-                        onValueChange={(val) => setUserInfo({...userInfo, oab_uf: val})}
-                      >
-                        <SelectTrigger className="h-14 rounded-2xl border-border bg-background/50 font-black">
-                          <SelectValue placeholder="UF" />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-2xl border-border bg-card shadow-2xl max-h-[300px]">
-                          {ESTADOS_BRASIL.map(uf => (
-                            <SelectItem key={uf} value={uf} className="rounded-xl font-bold">{uf}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50 px-1">CPF / CNPJ</Label>
-                <div className="flex items-center gap-4 p-4 rounded-2xl bg-background/50 border border-border shadow-sm">
-                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
-                    <Fingerprint className="h-5 w-5" />
-                  </div>
-                  {userInfo.cpf_cnpj ? (
-                    <span className="font-bold text-foreground/80">{formatCpfCnpj(userInfo.cpf_cnpj)}</span>
-                  ) : (
-                    <span className="font-bold text-sm text-muted-foreground/60">Não informado</span>
-                  )}
-                  <span className="ml-auto text-[10px] font-black uppercase tracking-wider text-muted-foreground/40">Não editável</span>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50 px-1">Localização (Cidade)</Label>
-                <div className="flex items-center gap-4 p-4 rounded-2xl bg-background/50 border border-border group hover:border-primary/20 transition-all shadow-sm">
-                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-foreground transition-all shadow-inner">
-                    <MapPin className="h-5 w-5" />
-                  </div>
-                  {editMode ? (
-                    <div className="flex-1 min-w-0">
-                      <CityCombobox value={userInfo.endereco} onChange={(val) => setUserInfo({ ...userInfo, endereco: val })} />
-                    </div>
-                  ) : userInfo.endereco ? (
-                    <span className="font-bold truncate text-foreground/80">{userInfo.endereco}</span>
-                  ) : (
-                    <button onClick={() => setEditMode(true)} className="font-bold text-sm text-primary/70 hover:text-primary transition-colors">+ Adicionar</button>
-                  )}
-                </div>
-              </div>
-            </div>
+            <PerfilCamposForm editMode={editMode} setEditMode={setEditMode} userInfo={userInfo} setUserInfo={setUserInfo} />
           </div>
 
           <ActivityCard />
         </div>
 
         <div className="space-y-6">
-          <div className="glass-card p-8 rounded-[2.5rem] border-border bg-card/40 shadow-premium space-y-8">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xl font-black flex items-center gap-3 text-foreground">
-                <Award className="h-6 w-6 text-primary" />
-                Performance Hub
-              </h3>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4">
-              <div className="p-6 rounded-3xl bg-primary/5 border border-primary/10 hover:bg-primary/10 transition-all text-center shadow-inner">
-                <p className="text-4xl font-black text-primary mb-1">{myStats.loading ? "…" : myStats.isError ? "—" : myStats.pontos}</p>
-                <p className="text-[10px] font-black uppercase tracking-widest text-primary/60">Pontuação Meritocrática</p>
-              </div>
-
-              <div className="p-6 rounded-3xl bg-background/50 border border-border hover:bg-card transition-all text-center shadow-inner">
-                <p className="text-4xl font-black mb-1 text-foreground">{myStats.loading ? "…" : myStats.isError ? "—" : myStats.tarefasConcluidas}</p>
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-60">Tarefas Concluídas</p>
-              </div>
-            </div>
-
-            {myStats.isError && (
-              <div className="flex items-center justify-between gap-2 rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-                <span>Não foi possível carregar suas estatísticas.</span>
-                <button type="button" onClick={myStats.refetch} className="font-bold underline shrink-0">Tentar novamente</button>
-              </div>
-            )}
-            <div className="space-y-4 pt-4 border-t border-border/50">
-              <div className="flex justify-between items-center px-2">
-                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Processos Ativos</span>
-                <span className="text-lg font-black text-foreground">{myStats.loading ? "…" : myStats.isError ? "—" : myStats.processosAtivos}</span>
-              </div>
-              <div className="flex justify-between items-center px-2">
-                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Processos Finalizados</span>
-                <span className="text-lg font-black text-foreground">{myStats.loading ? "…" : myStats.isError ? "—" : myStats.processosFinalizados}</span>
-              </div>
-              <div className="flex justify-between items-center px-2">
-                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Clientes Cadastrados</span>
-                <span className="text-lg font-black text-foreground">{myStats.loading ? "…" : myStats.isError ? "—" : myStats.clientesAtendidos}</span>
-              </div>
-            </div>
-          </div>
+          <PerformanceHub myStats={myStats} />
 
           <SecurityCard />
         </div>
@@ -548,211 +358,5 @@ const Perfil = () => {
     </div>
   );
 };
-
-/* ---------- Atividade recente ---------- */
-function ActivityCard() {
-  const navigate = useNavigate();
-  const { items, loading, isError, refetch } = useMyActivity(8);
-  const dotColor: Record<string, string> = {
-    Processo: "bg-blue-500",
-    Tarefa: "bg-emerald-500",
-    Atendimento: "bg-amber-500",
-  };
-  return (
-    <div className="glass-card p-6 md:p-8 rounded-[2.5rem] border-border bg-card/40 shadow-premium space-y-4">
-      <h3 className="text-xl font-black flex items-center gap-3 text-foreground">
-        <Activity className="h-6 w-6 text-primary" />
-        Atividade Recente
-      </h3>
-      {loading ? (
-        <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-primary/40" /></div>
-      ) : isError ? (
-        // Antes o erro caía em "Nenhuma atividade ainda."
-        <div className="text-center py-8 space-y-2">
-          <p className="text-sm font-bold text-destructive">Não foi possível carregar sua atividade.</p>
-          <button type="button" onClick={refetch} className="text-xs font-bold underline">Tentar novamente</button>
-        </div>
-      ) : items.length === 0 ? (
-        <div className="text-center py-8">
-          <p className="text-sm text-muted-foreground font-medium">Nenhuma atividade ainda.</p>
-          <p className="text-xs text-muted-foreground/60 mt-1">Seus processos, tarefas e atendimentos aparecem aqui.</p>
-        </div>
-      ) : (
-        <div className="space-y-1.5">
-          {items.map((it) => (
-            <button
-              key={it.id}
-              onClick={() => navigate(it.link)}
-              className="group w-full flex items-center gap-3 p-3 rounded-2xl border border-transparent hover:border-primary/20 hover:bg-primary/[0.03] transition-all text-left"
-            >
-              <span className={cn("h-2.5 w-2.5 rounded-full shrink-0", dotColor[it.tipo])} />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold text-foreground truncate group-hover:text-primary transition-colors">{it.label}</p>
-                <p className="text-[11px] text-muted-foreground">
-                  <span className="font-black uppercase tracking-wide">{it.tipo}</span>
-                  {" · "}
-                  {new Date(it.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
-                </p>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ---------- Segurança (alterar senha) ---------- */
-function SecurityCard() {
-  const { toast } = useToast();
-  const { user, profile } = useAuth();
-  const emailAtual = profile?.email || user?.email || "";
-
-  const [novoEmail, setNovoEmail] = useState("");
-  const [salvandoEmail, setSalvandoEmail] = useState(false);
-
-  const [senhaAtual, setSenhaAtual] = useState("");
-  const [novaSenha, setNovaSenha] = useState("");
-  const [confirmar, setConfirmar] = useState("");
-  const [mostrar, setMostrar] = useState(false);
-  const [salvando, setSalvando] = useState(false);
-
-  const emailValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(novoEmail.trim());
-  const emailDiferente = novoEmail.trim() && novoEmail.trim().toLowerCase() !== emailAtual.toLowerCase();
-  const podeTrocarEmail = emailValido && emailDiferente && !salvandoEmail;
-
-  const curta = novaSenha.length > 0 && novaSenha.length < 6;
-  const diverge = confirmar.length > 0 && confirmar !== novaSenha;
-  const podeSalvar = senhaAtual.length > 0 && novaSenha.length >= 6 && confirmar === novaSenha && !salvando;
-
-  const alterarEmail = async () => {
-    if (!podeTrocarEmail) return;
-    setSalvandoEmail(true);
-    const { error } = await supabase.auth.updateUser({ email: novoEmail.trim() });
-    setSalvandoEmail(false);
-    if (error) {
-      toast({ variant: "destructive", title: "Erro ao alterar e-mail", description: error.message });
-      return;
-    }
-    toast({ title: "Confirme no seu e-mail", description: "Enviamos um link de confirmação para o novo endereço." });
-    setNovoEmail("");
-  };
-
-  // A política "Require current password when updating" (GoTrue) exige o campo current_password
-  // no corpo do request — que o updateUser do supabase-js NÃO envia. Então chamamos o endpoint
-  // do GoTrue direto, mandando a senha atual + a nova. Server-enforced (uma sessão sequestrada
-  // não sabe a senha atual) e sem depender de e-mail.
-  const alterar = async () => {
-    if (!podeSalvar) return;
-    setSalvando(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Sua sessão expirou. Entre novamente e tente de novo.");
-      const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ password: novaSenha, current_password: senhaAtual }),
-      });
-      if (!res.ok) {
-        const body: Record<string, unknown> = await res.json().catch(() => ({}));
-        const msg = String(body?.msg || body?.error_description || body?.error || body?.message || "");
-        if (/current password|incorrect|invalid.*credential/i.test(msg)) {
-          throw new Error("A senha atual está incorreta.");
-        }
-        throw new Error(msg || "Não foi possível alterar a senha.");
-      }
-      toast({ title: "Senha alterada", description: "Sua nova senha já está ativa." });
-      setSenhaAtual(""); setNovaSenha(""); setConfirmar("");
-    } catch (e) {
-      toast({ variant: "destructive", title: "Erro ao alterar senha", description: e instanceof Error ? e.message : "Tente novamente." });
-    } finally {
-      setSalvando(false);
-    }
-  };
-
-  return (
-    <div className="glass-card p-8 rounded-[2.5rem] border-border bg-card/40 shadow-premium space-y-6">
-      <h3 className="text-xl font-black flex items-center gap-3 text-foreground">
-        <Lock className="h-6 w-6 text-primary" />
-        Segurança
-      </h3>
-
-      {/* Trocar e-mail */}
-      <div className="space-y-1.5 pb-6 border-b border-border/50">
-        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50">Alterar e-mail de acesso</Label>
-        <p className="text-[11px] text-muted-foreground -mt-0.5 mb-1">Atual: <span className="font-bold text-foreground/70">{emailAtual}</span></p>
-        <Input
-          type="email"
-          value={novoEmail}
-          onChange={(e) => setNovoEmail(e.target.value)}
-          placeholder="novo@email.com"
-          className={cn("h-12 rounded-2xl bg-background/50", novoEmail && !emailValido && "border-destructive focus-visible:ring-destructive")}
-        />
-        {novoEmail && !emailValido && <p className="text-[11px] font-bold text-destructive px-1">E-mail inválido.</p>}
-        <Button onClick={alterarEmail} disabled={!podeTrocarEmail} variant="outline" className="w-full h-11 rounded-2xl font-black uppercase text-xs tracking-widest gap-2 mt-1">
-          {salvandoEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-          {salvandoEmail ? "Enviando…" : "Alterar e-mail"}
-        </Button>
-      </div>
-
-      <div className="space-y-4">
-        <div className="space-y-1.5">
-          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50">Senha atual</Label>
-          <Input
-            type={mostrar ? "text" : "password"}
-            value={senhaAtual}
-            onChange={(e) => setSenhaAtual(e.target.value)}
-            placeholder="Sua senha atual"
-            autoComplete="current-password"
-            className="h-12 rounded-2xl bg-background/50"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50">Nova senha</Label>
-          <div className="relative">
-            <Input
-              type={mostrar ? "text" : "password"}
-              value={novaSenha}
-              onChange={(e) => setNovaSenha(e.target.value)}
-              placeholder="Mínimo 6 caracteres"
-              className={cn("h-12 rounded-2xl pr-11 bg-background/50", curta && "border-destructive focus-visible:ring-destructive")}
-            />
-            <button
-              type="button"
-              onClick={() => setMostrar((s) => !s)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground"
-              aria-label={mostrar ? "Ocultar senha" : "Mostrar senha"}
-            >
-              {mostrar ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
-          {curta && <p className="text-[11px] font-bold text-destructive px-1">Use ao menos 6 caracteres.</p>}
-        </div>
-
-        <div className="space-y-1.5">
-          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50">Confirmar nova senha</Label>
-          <Input
-            type={mostrar ? "text" : "password"}
-            value={confirmar}
-            onChange={(e) => setConfirmar(e.target.value)}
-            placeholder="Repita a nova senha"
-            className={cn("h-12 rounded-2xl bg-background/50", diverge && "border-destructive focus-visible:ring-destructive")}
-          />
-          {diverge && <p className="text-[11px] font-bold text-destructive px-1">As senhas não coincidem.</p>}
-        </div>
-
-        <Button onClick={alterar} disabled={!podeSalvar} className="w-full h-12 rounded-2xl font-black uppercase text-xs tracking-widest gap-2">
-          {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
-          {salvando ? "Alterando…" : "Alterar Senha"}
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 export default Perfil;
