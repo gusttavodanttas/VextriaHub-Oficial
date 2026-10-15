@@ -28,15 +28,34 @@ const at = (over: Record<string, unknown> = {}) => ({
 describe('useAtendimentos', () => {
   beforeEach(() => { resetSupabaseMock(); mockToast.mockClear(); });
 
-  it('junta ativos e histórico (duas consultas, histórico com cap de 1000)', async () => {
+  it('junta ativos e histórico (histórico paginado com contagem exata, sem cap silencioso)', async () => {
     enfileirar('atendimentos', { data: [at()] });              // ativos
-    enfileirar('atendimentos', { data: [at({ id: 'at2', status: 'realizado' })] }); // histórico
+    enfileirar('atendimentos', { data: [at({ id: 'at2', status: 'realizado' })], count: 350 }); // histórico, 1ª página
     const { result } = renderHook(() => useAtendimentos('o1'), { wrapper });
     await waitFor(() => expect(result.current.query.isLoading).toBe(false));
     expect(result.current.query.data.map(a => a.id).sort()).toEqual(['at1', 'at2']);
     const sels = chamadasCom('atendimentos', 'select');
-    expect(sels).toHaveLength(2);
-    expect(sels.some(s => s.ops.some(([m, a]) => m === 'limit' && a[0] === 1000))).toBe(true);
+    // ativos + histórico + 3 contagens (head) — nenhuma com `.limit()`
+    expect(sels).toHaveLength(5);
+    expect(sels.some(s => s.ops.some(([m]) => m === 'limit'))).toBe(false);
+    const hist = sels.find(s => s.ops.some(([m, a]) => m === 'in' && a[0] === 'status'))!;
+    expect(hist.ops).toEqual(expect.arrayContaining([['range', [0, 199]]]));
+    expect(hist.ops.find(([m]) => m === 'select')![1][1]).toEqual({ count: 'exact' });
+    // 350 no servidor, 1 carregado → a tela sabe que faltam 349
+    expect(result.current.query.historicoRestantes).toBe(349);
+  });
+
+  it('carregar mais histórico pede a página seguinte e acumula', async () => {
+    enfileirar('atendimentos', { data: [] });
+    enfileirar('atendimentos', { data: [at({ id: 'h1', status: 'realizado' })], count: 2 });
+    const { result } = renderHook(() => useAtendimentos('o1'), { wrapper });
+    await waitFor(() => expect(result.current.query.historicoRestantes).toBe(1));
+    enfileirar('atendimentos', { data: [at({ id: 'h2', status: 'cancelado' })], count: 2 });
+    act(() => { result.current.query.carregarMaisHistorico(); });
+    await waitFor(() => expect(result.current.query.data.map(a => a.id)).toEqual(['h1', 'h2']));
+    expect(result.current.query.historicoRestantes).toBe(0);
+    const ranges = chamadasCom('atendimentos', 'range').map(c => c.ops.find(([m]) => m === 'range')![1]);
+    expect(ranges).toEqual([[0, 199], [200, 399]]);
   });
 
   it('erro em qualquer uma das duas consultas vira isError', async () => {

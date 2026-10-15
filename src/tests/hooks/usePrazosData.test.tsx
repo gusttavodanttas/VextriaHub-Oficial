@@ -35,13 +35,24 @@ describe('usePrazosData', () => {
     expect(sel.ops).toEqual(expect.arrayContaining([['or', ['status.is.null,status.neq.concluido']], ['eq', ['office_id', 'o1']]]));
   });
 
-  it('concluídos só são buscados com showConcluidos (cap 500)', async () => {
+  it('concluídos só são buscados com showConcluidos, paginados com contagem exata', async () => {
     enfileirar('prazos', { data: [prazo()] });
-    enfileirar('prazos', { data: [prazo({ id: 'pz9', status: 'concluido' })] });
+    enfileirar('prazos', { data: [prazo({ id: 'pz9', status: 'concluido' })], count: 501 });
     const { result } = renderHook(() => usePrazosData({ showConcluidos: true }), { wrapper });
     await waitFor(() => expect(result.current.prazos.length).toBe(2));
     const sels = chamadasCom('prazos', 'select');
-    expect(sels.some(s => s.ops.some(([m, a]) => m === 'eq' && a[0] === 'status' && a[1] === 'concluido') && s.ops.some(([m, a]) => m === 'limit' && a[0] === 500))).toBe(true);
+    const conc = sels.find(s => s.ops.some(([m, a]) => m === 'eq' && a[0] === 'status' && a[1] === 'concluido'))!;
+    expect(conc.ops).toEqual(expect.arrayContaining([['range', [0, 199]], ['eq', ['office_id', 'o1']]]));
+    expect(conc.ops.some(([m]) => m === 'limit')).toBe(false);
+    expect(result.current.concluidosRestantes).toBe(500);
+  });
+
+  it('sem showConcluidos não consulta concluídos nem acusa restantes', async () => {
+    enfileirar('prazos', { data: [prazo()] });
+    const { result } = renderHook(() => usePrazosData({}), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(chamadasCom('prazos', 'select').some(s => s.ops.some(([m, a]) => m === 'eq' && a[1] === 'concluido'))).toBe(false);
+    expect(result.current.concluidosRestantes).toBe(0);
   });
 
   it('erro na busca dos ativos expõe isError', async () => {

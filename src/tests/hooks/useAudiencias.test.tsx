@@ -33,8 +33,27 @@ describe('useAudiencias', () => {
     const { result } = renderHook(() => useAudiencias(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.audiencias[0]).toMatchObject({ cliente_nome: 'Maria', responsavel_id: 'u9', avisos_dias: [1, 3] });
-    const sel = chamadasCom('audiencias', 'select')[0];
-    expect(sel.ops).toEqual(expect.arrayContaining([['eq', ['office_id', 'o1']], ['eq', ['deletado', false]], ['limit', [1000]]]));
+    const sels = chamadasCom('audiencias', 'select');
+    // ativas (de hoje em diante OU sem baixa) + histórico paginado + contagem do mês — sem `.limit()`
+    expect(sels.some(s => s.ops.some(([m]) => m === 'limit'))).toBe(false);
+    const ativas = sels[0];
+    expect(ativas.ops).toEqual(expect.arrayContaining([['eq', ['office_id', 'o1']], ['eq', ['deletado', false]]]));
+    const orArg = String(ativas.ops.find(([m]) => m === 'or')![1][0]);
+    expect(orArg).toMatch(/^data_audiencia\.gte\./);
+    expect(orArg).toContain('status.is.null');
+    expect(orArg).toContain('status.not.in.(realizada,cancelada)');
+    const hist = sels.find(s => s.ops.some(([m]) => m === 'range'))!;
+    expect(hist.ops).toEqual(expect.arrayContaining([['in', ['status', ['realizada', 'cancelada']]], ['range', [0, 199]]]));
+    expect(hist.ops.some(([m, a]) => m === 'lt' && a[0] === 'data_audiencia')).toBe(true);
+  });
+
+  it('histórico paginado expõe quantas audiências antigas faltam carregar', async () => {
+    enfileirar('audiencias', { data: [] });
+    enfileirar('audiencias', { data: [{ id: 'h1', titulo: 'Antiga', data_audiencia: '2024-01-10T10:00:00Z', status: 'realizada' }], count: 42 });
+    const { result } = renderHook(() => useAudiencias(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.audiencias.map(a => a.id)).toEqual(['h1']);
+    expect(result.current.historicoRestantes).toBe(41);
   });
 
   it('erro na busca expõe isError/error', async () => {

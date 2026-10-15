@@ -78,6 +78,7 @@ import {
   defaultForm, tipoInfo, type Atendimento, type FormState, type GrupoKey, type StatusType,
 } from "@/components/Atendimentos/shared";
 import { useAtendimentos, useAtendimentoTipos, normalizarStatusAtendimento } from "@/hooks/useAtendimentos";
+import { CarregarMaisHistorico } from "@/components/shared/CarregarMaisHistorico";
 import { AtendimentoFormDialog as FormDialog } from "@/components/Atendimentos/AtendimentoFormDialog";
 import { GerenciarTiposDialog } from "@/components/Atendimentos/GerenciarTiposDialog";
 import { FollowUpDialog } from "@/components/Atendimentos/FollowUpDialog";
@@ -124,13 +125,15 @@ const Atendimentos = () => {
   const [followUpItem, setFollowUpItem] = useState<Atendimento | null>(null);
   const [prefill, setPrefill] = useState<Partial<FormState> | null>(null);
 
-  // Stats
+  // Stats: total/realizados/cancelados vêm do servidor (o histórico é paginado,
+  // contar só o carregado subestimaria); agendados é o conjunto ativo, inteiro.
+  // Até a contagem chegar (ou se ela falhar), cai no que está em memória.
   const stats = useMemo(() => ({
-    total: items.length,
+    total: query.contagens?.total ?? items.length,
     agendados: items.filter((i) => i.status === "agendado").length,
-    realizados: items.filter((i) => i.status === "realizado").length,
-    cancelados: items.filter((i) => i.status === "cancelado").length,
-  }), [items]);
+    realizados: query.contagens?.realizados ?? items.filter((i) => i.status === "realizado").length,
+    cancelados: query.contagens?.cancelados ?? items.filter((i) => i.status === "cancelado").length,
+  }), [items, query.contagens]);
 
   // Atendimentos passados ainda agendados/pendentes → precisam de baixa
   const pendentesBaixa = useMemo(() => {
@@ -179,6 +182,16 @@ const Atendimentos = () => {
     map.passados.sort((a, b) => ts(b) - ts(a));
     return ORDEM_GRUPOS.map((k) => ({ key: k, label: LABEL_GRUPOS[k], items: map[k] })).filter((g) => g.items.length);
   }, [filtered]);
+
+  // Histórico (realizados/cancelados) vem paginado — rodapé com o que falta carregar.
+  const carregarMais = (
+    <CarregarMaisHistorico
+      restantes={query.historicoRestantes}
+      carregando={query.carregandoMaisHistorico}
+      onClick={query.carregarMaisHistorico}
+      rotulo="atendimentos"
+    />
+  );
 
   const openNew = () => { if (!canCreateAtendimentos) return; setPrefill(null); setEditItem(null); setDialogOpen(true); };
   const openEdit = (item: Atendimento) => { if (!canEditAtendimentos) return; setPrefill(null); setEditItem(item); setDialogOpen(true); };
@@ -509,11 +522,12 @@ const Atendimentos = () => {
                 : "Clique em Novo Atendimento para começar."}
             </p>
           </div>
-          {!busca && filtroStatus === "todos" && filtroTipo === "todos" && (
+          {!busca && filtroStatus === "todos" && filtroTipo === "todos" && query.historicoRestantes === 0 && (
             <Button onClick={openNew} className="rounded-xl font-black uppercase text-[10px] tracking-widest shadow-premium mt-2">
               <Plus className="h-4 w-4 mr-2" />Registrar primeiro atendimento
             </Button>
           )}
+          {carregarMais}
         </div>
       ) : (
         <div className="space-y-8">
@@ -535,6 +549,7 @@ const Atendimentos = () => {
               </div>
             </div>
           ))}
+          {carregarMais}
         </div>
       )}
 
