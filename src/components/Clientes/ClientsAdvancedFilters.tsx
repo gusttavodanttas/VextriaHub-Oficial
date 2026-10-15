@@ -11,14 +11,25 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
+/** Filtros avançados da lista de clientes — todos opcionais (vazio = sem filtro). */
+export interface ClientesFiltros {
+  tipoPessoa?: string;
+  origem?: string;
+  status?: string;
+  dataInicioFrom?: Date;
+  dataInicioTo?: Date;
+  hasProcessos?: string;
+  hasAtendimentos?: string;
+}
+
 interface ClientsAdvancedFiltersProps {
-  onFiltersChange: (filters: any) => void;
+  onFiltersChange: (filters: ClientesFiltros) => void;
   onClearFilters: () => void;
 }
 
 export const ClientsAdvancedFilters = ({ onFiltersChange, onClearFilters }: ClientsAdvancedFiltersProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [filters, setFilters] = useState({
+  const [filters, setFilters] = useState<Required<Omit<ClientesFiltros, 'dataInicioFrom' | 'dataInicioTo'>> & Pick<ClientesFiltros, 'dataInicioFrom' | 'dataInicioTo'>>({
     tipoPessoa: "",
     origem: "",
     status: "",
@@ -45,7 +56,7 @@ export const ClientsAdvancedFilters = ({ onFiltersChange, onClearFilters }: Clie
     "ex-cliente"
   ];
 
-  const handleFilterChange = (key: string, value: any) => {
+  const handleFilterChange = <K extends keyof ClientesFiltros>(key: K, value: ClientesFiltros[K]) => {
     const newFilters = { ...filters, [key]: value };
     setFilters(newFilters);
     onFiltersChange(newFilters);

@@ -79,6 +79,7 @@ import {
 } from "@/components/Atendimentos/shared";
 import { useAtendimentos, useAtendimentoTipos, normalizarStatusAtendimento } from "@/hooks/useAtendimentos";
 import { CarregarMaisHistorico } from "@/components/shared/CarregarMaisHistorico";
+import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/rows";
 import { AtendimentoFormDialog as FormDialog } from "@/components/Atendimentos/AtendimentoFormDialog";
 import { GerenciarTiposDialog } from "@/components/Atendimentos/GerenciarTiposDialog";
 import { FollowUpDialog } from "@/components/Atendimentos/FollowUpDialog";
@@ -240,12 +241,12 @@ const Atendimentos = () => {
     return true;
   });
 
-  const handleSave = (data: any) => {
+  const handleSave = (data: TablesInsert<"atendimentos">) => {
     if (!canCreateAtendimentos) return;
     create.mutate(data, { onSuccess: () => setDialogOpen(false) });
   };
 
-  const handleUpdate = (data: any) => {
+  const handleUpdate = (data: TablesUpdate<"atendimentos"> & { id: string }) => {
     if (!canEditAtendimentos) return;
     update.mutate(data, { onSuccess: () => setDialogOpen(false) });
   };

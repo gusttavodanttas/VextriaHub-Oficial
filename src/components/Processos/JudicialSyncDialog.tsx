@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getErrorMessage } from '@/lib/errors';
 import { captureError } from '@/lib/monitoring';
+import type { Json } from '@/integrations/supabase/types';
 import { planQuotaMessage } from '@/lib/planQuotaError';
 import {
   Dialog,
@@ -135,12 +136,14 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
         return;
       }
 
-      const mappedResults: JudicialProcessResult[] = rawItems.map((item: any) => ({
+      // A edge function já devolve o shape de JudicialProcessResult; só id/autor/reu/andamentos são normalizados aqui.
+      type ItemBruto = Omit<JudicialProcessResult, 'id' | 'autor' | 'reu' | 'andamentos'> & { id?: string | number; autor?: string | null; reu?: string | null; andamentos?: unknown };
+      const mappedResults: JudicialProcessResult[] = (rawItems as ItemBruto[]).map((item) => ({
         ...item,
         id: String(item.id || item.numeroProcesso),
         autor: item.autor === 'Não identificado' ? '' : (item.autor || ''),
         reu: item.reu === 'Não identificado' ? '' : (item.reu || ''),
-        andamentos: Array.isArray(item.andamentos) ? item.andamentos : [],
+        andamentos: Array.isArray(item.andamentos) ? (item.andamentos as Andamento[]) : [],
       }));
 
       // Filtra processos já importados e descartados no escritório
@@ -170,7 +173,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
           autor: r.autor || null,
           reu: r.reu || null,
           fonte: r.fonte || 'oab',
-          payload: r as any,
+          payload: r as unknown as Json,
           encontrado_por: user.id,
         }));
         supabase.from('processos_encontrados')
@@ -233,11 +236,12 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
         // A função pode retornar andamentos em diferentes campos dependendo da versão
         const raw = data?.andamentos ?? data?.movimentos ?? data?.movimentacoes ?? [];
         if (Array.isArray(raw) && raw.length > 0) {
-          const andamentos: Andamento[] = raw.map((a: any) => ({
+          type AndamentoBruto = Partial<Record<'data' | 'dataMovimento' | 'data_movimentacao' | 'resumo' | 'descricao' | 'texto' | 'fase' | 'tipo', string | null>>;
+          const andamentos: Andamento[] = (raw as AndamentoBruto[]).map((a) => ({
             data: a.data || a.dataMovimento || a.data_movimentacao || null,
             resumo: a.resumo || a.descricao || a.texto || '',
             descricao: a.descricao || a.resumo || a.texto || '',
-            fase: a.fase || a.tipo || null,
+            fase: a.fase || a.tipo || undefined,
           }));
           updateResultLocally(proc.id, { andamentos });
           setPreviewProc(curr => curr ? { ...curr, andamentos } : null);
@@ -264,7 +268,7 @@ export const JudicialSyncContent: React.FC<JudicialSyncContentProps> = ({
           titulo: proc.titulo,
           tribunal: proc.tribunal,
           motivo: 'descartado_busca_oab',
-          dados_originais: proc as any,
+          dados_originais: proc as unknown as Json,
         });
       } catch (err) {
         console.error('[sync] erro ao salvar descarte:', err);
@@ -530,7 +534,8 @@ export const JudicialSyncDialog: React.FC<JudicialSyncDialogProps> = ({
       let importados = 0;
       for (const proc of procs) {
         try {
-          await create(proc as any);
+          // Mesmo complemento de NovoProcessoDialog.handleImportedSync ("Em andamento" → "ativo", default da coluna).
+          await create({ ...proc, cliente: 'Importado via OAB', status: 'Em andamento' });
           importados++;
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);

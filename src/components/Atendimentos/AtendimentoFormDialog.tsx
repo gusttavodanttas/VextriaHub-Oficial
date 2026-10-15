@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/rows";
 import { RECORRENCIAS } from "@/lib/recorrencia";
 import { fmtSafe } from "@/lib/dates";
 import { atendimentoFormSchema, firstZodError } from "@/lib/validation";
@@ -32,8 +33,8 @@ export const AtendimentoFormDialog: React.FC<{
   extras: string[];
   membros?: MembroOpt[];
   existing?: Atendimento[];
-  onSave: (data: any) => void;
-  onUpdate: (data: any) => void;
+  onSave: (data: TablesInsert<"atendimentos">) => void;
+  onUpdate: (data: TablesUpdate<"atendimentos"> & { id: string }) => void;
   loading: boolean;
 }> = ({ open, onClose, initial, editId, officeId, userId, extras, membros = [], existing = [], onSave, onUpdate, loading }) => {
   const { toast } = useToast();
@@ -79,7 +80,7 @@ export const AtendimentoFormDialog: React.FC<{
         .eq("office_id", officeId)
         .eq("cliente_id", form.cliente_id)
         .eq("deletado", false);
-      return (data ?? []).map((p: any) => ({
+      return (data ?? []).map((p) => ({
         id: p.id,
         titulo: p.titulo || p.numero_processo || p.id,
         numero: p.numero_processo || "",
@@ -98,7 +99,7 @@ export const AtendimentoFormDialog: React.FC<{
     return existing.filter((it) => {
       if (editId && it.id === editId) return false;
       if (it.status !== "agendado" && it.status !== "pendente") return false;
-      const itResp = (it as any).responsavel_id;
+      const itResp = it.responsavel_id;
       if (resp && itResp && itResp !== resp) return false;
       return haConflito(startMs, dur, it);
     });
@@ -119,12 +120,13 @@ export const AtendimentoFormDialog: React.FC<{
     }
     const datetime = `${form.data_atendimento}T${form.hora_atendimento}:00`;
     const recorrente = !editId && form.recorrencia !== "nenhuma";
-    const payload: any = {
-      tipo_atendimento: toNull(form.tipo_atendimento),
+    const payload: TablesInsert<"atendimentos"> = {
+      // NOT NULL no banco (o schema de validação acima já exige o tipo).
+      tipo_atendimento: toNull(form.tipo_atendimento) as string,
       data_atendimento: datetime,
       observacoes: form.observacoes.trim() || null,
       status: form.status,
-      cliente_id: toNull(form.cliente_id),
+      cliente_id: form.cliente_id, // conferido acima (NOT NULL)
       processo_id: toNull(form.processo_id),
       user_id: userId,
       office_id: officeId,
@@ -136,7 +138,7 @@ export const AtendimentoFormDialog: React.FC<{
     };
     if (recorrente) {
       const n = Math.max(1, Math.min(52, parseInt(form.ocorrencias) || 1));
-      payload.recorrencia_grupo = (crypto as any).randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+      payload.recorrencia_grupo = typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
       payload.recorrencia_regra = form.recorrencia;
       payload.recorrencia_restantes = n - 1;
     }

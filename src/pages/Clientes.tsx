@@ -21,7 +21,8 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { onlyDigits } from "@/lib/document";
 
-import { ClientsAdvancedFilters } from "@/components/Clientes/ClientsAdvancedFilters";
+import { ClientsAdvancedFilters, type ClientesFiltros } from "@/components/Clientes/ClientsAdvancedFilters";
+import type { LucideIcon } from "lucide-react";
 import { ClientsGrid } from "@/components/Clientes/ClientsGrid";
 import { ClientsTable } from "@/components/Clientes/ClientsTable";
 import { ClientDetailsModal } from "@/components/Clientes/ClientDetailsModal";
@@ -46,16 +47,16 @@ const mapClient = (c: ClienteComProcessos) => ({
   status: c.status || "Ativo",
   lastContact: c.updated_at,
   cpfCnpj: c.cpf_cnpj || "",
-  tipoPessoa: (c.tipo_pessoa || "fisica") as any,
+  tipoPessoa: (c.tipo_pessoa || "fisica") as "fisica" | "juridica",
   origem: c.origem || "",
   endereco: c.endereco || "",
   dataAniversario: c.data_aniversario || "",
   createdAt: c.created_at,
-  userId: (c as any).user_id || null,
+  userId: c.user_id || null,
 });
 
 // Stat card
-const StatCard = ({ label, value, Icon, color }: { label: string; value: number; Icon: React.FC<any>; color: string }) => (
+const StatCard = ({ label, value, Icon, color }: { label: string; value: number; Icon: LucideIcon; color: string }) => (
   <div className="glass-card rounded-2xl border border-black/5 dark:border-border bg-card/40 shadow-premium p-5 flex items-center gap-4">
     <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center shrink-0", color)}>
       <Icon className="h-5 w-5" />
@@ -102,7 +103,7 @@ const Clientes = () => {
   const [clientToDelete, setClientToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [advancedFilters, setAdvancedFilters] = useState<any>({});
+  const [advancedFilters, setAdvancedFilters] = useState<ClientesFiltros>({});
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 24;
 
@@ -183,7 +184,7 @@ const Clientes = () => {
         .select("*, processos!processos_cliente_id_fkey(count)")
         .eq("id", openId)
         .maybeSingle();
-      if (row) { setSelectedClient(mapClient(row as any)); setClientDetailsOpen(true); }
+      if (row) { setSelectedClient(mapClient(row as ClienteComProcessos)); setClientDetailsOpen(true); }
       // Antes o link simplesmente não abria nada.
       else toast({ variant: "destructive", title: "Cliente não encontrado", description: rowError ? getErrorMessage(rowError) : "Ele pode ter sido excluído." });
     })();
@@ -416,7 +417,7 @@ const Clientes = () => {
             <div className="flex items-center gap-2">
             {/* Ordenação — "mais processos" saiu: não dá pra ordenar por uma
                 contagem agregada de uma relação embutida no servidor. */}
-            <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
               <SelectTrigger className="h-10 w-auto gap-1.5 rounded-xl border-black/8 dark:border-border text-xs font-bold">
                 <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground/60" />
                 <SelectValue />
