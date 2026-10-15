@@ -96,6 +96,28 @@ export interface ProcessoCreateInput extends NovoProcessoForm {
   fonteSincronizacao?: string;
 }
 
+/** Corpo devolvido pela edge function fetch-processo (DataJud/PJe) — só o que o app lê. */
+export interface FetchProcessoResposta {
+  error?: string;
+  titulo?: string;
+  numeroProcesso?: string;
+  tribunal?: string;
+  vara?: string;
+  comarca?: string;
+  valorCausa?: number;
+  classe?: string;
+  assunto?: string;
+  faseProcessual?: string;
+  instancia?: string;
+  dataAjuizamento?: string | null;
+  orgaoJulgadorCodigo?: string;
+  nivelSigilo?: number;
+  autor?: string;
+  reu?: string;
+  ultimoAndamento?: { descricao: string; data: string | null } | null;
+  andamentos?: AndamentoInput[];
+}
+
 export const fasesProcessuais = [
   'Fase Inicial',
   'Fase Instrutória',

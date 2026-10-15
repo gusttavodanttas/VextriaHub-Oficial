@@ -13,13 +13,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useProcessosV2 } from '@/hooks/useProcessosV2';
 import { useAuth } from '@/contexts/AuthContext';
+import type { ProcessoCreateInput, FetchProcessoResposta } from '@/types/processo';
+import type { ProcessoParaImportar } from './JudicialSync/types';
 
 interface ProcessoIntegracaoPanelProps {
   // Modo "Dialog controlado" usado pela página Processos
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   // Modo legado (callback) — opcional
-  onAddProcesso?: (processo: any) => Promise<void>;
+  onAddProcesso?: (processo: ProcessoCreateInput | ProcessoParaImportar[]) => Promise<void>;
   onSuccess?: () => void;
 }
 
@@ -33,14 +35,17 @@ export const ProcessoIntegracaoPanel: React.FC<ProcessoIntegracaoPanelProps> = (
   const { create } = useProcessosV2({ lista: false });
 
   // Lida tanto com array (vindo do JudicialSyncContent) quanto objeto (vindo do form manual)
-  const handleAdd = async (input: any) => {
+  const handleAdd = async (input: ProcessoCreateInput | ProcessoParaImportar[]) => {
     if (onAddProcesso) {
       await onAddProcesso(input);
       return;
     }
     if (Array.isArray(input)) {
       for (const proc of input) {
-        await create(proc);
+        // Mesmo complemento que NovoProcessoDialog.handleImportedSync: o resultado da
+        // busca por OAB não traz cliente/status ("Em andamento" vira "ativo" no create,
+        // que é o default da coluna — sem mudança no que era gravado).
+        await create({ ...proc, cliente: 'Importado via OAB', clienteId: proc.clienteId ?? undefined, status: 'Em andamento' });
       }
     } else {
       await create(input);
@@ -72,7 +77,7 @@ export const ProcessoIntegracaoPanel: React.FC<ProcessoIntegracaoPanelProps> = (
 };
 
 interface ProcessoIntegracaoBodyProps {
-  onAddProcesso: (processo: any) => Promise<void>;
+  onAddProcesso: (processo: ProcessoCreateInput | ProcessoParaImportar[]) => Promise<void>;
   onSuccess: () => void;
 }
 
@@ -83,7 +88,7 @@ const ProcessoIntegracaoBody: React.FC<ProcessoIntegracaoBodyProps> = ({
   const [mode, setMode] = useState<'choice' | 'oab' | 'cnj' | 'manual'>('choice');
   const [cnjLoading, setCnjLoading] = useState(false);
   const [cnjInput, setCnjInput] = useState('');
-  const [capturedData, setCapturedData] = useState<any>(null);
+  const [capturedData, setCapturedData] = useState<FetchProcessoResposta | null>(null);
   const { toast } = useToast();
   const { profile } = useAuth();
 
@@ -94,8 +99,8 @@ const ProcessoIntegracaoBody: React.FC<ProcessoIntegracaoBodyProps> = ({
       const { data, error } = await supabase.functions.invoke('fetch-processo', {
         body: {
           numeroProcesso: cnjInput,
-          oab: (profile as any)?.oab,
-          uf: (profile as any)?.oab_uf,
+          oab: profile?.oab,
+          uf: profile?.oab_uf,
         }
       });
 
@@ -103,7 +108,7 @@ const ProcessoIntegracaoBody: React.FC<ProcessoIntegracaoBodyProps> = ({
         throw new Error(error.message || 'Erro ao buscar processo na integração.');
       }
       if (data) {
-        setCapturedData(data);
+        setCapturedData(data as FetchProcessoResposta);
         toast({
           title: "Processo encontrado!",
           description: "Dados básicos capturados. Finalize o cadastro abaixo.",
@@ -334,17 +339,21 @@ const ProcessoIntegracaoBody: React.FC<ProcessoIntegracaoBodyProps> = ({
   );
 };
 
+// O form aceita tanto a resposta crua da function (classe/autor/reu) quanto o shape do formulário.
+type DadosIniciais = FetchProcessoResposta & Partial<Pick<ProcessoCreateInput, 'tipoProcesso' | 'requerido' | 'parteAutora' | 'descricao'>>;
+
 interface ManualProcessoFormProps {
-  initialData?: any;
-  onSave: (data: any) => Promise<void>;
+  initialData?: DadosIniciais | null;
+  onSave: (data: ProcessoCreateInput) => Promise<void>;
   onCancel: () => void;
 }
 
 const ManualProcessoForm: React.FC<ManualProcessoFormProps> = ({ initialData, onSave, onCancel }) => {
   const [loading, setLoading] = useState(false);
-  const i: any = initialData || {};
-  const [formData, setFormData] = useState<any>({
+  const i: DadosIniciais = initialData || {};
+  const [formData, setFormData] = useState<ProcessoCreateInput>({
     titulo: i.titulo || '',
+    cliente: '',
     numeroProcesso: i.numeroProcesso || '',
     status: 'Em andamento',
     tipoProcesso: i.classe || i.tipoProcesso || 'Cível',
@@ -370,8 +379,8 @@ const ManualProcessoForm: React.FC<ManualProcessoFormProps> = ({ initialData, on
   // Re-popula quando initialData muda (ex: depois de buscar CNJ)
   useEffect(() => {
     if (!initialData) return;
-    const x: any = initialData;
-    setFormData((prev: any) => ({
+    const x = initialData;
+    setFormData((prev) => ({
       ...prev,
       titulo: x.titulo || prev.titulo,
       numeroProcesso: x.numeroProcesso || prev.numeroProcesso,

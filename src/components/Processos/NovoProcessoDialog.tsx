@@ -31,7 +31,7 @@ import { PermissionGuard } from '@/components/Auth/PermissionGuard';
 import { useOfficeUsers } from '@/hooks/useOfficeUsers';
 import { useOfficeTeams } from '@/hooks/useOfficeTeams';
 import { useAuth } from '@/contexts/AuthContext';
-import { tiposProcesso, statusProcesso, fasesProcessuais, type ProcessoCreateInput } from '@/types/processo';
+import { tiposProcesso, statusProcesso, fasesProcessuais, type ProcessoCreateInput, type FetchProcessoResposta } from '@/types/processo';
 import { useOfficeSettingList } from '@/hooks/useOfficeSettingList';
 import { CreatableSelect } from '@/components/Settings/CreatableSelect';
 import { TIPOS_PROCESSO_DEFAULT, type TipoProcesso } from '@/components/Settings/ProcessTypeSimple';
@@ -45,28 +45,6 @@ import { useClientes } from '@/hooks/useClientes';
 import { ClientSelect } from '@/components/Clientes/ClientSelect';
 import { supabase } from '@/integrations/supabase/client';
 import { formatBRL } from "@/lib/currency";
-
-/** Corpo devolvido pela edge function fetch-processo (DataJud/PJe) — só o que o diálogo lê. */
-interface FetchProcessoResposta {
-  error?: string;
-  titulo?: string;
-  numeroProcesso?: string;
-  tribunal?: string;
-  vara?: string;
-  comarca?: string;
-  valorCausa?: number;
-  classe?: string;
-  assunto?: string;
-  faseProcessual?: string;
-  instancia?: string;
-  dataAjuizamento?: string | null;
-  orgaoJulgadorCodigo?: string;
-  nivelSigilo?: number;
-  autor?: string;
-  reu?: string;
-  ultimoAndamento?: { descricao: string; data: string | null } | null;
-  andamentos?: ProcessoCreateInput['andamentos'];
-}
 
 interface NovoProcessoDialogProps {
   // Opcional: se não passado, usamos useProcessosV2.create direto
