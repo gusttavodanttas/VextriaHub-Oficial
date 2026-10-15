@@ -1,20 +1,17 @@
 import { useMemo, useState, useDeferredValue } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  CheckSquare, Plus, Search, Trash2, Pencil, MoreHorizontal, User, FileText, MessageSquare,
-  ListChecks, AlertTriangle, CheckCircle2, Flame, Clock, Trophy, Target, Repeat, X, MessageCircle,
-  Flag, CalendarClock, ChevronDown, List, Columns3,
-} from "lucide-react";
+import { CheckSquare, Plus, Trash2, ListChecks, AlertTriangle, CheckCircle2, Flame, List, Columns3 } from "lucide-react";
 import { DeleteConfirmDialog } from "@/components/ui/DeleteConfirmDialog";
 import { NovaTarefaDialog } from "@/components/Tarefas/NovaTarefaDialog";
+import { StatCard } from "@/components/Tarefas/StatCard";
+import { TarefaCard } from "@/components/Tarefas/TarefaCard";
+import { TarefaKanbanCard } from "@/components/Tarefas/TarefaKanbanCard";
+import { GamificacaoCard } from "@/components/Tarefas/GamificacaoCard";
+import { SerieAcabandoAviso } from "@/components/Tarefas/SerieAcabandoAviso";
+import { TarefasFilters } from "@/components/Tarefas/TarefasFilters";
+import { SelecaoToolbar } from "@/components/Tarefas/SelecaoToolbar";
+import { calcularGame } from "@/lib/tarefasGame";
 import { useMultiSelect } from "@/hooks/useMultiSelect";
 import { useTarefas, type Tarefa, type TarefaInput } from "@/hooks/useTarefas";
 import { useOfficeUsers } from "@/hooks/useOfficeUsers";
@@ -23,35 +20,12 @@ import { useProcessosV2 } from "@/hooks/useProcessosV2";
 import { useOpenItemFromSearch } from "@/hooks/useOpenItemFromSearch";
 import { usePermissions } from "@/hooks/usePermissions";
 import { getErrorMessage } from "@/lib/errors";
-import { continueOccurrences, recorrenciaLabel, type RecRule } from "@/lib/recorrencia";
+import { continueOccurrences, type RecRule } from "@/lib/recorrencia";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
-import { format, isToday, isTomorrow, isThisWeek, isPast, parseISO, differenceInCalendarDays, startOfWeek, subDays } from "date-fns";
-import { ptBR } from "date-fns/locale";
-
-const prioMeta: Record<string, { label: string; cls: string; dot: string }> = {
-  alta:  { label: "Alta",  cls: "border-rose-500/30 text-rose-600 dark:text-rose-400 bg-rose-500/10", dot: "bg-rose-500" },
-  media: { label: "Média", cls: "border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/10", dot: "bg-amber-500" },
-  baixa: { label: "Baixa", cls: "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10", dot: "bg-emerald-500" },
-};
-
-function StatCard({ icon: Icon, label, value, color, bg, active, onClick }: { icon: React.ElementType; label: string; value: number; color: string; bg: string; active?: boolean; onClick?: () => void }) {
-  return (
-    <button type="button" onClick={onClick}
-      className={cn(
-        "flex items-center gap-3 p-4 rounded-2xl border bg-card/40 text-left transition-all hover:shadow-md hover:border-black/10 dark:hover:border-white/15",
-        active ? "border-primary/50 ring-2 ring-primary/15 bg-primary/[0.03]" : "border-black/5 dark:border-border"
-      )}>
-      <div className={cn("p-2.5 rounded-xl shrink-0", bg)}><Icon className={cn("h-5 w-5", color)} /></div>
-      <div className="min-w-0">
-        <p className="text-2xl font-black leading-none">{value}</p>
-        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mt-1">{label}</p>
-      </div>
-    </button>
-  );
-}
+import { format, isToday, isTomorrow, isThisWeek, isPast, parseISO } from "date-fns";
 
 const Tarefas = () => {
   const navigate = useNavigate();
@@ -227,23 +201,7 @@ const Tarefas = () => {
 
   // Gamificação (dados reais) — usa a data de conclusão auditada (concluida_em);
   // cai para updated_at só em tarefas antigas (anteriores à auditoria).
-  const game = useMemo(() => {
-    const compTs = (t: Tarefa) => t.concluida_em || t.updated_at || null;
-    const concluidas = tarefas.filter(t => t.concluida && compTs(t));
-    const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-    const concluidasSemana = concluidas.filter(t => parseISO(compTs(t)!) >= weekStart).length;
-    const totalConcluidas = tarefas.filter(t => t.concluida).length;
-    const pontos = totalConcluidas * 10;
-    const nivel = Math.floor(pontos / 100) + 1;
-    // Sequência (streak): dias consecutivos com ao menos 1 tarefa concluída
-    const dias = new Set(concluidas.map(t => format(parseISO(compTs(t)!), "yyyy-MM-dd")));
-    let streak = 0;
-    let cursor = new Date();
-    if (!dias.has(format(cursor, "yyyy-MM-dd"))) cursor = subDays(cursor, 1);
-    while (dias.has(format(cursor, "yyyy-MM-dd"))) { streak++; cursor = subDays(cursor, 1); }
-    const metaSemanal = 10;
-    return { concluidasSemana, pontos, nivel, streak, metaSemanal, progresso: Math.min(100, Math.round((concluidasSemana / metaSemanal) * 100)) };
-  }, [tarefas]);
+  const game = useMemo(() => calcularGame(tarefas), [tarefas]);
 
   // Abre a tarefa específica vinda de ?openId= (ex.: card do processo) em modo edição
   useOpenItemFromSearch("/tarefas", !isLoading && tarefas.length > 0, (openId) => {
@@ -374,161 +332,20 @@ const Tarefas = () => {
     }
   };
 
-  const dueLabel = (dateStr: string) => {
-    const d = parseISO(dateStr);
-    const diff = differenceInCalendarDays(d, new Date());
-    if (diff === 0) return { label: "Hoje", cls: "text-orange-500 font-bold" };
-    if (diff === 1) return { label: "Amanhã", cls: "text-amber-500 font-bold" };
-    if (diff < 0) return { label: `${Math.abs(diff)}d atrasada`, cls: "text-rose-500 font-black" };
-    return { label: format(d, "dd/MM", { locale: ptBR }), cls: "text-muted-foreground font-semibold" };
-  };
+  const renderCard = (t: Tarefa) => (
+    <TarefaCard key={t.id} t={t} selected={multiSelect.isSelected(t.id)} selectMode={selectMode} canManageTarefas={canManageTarefas}
+      processoMap={processoMap} atendimentoMap={atendimentoMap} membroMap={membroMap}
+      subtasks={subtaskCounts[t.id]} comments={commentCounts[t.id]} navigate={navigate}
+      onToggleSelect={(id) => multiSelect.toggleItem(id)} onEdit={openEdit}
+      onToggleConcluida={(x) => toggle.mutate({ id: x.id, concluida: !x.concluida, tarefa: x })} onAdiar={(x) => adiar.mutate(x)}
+      onDelete={(x) => { multiSelect.clearSelection(); multiSelect.toggleItem(x.id); setDeleteDialogOpen(true); }} />
+  );
 
-  const renderCard = (t: Tarefa) => {
-    const meta = prioMeta[t.prioridade || "media"] || prioMeta.media;
-    const selected = multiSelect.isSelected(t.id);
-    const due = t.data_vencimento ? dueLabel(t.data_vencimento) : null;
-    return (
-      <div key={t.id} id={`item-${t.id}`}
-        onClick={() => selectMode ? multiSelect.toggleItem(t.id) : openEdit(t)}
-        className={cn(
-          "group flex items-center gap-3 p-3.5 rounded-2xl border bg-card/40 transition-all hover:shadow-md cursor-pointer",
-          selected ? "border-primary/40 ring-2 ring-primary/10 bg-primary/[0.02]" : "border-black/5 dark:border-border hover:border-black/10 dark:hover:border-white/15",
-          t.concluida && "opacity-60"
-        )}>
-        {/* Checkbox concluir */}
-        <button
-          // Atalho de concluir/reabrir respeita o mesmo gate do menu (antes ficava aberto).
-          disabled={!canManageTarefas}
-          onClick={(e) => { e.stopPropagation(); if (canManageTarefas) toggle.mutate({ id: t.id, concluida: !t.concluida, tarefa: t }); }}
-          className={cn(
-            "shrink-0 h-6 w-6 rounded-lg border-2 flex items-center justify-center transition-all",
-            t.concluida ? "bg-emerald-500 border-emerald-500 text-white" : "border-muted-foreground/30 hover:border-emerald-500 hover:bg-emerald-500/10"
-          )}
-          title={t.concluida ? "Reabrir" : "Concluir"}
-        >
-          {t.concluida && <CheckCircle2 className="h-4 w-4" />}
-        </button>
-
-        {/* Seleção múltipla: só no modo "Selecionar" (senão fica só a bolinha de concluir) */}
-        {selectMode && (
-          <Checkbox checked={selected} onCheckedChange={() => multiSelect.toggleItem(t.id)}
-            onClick={(e) => e.stopPropagation()}
-            className="rounded-md shrink-0" />
-        )}
-
-        {/* Conteúdo */}
-        <div className="flex-1 min-w-0">
-          <p className={cn("font-bold truncate", t.concluida && "line-through text-muted-foreground")}>{t.titulo}</p>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-[11px] text-muted-foreground font-medium">
-            {t.cliente_nome && (t.cliente_id ? (
-              <button type="button" onClick={(e) => { e.stopPropagation(); navigate(`/clientes?openId=${t.cliente_id}`); }}
-                className="flex items-center gap-1 truncate hover:text-primary hover:underline transition-colors" title="Abrir ficha do cliente">
-                <User className="h-3 w-3 shrink-0" />{t.cliente_nome}
-              </button>
-            ) : (
-              <span className="flex items-center gap-1 truncate"><User className="h-3 w-3 shrink-0" />{t.cliente_nome}</span>
-            ))}
-            {t.processo_id && processoMap[t.processo_id] && <span className="flex items-center gap-1 truncate max-w-[180px]"><FileText className="h-3 w-3 shrink-0" />{processoMap[t.processo_id]}</span>}
-            {t.atendimento_id && atendimentoMap[t.atendimento_id] && <span className="flex items-center gap-1 truncate"><MessageSquare className="h-3 w-3 shrink-0" />{atendimentoMap[t.atendimento_id]}</span>}
-            {due && !t.concluida && <span className={cn("flex items-center gap-1", due.cls)}><Clock className="h-3 w-3" />{due.label}</span>}
-            {subtaskCounts[t.id]?.total > 0 && <span className="flex items-center gap-1"><ListChecks className="h-3 w-3 shrink-0" />{subtaskCounts[t.id].done}/{subtaskCounts[t.id].total}</span>}
-            {commentCounts[t.id] > 0 && <span className="flex items-center gap-1"><MessageCircle className="h-3 w-3 shrink-0" />{commentCounts[t.id]}</span>}
-            {t.concluida && t.concluida_em && (
-              <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                <CheckCircle2 className="h-3 w-3 shrink-0" /> Concluído por {membroMap[t.concluida_por || ""] || "—"} · {format(parseISO(t.concluida_em), "dd/MM/yy")}
-              </span>
-            )}
-          </div>
-          {t.descricao && !t.concluida && (
-            <p className="text-[11px] text-muted-foreground/50 line-clamp-1 mt-0.5">{t.descricao}</p>
-          )}
-        </div>
-
-        {/* Em andamento + Prioridade */}
-        {!t.concluida && t.status === "fazendo" && (
-          <Badge variant="outline" className="shrink-0 rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-widest border-blue-500/30 text-blue-600 dark:text-blue-400 bg-blue-500/10">Em and.</Badge>
-        )}
-        {!t.concluida && (
-          <Badge variant="outline" className={cn("shrink-0 rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-widest", meta.cls)}>{meta.label}</Badge>
-        )}
-
-        {/* Ações (sempre visíveis no mobile; hover no desktop) */}
-        {/* Adiar 1 dia: SEMPRE visível (triagem rápida do dia, 1 clique, sem abrir o form) */}
-        {!t.concluida && canManageTarefas && (
-          <Button variant="ghost" size="sm"
-            className="h-8 shrink-0 px-2 gap-1.5 rounded-lg text-amber-600 hover:text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 border border-amber-500/20"
-            onClick={(e) => { e.stopPropagation(); adiar.mutate(t); }}
-            title="Adiar para o dia seguinte">
-            <CalendarClock className="h-3.5 w-3.5" /><span className="hidden sm:inline text-[11px] font-bold">Adiar</span>
-          </Button>
-        )}
-
-        <div onClick={(e) => e.stopPropagation()} className="flex items-center max-sm:opacity-100 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-          {canManageTarefas && <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg" onClick={() => openEdit(t)}><Pencil className="h-3.5 w-3.5" /></Button>}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg"><MoreHorizontal className="h-4 w-4" /></Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="rounded-xl w-44">
-              {!t.concluida && canManageTarefas && (
-                <DropdownMenuItem className="rounded-lg gap-2" onClick={() => adiar.mutate(t)}>
-                  <CalendarClock className="h-4 w-4" /> Adiar p/ o dia seguinte
-                </DropdownMenuItem>
-              )}
-              {canManageTarefas && (
-                <DropdownMenuItem className="rounded-lg gap-2" onClick={() => toggle.mutate({ id: t.id, concluida: !t.concluida, tarefa: t })}>
-                  <CheckCircle2 className="h-4 w-4" /> {t.concluida ? "Reabrir" : "Concluir"}
-                </DropdownMenuItem>
-              )}
-              {canManageTarefas && (
-                <DropdownMenuItem className="rounded-lg gap-2 text-destructive focus:text-destructive" onClick={() => { multiSelect.clearSelection(); multiSelect.toggleItem(t.id); setDeleteDialogOpen(true); }}>
-                  <Trash2 className="h-4 w-4" /> Excluir
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-    );
-  };
-
-  const renderKanbanCard = (t: Tarefa) => {
-    const meta = prioMeta[t.prioridade || "media"] || prioMeta.media;
-    const due = t.data_vencimento ? dueLabel(t.data_vencimento) : null;
-    const sc = subtaskCounts[t.id];
-    return (
-      <div key={t.id} draggable={canManageTarefas}
-        onDragStart={() => { if (canManageTarefas) setDraggingId(t.id); }}
-        onDragEnd={() => { setDraggingId(null); setOverCol(null); }}
-        onClick={() => openEdit(t)}
-        className={cn(
-          "cursor-grab active:cursor-grabbing rounded-xl border border-black/5 dark:border-border bg-card p-3 space-y-2 transition-all hover:shadow-md hover:border-black/10 dark:hover:border-white/15",
-          draggingId === t.id && "opacity-40"
-        )}>
-        <div className="flex items-start gap-2">
-          <span className={cn("mt-1 h-2 w-2 rounded-full shrink-0", meta.dot)} />
-          <p className={cn("flex-1 text-sm font-bold leading-snug", t.concluida && "line-through text-muted-foreground")}>{t.titulo}</p>
-          {/* Adiar 1 dia direto no card do Kanban (stopPropagation p/ não abrir o form
-              nem iniciar o arrasto) */}
-          {!t.concluida && canManageTarefas && (
-            <button type="button" draggable={false}
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); adiar.mutate(t); }}
-              title="Adiar para o dia seguinte"
-              className="shrink-0 -mt-0.5 -mr-0.5 h-6 w-6 rounded-md flex items-center justify-center text-amber-600 hover:text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 transition-colors">
-              <CalendarClock className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
-        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[10px] text-muted-foreground font-medium pl-4">
-          {t.cliente_nome && <span className="flex items-center gap-1 truncate max-w-[140px]"><User className="h-3 w-3 shrink-0" />{t.cliente_nome}</span>}
-          {due && !t.concluida && <span className={cn("flex items-center gap-1", due.cls)}><Clock className="h-3 w-3" />{due.label}</span>}
-          {sc && sc.total > 0 && <span className="flex items-center gap-1"><ListChecks className="h-3 w-3 shrink-0" />{sc.done}/{sc.total}</span>}
-          {commentCounts[t.id] > 0 && <span className="flex items-center gap-1"><MessageCircle className="h-3 w-3 shrink-0" />{commentCounts[t.id]}</span>}
-        </div>
-      </div>
-    );
-  };
+  const renderKanbanCard = (t: Tarefa) => (
+    <TarefaKanbanCard key={t.id} t={t} canManageTarefas={canManageTarefas} dragging={draggingId === t.id}
+      subtasks={subtaskCounts[t.id]} comments={commentCounts[t.id]} onDragStart={setDraggingId}
+      onDragEnd={() => { setDraggingId(null); setOverCol(null); }} onOpen={openEdit} onAdiar={(x) => adiar.mutate(x)} />
+  );
 
   return (
     <div className="flex-1 p-4 md:p-6 space-y-5 overflow-x-hidden">
@@ -585,104 +402,18 @@ const Tarefas = () => {
       </div>
 
       {/* Gamificação */}
-      <div className="rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/[0.06] to-transparent p-4">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="p-2.5 rounded-xl bg-primary/10 text-primary"><Trophy className="h-5 w-5" /></div>
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-primary/60">Nível {game.nivel}</p>
-              <p className="text-lg font-black leading-none">{game.pontos} <span className="text-xs font-bold text-muted-foreground">pts</span></p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0 px-3 py-1.5 rounded-xl bg-orange-500/10 text-orange-500">
-            <Flame className="h-4 w-4" />
-            <span className="text-sm font-black">{game.streak}</span>
-            <span className="text-[10px] font-bold uppercase tracking-widest">dia{game.streak === 1 ? "" : "s"} seguidos</span>
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest mb-1.5">
-              <span className="text-muted-foreground/70 flex items-center gap-1.5"><Target className="h-3 w-3" /> Meta semanal</span>
-              <span className="text-primary">{game.concluidasSemana} / {game.metaSemanal}</span>
-            </div>
-            <div className="h-2.5 w-full rounded-full bg-black/5 dark:bg-muted/30 overflow-hidden">
-              <div className="h-full rounded-full bg-gradient-to-r from-primary to-primary/60 transition-all duration-500" style={{ width: `${game.progresso}%` }} />
-            </div>
-          </div>
-        </div>
-      </div>
+      <GamificacaoCard game={game} />
 
       {/* Avisos de série de recorrência acabando */}
       {seriesAcabando.map((s) => (
-        <div key={s.grupo} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3.5 rounded-2xl border border-amber-500/30 bg-amber-500/[0.06]">
-          <div className="flex items-center gap-2.5 flex-1 min-w-0">
-            <div className="p-2 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 shrink-0"><Repeat className="h-4 w-4" /></div>
-            <p className="text-sm font-semibold min-w-0">
-              A recorrência <span className="font-black">"{s.titulo}"</span> ({recorrenciaLabel(s.regra)}) está acabando —{" "}
-              {s.restantes === 0
-                ? "esta é a última ocorrência."
-                : <>gerará apenas mais <span className="font-black text-amber-600 dark:text-amber-400">{s.restantes}</span>.</>}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Button size="sm" onClick={() => handleExtend(s.grupo)} disabled={createMany.isPending}
-              className="rounded-xl h-9 gap-1.5 font-bold bg-amber-500 hover:bg-amber-600 text-white">
-              <Plus className="h-3.5 w-3.5" /> Estender +4
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => persistDismissed(new Set(dismissed).add(s.grupo))}
-              className="rounded-xl h-9 gap-1.5 font-bold text-muted-foreground">
-              <X className="h-3.5 w-3.5" /> Dispensar
-            </Button>
-          </div>
-        </div>
+        <SerieAcabandoAviso key={s.grupo} serie={s} extending={createMany.isPending}
+          onExtend={() => handleExtend(s.grupo)} onDismiss={() => persistDismissed(new Set(dismissed).add(s.grupo))} />
       ))}
 
       {/* Filtros */}
-      <div className="flex flex-col md:flex-row gap-3">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
-          <Input placeholder="Buscar por título, cliente ou descrição..." value={search}
-            onChange={(e) => setSearch(e.target.value)} className="pl-10 h-11 rounded-xl bg-card/40 border-black/5 dark:border-border" />
-        </div>
-        <div className="grid grid-cols-2 md:flex md:flex-wrap gap-2">
-          {view === "lista" && (
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full md:w-32 h-11 rounded-xl bg-card/40 border-black/5 dark:border-border font-bold"><SelectValue /></SelectTrigger>
-              <SelectContent className="rounded-xl">
-                <SelectItem value="pendentes">Pendentes</SelectItem>
-                <SelectItem value="concluidas">Concluídas</SelectItem>
-                <SelectItem value="todas">Todas</SelectItem>
-              </SelectContent>
-            </Select>
-          )}
-          <Select value={prioridadeFilter} onValueChange={setPrioridadeFilter}>
-            <SelectTrigger className="w-full md:w-32 h-11 rounded-xl bg-card/40 border-black/5 dark:border-border font-bold"><SelectValue placeholder="Prioridade" /></SelectTrigger>
-            <SelectContent className="rounded-xl">
-              <SelectItem value="todas">Toda prioridade</SelectItem>
-              <SelectItem value="alta">Alta</SelectItem>
-              <SelectItem value="media">Média</SelectItem>
-              <SelectItem value="baixa">Baixa</SelectItem>
-            </SelectContent>
-          </Select>
-          {membros.length > 0 && (
-            <Select value={respFilter} onValueChange={setRespFilter}>
-              <SelectTrigger className="w-full md:w-40 h-11 rounded-xl bg-card/40 border-black/5 dark:border-border font-bold"><SelectValue /></SelectTrigger>
-              <SelectContent className="rounded-xl">
-                <SelectItem value="todos">Todos responsáveis</SelectItem>
-                {membros.map((m) => <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          )}
-          <Select value={clienteFilter} onValueChange={setClienteFilter}>
-            <SelectTrigger className="w-full md:w-44 h-11 rounded-xl bg-card/40 border-black/5 dark:border-border font-bold"><SelectValue /></SelectTrigger>
-            <SelectContent className="rounded-xl max-h-72">
-              <SelectItem value="todos">Todos clientes</SelectItem>
-              {clientes.map((c) => <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      <TarefasFilters view={view} search={search} setSearch={setSearch} statusFilter={statusFilter} setStatusFilter={setStatusFilter}
+        prioridadeFilter={prioridadeFilter} setPrioridadeFilter={setPrioridadeFilter} respFilter={respFilter} setRespFilter={setRespFilter}
+        clienteFilter={clienteFilter} setClienteFilter={setClienteFilter} membros={membros} clientes={clientes} />
 
       {/* Lista */}
       {isError ? null : isLoading ? (
@@ -725,76 +456,11 @@ const Tarefas = () => {
         </div>
       ) : (
         <div className="space-y-5">
-          <div className="flex flex-wrap items-center gap-2 px-1">
-            {!selectMode ? (
-              canManageTarefas && (
-                <Button size="sm" variant="ghost" className="h-8 rounded-lg gap-1.5 font-bold text-muted-foreground" onClick={() => setSelectMode(true)}>
-                  <CheckSquare className="h-3.5 w-3.5" /> Selecionar
-                </Button>
-              )
-            ) : (
-              <div className="flex items-center gap-3">
-                <Checkbox checked={multiSelect.isAllSelected} onCheckedChange={() => multiSelect.isAllSelected ? multiSelect.clearSelection() : multiSelect.selectAll()} className="rounded-md" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
-                  {multiSelect.selectedCount > 0 ? `${multiSelect.selectedCount} selecionada(s)` : "Selecionar todas"}
-                </span>
-                <Button size="sm" variant="ghost" className="h-8 rounded-lg gap-1 font-bold text-muted-foreground" onClick={() => { multiSelect.clearSelection(); setSelectMode(false); }}>
-                  <X className="h-3.5 w-3.5" /> Sair
-                </Button>
-              </div>
-            )}
-
-            {selectMode && multiSelect.selectedCount > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5 sm:ml-auto">
-                <Button size="sm" variant="outline" disabled={bulkPatch.isPending}
-                  className="h-8 rounded-lg gap-1.5 font-bold text-emerald-600" onClick={bulkConcluir}>
-                  <CheckCircle2 className="h-3.5 w-3.5" /> Concluir
-                </Button>
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button size="sm" variant="outline" className="h-8 rounded-lg gap-1.5 font-bold">
-                      <Flag className="h-3.5 w-3.5" /> Prioridade <ChevronDown className="h-3 w-3 opacity-50" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="rounded-xl w-36">
-                    <DropdownMenuItem className="rounded-lg gap-2" onClick={() => bulkPrioridade("alta")}><span className="h-2 w-2 rounded-full bg-rose-500" /> Alta</DropdownMenuItem>
-                    <DropdownMenuItem className="rounded-lg gap-2" onClick={() => bulkPrioridade("media")}><span className="h-2 w-2 rounded-full bg-amber-500" /> Média</DropdownMenuItem>
-                    <DropdownMenuItem className="rounded-lg gap-2" onClick={() => bulkPrioridade("baixa")}><span className="h-2 w-2 rounded-full bg-emerald-500" /> Baixa</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                {membros.length > 0 && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button size="sm" variant="outline" className="h-8 rounded-lg gap-1.5 font-bold">
-                        <User className="h-3.5 w-3.5" /> Responsável <ChevronDown className="h-3 w-3 opacity-50" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="rounded-xl w-48 max-h-64 overflow-y-auto">
-                      {membros.map((m) => (
-                        <DropdownMenuItem key={m.id} className="rounded-lg" onClick={() => bulkResponsavel(m.id)}>{m.label}</DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-
-                <label className="flex items-center gap-1.5 h-8 rounded-lg border border-black/10 dark:border-border bg-card/40 px-2 text-xs font-bold cursor-pointer" title="Definir prazo das selecionadas">
-                  <CalendarClock className="h-3.5 w-3.5 text-muted-foreground/60" />
-                  <input type="date" onChange={(e) => bulkPrazo(e.target.value)}
-                    className="bg-transparent outline-none text-xs font-bold w-[7.5rem]" />
-                </label>
-
-                <Button size="sm" variant="outline" disabled={remove.isPending}
-                  className="h-8 rounded-lg gap-1.5 font-bold text-rose-600" onClick={() => setDeleteDialogOpen(true)}>
-                  <Trash2 className="h-3.5 w-3.5" /> Excluir
-                </Button>
-                <Button size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-lg" onClick={() => multiSelect.clearSelection()} title="Limpar seleção">
-                  <X className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            )}
-          </div>
+          <SelecaoToolbar selectMode={selectMode} onEnterSelect={() => setSelectMode(true)}
+            onExitSelect={() => { multiSelect.clearSelection(); setSelectMode(false); }} multiSelect={multiSelect}
+            canManageTarefas={canManageTarefas} membros={membros} bulkConcluir={bulkConcluir} bulkPrioridade={bulkPrioridade}
+            bulkResponsavel={bulkResponsavel} bulkPrazo={bulkPrazo} bulkPending={bulkPatch.isPending} removePending={remove.isPending}
+            onDelete={() => setDeleteDialogOpen(true)} />
           {Object.entries(groups).map(([label, items]) =>
             items.length === 0 ? null : (
               <div key={label} className="space-y-2">
