@@ -158,9 +158,9 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
         vara: processo.vara || '',
         comarca: processo.comarca || '',
         valor_causa: processo.valorCausa || 0,
-        team_id: (processo as any).team_id || '',
-        responsavel_id: (processo as any).responsavel_id || (processo as any).responsavelId || '',
-        resultado: (processo as any).resultado || '',
+        team_id: processo.team_id || '',
+        responsavel_id: processo.responsavel_id || processo.responsavelId || '',
+        resultado: processo.resultado || '',
       });
       setEditing(false);
       setActiveTab("resumo");
@@ -178,7 +178,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
       await update(processo.id, {
         titulo: editData.titulo,
         numeroProcesso: editData.numero_processo,
-        status: editData.status,
+        status: editData.status as 'Em andamento' | 'Concluído' | 'Suspenso',
         parteAutora: editData.parte_autora,
         requerido: editData.requerido,
         classeJudicial: editData.classe_judicial,
@@ -192,7 +192,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
         team_id: editData.team_id || null,
         responsavel_id: editData.responsavel_id || null,
         resultado: editData.resultado || null,
-      } as any);
+      });
       setEditing(false);
     } catch (e: unknown) {
       // Nº CNJ duplicado bate no índice único (office_id, numero_processo) → mensagem amigável.
@@ -226,7 +226,7 @@ export const ProcessoDetailsDrawer: React.FC<ProcessoDetailsDrawerProps> = ({
       const { data: candidatos, error: candErr } = await supabase.from('clientes').select('id, nome').eq('office_id', user.office_id).eq('deletado', false);
       // Sem isto, a falha na busca virava "cliente não existe" e criava um duplicado.
       if (candErr) throw candErr;
-      const existing = (candidatos || []).find((c: any) => norm(c.nome) === alvo) || null;
+      const existing = (candidatos || []).find((c) => norm(c.nome) === alvo) || null;
       let clienteId: string;
       if (existing) {
         clienteId = existing.id;

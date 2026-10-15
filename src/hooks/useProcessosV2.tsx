@@ -3,9 +3,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { NovoProcesso } from '@/types/database';
-import type { ProcessoCreateInput } from '@/types/processo';
+import type { ProcessoCreateInput, AndamentoInput } from '@/types/processo';
 import { Processo } from '@/types/processo';
-import type { TablesInsert, TablesUpdate } from '@/integrations/supabase/rows';
+import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/rows';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getErrorMessage } from '@/lib/errors';
 import { captureError } from '@/lib/monitoring';
@@ -13,7 +13,12 @@ import { planQuotaMessage } from '@/lib/planQuotaError';
 
 // Map database row -> frontend Processo. Módulo-level (não recriada por render)
 // para poder ser reaproveitada por outros hooks de leitura (ex.: useProcessosLista).
-export const mapDatabaseToProcesso = (dbRecord: any): Processo => {
+/** Linha de `processos` como vem dos selects deste hook (`*, cliente:clientes(nome)`).
+ * Partial: alguns leitores selecionam só parte das colunas. */
+export type ProcessoRow = Partial<Tables<'processos'>> & { id: string; titulo: string; cliente?: { nome: string | null } | null };
+const ou = (v: string | null | undefined) => v ?? undefined;
+
+export const mapDatabaseToProcesso = (dbRecord: ProcessoRow): Processo => {
   let inferredYear = '';
   if (!dbRecord.data_inicio && dbRecord.numero_processo?.length === 20) {
     inferredYear = dbRecord.numero_processo.substring(9, 13);
@@ -23,29 +28,29 @@ export const mapDatabaseToProcesso = (dbRecord: any): Processo => {
     id: dbRecord.id,
     titulo: dbRecord.titulo,
     cliente: dbRecord.cliente?.nome || 'Cliente não vinculado',
-    clienteId: dbRecord.cliente_id,
-    status: dbRecord.status === 'ativo' ? 'Em andamento' : dbRecord.status,
-    dataInicio: dbRecord.data_distribuicao || dbRecord.data_inicio || (inferredYear ? `${inferredYear}-01-01` : dbRecord.created_at?.split('T')[0]),
-    proximoPrazo: dbRecord.proximo_prazo,
-    descricao: dbRecord.observacoes,
+    clienteId: ou(dbRecord.cliente_id),
+    status: (dbRecord.status === 'ativo' ? 'Em andamento' : dbRecord.status) as Processo['status'],
+    dataInicio: dbRecord.data_distribuicao || dbRecord.data_inicio || (inferredYear ? `${inferredYear}-01-01` : dbRecord.created_at?.split('T')[0]) || '',
+    proximoPrazo: ou(dbRecord.proximo_prazo),
+    descricao: ou(dbRecord.observacoes),
     valorCausa: dbRecord.valor_causa ? Number(dbRecord.valor_causa) : undefined,
-    numeroProcesso: dbRecord.numero_processo,
-    tipoProcesso: dbRecord.tipo_processo,
+    numeroProcesso: ou(dbRecord.numero_processo),
+    tipoProcesso: ou(dbRecord.tipo_processo),
     faseProcessual: (dbRecord.fase_processual && dbRecord.fase_processual !== 'Inicial') ? dbRecord.fase_processual : undefined,
     classeJudicial: dbRecord.classe_judicial || undefined,
     assuntoPrincipal: dbRecord.assunto_principal || undefined,
     instancia: dbRecord.instancia || undefined,
-    responsavelId: dbRecord.user_id,
+    responsavelId: ou(dbRecord.user_id),
     responsavelNome: undefined,
     ultimaMovimentacao: dbRecord.data_ultima_atualizacao || dbRecord.updated_at?.split('T')[0],
-    tribunal: dbRecord.tribunal,
-    vara: dbRecord.vara,
-    comarca: dbRecord.comarca,
+    tribunal: ou(dbRecord.tribunal),
+    vara: ou(dbRecord.vara),
+    comarca: ou(dbRecord.comarca),
     parteAutora: dbRecord.parte_autora || undefined,
-    requerido: dbRecord.requerido,
+    requerido: ou(dbRecord.requerido),
     segredoJustica: dbRecord.segredo_justica || false,
     justicaGratuita: dbRecord.justica_gratuita || false,
-    observacoes: dbRecord.observacoes,
+    observacoes: ou(dbRecord.observacoes),
     fonteSincronizacao: dbRecord.fonte_sincronizacao || undefined,
     sincronizadoEm: dbRecord.sincronizado_em || undefined,
     team_id: dbRecord.team_id || null,
@@ -109,9 +114,10 @@ export function useProcessosV2(opts: { lista?: boolean } = {}) {
     mutationFn: async (newRecord: NovoProcesso | ProcessoCreateInput) => {
       if (!user) throw new Error('Not authenticated');
 
-      const r = newRecord as any;
+      // Aceita o formulário (camelCase), a linha do banco (snake_case) e os aliases crus.
+      const r = newRecord as Partial<ProcessoCreateInput> & Partial<NovoProcesso> & { classeJudicial?: string; assuntoPrincipal?: string };
       const ultimoAndamento = r.ultimoAndamento || null;
-      const andamentos: any[] = Array.isArray(r.andamentos) ? r.andamentos : [];
+      const andamentos: AndamentoInput[] = Array.isArray(r.andamentos) ? r.andamentos : [];
 
       const dataUltimaAtualizacao =
         ultimoAndamento?.data
@@ -123,12 +129,13 @@ export function useProcessosV2(opts: { lista?: boolean } = {}) {
 
       const fonteSincronizacao = andamentos.length > 0 || ultimoAndamento ? 'datajud' : (r.fonteSincronizacao || 'manual');
 
-      const insertPayload: Record<string, any> = {
+      const statusBruto: string | null | undefined = r.status;
+      const insertPayload: Record<string, unknown> = {
         user_id: user.id,
         office_id: user.office_id,
         titulo: r.titulo,
         numero_processo: (r.numeroProcesso || r.numero_processo || '').replace(/\D/g, ''),
-        status: (r.status === 'Em andamento' || r.status === 'ativo') ? 'ativo' : r.status,
+        status: (statusBruto === 'Em andamento' || statusBruto === 'ativo') ? 'ativo' : statusBruto,
         tipo_processo: r.tipoProcesso || r.tipo_processo || r.classe || null,
         classe_judicial: r.classe || r.classeJudicial || null,
         assunto_principal: r.assunto || r.assuntoPrincipal || null,
@@ -168,7 +175,7 @@ export function useProcessosV2(opts: { lista?: boolean } = {}) {
       // SÓ quando há número: processos sem CNJ (a protocolar) têm numero_processo ''
       // e o match por '' fazia o segundo caso SOBRESCREVER o primeiro em silêncio.
       // E ignora deletados — recriar um número que está na lixeira não pode ressuscitá-lo.
-      const numeroLimpo = insertPayload.numero_processo;
+      const numeroLimpo = insertPayload.numero_processo as string;
       let existing: { id: string } | null = null;
       if (numeroLimpo && user.office_id) {
         const officeId = user.office_id;
@@ -358,7 +365,7 @@ export function useProcessosV2(opts: { lista?: boolean } = {}) {
     mutationFn: async ({ id, updates }: { id: string, updates: Partial<Processo> }) => {
       if (!user) throw new Error('Not authenticated');
 
-      const updatePayload: Record<string, any> = {
+      const updatePayload: TablesUpdate<'processos'> = {
         updated_at: new Date().toISOString(),
       };
 
@@ -436,7 +443,7 @@ export function useProcessosV2(opts: { lista?: boolean } = {}) {
     },
   });
 
-  const addMovimentacao = async (processoId: string, movData: any) => {
+  const addMovimentacao = async (processoId: string, movData: Partial<Record<'data' | 'descricao' | 'texto' | 'tipo' | 'fase' | 'fonte', string | null>>) => {
     if (!user) return null;
     try {
       const targetDate = movData.data || new Date().toISOString();
