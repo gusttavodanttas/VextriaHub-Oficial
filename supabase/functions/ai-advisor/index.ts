@@ -114,20 +114,15 @@ const TOOLS = [
 
 // Precedentes/normas CONFERIDOS pelo próprio usuário (juris_user_reviews.status = VERIFIED, RLS por user_id),
 // filtrados por tema. A restrição é feita na consulta ao banco, não no prompt: o modelo só vê o que foi conferido.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function precedentesConferidos(db: any, tema: string, limit = 8) {
   const { data } = await db.from("juris_user_reviews")
     .select("doc_id, nota, created_at, juris_documents(doc_id, title, case_number, decision_number, court, organ, rapporteur, judgment_date, publication_date, summary, official_url, document_type, source_id)")
     .eq("status", "VERIFIED").limit(400);
   const norm = (s: string) => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const termos = norm(tema).split(/[^a-z0-9]+/).filter((w) => w.length >= 4);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const docs = (data || []).map((r: any) => ({ ...(r.juris_documents || {}), nota_conferencia: r.nota })).filter((d: any) => d.doc_id);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const score = (d: any) => { const t = norm(`${d.title || ""} ${d.case_number || ""} ${d.summary || ""} ${d.organ || ""}`); return termos.reduce((s, w) => s + (t.includes(w) ? 1 : 0), 0); };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const ranked = termos.length ? docs.map((d: any) => ({ d, s: score(d) })).filter((x: any) => x.s > 0).sort((a: any, b: any) => b.s - a.s).map((x: any) => x.d) : docs;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return ranked.slice(0, limit).map((d: any) => ({
     doc_id: d.doc_id, tipo: d.document_type, precedente: !["ato_normativo", "metadado_processual"].includes(d.document_type),
     tribunal: d.court, orgao: d.organ, identificacao: d.case_number || d.decision_number || d.title, relator: d.rapporteur,
@@ -136,7 +131,6 @@ async function precedentesConferidos(db: any, tema: string, limit = 8) {
   }));
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function executeTool(db: any, officeId: string, uid: string, name: string, args: ToolArgs) {
   const clean = (s?: string) => String(s || "").replace(/\D/g, "");
   const resolveProcesso = async (numero?: string) => {
@@ -284,7 +278,6 @@ async function executeTool(db: any, officeId: string, uid: string, name: string,
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function buildSnapshot(db: any, officeId: string, officeName: string, period: string) {
   const dias = periodDays[period] ?? 7;
   const hoje = new Date().toISOString().slice(0, 10);

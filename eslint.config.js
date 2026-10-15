@@ -33,5 +33,13 @@ export default tseslint.config(
       // ignorar o erro precisam de um comentário dizendo por quê.
       "no-empty": ["error", { allowEmptyCatch: false }],
     },
+  },
+  // Edge functions (Deno): o lint do app continua valendo (no-empty, hooks não se
+  // aplicam), mas `any` ali é a regra, não a exceção — payloads de APIs externas
+  // (PJE, STJ, Notion, Google) sem tipo publicado. Contavam 146 dos 679 avisos no
+  // orçamento do app sem representar dívida do app.
+  {
+    files: ["supabase/functions/**/*.ts"],
+    rules: { "@typescript-eslint/no-explicit-any": "off" },
   }
 );
