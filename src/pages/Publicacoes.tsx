@@ -1,68 +1,27 @@
 ﻿
 import { useState, useMemo, useEffect, useDeferredValue } from "react";
-import { formatCNJ } from "@/utils/formatCNJ";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PublicationDetailsDialog } from "@/components/Publications/PublicationDetailsDialog";
 import { PublicationSummary } from "@/components/Publications/PublicationSummary";
 import { PublicationTable } from "@/components/Publications/PublicationTable";
 import { PublicationFilters } from "@/components/Publications/PublicationFilters";
-import {
-  BookOpen,
-  Trash2,
-  Search,
-  LayoutGrid,
-  Table as TableIcon,
-  CheckSquare,
-  Download,
-  Inbox,
-  X,
-  RefreshCw,
-  Clock,
-  CalendarDays,
-  CalendarRange,
-  CheckCircle,
-  PlusCircle,
-  Link2,
-  Link2Off,
-  Gavel,
-  AlertTriangle,
-} from "lucide-react";
+import { PublicationCard } from "@/components/Publications/PublicationCard";
+import { PublicationsToolbar } from "@/components/Publications/PublicationsToolbar";
+import { BulkActionsBar } from "@/components/Publications/BulkActionsBar";
+import { PublicationsPagination } from "@/components/Publications/PublicationsPagination";
+import { ArchiveConfirmDialogs } from "@/components/Publications/ArchiveConfirmDialogs";
+import { BookOpen, LayoutGrid, Table as TableIcon, Inbox, RefreshCw, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/usePermissions";
 import { getErrorMessage } from "@/lib/errors";
-import { PermissionGuard } from "@/components/Auth/PermissionGuard";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
-import { ChevronDown, FileSpreadsheet, FileText as FileTextIcon } from "lucide-react";
 
 import { usePublicacoes, usePublicacoesLista, usePublicacoesStats, fetchAllPublicacoesForExport } from "@/hooks/usePublicacoes";
 import { useMonitoredOabs } from "@/hooks/useMonitoredOabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { Checkbox } from "@/components/ui/checkbox";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { NovoProcessoDialog } from "@/components/Processos/NovoProcessoDialog";
 import { AgendarPublicacaoDialog, AcaoTipo } from "@/components/Processos/AgendarPublicacaoDialog";
@@ -461,118 +420,13 @@ export default function Publicacoes() {
             
             <Separator className="bg-black/5 dark:bg-border/30" />
 
-            <div className="flex items-center justify-end gap-4 px-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="h-12 px-6 rounded-2xl border-border bg-card/50 hover:bg-card font-black text-xs uppercase tracking-widest text-primary gap-2 transition-all duration-300 shadow-md">
-                    <Download className="h-4 w-4" />
-                    Exportar
-                    <ChevronDown className="h-3 w-3 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl bg-card border-black/5 dark:border-border shadow-2xl">
-                  <DropdownMenuItem onClick={() => handleExportCSV()} className="rounded-xl py-3 cursor-pointer group flex items-center gap-3">
-                    <div className="p-1.5 rounded-lg bg-emerald-500/10 group-hover:bg-emerald-500/20 transition-colors">
-                      <FileSpreadsheet className="h-4 w-4 text-emerald-500" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="font-bold text-xs uppercase tracking-tight">CSV / Excel</span>
-                      <span className="text-[10px] text-muted-foreground/60 italic">{totalFiltered} publicações</span>
-                    </div>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <PermissionGuard permission="canManagePublicacoes">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    disabled={isSyncing}
-                    className="h-12 rounded-2xl px-6 font-black text-xs uppercase tracking-widest bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all duration-300 gap-2"
-                  >
-                    {isSyncing ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                    Sincronizar
-                    <ChevronDown className="h-3 w-3 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-64 p-2 rounded-2xl bg-card border-black/5 dark:border-border shadow-2xl">
-                  <DropdownMenuLabel className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Período de Busca</DropdownMenuLabel>
-                  <DropdownMenuSeparator className="bg-border/50" />
-                  <DropdownMenuItem onClick={() => handleManualSync(1)} className="rounded-xl py-3 cursor-pointer group flex items-center gap-3">
-                    <div className="p-1.5 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                      <Clock className="h-4 w-4 text-primary" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="font-bold text-xs uppercase tracking-tight">Diário</span>
-                      <span className="text-[10px] text-muted-foreground/60">Últimas 24 horas</span>
-                    </div>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleManualSync(7)} className="rounded-xl py-3 cursor-pointer group flex items-center gap-3">
-                    <div className="p-1.5 rounded-lg bg-indigo-500/10 group-hover:bg-indigo-500/20 transition-colors">
-                      <CalendarDays className="h-4 w-4 text-indigo-500" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="font-bold text-xs uppercase tracking-tight">Semanal</span>
-                      <span className="text-[10px] text-muted-foreground/60">Últimos 7 dias</span>
-                    </div>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleManualSync(30)} className="rounded-xl py-3 cursor-pointer group flex items-center gap-3">
-                    <div className="p-1.5 rounded-lg bg-violet-500/10 group-hover:bg-violet-500/20 transition-colors">
-                      <CalendarRange className="h-4 w-4 text-violet-500" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="font-bold text-xs uppercase tracking-tight">Mensal</span>
-                      <span className="text-[10px] text-muted-foreground/60">Últimos 30 dias</span>
-                    </div>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              </PermissionGuard>
-            </div>
+            <PublicationsToolbar totalFiltered={totalFiltered} isSyncing={isSyncing} onExportCSV={handleExportCSV} onManualSync={handleManualSync} />
           </div>
         </div>
 
         <div className="relative">
-          {/* Bulk Actions Bar */}
-          {selectedIds.length > 0 && (
-            <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-10 fade-in duration-500">
-              <Card className="glass-card border-primary/20 bg-primary/10 px-6 py-4 rounded-[2rem] shadow-2xl flex items-center gap-6 border-2">
-                <div className="flex items-center gap-3 pr-6 border-r border-border text-primary">
-                  <CheckSquare className="h-5 w-5" />
-                  <span className="text-sm font-black uppercase tracking-widest">{selectedIds.length} Selecionados</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <PermissionGuard permission="canManagePublicacoes">
-                  <Button
-                    size="sm"
-                    onClick={() => handleBulkUpdateStatus('lida')}
-                    className="rounded-xl font-black text-[10px] uppercase tracking-widest h-10 px-6"
-                  >
-                    Marcar como Lida
-                  </Button>
-                  </PermissionGuard>
-                  <PermissionGuard permission="canManagePublicacoes">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setConfirmBulkArchive(true)}
-                    className="rounded-xl border-border hover:bg-card font-black text-[10px] uppercase tracking-widest h-10 px-6"
-                  >
-                    Arquivar
-                  </Button>
-                  </PermissionGuard>
-                  <Button
-                    size="sm" 
-                    variant="ghost" 
-                    className="rounded-xl h-10 w-10 p-0 text-red-500 hover:bg-red-500/10"
-                    onClick={() => setSelectedIds([])}
-                  >
-                    <X className="h-5 w-5" />
-                  </Button>
-                </div>
-              </Card>
-            </div>
-          )}
+          <BulkActionsBar count={selectedIds.length} onMarkRead={() => handleBulkUpdateStatus('lida')}
+            onArchive={() => setConfirmBulkArchive(true)} onClear={() => setSelectedIds([])} />
 
           {listaError ? (
             <div className="py-24 text-center glass-card rounded-[3rem] bg-black/[0.02] dark:bg-card/30 space-y-6 border-black/5 dark:border-border shadow-inner">
@@ -617,157 +471,16 @@ export default function Publicacoes() {
             />
           ) : (
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              {filteredPublications.map((publication) => {
-                const isTratada = publication.status === 'lida' || publication.status === 'processada';
-                return (
-                  <div
-                    key={publication.id}
-                    className={cn(
-                      "bg-card border border-border p-6 rounded-[2rem] hover:shadow-lg transition-all duration-300 hover:border-primary/25 hover:-translate-y-0.5 group relative shadow-sm cursor-pointer",
-                      selectedIds.includes(publication.id) && "ring-2 ring-primary bg-primary/5"
-                    )}
-                    onClick={() => { setSelectedPub(publication); setDetailDialogOpen(true); }}
-                  >
-                    {/* Checkbox */}
-                    <div
-                      className="absolute top-5 left-5 z-10 cursor-pointer"
-                      onClick={(e) => { e.stopPropagation(); handleToggleSelection(publication.id); }}
-                    >
-                      <Checkbox
-                        checked={selectedIds.includes(publication.id)}
-                        className="h-5 w-5 rounded-lg border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary shadow-md"
-                      />
-                    </div>
-
-                    <div className="pl-8 space-y-4">
-                      {/* Header */}
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="space-y-1.5 flex-1 min-w-0">
-                          <h4 className="font-black text-base group-hover:text-primary transition-colors leading-tight tracking-tight truncate">
-                            {publication.titulo === publication.numero_processo ? `Publicação no ${publication.tribunal || 'Tribunal'}` : publication.titulo}
-                          </h4>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 font-black px-2 py-0.5 rounded-lg text-[10px] font-mono uppercase">
-                              {formatCNJ(publication.numero_processo)}
-                            </Badge>
-                            {publication.tribunal && (
-                              <span className="text-[10px] text-muted-foreground/60 font-bold uppercase">{publication.tribunal}</span>
-                            )}
-                            <span className="text-[10px] text-muted-foreground/50 font-bold">
-                              {fmtDataBR(publication.data_publicacao)}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-1.5 shrink-0">
-                          <Badge className={cn(
-                            "px-3 py-1 rounded-full font-black text-[9px] uppercase tracking-widest",
-                            isTratada ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20" :
-                            "bg-amber-500/10 text-amber-600 border border-amber-500/20"
-                          )}>
-                            {isTratada ? 'Tratada' : 'Nova'}
-                          </Badge>
-                          {publication.urgencia === 'alta' && (
-                            <Badge variant="outline" className="px-2 py-0.5 text-[9px] font-black uppercase tracking-widest bg-red-500/10 text-red-600 border-red-500/20">
-                              Urgente
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Content preview */}
-                      <div className="p-4 bg-muted/20 rounded-2xl border border-border text-foreground/70 font-medium line-clamp-3 leading-relaxed text-sm">
-                        {publication.conteudo || '—'}
-                      </div>
-
-                      {/* Footer actions */}
-                      <div className="flex items-center justify-between pt-1" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center gap-1.5">
-                          {publication.processo_id ? (
-                            <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-600 border-emerald-500/20 gap-1 px-2 py-0.5">
-                              <Link2 className="h-3 w-3" /> Vinculada
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest bg-orange-500/10 text-orange-500 border-orange-500/20 gap-1 px-2 py-0.5">
-                              <Link2Off className="h-3 w-3" /> Avulsa
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          {!isTratada && (
-                            <PermissionGuard permission="canManagePublicacoes">
-                              <Button size="sm" variant="ghost" className="h-8 rounded-xl text-[10px] font-bold gap-1 text-emerald-600 hover:bg-emerald-500/10"
-                                onClick={() => updateStatus(publication.id, 'lida')}>
-                                <CheckCircle className="h-3.5 w-3.5" /> Tratar
-                              </Button>
-                            </PermissionGuard>
-                          )}
-                          {canCreateProcesses && !publication.processo_id && (
-                            <Button size="sm" variant="ghost" className="h-8 rounded-xl text-[10px] font-bold gap-1 text-violet-600 hover:bg-violet-500/10"
-                              onClick={() => handleRegister(publication)}>
-                              <PlusCircle className="h-3.5 w-3.5" /> Processo
-                            </Button>
-                          )}
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button size="sm" variant="ghost" className="h-8 rounded-xl text-[10px] font-bold gap-1 text-amber-600 hover:bg-amber-500/10">
-                                <CalendarDays className="h-3.5 w-3.5" /> Agendar
-                                <ChevronDown className="h-3 w-3 opacity-50" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="rounded-xl">
-                              <DropdownMenuItem onClick={() => handleSchedule(publication, 'prazo')} className="rounded-lg cursor-pointer gap-2">
-                                <Clock className="h-4 w-4 text-amber-500" /> Prazo
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleSchedule(publication, 'tarefa')} className="rounded-lg cursor-pointer gap-2">
-                                <CheckSquare className="h-4 w-4 text-sky-500" /> Tarefa
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleSchedule(publication, 'audiencia')} className="rounded-lg cursor-pointer gap-2">
-                                <Gavel className="h-4 w-4 text-violet-500" /> Audiência
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                          <PermissionGuard permission="canManagePublicacoes">
-                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-xl text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
-                              onClick={() => requestArchive(publication.id)}>
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </PermissionGuard>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+              {filteredPublications.map((publication) => (
+                <PublicationCard key={publication.id} publication={publication} selected={selectedIds.includes(publication.id)}
+                  onOpen={(pub) => { setSelectedPub(pub); setDetailDialogOpen(true); }} onToggleSelection={handleToggleSelection}
+                  onUpdateStatus={updateStatus} onRegister={canCreateProcesses ? handleRegister : undefined}
+                  onSchedule={handleSchedule} onArchive={requestArchive} />
+              ))}
             </div>
           )}
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between gap-3 pt-5 mt-1 border-t border-black/5 dark:border-border">
-              <p className="text-xs font-semibold text-muted-foreground">
-                Página {page} de {totalPages} · {totalFiltered} publicaç{totalFiltered === 1 ? 'ão' : 'ões'}
-              </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 px-3 rounded-lg text-xs font-bold gap-1"
-                  disabled={page <= 1 || loading}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" /> Anterior
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 px-3 rounded-lg text-xs font-bold gap-1"
-                  disabled={page >= totalPages || loading}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                >
-                  Próxima <ChevronRight className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-          )}
+          <PublicationsPagination page={page} totalPages={totalPages} total={totalFiltered} loading={loading} onPage={setPage} />
         </div>
       </div>
 
@@ -822,44 +535,10 @@ export default function Publicacoes() {
         }}
       />
 
-      {/* Confirmação de arquivar (item único) */}
-      <AlertDialog open={!!confirmArchiveId} onOpenChange={(open) => !open && setConfirmArchiveId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Arquivar publicação?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Ela sairá das listagens ativas. Só o suporte pode restaurá-la — não há desfazer automático.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmArchive}>Arquivar</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Confirmação de arquivar em lote */}
-      <AlertDialog open={confirmBulkArchive} onOpenChange={setConfirmBulkArchive}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Arquivar {selectedIds.length} publicações?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Elas sairão das listagens ativas. Só o suporte pode restaurá-las — não há desfazer automático.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                setConfirmBulkArchive(false);
-                handleBulkUpdateStatus('arquivada');
-              }}
-            >
-              Arquivar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Confirmações de arquivar (item único e em lote) */}
+      <ArchiveConfirmDialogs confirmArchiveId={confirmArchiveId} onCloseSingle={() => setConfirmArchiveId(null)} onConfirmSingle={confirmArchive}
+        confirmBulkArchive={confirmBulkArchive} setConfirmBulkArchive={setConfirmBulkArchive} bulkCount={selectedIds.length}
+        onConfirmBulk={() => { setConfirmBulkArchive(false); handleBulkUpdateStatus('arquivada'); }} />
     </div>
   );
 }
