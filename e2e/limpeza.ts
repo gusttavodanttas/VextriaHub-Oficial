@@ -14,6 +14,9 @@ export async function limparRastros(prefixo: string): Promise<void> {
 
   // Ordem respeita as FKs: dependentes antes de processos → clientes.
   const alvos: Array<{ tabela: string; coluna: string }> = [
+    { tabela: 'timesheets', coluna: 'tarefa_descricao' },
+    { tabela: 'financeiro', coluna: 'descricao' },
+    { tabela: 'consultivos', coluna: 'titulo' },
     { tabela: 'atendimentos', coluna: 'observacoes' },
     { tabela: 'tarefas', coluna: 'titulo' },
     { tabela: 'audiencias', coluna: 'titulo' },
