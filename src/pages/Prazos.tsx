@@ -1,9 +1,6 @@
-import { useState, useMemo, useDeferredValue, useEffect, useRef } from 'react';
+import { useState, useMemo, useDeferredValue } from 'react';
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMultiSelect } from "@/hooks/useMultiSelect";
 import { useToast } from "@/hooks/use-toast";
 import { NovoPrazoStandaloneDialog, PrazoFormData } from "@/components/Processos/NovoPrazoStandaloneDialog";
@@ -11,39 +8,26 @@ import { useOpenItemFromSearch } from "@/hooks/useOpenItemFromSearch";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOfficeUsers } from "@/hooks/useOfficeUsers";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { format, differenceInCalendarDays, startOfDay, startOfMonth, startOfWeek, addDays, addMonths, isSameDay, isSameMonth } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { useQueryClient } from "@tanstack/react-query";
+import { addMonths } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { deepCleanHTML } from '@/lib/cleanHtml';
-import { parseLocalDate, fmtDate } from '@/lib/dates';
 import { useNavigate } from 'react-router-dom';
-import {
-  Plus, Search, AlertTriangle, Clock, CalendarClock, CheckCircle2,
-  ChevronRight, Flame, Calendar, Inbox, MoreHorizontal, Pencil, Trash2,
-  CheckCheck, Timer, Newspaper, Shield, AlertOctagon, Eye, EyeOff, RotateCcw,
-  User, X, List, ChevronLeft, CalendarDays, FileText, Gavel,
-} from 'lucide-react';
-import { formatCNJ } from '@/utils/formatCNJ';
+import { Plus, AlertTriangle, CalendarClock, Inbox, List, CalendarDays } from 'lucide-react';
 import { AgendarPublicacaoDialog, type AcaoTipo } from '@/components/Processos/AgendarPublicacaoDialog';
 
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuSeparator, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 
 // Módulos extraídos deste arquivo (desmonte do god-component) — comportamento idêntico
 import {
   type Prazo, type Urgency,
-  tituloPrazo, getDataPrazo, toLocalDate, getUrgency, getDaysLabel,
-  sortPrazos, ehSugestaoRobo, pareceAudiencia, extrairAudienciaSugerida,
-  URGENCY_CONFIG, PRIORITY_CONFIG, SECTION_ORDER, SECTION_LABELS,
+  tituloPrazo, getUrgency, sortPrazos, ehSugestaoRobo, extrairAudienciaSugerida,
+  URGENCY_CONFIG, SECTION_ORDER, SECTION_LABELS,
 } from '@/components/Prazos/shared';
 import { MonthView } from '@/components/Prazos/MonthView';
+import { PrazoItem } from '@/components/Prazos/PrazoItem';
+import { PrazosKpis } from '@/components/Prazos/PrazosKpis';
+import { PrazosFilters } from '@/components/Prazos/PrazosFilters';
+import { PrazosBulkBar } from '@/components/Prazos/PrazosBulkBar';
+import { PrazosDeleteDialogs } from '@/components/Prazos/PrazosDeleteDialogs';
 import { usePrazosData } from '@/hooks/usePrazosData';
 import { CarregarMaisHistorico } from '@/components/shared/CarregarMaisHistorico';
 import { assertRowsAffected, getErrorMessage } from '@/lib/errors';
@@ -198,149 +182,21 @@ export default function Prazos() {
       </div>
 
       {/* KPI Strip — clicáveis como filtro rápido */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: 'Vencidos',        value: kpis.vencidos,  icon: AlertTriangle, color: 'text-red-600',    bg: 'bg-red-500/8 border-red-500/15',       activeBg: 'ring-2 ring-red-500/40',    urgency: 'vencido'  as Urgency },
-          { label: 'Vencem hoje',     value: kpis.hoje,      icon: Flame,         color: 'text-amber-600',  bg: 'bg-amber-500/8 border-amber-500/15',   activeBg: 'ring-2 ring-amber-500/40',  urgency: 'hoje'     as Urgency },
-          { label: 'Próximos 3 dias', value: kpis.criticos,  icon: Timer,         color: 'text-orange-600', bg: 'bg-orange-500/8 border-orange-500/15', activeBg: 'ring-2 ring-orange-500/40', urgency: 'critico'  as Urgency },
-          { label: 'Total pendente',  value: kpis.total,     icon: Calendar,      color: 'text-sky-600',    bg: 'bg-sky-500/8 border-sky-500/15',       activeBg: 'ring-2 ring-sky-500/40',    urgency: null },
-        ].map(({ label, value, icon: Icon, color, bg, activeBg, urgency }) => {
-          const isActive = urgency ? filterUrgency === urgency : false;
-          return (
-            <button
-              key={label}
-              onClick={() => {
-                if (!urgency) return;
-                setFilterUrgency(prev => prev === urgency ? 'all' : urgency);
-              }}
-              className={cn(
-                'rounded-2xl border p-3 sm:p-4 flex items-center gap-2.5 sm:gap-3 text-left transition-all',
-                bg,
-                urgency ? 'cursor-pointer hover:scale-[1.02] active:scale-[0.98]' : 'cursor-default',
-                isActive && activeBg,
-              )}
-            >
-              <div className={cn('p-2 rounded-xl bg-background/60 shrink-0', color)}>
-                <Icon className="h-4 w-4" />
-              </div>
-              <div className="min-w-0">
-                <p className={cn('text-xl sm:text-2xl font-black', color)}>{value}</p>
-                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest truncate">
-                  {label}{isActive && ' ✕'}
-                </p>
-              </div>
-            </button>
-          );
-        })}
-      </div>
+      <PrazosKpis kpis={kpis} filterUrgency={filterUrgency} onToggleUrgency={(u) => setFilterUrgency(prev => prev === u ? 'all' : u)} />
 
       {/* Search + Filters */}
-      <div className="flex flex-wrap gap-3">
-        <div className="relative flex-1 min-w-48">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
-          <Input
-            placeholder="Buscar prazos..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="pl-10 h-10 rounded-xl bg-background border-border text-sm"
-          />
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          {(['all', 'alta', 'media', 'baixa'] as const).map(p => (
-            <button
-              key={p}
-              onClick={() => setFilterPriority(p)}
-              className={cn(
-                'h-10 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border',
-                filterPriority === p
-                  ? 'bg-foreground text-background border-foreground'
-                  : 'bg-background text-muted-foreground border-border hover:border-foreground/30'
-              )}
-            >
-              {p === 'all' ? 'Todos' : PRIORITY_CONFIG[p].label}
-            </button>
-          ))}
-          {/* Toggle concluídos */}
-          <button
-            onClick={() => setShowConcluidos(v => !v)}
-            className={cn(
-              'h-10 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border flex items-center gap-1.5',
-              showConcluidos
-                ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30'
-                : 'bg-background text-muted-foreground border-border hover:border-foreground/30'
-            )}
-          >
-            {showConcluidos ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-            Concluídos
-          </button>
-        </div>
-        {officeUsers.length > 0 && (
-          <Select value={filterResp} onValueChange={setFilterResp}>
-            <SelectTrigger className="h-10 rounded-xl w-full sm:w-44 bg-background border-border text-sm font-bold"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos responsáveis</SelectItem>
-              <SelectItem value="__none__">Sem responsável</SelectItem>
-              {officeUsers.map((u: any) => <SelectItem key={u.user_id} value={u.user_id}>{membroMap[u.user_id]}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        )}
-        {clienteOptions.length > 0 && (
-          <Select value={filterCliente} onValueChange={setFilterCliente}>
-            <SelectTrigger className="h-10 rounded-xl w-full sm:w-44 bg-background border-border text-sm font-bold"><SelectValue /></SelectTrigger>
-            <SelectContent className="max-h-72">
-              <SelectItem value="all">Todos clientes</SelectItem>
-              {clienteOptions.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        )}
-        <Select value={filterTitular} onValueChange={setFilterTitular}>
-          <SelectTrigger className="h-10 rounded-xl w-full sm:w-40 bg-background border-border text-sm font-bold"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os prazos</SelectItem>
-            <SelectItem value="nosso">Nossos</SelectItem>
-            <SelectItem value="contraria">Parte contrária</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <PrazosFilters search={search} setSearch={setSearch} filterPriority={filterPriority} setFilterPriority={setFilterPriority}
+        showConcluidos={showConcluidos} onToggleConcluidos={() => setShowConcluidos(v => !v)}
+        filterResp={filterResp} setFilterResp={setFilterResp} filterCliente={filterCliente} setFilterCliente={setFilterCliente}
+        filterTitular={filterTitular} setFilterTitular={setFilterTitular} officeUsers={officeUsers} membroMap={membroMap} clienteOptions={clienteOptions} />
 
       {/* Barra de ações em lote */}
       {canManagePrazos && multiSelect.selectedCount > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-primary/20 bg-primary/[0.04] px-3 py-2">
-          <span className="text-[11px] font-black uppercase tracking-widest text-muted-foreground px-1">
-            {multiSelect.selectedCount} selecionado{multiSelect.selectedCount !== 1 ? 's' : ''}
-          </span>
-          <Button size="sm" variant="outline" disabled={bulkConcludeMutation.isPending}
-            onClick={() => bulkConcludeMutation.mutate(multiSelect.getSelectedItems().map(i => i.id))}
-            className="h-8 rounded-lg gap-1.5 font-bold text-emerald-600">
-            <CheckCheck className="h-3.5 w-3.5" /> Concluir
-          </Button>
-          {officeUsers.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="outline" disabled={bulkAssignMutation.isPending}
-                  className="h-8 rounded-lg gap-1.5 font-bold">
-                  <User className="h-3.5 w-3.5" /> Atribuir
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="rounded-xl w-48 max-h-64 overflow-y-auto">
-                {officeUsers.map((u: any) => (
-                  <DropdownMenuItem key={u.user_id} className="rounded-lg cursor-pointer"
-                    onClick={() => bulkAssignMutation.mutate({ ids: multiSelect.getSelectedItems().map(i => i.id), responsavel_id: u.user_id })}>
-                    {membroMap[u.user_id]}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-          <Button size="sm" variant="outline" disabled={bulkDeleteMutation.isPending}
-            onClick={() => setBulkDeleteOpen(true)}
-            className="h-8 rounded-lg gap-1.5 font-bold text-red-600">
-            <Trash2 className="h-3.5 w-3.5" /> Excluir
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => multiSelect.clearSelection()} className="h-8 w-8 p-0 rounded-lg ml-auto" title="Limpar seleção">
-            <X className="h-3.5 w-3.5" />
-          </Button>
-        </div>
+        <PrazosBulkBar count={multiSelect.selectedCount} selectedIds={() => multiSelect.getSelectedItems().map(i => i.id)}
+          officeUsers={officeUsers} membroMap={membroMap}
+          onConcluir={(ids) => bulkConcludeMutation.mutate(ids)} concluindo={bulkConcludeMutation.isPending}
+          onAtribuir={(ids, responsavel_id) => bulkAssignMutation.mutate({ ids, responsavel_id })} atribuindo={bulkAssignMutation.isPending}
+          onExcluir={() => setBulkDeleteOpen(true)} excluindo={bulkDeleteMutation.isPending} onLimpar={() => multiSelect.clearSelection()} />
       )}
 
       {/* Loading */}
@@ -412,293 +268,18 @@ export default function Prazos() {
             </div>
 
             <div className="space-y-2">
-              {items.map(prazo => {
-                const priCfg = PRIORITY_CONFIG[prazo.prioridade] || PRIORITY_CONFIG.media;
-                const isConcluido = prazo.status === 'concluido';
-
-                return (
-                  <div
-                    key={prazo.id}
-                    id={`item-${prazo.id}`}
-                    className={cn(
-                      'group relative flex items-center gap-3 sm:gap-4 bg-background border border-border/60 rounded-2xl px-4 sm:px-5 py-4 border-l-4 transition-all hover:border-border hover:shadow-sm',
-                      cfg.border,
-                      multiSelect.isSelected(prazo.id) && 'ring-2 ring-primary/20 border-primary/40',
-                      isConcluido && 'opacity-60'
-                    )}
-                  >
-                    <Checkbox checked={multiSelect.isSelected(prazo.id)} onCheckedChange={() => multiSelect.toggleItem(prazo.id)} className="rounded-md shrink-0" />
-                    <div className={cn('w-2 h-2 rounded-full shrink-0 hidden sm:block', cfg.dot)} />
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <span className={cn('font-black text-sm', isConcluido && 'line-through text-muted-foreground')}>
-                          {tituloPrazo(prazo, pubInfo)}
-                        </span>
-                        <Badge variant="outline" className={cn('text-[9px] font-black uppercase tracking-widest border px-2 py-0.5', priCfg.color)}>
-                          {priCfg.label}
-                        </Badge>
-                        {!prazo.responsavel_id && (
-                          <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest border px-2 py-0.5 bg-fuchsia-500/10 text-fuchsia-600 border-fuchsia-500/20">
-                            Sem responsável
-                          </Badge>
-                        )}
-                        {prazo.titular === 'contraria' && (
-                          <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest border px-2 py-0.5 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20">
-                            Parte contrária
-                          </Badge>
-                        )}
-                        {ehSugestaoRobo(prazo) && (
-                          <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest border px-2 py-0.5 bg-slate-500/10 text-slate-600 dark:text-slate-300 border-slate-500/20" title="Prazo calculado automaticamente a partir de uma publicação — revise antes de confirmar">
-                            Sugestão do robô
-                          </Badge>
-                        )}
-                        {ehSugestaoRobo(prazo) && (prazo.possivel_audiencia || pareceAudiencia(teorMap[prazo.id])) && (
-                          <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest border px-2 py-0.5 bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20" title="O teor menciona audiência — use 'Agendar audiência' no menu">
-                            Possível audiência
-                          </Badge>
-                        )}
-                      </div>
-                      {/* Teor do prazo (descrição própria ou conteúdo da publicação de origem) */}
-                      {teorMap[prazo.id] && (() => {
-                        const teor = teorMap[prazo.id];
-                        const aberto = teorAberto === prazo.id;
-                        const longo = teor.length > 180;
-                        return (
-                          <div className="mb-1.5">
-                            <p className={cn(
-                              'text-xs text-muted-foreground whitespace-pre-wrap',
-                              aberto ? 'max-h-64 overflow-y-auto pr-1' : 'line-clamp-2'
-                            )}>
-                              {teor}
-                            </p>
-                            {longo && (
-                              <button
-                                type="button"
-                                onClick={() => setTeorAberto(aberto ? null : prazo.id)}
-                                className="mt-0.5 text-[11px] font-bold text-primary hover:underline"
-                              >
-                                {aberto ? 'Recolher teor' : 'Ver teor completo'}
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })()}
-                      {/* 3 datas */}
-                      <div className="flex flex-wrap items-center gap-3 text-[11px]">
-                        {clienteNomeDoPrazo(prazo) && (
-                          <span className="flex items-center gap-1 text-muted-foreground font-semibold">
-                            <User className="h-3 w-3" />{clienteNomeDoPrazo(prazo)}
-                          </span>
-                        )}
-                        {prazo.data_publicacao && (
-                          <span className="flex items-center gap-1 text-sky-600">
-                            <Newspaper className="h-3 w-3" />
-                            <span className="text-muted-foreground">Publicação:</span>
-                            {fmtDate(prazo.data_publicacao, 'dd/MM/yy', { locale: ptBR })}
-                          </span>
-                        )}
-                        {prazo.data_disponibilizacao && (
-                          <span className="flex items-center gap-1 text-cyan-600">
-                            <Newspaper className="h-3 w-3" />
-                            <span className="text-muted-foreground">Disponibilização:</span>
-                            {fmtDate(prazo.data_disponibilizacao, 'dd/MM/yy', { locale: ptBR })}
-                          </span>
-                        )}
-                        {prazo.data_intimacao && (
-                          <span className="flex items-center gap-1 text-violet-600">
-                            <Clock className="h-3 w-3" />
-                            <span className="text-muted-foreground">Intimação:</span>
-                            {fmtDate(prazo.data_intimacao, 'dd/MM/yy', { locale: ptBR })}
-                          </span>
-                        )}
-                        {prazo.data_prazo_interno && (
-                          <span className="flex items-center gap-1 text-amber-600">
-                            <Shield className="h-3 w-3" />
-                            <span className="text-muted-foreground">Interno:</span>
-                            {fmtDate(prazo.data_prazo_interno, 'dd/MM/yy', { locale: ptBR })}
-                          </span>
-                        )}
-                        {getDataPrazo(prazo) && (
-                          <span className="flex items-center gap-1 text-red-600 font-bold">
-                            <AlertOctagon className="h-3 w-3" />
-                            <span className="text-muted-foreground font-normal">Fatal:</span>
-                            {fmtDate(getDataPrazo(prazo), 'dd/MM/yy', { locale: ptBR })}
-                          </span>
-                        )}
-                        {prazo.dias_uteis != null && (
-                          <span className="px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-600 text-[9px] font-black uppercase tracking-widest">
-                            {prazo.dias_uteis} {prazo.dias_corridos ? 'dias corridos' : 'dias úteis'}
-                          </span>
-                        )}
-                        {prazo.eh_juizado && (
-                          <span className="px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-600 text-[9px] font-black uppercase tracking-widest">Juizado</span>
-                        )}
-                        {prazo.base_legal && (
-                          <span className="text-muted-foreground/50 text-[10px]">{prazo.base_legal}</span>
-                        )}
-                        {/* De qual processo é — nº CNJ, clicável quando o processo está cadastrado */}
-                        {(() => {
-                          const proc = procDoPrazo(prazo);
-                          const numero = prazo.numero_processo || proc?.numero;
-                          if (!numero && !proc) return null;
-                          const label = numero ? formatCNJ(numero) : 'Ver processo';
-                          return proc ? (
-                            <button
-                              onClick={() => navigate(`/processos?openId=${proc.id}`)}
-                              className="flex items-center gap-1 text-primary hover:text-primary/80 transition-colors ml-1"
-                              title="Abrir processo"
-                            >
-                              <FileText className="h-3 w-3 shrink-0" />
-                              <span className="underline underline-offset-2 text-[11px] font-mono">{label}</span>
-                            </button>
-                          ) : (
-                            <span className="flex items-center gap-1 text-muted-foreground/70 ml-1" title="Processo ainda não cadastrado">
-                              <FileText className="h-3 w-3 shrink-0" />
-                              <span className="text-[11px] font-mono">{label}</span>
-                            </span>
-                          );
-                        })()}
-                        {isConcluido && prazo.concluido_em && (
-                          <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                            <CheckCircle2 className="h-3 w-3" /> Concluído por {membroMap[prazo.concluido_por || ""] || "—"} · {fmtDate(prazo.concluido_em, "dd/MM/yy", { locale: ptBR })}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Right: days pill + actions */}
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className={cn(
-                        'text-[11px] font-black px-3 py-1 rounded-full border whitespace-nowrap',
-                        cfg.badge
-                      )}>
-                        {getDaysLabel(prazo)}
-                      </span>
-
-                      {ehSugestaoRobo(prazo) && (prazo.possivel_audiencia || pareceAudiencia(teorMap[prazo.id])) && !isConcluido && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => { setAgendarTipo('audiencia'); setAgendarTarget(prazo); }}
-                          className="h-8 rounded-xl gap-1.5 font-bold text-violet-600 hover:bg-violet-500/10 hover:text-violet-700 max-sm:opacity-100 opacity-0 group-hover:opacity-100 transition-opacity"
-                          title="Agendar audiência a partir deste prazo"
-                        >
-                          <Gavel className="h-4 w-4" /> <span className="hidden lg:inline">Agendar audiência</span>
-                        </Button>
-                      )}
-                      {/* Atalho inline: mesmo gate do menu (antes ficava aberto a quem só visualiza). */}
-                      {canManagePrazos && (!isConcluido ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => concludeMutation.mutate(prazo.id)}
-                          disabled={concludeMutation.isPending}
-                          className="h-8 w-8 p-0 rounded-xl max-sm:opacity-100 opacity-0 group-hover:opacity-100 transition-opacity text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-700"
-                          title="Marcar como concluído"
-                        >
-                          <CheckCheck className="h-4 w-4" />
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => reopenMutation.mutate(prazo.id)}
-                          disabled={reopenMutation.isPending}
-                          className="h-8 w-8 p-0 rounded-xl max-sm:opacity-100 opacity-0 group-hover:opacity-100 transition-opacity text-sky-600 hover:bg-sky-500/10 hover:text-sky-700"
-                          title="Reabrir prazo"
-                        >
-                          <RotateCcw className="h-4 w-4" />
-                        </Button>
-                      ))}
-
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 rounded-xl max-sm:opacity-100 opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="rounded-xl w-52">
-                          {canManagePrazos && ehSugestaoRobo(prazo) && (
-                            <>
-                              <DropdownMenuItem
-                                onClick={() => aceitarMutation.mutate(prazo.id)}
-                                disabled={aceitarMutation.isPending}
-                                className="rounded-lg cursor-pointer gap-2 text-emerald-600 focus:text-emerald-600 font-bold"
-                              >
-                                <CheckCircle2 className="h-4 w-4" /> Aceitar sugestão
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                            </>
-                          )}
-                          {canManagePrazos && (!isConcluido ? (
-                            <DropdownMenuItem
-                              onClick={() => concludeMutation.mutate(prazo.id)}
-                              className="rounded-lg cursor-pointer gap-2 text-emerald-600 focus:text-emerald-600"
-                            >
-                              <CheckCircle2 className="h-4 w-4" /> Concluir
-                            </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem
-                              onClick={() => reopenMutation.mutate(prazo.id)}
-                              className="rounded-lg cursor-pointer gap-2 text-sky-600 focus:text-sky-600"
-                            >
-                              <RotateCcw className="h-4 w-4" /> Reabrir
-                            </DropdownMenuItem>
-                          ))}
-                          {canManagePrazos && (
-                            <DropdownMenuItem
-                              onClick={() => setEditTarget(prazo)}
-                              className="rounded-lg cursor-pointer gap-2"
-                            >
-                              <Pencil className="h-4 w-4" /> {ehSugestaoRobo(prazo) ? 'Revisar / alterar' : 'Editar'}
-                            </DropdownMenuItem>
-                          )}
-                          {canManagePrazos && ehSugestaoRobo(prazo) && (
-                            <>
-                              <DropdownMenuItem
-                                onClick={() => { setAgendarTipo('audiencia'); setAgendarTarget(prazo); }}
-                                className="rounded-lg cursor-pointer gap-2 text-violet-600 focus:text-violet-600"
-                              >
-                                <Gavel className="h-4 w-4" /> Agendar audiência
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => { setAgendarTipo('tarefa'); setAgendarTarget(prazo); }}
-                                className="rounded-lg cursor-pointer gap-2 text-sky-600 focus:text-sky-600"
-                              >
-                                <CheckCheck className="h-4 w-4" /> Criar tarefa
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                          {prazo.processo_id && (
-                            <DropdownMenuItem
-                              onClick={() => navigate(`/processos?openId=${prazo.processo_id}`)}
-                              className="rounded-lg cursor-pointer gap-2"
-                            >
-                              <ChevronRight className="h-4 w-4" /> Ver processo
-                            </DropdownMenuItem>
-                          )}
-                          {canManagePrazos && (
-                            <>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => setDeleteTarget(prazo)}
-                                className="rounded-lg cursor-pointer gap-2 text-red-600 focus:text-red-600"
-                              >
-                                <Trash2 className="h-4 w-4" /> {ehSugestaoRobo(prazo) ? 'Descartar sugestão' : 'Excluir'}
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                );
-              })}
+              {items.map(prazo => (
+                <PrazoItem key={prazo.id} prazo={prazo} urgency={urgency} selected={multiSelect.isSelected(prazo.id)}
+                  onToggleSelect={(id) => multiSelect.toggleItem(id)} canManagePrazos={canManagePrazos}
+                  titulo={tituloPrazo(prazo, pubInfo)} teor={teorMap[prazo.id]} clienteNome={clienteNomeDoPrazo(prazo)}
+                  processo={procDoPrazo(prazo)} membroMap={membroMap} navigate={navigate}
+                  teorAberto={teorAberto === prazo.id} onToggleTeor={() => setTeorAberto(teorAberto === prazo.id ? null : prazo.id)}
+                  onAgendar={(p, tipo) => { setAgendarTipo(tipo); setAgendarTarget(p); }}
+                  onConcluir={(id) => concludeMutation.mutate(id)} concluindo={concludeMutation.isPending}
+                  onReabrir={(id) => reopenMutation.mutate(id)} reabrindo={reopenMutation.isPending}
+                  onAceitar={(id) => aceitarMutation.mutate(id)} aceitando={aceitarMutation.isPending}
+                  onEditar={setEditTarget} onExcluir={setDeleteTarget} />
+              ))}
             </div>
           </div>
         );
@@ -776,53 +357,11 @@ export default function Prazos() {
         />
       )}
 
-      {/* Delete Confirm */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
-        <AlertDialogContent className="rounded-2xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-red-500" /> Excluir prazo?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              O prazo <strong>"{deleteTarget?.titulo}"</strong> será excluído permanentemente.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-xl">Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
-              disabled={deleteMutation.isPending}
-              className="rounded-xl bg-red-600 hover:bg-red-700 text-white"
-            >
-              Excluir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Bulk Delete Confirm */}
-      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
-        <AlertDialogContent className="rounded-2xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-red-500" /> Excluir {multiSelect.selectedCount} prazo{multiSelect.selectedCount !== 1 ? 's' : ''}?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Os prazos selecionados serão movidos para a lixeira (recuperáveis).
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-xl">Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => bulkDeleteMutation.mutate(multiSelect.getSelectedItems().map(i => i.id))}
-              disabled={bulkDeleteMutation.isPending}
-              className="rounded-xl bg-red-600 hover:bg-red-700 text-white"
-            >
-              Excluir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Confirmações de exclusão (item único e em lote) */}
+      <PrazosDeleteDialogs deleteTarget={deleteTarget} onCloseDelete={() => setDeleteTarget(null)}
+        onConfirmDelete={(id) => deleteMutation.mutate(id)} excluindo={deleteMutation.isPending}
+        bulkOpen={bulkDeleteOpen} setBulkOpen={setBulkDeleteOpen} bulkCount={multiSelect.selectedCount}
+        onConfirmBulk={() => bulkDeleteMutation.mutate(multiSelect.getSelectedItems().map(i => i.id))} excluindoLote={bulkDeleteMutation.isPending} />
     </div>
   );
 }
