@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { assertRowsAffected, getErrorMessage } from '@/lib/errors';
 import { useToast } from '@/hooks/use-toast';
+import type { Tables, TablesUpdate } from '@/integrations/supabase/rows';
 
 export interface AdminOffice {
   id: string;
@@ -77,10 +78,10 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
       
       if (officesError) throw officesError;
 
-      const officeIds = (offices || []).map((o: any) => o.id);
+      const officeIds = (offices || []).map((o) => o.id);
 
-      let userData: any[] = [];
-      let profileData: any[] = [];
+      let userData: Pick<Tables<'office_users'>, 'office_id' | 'role' | 'user_id'>[] = [];
+      let profileData: Pick<Tables<'profiles'>, 'user_id' | 'full_name' | 'email'>[] = [];
 
       if (officeIds.length > 0) {
         // Carregar administradores de cada escritório
@@ -92,7 +93,7 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
         if (userError) throw userError;
         userData = ouData || [];
 
-        const userIds = [...new Set(userData.map((u: any) => u.user_id))];
+        const userIds = [...new Set(userData.map((u) => u.user_id))];
 
         if (userIds.length > 0) {
           // Carregar perfis dos usuários
@@ -108,12 +109,12 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
         }
       }
 
-      const adminList: AdminOffice[] = (offices || []).map((office: any) => {
+      const adminList: AdminOffice[] = (offices || []).map((office) => {
         const officeUser =
-          (userData || []).find((u: any) => u.office_id === office.id && u.role === 'admin') ||
-          (userData || []).find((u: any) => u.office_id === office.id);
+          userData.find((u) => u.office_id === office.id && u.role === 'admin') ||
+          userData.find((u) => u.office_id === office.id);
         
-        const profile = profileData.find((p: any) => p.user_id === officeUser?.user_id);
+        const profile = profileData.find((p) => p.user_id === officeUser?.user_id);
         const os = office.office_subscriptions;
         const sub = Array.isArray(os) ? os[0] : os;
         const st: string | undefined = sub?.status;
@@ -211,8 +212,9 @@ export const useSuperAdminOffices = (): UseSuperAdminOfficesResult => {
         ? planMap[updates.plan_name] || updates.plan_name
         : undefined;
 
-      const officeUpdates: any = {};
-      if (updates.office_name !== undefined) officeUpdates.name = updates.office_name;
+      const officeUpdates: TablesUpdate<'offices'> = {};
+      // offices.name é NOT NULL — null nunca foi gravável aqui (falhava no banco).
+      if (updates.office_name != null) officeUpdates.name = updates.office_name;
       if (updates.office_email !== undefined) officeUpdates.email = updates.office_email;
       if (updates.phone !== undefined) officeUpdates.phone = updates.phone;
       if (updates.address !== undefined) officeUpdates.address = updates.address;

@@ -12,6 +12,8 @@ import { useToast } from "@/hooks/use-toast";
 import { fmtDataBR } from "@/lib/dates";
 import { assertRowsAffected, getErrorMessage } from "@/lib/errors";
 import type { Processo } from "@/types/processo";
+import type { Tables } from "@/integrations/supabase/rows";
+import type { PostgrestError } from "@supabase/supabase-js";
 
 const fmtPub = (d: string | null | undefined) => fmtDataBR(d) || "—";
 
@@ -20,12 +22,13 @@ export function useProcessoSubData(processo: Processo | null) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [publicacoes, setPublicacoes] = useState<any[]>([]);
-  const [prazos, setPrazos] = useState<any[]>([]);
-  const [audiencias, setAudiencias] = useState<any[]>([]);
-  const [atendimentos, setAtendimentos] = useState<any[]>([]);
-  const [tarefas, setTarefas] = useState<any[]>([]);
-  const [timesheets, setTimesheets] = useState<any[]>([]);
+  // Todas as sub-abas fazem select('*') — as linhas são as do schema gerado.
+  const [publicacoes, setPublicacoes] = useState<Tables<"publicacoes">[]>([]);
+  const [prazos, setPrazos] = useState<Tables<"prazos">[]>([]);
+  const [audiencias, setAudiencias] = useState<Tables<"audiencias">[]>([]);
+  const [atendimentos, setAtendimentos] = useState<Tables<"atendimentos">[]>([]);
+  const [tarefas, setTarefas] = useState<Tables<"tarefas">[]>([]);
+  const [timesheets, setTimesheets] = useState<Tables<"timesheets">[]>([]);
   const [loadingSub, setLoadingSub] = useState(false);
   const [addLoading, setAddLoading] = useState(false);
   const [expandedPubId, setExpandedPubId] = useState<string | null>(null);
@@ -214,7 +217,7 @@ export function useProcessoSubData(processo: Processo | null) {
     return true;
   };
 
-  const toggleTarefa = async (t: any) => {
+  const toggleTarefa = async (t: Pick<Tables<"tarefas">, "id" | "concluida">) => {
     const newStatus = !t.concluida;
     // RLS barrando o update não gera erro, só 0 linhas — sem conferir, a aba
     // dizia "concluída" com a tarefa intocada no banco.
@@ -256,7 +259,7 @@ export function useProcessoSubData(processo: Processo | null) {
   };
 
   // Tratar publicação: criar prazo/tarefa/audiência a partir dela
-  const tratarPub = async (e: React.FormEvent<HTMLFormElement>, pub: any) => {
+  const tratarPub = async (e: React.FormEvent<HTMLFormElement>, pub: Pick<Tables<"publicacoes">, "id" | "titulo" | "data_publicacao">) => {
     e.preventDefault();
     if (!processo?.id || !user?.office_id) return;
     const officeId = user.office_id;
@@ -266,7 +269,7 @@ export function useProcessoSubData(processo: Processo | null) {
     const titulo = (fd.get('titulo') as string || '').trim();
     if (!titulo) { toast({ title: 'Título obrigatório', variant: 'destructive' }); setAddLoading(false); return; }
     const dataVenc = fd.get('data_vencimento') as string;
-    let insertError: any = null;
+    let insertError: PostgrestError | null = null;
     if (tipo === 'prazo') {
       const { error } = await supabase.from('prazos').insert({
         user_id: user.id, office_id: officeId, processo_id: processo.id,

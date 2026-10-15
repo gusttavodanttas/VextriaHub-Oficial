@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarDays, Clock, AlertCircle, CheckSquare, Headphones, BookOpen } from "lucide-react";
+import { CalendarDays, Clock, AlertCircle, CheckSquare, Headphones, BookOpen, type LucideIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { captureError } from "@/lib/monitoring";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,7 +25,7 @@ interface DayEvent {
 }
 
 // Estilo/ícone por tipo de evento da agenda
-const EVENT_STYLE: Record<DayEvent["type"], { cls: string; Icon: any }> = {
+const EVENT_STYLE: Record<DayEvent["type"], { cls: string; Icon: LucideIcon }> = {
   prazo: { cls: "border-rose-500/15 bg-rose-500/5 text-rose-600 dark:text-rose-400", Icon: AlertCircle },
   audiencia: { cls: "border-orange-500/15 bg-orange-500/5 text-orange-600 dark:text-orange-400", Icon: Clock },
   tarefa: { cls: "border-violet-500/15 bg-violet-500/5 text-violet-600 dark:text-violet-400", Icon: CheckSquare },
@@ -97,19 +97,19 @@ export function CalendarWidget({ refreshKey }: { refreshKey?: number }) {
       // Cliente + nº do processo (prazo E audiência costumam vir ligados só por
       // processo_id, sem número/cliente próprios) → resolve tudo pelo processo. (v11)
       const allProcIds = Array.from(new Set([
-        ...(((prazos as any[]) || []).map(p => p.processo_id)),
-        ...(((audiencias as any[]) || []).map(a => a.processo_id)),
-      ].filter(Boolean)));
+        ...((prazos || []).map(p => p.processo_id)),
+        ...((audiencias || []).map(a => a.processo_id)),
+      ].filter((id): id is string => !!id)));
       let procMap: Record<string, { numero?: string; cliente?: string }> = {};
       if (allProcIds.length) {
         const { data: procs, error: procsError } = await supabase.from("processos").select("id, numero_processo, parte_autora, clientes!cliente_id(nome)").in("id", allProcIds);
         // Secundário (só enriquece com cliente/nº): os eventos aparecem mesmo assim.
         if (procsError) captureError(procsError, { context: "CalendarWidget.processos" });
-        procMap = Object.fromEntries(((procs as any[]) || []).map(p => [p.id, { numero: p.numero_processo, cliente: p.clientes?.nome || p.parte_autora || undefined }]));
+        procMap = Object.fromEntries((procs || []).map(p => [p.id, { numero: p.numero_processo, cliente: p.clientes?.nome || p.parte_autora || undefined }]));
       }
 
       const map: Record<string, DayEvent[]> = {};
-      for (const p of (prazos as any[]) || []) {
+      for (const p of prazos || []) {
         const fatal = p.data_fim_prazo || p.data_vencimento;
         if (!fatal) continue;
         const k = String(fatal).slice(0, 10);
@@ -121,7 +121,7 @@ export function CalendarWidget({ refreshKey }: { refreshKey?: number }) {
           sub: [info?.cliente, numero].filter(Boolean).join(" · ") || undefined,
         });
       }
-      for (const a of (audiencias as any[]) || []) {
+      for (const a of audiencias || []) {
         if (!a.data_audiencia) continue;
         // data_audiencia é timestamptz → converter pro fuso LOCAL (o split cru mostrava UTC, hora errada).
         const d = new Date(a.data_audiencia);
@@ -135,20 +135,20 @@ export function CalendarWidget({ refreshKey }: { refreshKey?: number }) {
           sub: [parte, numero].filter(Boolean).join(" · ") || undefined,
         });
       }
-      for (const t of (tarefas as any[]) || []) {
+      for (const t of tarefas || []) {
         if (!t.data_vencimento) continue;
         const k = t.data_vencimento.split("T")[0];
         if (!map[k]) map[k] = [];
         map[k].push({ type: "tarefa", id: t.id, titulo: t.titulo || "Tarefa" });
       }
-      for (const at of (atendimentos as any[]) || []) {
+      for (const at of atendimentos || []) {
         if (!at.data_atendimento) continue;
         const d = new Date(at.data_atendimento); // timestamptz → fuso local (não o split cru = UTC)
         const k = format(d, "yyyy-MM-dd");
         if (!map[k]) map[k] = [];
         map[k].push({ type: "atendimento", id: at.id, titulo: at.tipo_atendimento || "Atendimento", hora: format(d, "HH:mm") });
       }
-      for (const co of (consultivos as any[]) || []) {
+      for (const co of consultivos || []) {
         if (!co.prazo) continue;
         const k = co.prazo.split("T")[0];
         if (!map[k]) map[k] = [];

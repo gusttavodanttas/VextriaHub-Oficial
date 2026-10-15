@@ -102,12 +102,13 @@ describe('useProcessoMovimentacoes', () => {
     const { result } = renderHook(() => useProcessoMovimentacoes(processo(), true), { wrapper });
     await waitFor(() => expect(result.current.loadingMovements).toBe(false));
     const meta = { titulo: 'Ação de Cobrança', autor: 'Maria', reu: 'Não identificado', andamentos: [] };
-    act(() => { result.current.setAndamentoConfirm({ all: [{ a: 1 }], novos: [{ a: 1 }], meta, processoId: 'p1' }); });
+    const and = { resumo: 'Juntada' };
+    act(() => { result.current.setAndamentoConfirm({ all: [and], novos: [and], meta, processoId: 'p1' }); });
 
     enfileirar('processos', { data: [{ id: 'p1' }] });
     enfileirar('movimentacoes_processo', { data: [mov] });
     await act(async () => { await result.current.confirmAndamentos(); });
-    expect(persistAndamentos).toHaveBeenCalledWith('p1', 'o1', [{ a: 1 }], 'datajud');
+    expect(persistAndamentos).toHaveBeenCalledWith('p1', 'o1', [and], 'datajud');
     const up = chamadasCom('processos', 'update')[0];
     const payload = up.ops[0][1][0] as Record<string, unknown>;
     expect(payload).toMatchObject({ titulo: 'Ação de Cobrança', parte_autora: 'Maria' });
