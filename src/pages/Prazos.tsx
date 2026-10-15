@@ -45,6 +45,7 @@ import {
 } from '@/components/Prazos/shared';
 import { MonthView } from '@/components/Prazos/MonthView';
 import { usePrazosData } from '@/hooks/usePrazosData';
+import { CarregarMaisHistorico } from '@/components/shared/CarregarMaisHistorico';
 import { assertRowsAffected, getErrorMessage } from '@/lib/errors';
 import { usePermissions } from '@/hooks/usePermissions';
 
@@ -78,6 +79,7 @@ export default function Prazos() {
   // Dados + mutações extraídos para hooks/usePrazosData (efeitos de UI via callbacks)
   const {
     prazos, isLoading, isError, error, refetch, auxError, refetchAux, pubInfo, teorMap, processoInfo,
+    concluidosRestantes, carregarMaisConcluidos, carregandoMaisConcluidos,
     procDoPrazo, clienteDoPrazo, clienteNomeDoPrazo,
     aceitarMutation, concludeMutation, reopenMutation, deleteMutation,
     bulkConcludeMutation, bulkDeleteMutation, bulkAssignMutation,
@@ -701,6 +703,12 @@ export default function Prazos() {
           </div>
         );
       })}
+
+      {/* Concluídos vêm paginados (só com o toggle ligado) — rodapé com o que falta carregar */}
+      {!isLoading && !isError && view === 'lista' && showConcluidos && (
+        <CarregarMaisHistorico restantes={concluidosRestantes} carregando={carregandoMaisConcluidos}
+          onClick={carregarMaisConcluidos} rotulo="prazos concluídos" />
+      )}
 
       {/* New */}
       <NovoPrazoStandaloneDialog

@@ -20,6 +20,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMultiSelect } from "@/hooks/useMultiSelect";
 import { useAudiencias, type Audiencia, type AudienciaInput } from "@/hooks/useAudiencias";
+import { CarregarMaisHistorico } from "@/components/shared/CarregarMaisHistorico";
 import { useCorrespondentes } from "@/hooks/useCorrespondentes";
 import { DesignarCorrespondenteDialog } from "@/components/Correspondentes/DesignarCorrespondenteDialog";
 import { useOpenItemFromSearch } from "@/hooks/useOpenItemFromSearch";
@@ -53,7 +54,10 @@ function StatCard({ icon: Icon, label, value, color, bg }: { icon: React.Element
 }
 
 const Audiencias = () => {
-  const { audiencias, isLoading, isError, error, refetch, create, update, updateStatus, remove } = useAudiencias();
+  const {
+    audiencias, isLoading, isError, error, refetch, create, update, updateStatus, remove,
+    historicoRestantes, carregarMaisHistorico, carregandoMaisHistorico, contagens,
+  } = useAudiencias();
   const { canManageAudiencias } = usePermissions();
   const { data: clientesData } = useClientes();
   const { data: processosData } = useProcessosV2();
@@ -128,9 +132,11 @@ const Audiencias = () => {
       proximas: audiencias.filter(a => { const d = parseISO(a.data_audiencia); return d >= now && d <= in7 && a.status !== "cancelada"; }).length,
       hoje: audiencias.filter(a => isToday(parseISO(a.data_audiencia)) && a.status !== "cancelada").length,
       confirmadas: audiencias.filter(a => a.status === "confirmada").length,
-      realizadasMes: audiencias.filter(a => a.status === "realizada" && parseISO(a.data_audiencia) >= monthStart).length,
+      // Contagem do servidor (o histórico é paginado); em memória só enquanto ela não chega.
+      realizadasMes: contagens?.realizadasMes
+        ?? audiencias.filter(a => a.status === "realizada" && parseISO(a.data_audiencia) >= monthStart).length,
     };
-  }, [audiencias]);
+  }, [audiencias, contagens]);
 
   // Audiências passadas que não foram baixadas (realizada/cancelada)
   const pendentesBaixa = useMemo(
@@ -166,6 +172,12 @@ const Audiencias = () => {
     if (id) await update.mutateAsync({ id, input });
     else await create.mutateAsync(input);
   };
+
+  // Histórico (passadas e baixadas) vem paginado — rodapé com o que falta carregar.
+  const carregarMais = (
+    <CarregarMaisHistorico restantes={historicoRestantes} carregando={carregandoMaisHistorico}
+      onClick={carregarMaisHistorico} rotulo="audiências" />
+  );
 
   const openNew = () => { setEditTarget(null); setDialogOpen(true); };
   const openEdit = (a: Audiencia) => { setEditTarget(a); setDialogOpen(true); };
@@ -407,6 +419,7 @@ const Audiencias = () => {
                 <p className="text-sm text-muted-foreground mt-1">{audiencias.length > 0 ? "Ajuste os filtros de busca." : "Comece agendando sua primeira audiência."}</p>
               </div>
               {audiencias.length === 0 && canManageAudiencias && <Button onClick={openNew} className="rounded-xl gap-2 font-bold"><Plus className="h-4 w-4" /> Nova Audiência</Button>}
+              {carregarMais}
             </div>
           ) : (
             <>
@@ -426,6 +439,7 @@ const Audiencias = () => {
                   </div>
                 )
               )}
+              {carregarMais}
             </>
           )}
         </TabsContent>
