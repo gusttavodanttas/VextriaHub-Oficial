@@ -133,10 +133,13 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
           if (!cancel) setData((prev) => ({ ...prev, loading: false, refreshing: false, isError: true, error: getErrorMessage(tmError, "Não foi possível carregar os membros da equipe.") }));
           return;
         }
-        teamMemberIds = (tm || []).map((m: any) => m.user_id);
+        teamMemberIds = (tm || []).map((m) => m.user_id);
         if (!teamMemberIds.length) teamMemberIds = ["00000000-0000-0000-0000-000000000000"];
       }
-      const inMembers = (q: any, col: string) => (teamMemberIds ? q.in(col, teamMemberIds) : q);
+      // Só o que os helpers usam do builder do PostgREST — genérico pra manter o
+      // tipo das linhas selecionadas (antes `any` apagava tudo daqui pra baixo).
+      interface Filtravel<Q> { in(col: string, vals: readonly string[]): Q; or(filtros: string): Q }
+      const inMembers = <Q extends Filtravel<Q>>(q: Q, col: string): Q => (teamMemberIds ? q.in(col, teamMemberIds) : q);
       // Algumas linhas nascem sem responsavel_id (ex.: atendimento criado pelo drawer
       // do processo grava só user_id) — a agregação por membro mais abaixo já cai pra
       // user_id nesse caso (ensure(memberMap, p.responsavel_id || p.user_id)). Filtrar
@@ -144,7 +147,7 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
       // fazia essas linhas sumirem da contagem do time mesmo pertencendo a um membro
       // dele. `.or()` cobre os dois: responsavel_id direto, OU (sem responsavel_id E
       // dono é da equipe).
-      const inMembersOrUser = (q: any, ids: string[] | null, respCol: string, userCol: string) => {
+      const inMembersOrUser = <Q extends Filtravel<Q>>(q: Q, ids: string[] | null, respCol: string, userCol: string): Q => {
         if (!ids) return q;
         const csv = ids.join(",");
         return q.or(`${respCol}.in.(${csv}),and(${respCol}.is.null,${userCol}.in.(${csv}))`);
@@ -191,8 +194,8 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
       const finRows = fin.data || [];
       const consRows = cons.data || [];
       const tsRows = ts.data || [];
-      const settings = (off.data as any)?.settings || {};
-      const sp = settings.chart_pontos || {};
+      const settings = (off.data?.settings ?? {}) as { chart_pontos?: Partial<PontosConfig> };
+      const sp = settings.chart_pontos ?? {};
       const pontosConfig: PontosConfig = {
         tarefa: sp.tarefa ?? PONTOS_DEFAULT.tarefa,
         processo: sp.processo ?? PONTOS_DEFAULT.processo,
@@ -204,7 +207,7 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
       // Processos por mês (novos x encerrados)
       const novosMap: Record<string, number> = {};
       const encMap: Record<string, number> = {};
-      procRows.forEach((p: any) => {
+      procRows.forEach((p) => {
         const mk = monthKey(p.created_at);
         novosMap[mk] = (novosMap[mk] || 0) + 1;
         if (p.status === "encerrado") {
@@ -216,14 +219,14 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
 
       // Status dos processos
       const statusCount: Record<string, number> = {};
-      procRows.forEach((p: any) => { const s = p.status || "ativo"; statusCount[s] = (statusCount[s] || 0) + 1; });
+      procRows.forEach((p) => { const s = p.status || "ativo"; statusCount[s] = (statusCount[s] || 0) + 1; });
       const statusProcessos = Object.entries(statusCount).map(([k, v], i) => ({
         name: STATUS_LABEL[k] || k, value: v, fill: PALETTE[i % PALETTE.length],
       }));
 
       // Clientes por tipo
       const tipoCount: Record<string, number> = {};
-      cliRows.forEach((c: any) => { const t = c.tipo_pessoa || "fisica"; tipoCount[t] = (tipoCount[t] || 0) + 1; });
+      cliRows.forEach((c) => { const t = c.tipo_pessoa || "fisica"; tipoCount[t] = (tipoCount[t] || 0) + 1; });
       const clientesPorTipo = [
         { name: "Pessoa Física", value: tipoCount["fisica"] || 0, fill: PALETTE[0] },
         { name: "Pessoa Jurídica", value: tipoCount["juridica"] || 0, fill: PALETTE[1] },
@@ -231,12 +234,12 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
 
       // Novos clientes por mês
       const cliMap: Record<string, number> = {};
-      cliRows.forEach((c: any) => { const mk = monthKey(c.created_at); cliMap[mk] = (cliMap[mk] || 0) + 1; });
+      cliRows.forEach((c) => { const mk = monthKey(c.created_at); cliMap[mk] = (cliMap[mk] || 0) + 1; });
       const novosClientesPorMes = months.map(m => ({ mes: m.label, novos: cliMap[m.key] || 0 }));
 
       // Atendimentos por mês
       const atMap: Record<string, number> = {};
-      atRows.forEach((a: any) => { const mk = monthKey(a.created_at); atMap[mk] = (atMap[mk] || 0) + 1; });
+      atRows.forEach((a) => { const mk = monthKey(a.created_at); atMap[mk] = (atMap[mk] || 0) + 1; });
       const atendimentosPorMes = months.map(m => ({ mes: m.label, total: atMap[m.key] || 0 }));
 
       // Financeiro por mês
@@ -244,7 +247,7 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
       const desMap: Record<string, number> = {};
       const catMap: Record<string, number> = {};
       let totReceita = 0, totDespesa = 0;
-      finRows.forEach((f: any) => {
+      finRows.forEach((f) => {
         const mk = monthKey(f.created_at);
         const v = Number(f.valor) || 0;
         if (f.tipo === "receita") {
@@ -291,13 +294,13 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
       };
       const memberMap: Record<string, MemberBreakdown> = {};
 
-      procRows.forEach((p: any) => {
+      procRows.forEach((p) => {
         const m = ensure(memberMap, p.responsavel_id || p.user_id);
         if (!m) return;
         m.processos += 1;
         if (p.status === "encerrado") { m.processosEncerrados += 1; m.pontos += pontosConfig.processo; }
       });
-      przRows.forEach((p: any) => {
+      przRows.forEach((p) => {
         const tipo = (p.tipo_prazo || "").trim();
         if (tipo) tiposPrazoSet.add(tipo);
         const m = ensure(memberMap, p.responsavel_id);
@@ -310,14 +313,14 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
           m.atrasos += 1; m.pontos -= pontosConfig.penalidadeAtraso;
         }
       });
-      (tarRes.data || []).forEach((t: any) => {
+      (tarRes.data || []).forEach((t) => {
         const m = ensure(memberMap, t.responsavel_id || t.user_id);
         if (!m) return;
         m.tarefas += 1;
         if (t.concluida) { m.tarefasConcluidas += 1; m.pontos += pontosConfig.tarefa; }
         else if (t.data_vencimento && t.data_vencimento < todayStr) { m.atrasos += 1; m.pontos -= pontosConfig.penalidadeAtraso; }
       });
-      (audRes.data || []).forEach((a: any) => {
+      (audRes.data || []).forEach((a) => {
         const tipo = (a.tipo || "").trim();
         if (tipo) tiposAudSet.add(tipo);
         const m = ensure(memberMap, a.responsavel_id || a.user_id);
@@ -336,7 +339,7 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
 
       // Processos por área (tipo_processo)
       const areaCount: Record<string, number> = {};
-      procRows.forEach((p: any) => { const a = (p.tipo_processo || "Sem área").trim() || "Sem área"; areaCount[a] = (areaCount[a] || 0) + 1; });
+      procRows.forEach((p) => { const a = (p.tipo_processo || "Sem área").trim() || "Sem área"; areaCount[a] = (areaCount[a] || 0) + 1; });
       const processosPorArea = Object.entries(areaCount)
         .sort((a, b) => b[1] - a[1]).slice(0, 8)
         .map(([k, v], i) => ({ name: k, value: v, fill: PALETTE[i % PALETTE.length] }));
@@ -344,7 +347,7 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
       // Duração (dias) dos processos encerrados — usa data_encerramento (precisa)
       let somaDias = 0, qtdEnc = 0;
       const durPorTipo: Record<string, { soma: number; qtd: number }> = {};
-      procRows.forEach((p: any) => {
+      procRows.forEach((p) => {
         if (p.status !== "encerrado") return;
         const start = p.data_distribuicao || p.data_inicio || p.created_at;
         const end = p.data_encerramento || p.data_ultima_atualizacao || p.updated_at;
@@ -369,16 +372,16 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
         ganho: "#10b981", parcial: "#06b6d4", acordo: "#6366f1", perda: "#ef4444", extinto: "#94a3b8",
       };
       const resCount: Record<string, number> = {};
-      procRows.forEach((p: any) => { if (p.resultado) resCount[p.resultado] = (resCount[p.resultado] || 0) + 1; });
+      procRows.forEach((p) => { if (p.resultado) resCount[p.resultado] = (resCount[p.resultado] || 0) + 1; });
       const resultadoProcessos = Object.entries(resCount)
         .map(([k, v]) => ({ name: RESULTADO_LABEL[k] || k, value: v, fill: RESULTADO_FILL[k] || "#8b5cf6" }));
 
-      const monthlySum = (rows: any[], dateField: string, valFn?: (r: any) => number) => {
+      const monthlySum = <R,>(rows: R[], dateField: keyof R, valFn?: (r: R) => number) => {
         const map: Record<string, number> = {};
-        rows.forEach(r => { const mk = monthKey(r[dateField]); if (mk) map[mk] = (map[mk] || 0) + (valFn ? valFn(r) : 1); });
+        rows.forEach(r => { const mk = monthKey(r[dateField] as string | null); if (mk) map[mk] = (map[mk] || 0) + (valFn ? valFn(r) : 1); });
         return map;
       };
-      const statusBreakdown = (rows: any[], labels: Record<string, string> = {}) => {
+      const statusBreakdown = (rows: { status: string | null }[], labels: Record<string, string> = {}) => {
         const c: Record<string, number> = {};
         rows.forEach(r => { const s = r.status || "—"; c[s] = (c[s] || 0) + 1; });
         return Object.entries(c).map(([k, v], i) => ({ name: labels[k] || k, value: v, fill: PALETTE[i % PALETTE.length] }));
@@ -387,7 +390,7 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
       // PRAZOS
       const przNovos = monthlySum(przRows, "created_at");
       const przCump: Record<string, number> = {};
-      przRows.forEach((p: any) => { if (p.status === "concluido") { const mk = monthKey(p.data_fim_prazo || p.created_at); if (mk) przCump[mk] = (przCump[mk] || 0) + 1; } });
+      przRows.forEach((p) => { if (p.status === "concluido") { const mk = monthKey(p.data_fim_prazo || p.created_at); if (mk) przCump[mk] = (przCump[mk] || 0) + 1; } });
       const prazosPorMes = months.map(m => ({ mes: m.label, novos: przNovos[m.key] || 0, cumpridos: przCump[m.key] || 0 }));
       const prazosPorStatus = statusBreakdown(przRows, { concluido: "Cumpridos", pendente: "Pendentes" });
 
@@ -395,7 +398,7 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
       const tarRows = tarRes.data || [];
       const tarCri = monthlySum(tarRows, "created_at");
       const tarConc: Record<string, number> = {};
-      tarRows.forEach((t: any) => { if (t.concluida) { const mk = monthKey(t.created_at); if (mk) tarConc[mk] = (tarConc[mk] || 0) + 1; } });
+      tarRows.forEach((t) => { if (t.concluida) { const mk = monthKey(t.created_at); if (mk) tarConc[mk] = (tarConc[mk] || 0) + 1; } });
       const tarefasPorMes = months.map(m => ({ mes: m.label, criadas: tarCri[m.key] || 0, concluidas: tarConc[m.key] || 0 }));
 
       // AUDIÊNCIAS
@@ -419,7 +422,7 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
       if (ids.length) {
         const { data: profs } = await supabase.from("profiles").select("user_id, full_name, email").in("user_id", ids);
         const nameMap: Record<string, string> = {};
-        (profs || []).forEach((p: any) => { nameMap[p.user_id] = p.full_name || p.email || "Membro"; });
+        (profs || []).forEach((p) => { nameMap[p.user_id] = p.full_name || p.email || "Membro"; });
         ids.forEach(id => { memberMap[id].name = nameMap[id] || "Membro"; });
       }
       const porMembro = Object.values(memberMap)
@@ -427,8 +430,8 @@ export function useChartsData(period: ChartsPeriod = 6, teamId: string | null = 
         .slice(0, 12);
 
       const totals = {
-        processos: procRows.filter((p: any) => p.status !== "encerrado").length,
-        clientes: cliRows.filter((c: any) => ["ativo", "convertido"].includes(c.status)).length,
+        processos: procRows.filter((p) => p.status !== "encerrado").length,
+        clientes: cliRows.filter((c) => ["ativo", "convertido"].includes(c.status ?? "")).length,
         atendimentos: atRows.length,
         receita: totReceita,
         despesa: totDespesa,

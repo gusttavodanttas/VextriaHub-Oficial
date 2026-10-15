@@ -31,7 +31,7 @@ import { PermissionGuard } from '@/components/Auth/PermissionGuard';
 import { useOfficeUsers } from '@/hooks/useOfficeUsers';
 import { useOfficeTeams } from '@/hooks/useOfficeTeams';
 import { useAuth } from '@/contexts/AuthContext';
-import { NovoProcessoForm, tiposProcesso, statusProcesso, fasesProcessuais } from '@/types/processo';
+import { tiposProcesso, statusProcesso, fasesProcessuais, type ProcessoCreateInput } from '@/types/processo';
 import { useOfficeSettingList } from '@/hooks/useOfficeSettingList';
 import { CreatableSelect } from '@/components/Settings/CreatableSelect';
 import { TIPOS_PROCESSO_DEFAULT, type TipoProcesso } from '@/components/Settings/ProcessTypeSimple';
@@ -39,19 +39,42 @@ import { Separator } from '@/components/ui/separator';
 import { maskCNJ } from '@/utils/formatCNJ';
 import { tribunalFromCNJ } from '@/utils/tribunalCNJ';
 import { JudicialSyncDialog, JudicialSyncContent } from './JudicialSyncDialog';
+import type { ProcessoParaImportar } from './JudicialSync/types';
 import { useProcessosV2 } from '@/hooks/useProcessosV2';
 import { useClientes } from '@/hooks/useClientes';
 import { ClientSelect } from '@/components/Clientes/ClientSelect';
 import { supabase } from '@/integrations/supabase/client';
 import { formatBRL } from "@/lib/currency";
 
+/** Corpo devolvido pela edge function fetch-processo (DataJud/PJe) — só o que o diálogo lê. */
+interface FetchProcessoResposta {
+  error?: string;
+  titulo?: string;
+  numeroProcesso?: string;
+  tribunal?: string;
+  vara?: string;
+  comarca?: string;
+  valorCausa?: number;
+  classe?: string;
+  assunto?: string;
+  faseProcessual?: string;
+  instancia?: string;
+  dataAjuizamento?: string | null;
+  orgaoJulgadorCodigo?: string;
+  nivelSigilo?: number;
+  autor?: string;
+  reu?: string;
+  ultimoAndamento?: { descricao: string; data: string | null } | null;
+  andamentos?: ProcessoCreateInput['andamentos'];
+}
+
 interface NovoProcessoDialogProps {
   // Opcional: se não passado, usamos useProcessosV2.create direto
-  onAddProcesso?: (processo: any) => Promise<any> | any;
+  onAddProcesso?: (processo: ProcessoCreateInput) => Promise<unknown> | unknown;
   trigger?: React.ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  initialData?: Partial<NovoProcessoForm>;
+  initialData?: Partial<ProcessoCreateInput>;
   onSuccess?: () => void;
   // Abre direto num passo específico (ex.: 'form' ao vir da caixa "Encontrados")
   initialStep?: 'choice' | 'oab' | 'cnj_search' | 'form';
@@ -77,7 +100,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
   const { items: tiposProcessoCfg, persist: persistTipos } = useOfficeSettingList<TipoProcesso>('tipos_processo', TIPOS_PROCESSO_DEFAULT);
 
   // Wrapper: usa o callback do pai se existir; senão chama create() direto.
-  const addProcesso = async (proc: any) => {
+  const addProcesso = async (proc: ProcessoCreateInput) => {
     if (onAddProcesso) {
       return await onAddProcesso(proc);
     }
@@ -94,7 +117,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
   // Sinaliza que a busca rodou mas não localizou as partes (sigilo/sem cadastro)
   const [partesNaoLocalizadas, setPartesNaoLocalizadas] = useState(false);
   
-  const [formData, setFormData] = useState<NovoProcessoForm & { parteAutora?: string }>({
+  const [formData, setFormData] = useState<ProcessoCreateInput>({
     titulo: initialData?.titulo || '',
     cliente: initialData?.cliente || '',
     status: initialData?.status || 'Em andamento',
@@ -108,18 +131,18 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
     tribunal: initialData?.tribunal || '',
     vara: initialData?.vara || '',
     comarca: initialData?.comarca || '',
-    requerido: initialData?.requerido || (initialData as any)?.reu || '',
-    parteAutora: (initialData as any)?.parteAutora || (initialData as any)?.autor || '',
+    requerido: initialData?.requerido || initialData?.reu || '',
+    parteAutora: initialData?.parteAutora || initialData?.autor || '',
     segredoJustica: false,
     justicaGratuita: false,
     teamId: '',
-  } as any);
+  });
 
   // Auto-preenche teamId com a primeira equipe do usuário logado
   React.useEffect(() => {
     if (officeTeams.length === 0) return;
     setFormData(prev => {
-      if ((prev as any).teamId) return prev;
+      if (prev.teamId) return prev;
       // Deixa em branco — o trigger do banco preenche pelo responsavelId
       return prev;
     });
@@ -127,29 +150,29 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
 
   // Auto-vínculo: se a parte autora/ré bate com um cliente do cadastro, vincula sozinho
   React.useEffect(() => {
-    if ((formData as any).clienteId) return;
+    if (formData.clienteId) return;
     const norm = (s: string | null | undefined) => (s || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/\s+/g, ' ').trim();
-    const autor = norm((formData as any).parteAutora);
+    const autor = norm(formData.parteAutora);
     const reu = norm(formData.requerido);
     if (!autor && !reu) return;
-    const match = (clientesData as any[]).find((c) => {
+    const match = clientesData.find((c) => {
       const n = norm(c.nome);
       if (!n || n.length < 4) return false; // evita match por nomes muito curtos
       return n === autor || n === reu || (autor && autor.includes(n)) || (reu && reu.includes(n));
     });
-    if (match) setFormData((prev) => ({ ...prev, clienteId: match.id, cliente: match.nome } as any));
-  }, [clientesData, (formData as any).parteAutora, formData.requerido]);
+    if (match) setFormData((prev) => ({ ...prev, clienteId: match.id, cliente: match.nome }));
+  }, [clientesData, formData.parteAutora, formData.requerido]);
 
   // Reseta formData a partir do initialData sempre que ele chega/muda.
   // Aceita tanto chaves canônicas (parteAutora/requerido) quanto raw da edge function (autor/reu).
   React.useEffect(() => {
     if (!initialData) return;
-    const i: any = initialData;
+    const i = initialData;
     setFormData((prev) => ({
       ...prev,
       titulo: i.titulo || prev.titulo || '',
       cliente: i.cliente || prev.cliente || '',
-      clienteId: i.clienteId || (prev as any).clienteId,
+      clienteId: i.clienteId || prev.clienteId,
       status: i.status || prev.status || 'Em andamento',
       proximoPrazo: i.proximoPrazo || prev.proximoPrazo || '',
       descricao: i.descricao || prev.descricao || '',
@@ -162,7 +185,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
       vara: i.vara || prev.vara || '',
       comarca: i.comarca || prev.comarca || '',
       requerido: i.requerido || i.reu || prev.requerido || '',
-      parteAutora: i.parteAutora || i.autor || (prev as any).parteAutora || '',
+      parteAutora: i.parteAutora || i.autor || prev.parteAutora || '',
       segredoJustica: !!i.segredoJustica,
       justicaGratuita: !!i.justicaGratuita,
       // Extras que o useProcessosV2.create entende — não aparecem no form mas vão pro create
@@ -174,7 +197,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
       nivelSigilo: i.nivelSigilo,
       ultimoAndamento: i.ultimoAndamento,
       andamentos: Array.isArray(i.andamentos) ? i.andamentos : [],
-    } as any));
+    }));
     setStep('form');
   }, [initialData, user?.id]);
 
@@ -197,7 +220,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
       parteAutora: '',
       segredoJustica: false,
       justicaGratuita: false,
-    } as any);
+    });
     setStep('choice');
     setCnjInput('');
   };
@@ -208,7 +231,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
     
     setIsLoading(true);
     try {
-      const fd = formData as any;
+      const fd = formData;
 
       // Rede de segurança contra duplicata ao salvar (ex: CNJ digitado manualmente)
       const cnjLimpo = (fd.numeroProcesso || '').replace(/\D/g, '');
@@ -304,13 +327,15 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
       const { data, error } = await supabase.functions.invoke('fetch-processo', {
         body: {
           numeroProcesso: cnjInput,
-          oab: (profile as any)?.oab,
-          uf: (profile as any)?.oab_uf,
+          oab: profile?.oab,
+          uf: profile?.oab_uf,
         },
       });
 
       if (error) throw error;
-      if (data && !data.error) {
+      const resposta = data as FetchProcessoResposta | null;
+      if (resposta && !resposta.error) {
+        const data = resposta;
         setFormData((prev) => ({
           ...prev,
           titulo: (data.titulo && !data.titulo.includes('Não identificado') ? data.titulo : '') || (data.classe || '') || prev.titulo || `Processo ${cnjInput}`,
@@ -334,7 +359,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
           ultimoAndamento: data.ultimoAndamento,
           andamentos: Array.isArray(data.andamentos) ? data.andamentos : [],
           descricao: `Auto-preenchido via CNJ. Última movimentação: ${data.ultimoAndamento?.descricao?.slice(0, 200) || 'N/A'}`,
-        } as any));
+        }));
         const semPartes = (!data.autor || data.autor === 'Não identificado')
           && (!data.reu || data.reu === 'Não identificado');
         setPartesNaoLocalizadas(semPartes);
@@ -365,15 +390,15 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
   };
 
   // Erros sobem para quem chamou (o dialog de importação), que mostra o toast.
-  const handleImportedSync = async (processes: any[]) => {
+  const handleImportedSync = async (processes: ProcessoParaImportar[]) => {
     for (const proc of processes) {
       // Passa o objeto completo: useProcessosV2.create já lida com
       // andamentos[], ultimoAndamento, classe, assunto, etc., e persiste
       // todas as movimentações em batch (deduplicadas via hash).
       await addProcesso({
         ...proc,
-        cliente: proc.clienteDestaque || 'Importado via OAB',
-        clienteId: proc.clienteId,
+        cliente: 'Importado via OAB',
+        clienteId: proc.clienteId ?? undefined,
         status: 'Em andamento',
         descricao: `Importado via OAB. Último andamento: ${proc.ultimoAndamento?.descricao || 'N/A'}`,
       });
@@ -383,7 +408,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
     resetForm();
   };
 
-  const handleChange = (field: keyof NovoProcessoForm, value: any) => {
+  const handleChange = <K extends keyof ProcessoCreateInput>(field: K, value: ProcessoCreateInput[K]) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -579,13 +604,13 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
                           <div className="space-y-2">
                             <Label>Cliente (vincular ao cadastro) *</Label>
                             <ClientSelect
-                              value={(formData as any).clienteId || ''}
-                              onValueChange={(id, name) => setFormData((prev) => ({ ...prev, clienteId: id, cliente: name } as any))}
+                              value={formData.clienteId || ''}
+                              onValueChange={(id, name) => setFormData((prev) => ({ ...prev, clienteId: id, cliente: name }))}
                               placeholder="Selecionar cliente do cadastro..."
                             />
-                            {((formData as any).parteAutora || formData.requerido) && !(formData as any).clienteId && (
+                            {(formData.parteAutora || formData.requerido) && !formData.clienteId && (
                               <p className="text-[11px] text-muted-foreground/70">
-                                Partes: <span className="font-semibold">{(formData as any).parteAutora || '—'}</span> × <span className="font-semibold">{formData.requerido || '—'}</span>. Selecione qual é o seu cliente.
+                                Partes: <span className="font-semibold">{formData.parteAutora || '—'}</span> × <span className="font-semibold">{formData.requerido || '—'}</span>. Selecione qual é o seu cliente.
                               </p>
                             )}
                           </div>
@@ -593,8 +618,8 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
                             <div className="space-y-2">
                               <Label htmlFor="teamId">Equipe Responsável</Label>
                               <Select
-                                value={(formData as any).teamId || ''}
-                                onValueChange={(v) => handleChange('teamId' as any, v === 'none' ? '' : v)}
+                                value={formData.teamId || ''}
+                                onValueChange={(v) => handleChange('teamId', v === 'none' ? '' : v)}
                               >
                                 <SelectTrigger className="h-11 rounded-xl">
                                   <SelectValue placeholder="Selecionar equipe (opcional)" />
@@ -617,8 +642,8 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
                             <div className="space-y-2">
                               <Label htmlFor="responsavelId">Responsável</Label>
                               <Select
-                                value={(formData as any).responsavelId || user?.id || ''}
-                                onValueChange={(v) => handleChange('responsavelId' as any, v)}
+                                value={formData.responsavelId || user?.id || ''}
+                                onValueChange={(v) => handleChange('responsavelId', v)}
                               >
                                 <SelectTrigger className="h-11 rounded-xl">
                                   <SelectValue placeholder="Selecionar responsável" />
@@ -670,7 +695,7 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="parteAutora">Polo Ativo (Autor / Requerente)</Label>
-                            <Input id="parteAutora" value={(formData as any).parteAutora || ''} onChange={(e) => handleChange('parteAutora' as any, e.target.value)} placeholder="Não localizado — preencha manualmente" className="h-11 rounded-xl" />
+                            <Input id="parteAutora" value={formData.parteAutora || ''} onChange={(e) => handleChange('parteAutora', e.target.value)} placeholder="Não localizado — preencha manualmente" className="h-11 rounded-xl" />
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="requerido">Polo Passivo (Réu / Requerido)</Label>
