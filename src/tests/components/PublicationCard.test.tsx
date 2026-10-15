@@ -36,7 +36,7 @@ describe('PublicationCard', () => {
 
   it('tratada e vinculada: sem Tratar; sem onRegister não há botão Processo', () => {
     const a = acoes();
-    render(<PublicationCard publication={pub({ status: 'lida', processo_id: 'pr1', urgencia: 'normal' })} selected {...a} />);
+    render(<PublicationCard publication={pub({ status: 'lida', processo_id: 'pr1', urgencia: 'media' })} selected {...a} />);
     expect(screen.getByText('Tratada')).toBeInTheDocument();
     expect(screen.getByText('Vinculada')).toBeInTheDocument();
     expect(screen.queryByText('Urgente')).toBeNull();
