@@ -2825,3 +2825,45 @@ atendimento pelas telas (PR #146).
 jurisprudência/plano → realtime → intermitentes → E2E completo → perfil antes
 de renderizar → URLs órfãs → migrations da jurisprudência → código →
 dependências → Supabase Pro. Com 1–4: ~92% geral.
+
+---
+
+# Parte 29 — reauditoria depois de fechar os sete achados da Parte 28 (10/10/2026, 14:30 UTC)
+
+Entregue como página HTML: [`ANALISE_PLATAFORMA_PARTE29.html`](./ANALISE_PLATAFORMA_PARTE29.html)
+(abrir no navegador). Mesma grade das Partes 23–28, `main` em `63c034e`, PRs
+#145–#152 mergeadas e #153–#156 abertas desde a Parte 28.
+
+**Resultado:** geral **90%** (Parte 28: 88%; 91% com as 4 PRs abertas) · Frente
+**91%** (90%) · Backend **92%** (90%) · transversal **87%** (84%). 542 testes
+unitários (545 com #153), 63 de 67 hooks, E2E 11/11 no CI. **Pela primeira vez na
+série, 18 h de logs sem nenhum erro de integração.**
+
+**O que fechou, com causa raiz:**
+
+1. Robôs com 401 interno (#147): a chave `sb_secret_…` injetada pela plataforma
+   vira um JWT curto que chegava vencido (`PGRST303`). Robô usa o service_role do
+   vault e responde 500 quando o REST falha. 96 execuções seguidas sem erro.
+2. Realtime 401 em 100% dos navegadores (#148): o secret `VITE_SUPABASE_ANON_KEY`
+   tinha uma quebra de linha no fim (209 caracteres em vez de 208); nos headers o
+   navegador descarta, no query param do websocket vira `%0A`. Client apara as
+   variáveis; E2E de regressão.
+3. Clientes 404 (#149): `like('____-MM-__')` em coluna `date` na consulta de
+   aniversariantes; o hook engolia o erro. Metas 403: ACL já corrigida às 05:59.
+4. `juris-sync` 500 (#150): statement timeout de 8 s no upsert de 500 docs; sub-lotes
+   de 100 com retry pela metade. STJ cortado trimestre a trimestre para 12 meses
+   (34.269 docs) + vacuum full: banco 321 MB → 214 MB (#152, #154).
+5. Repositório × banco (#151): 70 divergências, não 3 — 75 migrations antigas sem
+   registro, 50 com carimbo do dashboard, 5 redundantes, 1 nunca versionada
+   (`valor_pago`), 1 versão duplicada. Agora 154 × 154, diff zerado.
+6. Storage órfão: não reproduz (0 × 4xx; arquivos existem). Encerrado.
+7. AuthContext (#153, aberta): tela só abre com perfil + escritório, teto de 6 s.
+
+**Também nesta rodada:** bundle inicial 1.506 kB → 825 kB, Sentry lazy e chunk de
+gráficos só onde há gráfico (#155); dependências compatíveis, `npm audit` 30 → 12
+(#156); Zap segue pausado.
+
+**Plano para 100%** (9 itens, na página): mergear as 4 PRs → E2E completo →
+dívida de código (11 arquivos > 600 linhas, 607 `any`, Deno fora do orçamento do
+lint) → react-router 7 → advisors (search_path, unaccent, FK, índices) →
+paginação em 6 abas → Zap → Supabase Pro → re-salvar o secret limpo.
