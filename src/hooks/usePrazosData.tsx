@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { assertRowsAffected } from '@/lib/errors';
 import { concluirPrazoDb, concluirPrazosBulkDb } from '@/lib/concluirItens';
 import { captureError } from '@/lib/monitoring';
+import { useHistoricoPaginado } from '@/hooks/useHistoricoPaginado';
 import {
   type Prazo, type ProcInfo, type PubInfo,
   onlyDigits, teorPrazo,
@@ -53,28 +54,33 @@ export function usePrazosData(ui: UiCallbacks = {}) {
   });
 
   // Prazos concluídos: histórico que só cresce, nunca sai — buscado sob demanda
-  // (só quando o toggle "mostrar concluídos" está ligado) e com cap de segurança,
-  // mais recentes primeiro.
-  const {
-    data: prazosConcluidos = [], isLoading: loadingConcluidos,
-    isError: erroConcluidos, error: errorConcluidos, refetch: refetchConcluidos,
-  } = useQuery<Prazo[]>({
+  // (só quando o toggle "mostrar concluídos" está ligado), paginado com contagem
+  // exata (useHistoricoPaginado), mais recentes primeiro. Substitui o
+  // `.limit(500)` silencioso de antes: a página mostra quantos faltam e carrega
+  // mais sob demanda.
+  const concluidos = useHistoricoPaginado<Prazo>({
     queryKey: ['prazos', 'concluidos', user?.office_id, user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
+    enabled: !!user?.id && showConcluidos,
+    fetchPage: async (from, to) => {
       let query = supabase
         .from('prazos')
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('status', 'concluido')
         .order('concluido_em', { ascending: false, nullsFirst: false })
-        .limit(500);
-      query = user.office_id ? query.eq('office_id', user.office_id) : query.eq('responsavel_id', user.id);
-      const { data, error } = await query;
+        .range(from, to);
+      query = user!.office_id ? query.eq('office_id', user!.office_id) : query.eq('responsavel_id', user!.id);
+      const { data, error, count } = await query;
       if (error) throw error;
-      return (data || []).filter((p: any) => !p.deletado) as Prazo[];
+      // Soft-deletados filtrados em JS (a contagem os inclui — "restantes" pode
+      // ficar um pouco acima do exibido; o fim é detectado pela página vazia).
+      return { rows: (data || []).filter((p: any) => !p.deletado) as Prazo[], total: count ?? 0 };
     },
-    enabled: !!user?.id && showConcluidos,
   });
+  const prazosConcluidos = concluidos.rows;
+  const loadingConcluidos = concluidos.isLoading;
+  const erroConcluidos = concluidos.isError;
+  const errorConcluidos = concluidos.error;
+  const refetchConcluidos = concluidos.refetch;
 
   const prazos = useMemo(
     () => (showConcluidos ? [...prazosAtivos, ...prazosConcluidos] : prazosAtivos),
@@ -274,6 +280,10 @@ export function usePrazosData(ui: UiCallbacks = {}) {
 
   return {
     prazos, isLoading, isError, error, refetch,
+    /** Concluídos ainda não carregados (só conta com showConcluidos) — ver useHistoricoPaginado. */
+    concluidosRestantes: showConcluidos ? concluidos.restantes : 0,
+    carregarMaisConcluidos: concluidos.carregarMais,
+    carregandoMaisConcluidos: concluidos.carregandoMais,
     // Consultas auxiliares (teor da publicação, processo→cliente): a lista em si
     // carregou, mas cliente/teor podem estar incompletos — a página avisa à parte.
     auxError: pubError || procError,

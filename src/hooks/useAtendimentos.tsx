@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { captureError } from "@/lib/monitoring";
 import { assertRowsAffected, getErrorMessage } from "@/lib/errors";
 import { patchOfficeSettings } from "@/lib/officeSettings";
+import { useHistoricoPaginado } from "@/hooks/useHistoricoPaginado";
 import { continueOccurrences, type RecRule } from "@/lib/recorrencia";
 import type { Atendimento } from "@/components/Atendimentos/shared";
 import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/rows";
@@ -39,11 +40,12 @@ export const useAtendimentos = (officeId: string | null | undefined) => {
   // Split ativos/histórico (mesmo padrão de usePrazosData): "ativos"
   // (agendado/pendente) é o conjunto de trabalho normal, naturalmente limitado
   // pelo volume atual de agenda — busca sem cap. "histórico" (realizado/
-  // cancelado) só cresce, nunca sai — busca com cap de segurança, mais
-  // recentes primeiro. Substitui o fetch-all com .limit(1000) que, ordenado
-  // por data DESCENDENTE, cortava justamente os atendimentos mais ANTIGOS (ou
-  // pior, se houvesse muita recorrência futura agendada, podia cortar até os
-  // de hoje) — bug que a divisão abaixo elimina de vez para o lado "ativos".
+  // cancelado) só cresce, nunca sai — vem paginado, mais recentes primeiro, com
+  // a contagem exata; a tela mostra quantos faltam e carrega mais sob demanda
+  // (useHistoricoPaginado). Substitui o `.limit(1000)` silencioso de antes, que
+  // escondia o que passasse do cap. O fetch-all original, ordenado por data
+  // DESCENDENTE, cortava justamente os atendimentos mais ANTIGOS (ou, com muita
+  // recorrência futura, até os de hoje) — a divisão elimina isso do lado "ativos".
   const ativos = useQuery({
     queryKey: ["atendimentos", officeId, "ativos"],
     enabled: !!officeId,
@@ -60,28 +62,55 @@ export const useAtendimentos = (officeId: string | null | undefined) => {
     },
   });
 
-  const historico = useQuery({
+  const historico = useHistoricoPaginado<Atendimento>({
     queryKey: ["atendimentos", officeId, "historico"],
     enabled: !!officeId,
-    queryFn: async () => {
-      const { data, error } = await supabase
+    fetchPage: async (from, to) => {
+      const { data, error, count } = await supabase
         .from("atendimentos")
-        .select("*, clientes(nome)")
+        .select("*, clientes(nome)", { count: "exact" })
         .eq("office_id", officeId!)
         .in("status", HISTORICO_DB)
         .order("data_atendimento", { ascending: false })
-        .limit(1000);
+        .range(from, to);
       if (error) throw error;
-      return naoDeletado(data);
+      // A contagem inclui soft-deletados (filtrados em JS, ver naoDeletado) —
+      // "restantes" pode ficar um pouco acima do que de fato aparece. Aceitável:
+      // é só o rótulo do botão, e o fim da lista é detectado pela página vazia.
+      return { rows: naoDeletado(data), total: count ?? 0 };
+    },
+  });
+
+  // Contagens dos cards de resumo: vêm do servidor, não da lista carregada —
+  // com o histórico paginado, contar em memória subestimaria realizados/cancelados.
+  const contagens = useQuery({
+    queryKey: ["atendimentos", officeId, "contagens"],
+    enabled: !!officeId,
+    queryFn: async () => {
+      const base = () => supabase.from("atendimentos").select("id", { count: "exact", head: true })
+        .eq("office_id", officeId!).or("deletado.is.null,deletado.eq.false");
+      const [total, realizados, cancelados] = await Promise.all([
+        base(),
+        base().in("status", ["realizado", "realizada", "concluido", "concluida"]),
+        base().in("status", ["cancelado", "cancelada"]),
+      ]);
+      const falha = total.error || realizados.error || cancelados.error;
+      if (falha) throw falha;
+      return { total: total.count ?? 0, realizados: realizados.count ?? 0, cancelados: cancelados.count ?? 0 };
     },
   });
 
   const query = {
-    data: [...(ativos.data ?? []), ...(historico.data ?? [])],
+    data: [...(ativos.data ?? []), ...historico.rows],
     isLoading: ativos.isLoading || historico.isLoading,
     isError: ativos.isError || historico.isError,
     error: ativos.error ?? historico.error,
-    refetch: () => { ativos.refetch(); historico.refetch(); },
+    refetch: () => { ativos.refetch(); historico.refetch(); contagens.refetch(); },
+    /** Histórico (realizados/cancelados) ainda não carregado — ver useHistoricoPaginado. */
+    historicoRestantes: historico.restantes,
+    carregarMaisHistorico: historico.carregarMais,
+    carregandoMaisHistorico: historico.carregandoMais,
+    contagens: contagens.data ?? null,
   };
 
   const invalidate = useCallback(() =>
