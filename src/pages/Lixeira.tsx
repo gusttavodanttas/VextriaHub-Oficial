@@ -105,7 +105,13 @@ export default function Lixeira() {
   const [restoring, setRestoring] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<LixeiraItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+  // Tabelas que bateram no teto (chave da tabela) e teto atual de cada uma: o
+  // aviso oferece "carregar mais", que sobe o teto daquela tabela em mais um
+  // bloco e recarrega — antes o excedente simplesmente não aparecia.
   const [cappedTabelas, setCappedTabelas] = useState<string[]>([]);
+  const [limites, setLimites] = useState<Record<string, number>>({});
+  const limiteDe = (tabela: string) => limites[tabela] ?? TRASH_TABLE_CAP;
+  const carregarMaisDe = (tabela: string) => setLimites((prev) => ({ ...prev, [tabela]: (prev[tabela] ?? TRASH_TABLE_CAP) + TRASH_TABLE_CAP }));
   const [tabelasComErro, setTabelasComErro] = useState<string[]>([]);
 
   const fetchAll = async () => {
@@ -135,7 +141,7 @@ export default function Lixeira() {
         falhas.push(TABELA_CONFIG[tabela]?.label || tabela);
       };
 
-      const { data: procs, error: procsErr } = await applyTenantFilter(supabase.from('processos').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(TRASH_TABLE_CAP);
+      const { data: procs, error: procsErr } = await applyTenantFilter(supabase.from('processos').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(limiteDe('processos'));
       anotarFalha('processos', procsErr);
       (procs || []).forEach(p => results.push({
         id: p.id, tabela: 'processos',
@@ -144,7 +150,7 @@ export default function Lixeira() {
         excluido_em: p.updated_at, office_id: p.office_id, office_name: officeMap[p.office_id] || '—', user_id: p.user_id, dados: p,
       }));
 
-      const { data: pubs, error: pubsErr } = await applyTenantFilter(supabase.from('publicacoes').select('*').eq('status', 'arquivada')).order('created_at', { ascending: false }).limit(TRASH_TABLE_CAP);
+      const { data: pubs, error: pubsErr } = await applyTenantFilter(supabase.from('publicacoes').select('*').eq('status', 'arquivada')).order('created_at', { ascending: false }).limit(limiteDe('publicacoes'));
       anotarFalha('publicacoes', pubsErr);
       (pubs || []).forEach(p => results.push({
         id: p.id, tabela: 'publicacoes',
@@ -153,7 +159,7 @@ export default function Lixeira() {
         excluido_em: p.created_at, office_id: p.office_id, office_name: officeMap[p.office_id] || '—', user_id: p.user_id ?? undefined, dados: p,
       }));
 
-      const { data: prazos, error: prazosErr } = await applyTenantFilter(supabase.from('prazos').select('*').eq('deletado', true)).order('created_at', { ascending: false }).limit(TRASH_TABLE_CAP);
+      const { data: prazos, error: prazosErr } = await applyTenantFilter(supabase.from('prazos').select('*').eq('deletado', true)).order('created_at', { ascending: false }).limit(limiteDe('prazos'));
       anotarFalha('prazos', prazosErr);
       (prazos || []).forEach(p => results.push({
         id: p.id, tabela: 'prazos',
@@ -162,7 +168,7 @@ export default function Lixeira() {
         excluido_em: p.created_at, office_id: p.office_id, office_name: officeMap[p.office_id] || '—', user_id: p.user_id ?? undefined, dados: p,
       }));
 
-      const { data: auds, error: audsErr } = await applyTenantFilter(supabase.from('audiencias').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(TRASH_TABLE_CAP);
+      const { data: auds, error: audsErr } = await applyTenantFilter(supabase.from('audiencias').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(limiteDe('audiencias'));
       anotarFalha('audiencias', audsErr);
       (auds || []).forEach(a => results.push({
         id: a.id, tabela: 'audiencias',
@@ -171,7 +177,7 @@ export default function Lixeira() {
         excluido_em: a.updated_at, office_id: a.office_id, office_name: officeMap[a.office_id] || '—', user_id: a.user_id, dados: a,
       }));
 
-      const { data: atds, error: atdsErr } = await applyTenantFilter(supabase.from('atendimentos').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(TRASH_TABLE_CAP);
+      const { data: atds, error: atdsErr } = await applyTenantFilter(supabase.from('atendimentos').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(limiteDe('atendimentos'));
       anotarFalha('atendimentos', atdsErr);
       (atds || []).forEach(a => results.push({
         id: a.id, tabela: 'atendimentos',
@@ -180,7 +186,7 @@ export default function Lixeira() {
         excluido_em: a.updated_at, office_id: a.office_id, office_name: officeMap[a.office_id] || '—', user_id: a.user_id, dados: a,
       }));
 
-      const { data: tarefas, error: tarefasErr } = await applyTenantFilter(supabase.from('tarefas').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(TRASH_TABLE_CAP);
+      const { data: tarefas, error: tarefasErr } = await applyTenantFilter(supabase.from('tarefas').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(limiteDe('tarefas'));
       anotarFalha('tarefas', tarefasErr);
       (tarefas || []).forEach(t => results.push({
         id: t.id, tabela: 'tarefas',
@@ -191,7 +197,7 @@ export default function Lixeira() {
         excluido_em: t.updated_at, office_id: t.office_id, office_name: officeMap[t.office_id] || '—', user_id: t.user_id, dados: t,
       }));
 
-      const { data: tss, error: tssErr } = await applyTenantFilter(supabase.from('timesheets').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(TRASH_TABLE_CAP);
+      const { data: tss, error: tssErr } = await applyTenantFilter(supabase.from('timesheets').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(limiteDe('timesheets'));
       anotarFalha('timesheets', tssErr);
       (tss || []).forEach(t => results.push({
         id: t.id, tabela: 'timesheets',
@@ -200,7 +206,7 @@ export default function Lixeira() {
         excluido_em: t.updated_at || t.created_at || '', office_id: t.office_id, office_name: officeMap[t.office_id || ''] || '—', user_id: t.user_id, dados: t,
       }));
 
-      const { data: clis, error: clisErr } = await applyTenantFilter(supabase.from('clientes').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(TRASH_TABLE_CAP);
+      const { data: clis, error: clisErr } = await applyTenantFilter(supabase.from('clientes').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(limiteDe('clientes'));
       anotarFalha('clientes', clisErr);
       (clis || []).forEach(c => results.push({
         id: c.id, tabela: 'clientes',
@@ -209,7 +215,7 @@ export default function Lixeira() {
         excluido_em: c.updated_at, office_id: c.office_id, office_name: officeMap[c.office_id] || '—', user_id: (c as any).user_id, dados: c,
       }));
 
-      const { data: metasRows, error: metasRowsErr } = await applyTenantFilter(supabase.from('metas').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(TRASH_TABLE_CAP);
+      const { data: metasRows, error: metasRowsErr } = await applyTenantFilter(supabase.from('metas').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(limiteDe('metas'));
       anotarFalha('metas', metasRowsErr);
       (metasRows || []).forEach(m => results.push({
         id: m.id, tabela: 'metas',
@@ -218,7 +224,7 @@ export default function Lixeira() {
         excluido_em: m.updated_at, office_id: m.office_id, office_name: officeMap[m.office_id] || '—', user_id: m.user_id, dados: m,
       }));
 
-      const { data: fin, error: finErr } = await applyTenantFilter(supabase.from('financeiro').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(TRASH_TABLE_CAP);
+      const { data: fin, error: finErr } = await applyTenantFilter(supabase.from('financeiro').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(limiteDe('financeiro'));
       anotarFalha('financeiro', finErr);
       (fin || []).forEach(f => results.push({
         id: f.id, tabela: 'financeiro',
@@ -228,7 +234,7 @@ export default function Lixeira() {
       }));
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tabela dinâmica: o genérico estoura o limite de instanciação do Supabase só aqui
-      const { data: desc, error: descErr } = await applyTenantFilter<any>(supabase.from('processos_descartados').select('*')).order('created_at', { ascending: false }).limit(TRASH_TABLE_CAP);
+      const { data: desc, error: descErr } = await applyTenantFilter<any>(supabase.from('processos_descartados').select('*')).order('created_at', { ascending: false }).limit(limiteDe('processos_descartados'));
       anotarFalha('processos_descartados', descErr);
       (desc || []).forEach((d: any) => results.push({
         id: d.id, tabela: 'processos_descartados',
@@ -240,7 +246,7 @@ export default function Lixeira() {
       // correspondentes/diligencias ainda não estão nos tipos gerados do Supabase
       // (mesmo débito técnico documentado em useCorrespondentes.tsx) — acesso via `as any`.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: corrs, error: corrsErr } = await applyTenantFilter<any>((supabase as any).from('correspondentes').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(TRASH_TABLE_CAP);
+      const { data: corrs, error: corrsErr } = await applyTenantFilter<any>((supabase as any).from('correspondentes').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(limiteDe('correspondentes'));
       anotarFalha('correspondentes', corrsErr);
       (corrs || []).forEach((c: any) => results.push({
         id: c.id, tabela: 'correspondentes',
@@ -250,7 +256,7 @@ export default function Lixeira() {
       }));
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: dils, error: dilsErr } = await applyTenantFilter<any>((supabase as any).from('diligencias').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(TRASH_TABLE_CAP);
+      const { data: dils, error: dilsErr } = await applyTenantFilter<any>((supabase as any).from('diligencias').select('*').eq('deletado', true)).order('updated_at', { ascending: false }).limit(limiteDe('diligencias'));
       anotarFalha('diligencias', dilsErr);
       (dils || []).forEach((d: any) => results.push({
         id: d.id, tabela: 'diligencias',
@@ -263,15 +269,16 @@ export default function Lixeira() {
       setItems(results);
       setTabelasComErro(falhas);
 
-      // Cada tabela é buscada com .limit(TRASH_TABLE_CAP) acima — se alguma bateu no
+      // Cada tabela é buscada com .limit(limiteDe(tabela)) acima — se alguma bateu no
       // teto, pode haver mais itens não exibidos nela (a lista deixa de ser exaustiva
-      // pra essa tabela). Avisa em vez de deixar parecer que "isso é tudo".
+      // pra essa tabela). Avisa, com "carregar mais", em vez de deixar parecer que
+      // "isso é tudo".
       const countsPorTabela: Record<string, number> = {};
       for (const r of results) countsPorTabela[r.tabela] = (countsPorTabela[r.tabela] || 0) + 1;
       setCappedTabelas(
         Object.entries(countsPorTabela)
-          .filter(([, count]) => count >= TRASH_TABLE_CAP)
-          .map(([tabela]) => TABELA_CONFIG[tabela]?.label || tabela)
+          .filter(([tabela, count]) => count >= limiteDe(tabela))
+          .map(([tabela]) => tabela)
       );
     } catch (err) {
       // Sem isto, uma falha de rede/RLS ficava indistinguível de "lixeira
@@ -282,7 +289,7 @@ export default function Lixeira() {
     }
   };
 
-  useEffect(() => { fetchAll(); }, [officeId, isSuperAdmin]);
+  useEffect(() => { fetchAll(); }, [officeId, isSuperAdmin, limites]);
 
   const tenantGuard = <T extends { eq(column: string, value: string): T }>(query: T, item: LixeiraItem): T =>
     (!isSuperAdmin && item.office_id) ? query.eq('office_id', item.office_id) : query;
@@ -435,9 +442,17 @@ export default function Lixeira() {
       {cappedTabelas.length > 0 && (
         <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-medium">
           <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-          <span>
-            Mostrando só os {TRASH_TABLE_CAP} itens mais recentes de: {cappedTabelas.join(', ')}. Pode haver mais itens excluídos nessas categorias não exibidos aqui.
-          </span>
+          <div className="flex-1 space-y-2">
+            <p>Há categorias com mais itens excluídos do que os exibidos aqui — carregue mais para vê-los:</p>
+            <div className="flex flex-wrap gap-2">
+              {cappedTabelas.map((tabela) => (
+                <Button key={tabela} variant="outline" size="sm" disabled={loading} onClick={() => carregarMaisDe(tabela)}
+                  className="h-7 rounded-lg text-xs" data-testid={`lixeira-carregar-mais-${tabela}`}>
+                  {TABELA_CONFIG[tabela]?.label || tabela}: mostrando {limiteDe(tabela)} · carregar mais {TRASH_TABLE_CAP}
+                </Button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
