@@ -1,27 +1,13 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Plus, FileText, Scale, User, Gavel, ShieldCheck, Info, RotateCw, Search, Loader2, AlertTriangle } from 'lucide-react';
+import { Plus, Gavel } from 'lucide-react';
 import { usePlanLimits } from '@/hooks/usePlanFeatures';
 import { getErrorMessage } from '@/lib/errors';
 import { captureError } from '@/lib/monitoring';
@@ -31,20 +17,18 @@ import { PermissionGuard } from '@/components/Auth/PermissionGuard';
 import { useOfficeUsers } from '@/hooks/useOfficeUsers';
 import { useOfficeTeams } from '@/hooks/useOfficeTeams';
 import { useAuth } from '@/contexts/AuthContext';
-import { tiposProcesso, statusProcesso, fasesProcessuais, type ProcessoCreateInput, type FetchProcessoResposta } from '@/types/processo';
+import type { ProcessoCreateInput, FetchProcessoResposta } from '@/types/processo';
 import { useOfficeSettingList } from '@/hooks/useOfficeSettingList';
-import { CreatableSelect } from '@/components/Settings/CreatableSelect';
 import { TIPOS_PROCESSO_DEFAULT, type TipoProcesso } from '@/components/Settings/ProcessTypeSimple';
-import { Separator } from '@/components/ui/separator';
-import { maskCNJ } from '@/utils/formatCNJ';
 import { tribunalFromCNJ } from '@/utils/tribunalCNJ';
-import { JudicialSyncDialog, JudicialSyncContent } from './JudicialSyncDialog';
+import { JudicialSyncContent } from './JudicialSyncDialog';
+import { MetodoEntrada } from './NovoProcesso/MetodoEntrada';
+import { BuscaCnj } from './NovoProcesso/BuscaCnj';
+import { FormularioProcesso } from './NovoProcesso/FormularioProcesso';
 import type { ProcessoParaImportar } from './JudicialSync/types';
 import { useProcessosV2 } from '@/hooks/useProcessosV2';
 import { useClientes } from '@/hooks/useClientes';
-import { ClientSelect } from '@/components/Clientes/ClientSelect';
 import { supabase } from '@/integrations/supabase/client';
-import { formatBRL } from "@/lib/currency";
 
 interface NovoProcessoDialogProps {
   // Opcional: se não passado, usamos useProcessosV2.create direto
@@ -452,263 +436,18 @@ export const NovoProcessoDialog: React.FC<NovoProcessoDialogProps> = ({
               <div className="flex-1 min-h-0 overflow-y-auto px-8">
                 <div className="py-8">
                   {step === 'choice' && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                      {/* Sincronizar OAB */}
-                      <button
-                        type="button"
-                        onClick={() => setStep('oab')}
-                        className="group relative flex flex-col items-center gap-5 p-7 rounded-2xl border border-border bg-card hover:border-indigo-400 hover:shadow-lg hover:shadow-indigo-500/10 hover:-translate-y-0.5 transition-all duration-200 text-center cursor-pointer"
-                      >
-                        <div className="w-14 h-14 rounded-xl bg-indigo-50 dark:bg-indigo-500/15 flex items-center justify-center text-indigo-600 dark:text-indigo-400 group-hover:scale-110 group-hover:rotate-6 transition-all duration-200">
-                          <RotateCw className="h-7 w-7" />
-                        </div>
-                        <div className="space-y-1">
-                          <h4 className="font-bold text-base text-foreground">Sincronizar OAB</h4>
-                          <p className="text-xs text-muted-foreground leading-relaxed">Importa todos os processos<br/>vinculados ao seu número de OAB</p>
-                        </div>
-                        <div className="absolute bottom-0 inset-x-0 h-0.5 rounded-b-2xl bg-indigo-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-200" />
-                      </button>
-
-                      {/* Buscar por CNJ */}
-                      <button
-                        type="button"
-                        onClick={() => setStep('cnj_search')}
-                        className="group relative flex flex-col items-center gap-5 p-7 rounded-2xl border border-border bg-card hover:border-emerald-400 hover:shadow-lg hover:shadow-emerald-500/10 hover:-translate-y-0.5 transition-all duration-200 text-center cursor-pointer"
-                      >
-                        <div className="w-14 h-14 rounded-xl bg-emerald-50 dark:bg-emerald-500/15 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:scale-110 group-hover:-rotate-6 transition-all duration-200">
-                          <Search className="h-7 w-7" />
-                        </div>
-                        <div className="space-y-1">
-                          <h4 className="font-bold text-base text-foreground">Buscar por CNJ</h4>
-                          <p className="text-xs text-muted-foreground leading-relaxed">Preenche automaticamente<br/>com dados do DataJud pelo número</p>
-                        </div>
-                        <div className="absolute bottom-0 inset-x-0 h-0.5 rounded-b-2xl bg-emerald-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-200" />
-                      </button>
-
-                      {/* Manual */}
-                      <button
-                        type="button"
-                        onClick={() => { setPartesNaoLocalizadas(false); setStep('form'); }}
-                        className="group relative flex flex-col items-center gap-5 p-7 rounded-2xl border border-border bg-card hover:border-amber-400 hover:shadow-lg hover:shadow-amber-500/10 hover:-translate-y-0.5 transition-all duration-200 text-center cursor-pointer"
-                      >
-                        <div className="w-14 h-14 rounded-xl bg-amber-50 dark:bg-amber-500/15 flex items-center justify-center text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-all duration-200">
-                          <Plus className="h-7 w-7" />
-                        </div>
-                        <div className="space-y-1">
-                          <h4 className="font-bold text-base text-foreground">Manual</h4>
-                          <p className="text-xs text-muted-foreground leading-relaxed">Preencha os dados<br/>do processo manualmente</p>
-                        </div>
-                        <div className="absolute bottom-0 inset-x-0 h-0.5 rounded-b-2xl bg-amber-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-200" />
-                      </button>
-                    </div>
+                    <MetodoEntrada onEscolher={(m) => { if (m === 'form') setPartesNaoLocalizadas(false); setStep(m); }} />
                   )}
 
                   {step === 'cnj_search' && (
-                    <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
-                      <div className="text-center space-y-2">
-                         <h3 className="text-xl font-bold text-foreground">Busca Automática CNJ</h3>
-                         <p className="text-sm text-muted-foreground">Informe o número do processo para preenchimento inteligente</p>
-                      </div>
-
-                      <div className="max-w-md mx-auto space-y-4">
-                        <div className="space-y-2">
-                          <Label>Número do Processo (CNJ)</Label>
-                          <Input
-                            placeholder="0000000-00.0000.0.00.0000"
-                            value={cnjInput}
-                            onChange={(e) => setCnjInput(maskCNJ(e.target.value))}
-                            className="h-12 rounded-xl font-mono text-center tracking-widest text-lg"
-                          />
-                        </div>
-                        <Button
-                          className="w-full h-12 rounded-xl font-bold"
-                          onClick={handleCnjSearch}
-                          disabled={isLoading || cnjInput.length < 15}
-                        >
-                          {isLoading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Search className="h-5 w-5 mr-2" />}
-                          {isLoading ? "Buscando dados..." : "Buscar e Avançar"}
-                        </Button>
-                      </div>
-                    </div>
+                    <BuscaCnj cnjInput={cnjInput} setCnjInput={setCnjInput} isLoading={isLoading} onBuscar={handleCnjSearch} />
                   )}
 
                   {step === 'form' && (
-                    <form onSubmit={handleSubmit} className="space-y-8 animate-in fade-in slide-in-from-right-8 duration-700 pb-10">
-                      {partesNaoLocalizadas && (
-                        <div className="flex items-start gap-3 p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30">
-                          <AlertTriangle className="h-5 w-5 text-yellow-500 shrink-0 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-bold text-yellow-600 dark:text-yellow-400">Partes não localizadas</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              O autor e o réu não foram encontrados na base pública (possível segredo de justiça ou cadastro incompleto no tribunal). Preencha o Polo Ativo e o Polo Passivo manualmente antes de salvar.
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                      {/* Seção 1: Identificação Básica */}
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
-                            <Info className="h-4 w-4 text-primary" />
-                          </div>
-                          <div>
-                            <h3 className="text-base font-bold text-foreground">Identificação Básica</h3>
-                            <p className="text-xs text-muted-foreground">Informações essenciais de registro</p>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-5 rounded-xl bg-muted/30 border border-border">
-                          <div className="space-y-2 md:col-span-2">
-                            <Label htmlFor="titulo">Título do Processo *</Label>
-                            <Input
-                              id="titulo"
-                              required
-                              value={formData.titulo}
-                              onChange={(e) => handleChange('titulo', e.target.value)}
-                              placeholder="Ex: Ação Trabalhista - Cliente X"
-                              className="h-11 rounded-xl"
-                            />
-                          </div>
-                          <div className="space-y-2 md:col-span-2">
-                            <Label>Tipo de processo</Label>
-                            <CreatableSelect
-                              value={formData.tipoProcesso || ''}
-                              onChange={(v) => handleChange('tipoProcesso', v)}
-                              options={tiposProcessoCfg.map((t) => t.nome)}
-                              onCreate={(v) => { persistTipos([...tiposProcessoCfg, { id: Date.now(), nome: v, descricao: '', area: '' }]); handleChange('tipoProcesso', v); }}
-                              placeholder="Selecione ou digite um tipo (gerido em Config → Processos)"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Cliente (vincular ao cadastro) *</Label>
-                            <ClientSelect
-                              value={formData.clienteId || ''}
-                              onValueChange={(id, name) => setFormData((prev) => ({ ...prev, clienteId: id, cliente: name }))}
-                              placeholder="Selecionar cliente do cadastro..."
-                            />
-                            {(formData.parteAutora || formData.requerido) && !formData.clienteId && (
-                              <p className="text-[11px] text-muted-foreground/70">
-                                Partes: <span className="font-semibold">{formData.parteAutora || '—'}</span> × <span className="font-semibold">{formData.requerido || '—'}</span>. Selecione qual é o seu cliente.
-                              </p>
-                            )}
-                          </div>
-                          {officeTeams.length > 0 && (
-                            <div className="space-y-2">
-                              <Label htmlFor="teamId">Equipe Responsável</Label>
-                              <Select
-                                value={formData.teamId || ''}
-                                onValueChange={(v) => handleChange('teamId', v === 'none' ? '' : v)}
-                              >
-                                <SelectTrigger className="h-11 rounded-xl">
-                                  <SelectValue placeholder="Selecionar equipe (opcional)" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="none">Sem equipe específica</SelectItem>
-                                  {officeTeams.map(t => (
-                                    <SelectItem key={t.id} value={t.id}>
-                                      <span className="flex items-center gap-2">
-                                        <span className="inline-block w-2 h-2 rounded-full" style={{ background: t.color }} />
-                                        {t.name}
-                                      </span>
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          )}
-                          {teamMembers.length > 0 && (
-                            <div className="space-y-2">
-                              <Label htmlFor="responsavelId">Responsável</Label>
-                              <Select
-                                value={formData.responsavelId || user?.id || ''}
-                                onValueChange={(v) => handleChange('responsavelId', v)}
-                              >
-                                <SelectTrigger className="h-11 rounded-xl">
-                                  <SelectValue placeholder="Selecionar responsável" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {teamMembers.map(m => (
-                                    <SelectItem key={m.user_id} value={m.user_id}>
-                                      {m.profile?.full_name || m.profile?.email || "Membro"}
-                                      {m.user_id === user?.id ? " (você)" : ""}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          )}
-                          <div className="space-y-2">
-                            <Label htmlFor="numeroProcesso">Número do Processo (CNJ)</Label>
-                            <Input
-                              id="numeroProcesso"
-                              value={formData.numeroProcesso || ''}
-                              onChange={(e) => handleChange('numeroProcesso', maskCNJ(e.target.value))}
-                              placeholder="0000000-00.0000.0.00.0000"
-                              className="font-mono h-11 rounded-xl text-primary"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Seção 2: Capa Jurídica */}
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20">
-                            <Gavel className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                          </div>
-                          <div>
-                            <h3 className="text-base font-bold text-foreground">Capa Jurídica</h3>
-                            <p className="text-xs text-muted-foreground">Dados de localização do processo</p>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-5 rounded-xl bg-muted/30 border border-border">
-                          <div className="space-y-2">
-                            <Label htmlFor="tribunal">Tribunal / Instância</Label>
-                            <Input id="tribunal" value={formData.tribunal || ''} onChange={(e) => handleChange('tribunal', e.target.value)} className="h-11 rounded-xl" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="vara">Vara / Secretaria</Label>
-                            <Input id="vara" value={formData.vara || ''} onChange={(e) => handleChange('vara', e.target.value)} className="h-11 rounded-xl" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="parteAutora">Polo Ativo (Autor / Requerente)</Label>
-                            <Input id="parteAutora" value={formData.parteAutora || ''} onChange={(e) => handleChange('parteAutora', e.target.value)} placeholder="Não localizado — preencha manualmente" className="h-11 rounded-xl" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="requerido">Polo Passivo (Réu / Requerido)</Label>
-                            <Input id="requerido" value={formData.requerido || ''} onChange={(e) => handleChange('requerido', e.target.value)} placeholder="Não localizado — preencha manualmente" className="h-11 rounded-xl" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="valorCausa">Valor da Causa</Label>
-                            <Input
-                              id="valorCausa"
-                              inputMode="numeric"
-                              placeholder="R$ 0,00"
-                              value={formData.valorCausa ? formatBRL(formData.valorCausa) : ''}
-                              onChange={(e) => {
-                                const digits = e.target.value.replace(/\D/g, '');
-                                handleChange('valorCausa', digits ? Number(digits) / 100 : 0);
-                              }}
-                              className="h-11 rounded-xl"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {isLimitReached && (
-                        <div className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-800 dark:text-amber-300">
-                          Você atingiu o limite de {limits.processes.max} processos do seu plano.{" "}
-                          <a href="/pagamento" className="font-bold underline">Fazer upgrade</a> para cadastrar mais.
-                        </div>
-                      )}
-                      <DialogFooter className="pt-2">
-                        <Button variant="ghost" type="button" onClick={() => setStep('choice')}>Cancelar</Button>
-                        <Button type="submit" disabled={isLoading || isLimitReached} className="px-8">
-                          {isLoading ? "Salvando..." : "Finalizar Cadastro"}
-                        </Button>
-                      </DialogFooter>
-                    </form>
+                    <FormularioProcesso formData={formData} setFormData={setFormData} handleChange={handleChange}
+                      partesNaoLocalizadas={partesNaoLocalizadas} tiposProcessoCfg={tiposProcessoCfg} persistTipos={persistTipos}
+                      officeTeams={officeTeams} teamMembers={teamMembers} user={user} isLimitReached={isLimitReached}
+                      limiteProcessos={limits.processes.max} isLoading={isLoading} onSubmit={handleSubmit} onCancel={() => setStep('choice')} />
                   )}
                 </div>
               </div>
