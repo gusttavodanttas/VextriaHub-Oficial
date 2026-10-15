@@ -63,6 +63,39 @@ export interface NovoProcessoForm {
   justicaGratuita?: boolean;
 }
 
+/** Movimentação como chega do DataJud/fetch-processo (antes de virar linha de `movimentacoes`). */
+export interface AndamentoInput {
+  data?: string | null;
+  resumo?: string;
+  descricao?: string;
+  fase?: string;
+}
+
+/**
+ * O que `useProcessosV2().create` aceita: o formulário (camelCase) mais os
+ * campos que vêm do DataJud/fetch-processo e os aliases crus (`autor`/`reu`,
+ * `classe`) que as edge functions e a caixa "Encontrados" devolvem. Antes isso
+ * circulava como `any` entre o diálogo, os importadores e o hook.
+ */
+export interface ProcessoCreateInput extends NovoProcessoForm {
+  id?: string;
+  parteAutora?: string;
+  teamId?: string;
+  dataInicio?: string | null;
+  // Aliases crus das fontes externas
+  autor?: string;
+  reu?: string;
+  classe?: string;
+  assunto?: string;
+  instancia?: string;
+  dataAjuizamento?: string | null;
+  orgaoJulgadorCodigo?: string;
+  nivelSigilo?: number;
+  ultimoAndamento?: { descricao: string; data: string | null } | null;
+  andamentos?: AndamentoInput[];
+  fonteSincronizacao?: string;
+}
+
 export const fasesProcessuais = [
   'Fase Inicial',
   'Fase Instrutória',

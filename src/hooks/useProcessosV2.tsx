@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { NovoProcesso } from '@/types/database';
+import type { ProcessoCreateInput } from '@/types/processo';
 import { Processo } from '@/types/processo';
 import type { TablesInsert, TablesUpdate } from '@/integrations/supabase/rows';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -105,7 +106,7 @@ export function useProcessosV2(opts: { lista?: boolean } = {}) {
   });
 
   const createMutation = useMutation({
-    mutationFn: async (newRecord: NovoProcesso) => {
+    mutationFn: async (newRecord: NovoProcesso | ProcessoCreateInput) => {
       if (!user) throw new Error('Not authenticated');
 
       const r = newRecord as any;
