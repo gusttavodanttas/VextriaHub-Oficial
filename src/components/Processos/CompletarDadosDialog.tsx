@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { tribunalFromCNJ } from "@/utils/tribunalCNJ";
 import { formatBRL } from "@/lib/currency";
 import type { TablesUpdate } from "@/integrations/supabase/rows";
+import type { FetchProcessoResposta } from "@/types/processo";
 
 interface Props {
   open: boolean;
@@ -20,10 +21,16 @@ interface Props {
   onApplied?: () => void;
 }
 
-const brl = (v: any) => formatBRL(Number(v) || 0);
+type Valor = string | number | null | undefined;
+const brl = (v: Valor) => formatBRL(Number(v) || 0);
 
 // Campos que o robô pode completar (coluna no banco ↔ valor vindo do tribunal)
-const FIELDS: { col: string; label: string; get: (d: any) => any; fmt?: (v: any) => string }[] = [
+// Colunas do processo que o robô pode completar — chaves de TablesUpdate<"processos">.
+type ColunaCompletavel = "tribunal" | "vara" | "comarca" | "classe_judicial" | "tipo_processo" | "assunto_principal"
+  | "fase_processual" | "instancia" | "parte_autora" | "requerido" | "valor_causa";
+// A function devolve camelCase; aliases snake_case entram quando a origem é o banco.
+type Resposta = FetchProcessoResposta & { classeJudicial?: string; tipoProcesso?: string; assuntoPrincipal?: string; parteAutora?: string; requerido?: string; valor_causa?: number };
+const FIELDS: { col: ColunaCompletavel; label: string; get: (d: Resposta) => Valor; fmt?: (v: Valor) => string }[] = [
   { col: "tribunal", label: "Tribunal", get: (d) => d.tribunal },
   { col: "vara", label: "Vara", get: (d) => d.vara },
   { col: "comarca", label: "Comarca", get: (d) => d.comarca },
@@ -37,14 +44,15 @@ const FIELDS: { col: string; label: string; get: (d: any) => any; fmt?: (v: any)
   { col: "valor_causa", label: "Valor da causa", get: (d) => d.valorCausa || d.valor_causa, fmt: brl },
 ];
 
-const isEmpty = (v: any) => v === null || v === undefined || v === "" || v === 0 || v === "0";
+const isEmpty = (v: Valor) => v === null || v === undefined || v === "" || v === 0 || v === "0";
 
 export function CompletarDadosDialog({ open, onOpenChange, processoId, numeroProcesso, onApplied }: Props) {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [diffs, setDiffs] = useState<{ col: string; label: string; current: any; novo: any; display: string }[] | null>(null);
+  type Diff = { col: ColunaCompletavel; label: string; current: Valor; novo: Valor; display: string };
+  const [diffs, setDiffs] = useState<Diff[] | null>(null);
   const [checked, setChecked] = useState<Record<string, boolean>>({});
 
   const buscar = async () => {
@@ -52,13 +60,17 @@ export function CompletarDadosDialog({ open, onOpenChange, processoId, numeroPro
     setDiffs(null);
     try {
       const { data, error } = await supabase.functions.invoke("fetch-processo", {
-        body: { numeroProcesso, oab: (profile as any)?.oab, uf: (profile as any)?.oab_uf },
+        body: { numeroProcesso, oab: profile?.oab, uf: profile?.oab_uf },
       });
       if (error) {
         // A FunctionsHttpError do supabase-js esconde o corpo (mostra só "non-2xx status
         // code"). Lê a mensagem REAL do edge (404 "não encontrado", 402 paywall, etc.). (v12)
         let msg = "Processo não localizado no tribunal.";
-        try { const body = await (error as any).context?.json?.(); if (body?.error) msg = String(body.error); } catch (e) { captureError(e, { context: "CompletarDadosDialog.buscar: parse error body" }); }
+        try {
+          const ctx = (error as { context?: { json?: () => Promise<{ error?: unknown }> } }).context;
+          const body = await ctx?.json?.();
+          if (body?.error) msg = String(body.error);
+        } catch (e) { captureError(e, { context: "CompletarDadosDialog.buscar: parse error body" }); }
         // Recém-protocolado costuma não estar no DataJud/PJe ainda → dica clara e acionável.
         if (/não encontrad|não localizad/i.test(msg)) {
           msg = "Processo não encontrado nos tribunais (DataJud/PJe). Se foi protocolado há pouco, pode levar alguns dias para ser indexado — o número já está salvo e você pode tentar de novo mais tarde.";
@@ -66,22 +78,25 @@ export function CompletarDadosDialog({ open, onOpenChange, processoId, numeroPro
         throw new Error(msg);
       }
       if (!data) throw new Error("Processo não localizado no tribunal.");
+      const resposta = data as Resposta;
 
       // Estado atual do processo (só as colunas que podemos completar)
       const cols = FIELDS.map((f) => f.col).join(", ");
       const { data: atual } = await supabase.from("processos").select(cols).eq("id", processoId).maybeSingle();
+      // `select(cols)` com string dinâmica não tipa as colunas — asseramos o shape conhecido.
+      const atualTipado = (atual ?? null) as Partial<Record<ColunaCompletavel, Valor>> | null;
 
       const found = FIELDS
-        .map((f) => {
+        .map((f): Diff | null => {
           // Tribunal: deriva a sigla certa do número CNJ (evita "TJ" genérico)
-          const novo = f.col === "tribunal" ? (tribunalFromCNJ(numeroProcesso) || f.get(data)) : f.get(data);
-          const current = (atual as any)?.[f.col];
+          const novo = f.col === "tribunal" ? (tribunalFromCNJ(numeroProcesso) || f.get(resposta)) : f.get(resposta);
+          const current = atualTipado?.[f.col];
           if (isEmpty(current) && !isEmpty(novo)) {
             return { col: f.col, label: f.label, current, novo, display: f.fmt ? f.fmt(novo) : String(novo) };
           }
           return null;
         })
-        .filter(Boolean) as any[];
+        .filter((d): d is Diff => d !== null);
 
       setDiffs(found);
       setChecked(Object.fromEntries(found.map((d) => [d.col, true])));
@@ -97,7 +112,7 @@ export function CompletarDadosDialog({ open, onOpenChange, processoId, numeroPro
 
   const aplicar = async () => {
     if (!diffs) return;
-    const payload: Record<string, any> = {};
+    const payload: Partial<Record<ColunaCompletavel, Valor>> = {};
     diffs.forEach((d) => { if (checked[d.col]) payload[d.col] = d.novo; });
     if (Object.keys(payload).length === 0) { onOpenChange(false); return; }
     setSaving(true);

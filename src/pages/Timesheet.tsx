@@ -70,7 +70,8 @@ export default function Timesheet() {
 
   // Config / cobrança / faturamento
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [breakdown, setBreakdown] = useState<"cliente" | "categoria" | "vinculo" | "membro">("cliente");
+  type Breakdown = "cliente" | "categoria" | "vinculo" | "membro";
+  const [breakdown, setBreakdown] = useState<Breakdown>("cliente");
   const [cobrarOpen, setCobrarOpen] = useState(false);
   const [cobrando, setCobrando] = useState(false);
   const [finalizeId, setFinalizeId] = useState<string | null>(null);
@@ -127,21 +128,26 @@ export default function Timesheet() {
 
   // Faturamento pendente do período (exclui já faturados; aplica arredondamento)
   const billing = useMemo(() => {
-    const pend = timesheets.filter((t: any) => t.status === "finalizado" && t.faturado !== true && valorDe(t, arred) > 0);
+    const pend = timesheets.filter((t) => t.status === "finalizado" && t.faturado !== true && valorDe(t, arred) > 0);
     let totalValor = 0, totalMin = 0;
     const grupos: Record<string, number> = {};
-    pend.forEach((t: any) => {
+    pend.forEach((t) => {
       const v = valorDe(t, arred);
       totalValor += v; totalMin += roundMinutes(t.duracao_minutos || 0, arred);
       let key: string;
       if (breakdown === "categoria") key = CATEGORIA_CONFIG[t.categoria as TimesheetCategoria]?.label || t.categoria || "—";
       else if (breakdown === "vinculo") key = t.referencia_label || "Sem vínculo";
       else if (breakdown === "membro") key = membroMap[t.user_id] || "Membro";
-      else key = (t as any).clientes?.nome || "Sem cliente";
+      else key = t.clientes?.nome || "Sem cliente";
       grupos[key] = (grupos[key] || 0) + v;
     });
     return { totalValor, totalMin, pend, grupos: Object.entries(grupos).sort((a, b) => b[1] - a[1]) };
   }, [timesheets, arred, breakdown, membroMap]);
+
+  const breakdownOpts: { k: Breakdown; l: string }[] = [
+    { k: "cliente", l: "Cliente" }, { k: "categoria", l: "Categoria" }, { k: "vinculo", l: "Vínculo" },
+    ...(scope === "office" ? [{ k: "membro" as const, l: "Membro" }] : []),
+  ];
 
   // Gera lançamentos de receita no Financeiro a partir das horas faturáveis pendentes
   const gerarCobranca = async () => {
@@ -149,7 +155,7 @@ export default function Timesheet() {
     setCobrando(true);
     try {
       const porCliente: Record<string, { valor: number; min: number; ids: string[] }> = {};
-      billing.pend.forEach((t: any) => {
+      billing.pend.forEach((t) => {
         const cid = t.cliente_id || "__sem__";
         const g = (porCliente[cid] ||= { valor: 0, min: 0, ids: [] });
         g.valor += valorDe(t, arred); g.min += roundMinutes(t.duracao_minutos || 0, arred); g.ids.push(t.id);
@@ -304,10 +310,10 @@ export default function Timesheet() {
                   <catCfg.Icon className="h-3.5 w-3.5" />{catCfg.label}
                 </div>
               )}
-              {(activeTimer as any).clientes?.nome && (
+              {activeTimer.clientes?.nome && (
                 <button onClick={() => navigate(`/clientes?openId=${activeTimer.cliente_id}`)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20 transition-colors">
-                  <UserCircle className="h-3.5 w-3.5" />{(activeTimer as any).clientes.nome}
+                  <UserCircle className="h-3.5 w-3.5" />{activeTimer.clientes?.nome}
                   <ExternalLink className="h-2.5 w-2.5 opacity-60" />
                 </button>
               )}
@@ -391,8 +397,8 @@ export default function Timesheet() {
             </div>
           </div>
           <div className="flex items-center gap-1 flex-wrap">
-            {([{ k: "cliente", l: "Cliente" }, { k: "categoria", l: "Categoria" }, { k: "vinculo", l: "Vínculo" }, ...(scope === "office" ? [{ k: "membro", l: "Membro" }] : [])] as const).map(opt => (
-              <button key={opt.k} onClick={() => setBreakdown(opt.k as any)}
+            {breakdownOpts.map(opt => (
+              <button key={opt.k} onClick={() => setBreakdown(opt.k)}
                 className={cn("px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors", breakdown === opt.k ? "bg-amber-500/20 text-amber-700 dark:text-amber-400" : "text-muted-foreground/60 hover:bg-muted/40")}>
                 {opt.l}
               </button>
@@ -476,7 +482,7 @@ export default function Timesheet() {
               {entries.map((t) => {
                 const cfg = CATEGORIA_CONFIG[t.categoria as TimesheetCategoria];
                 const rCfg = t.referencia_tipo ? REFERENCIA_CONFIG[t.referencia_tipo as ReferenciaTipo] : null;
-                const clienteNome = (t as any).clientes?.nome;
+                const clienteNome = t.clientes?.nome;
                 const v = valorDe(t, arred);
                 const mine = t.user_id === user?.id;
 
@@ -528,7 +534,7 @@ export default function Timesheet() {
                         {t.faturavel === false && (
                           <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-black uppercase border-muted-foreground/20 text-muted-foreground/60">Não fat.</Badge>
                         )}
-                        {(t as any).faturado && (
+                        {t.faturado && (
                           <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-black uppercase border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 gap-1"><BadgeCheck className="h-2.5 w-2.5" />Faturado</Badge>
                         )}
                       </div>
@@ -552,17 +558,17 @@ export default function Timesheet() {
                               <PlayCircle className="h-4 w-4" /> Retomar
                             </DropdownMenuItem>
                           )}
-                          {t.status === "finalizado" && !(t as any).faturado && (
+                          {t.status === "finalizado" && !t.faturado && (
                             <DropdownMenuItem className="rounded-lg gap-2" onClick={() => marcarFaturado([t.id], true)}>
                               <BadgeCheck className="h-4 w-4" /> Marcar faturado
                             </DropdownMenuItem>
                           )}
-                          {(t as any).faturado && (t as any).financeiro_id && (
-                            <DropdownMenuItem className="rounded-lg gap-2" onClick={() => setEstornoId((t as any).financeiro_id)}>
+                          {t.faturado && t.financeiro_id && (
+                            <DropdownMenuItem className="rounded-lg gap-2" onClick={() => setEstornoId(t.financeiro_id)}>
                               <Receipt className="h-4 w-4" /> Estornar cobrança
                             </DropdownMenuItem>
                           )}
-                          {(t as any).faturado && !(t as any).financeiro_id && (
+                          {t.faturado && !t.financeiro_id && (
                             <DropdownMenuItem className="rounded-lg gap-2" onClick={() => marcarFaturado([t.id], false)}>
                               <BadgeCheck className="h-4 w-4" /> Reabrir faturamento
                             </DropdownMenuItem>

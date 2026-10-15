@@ -17,7 +17,8 @@ const config = { valorPadrao: 200 } as never;
 function montar(over: { activeTimer?: unknown; startTimer?: (...a: unknown[]) => Promise<unknown> } = {}) {
   const startTimer = over.startTimer ?? vi.fn(async () => ({ id: 't' }));
   const navigate = vi.fn();
-  const r = renderHook(({ activeTimer }) => useTimesheetTimer({ activeTimer, startTimer, config, user, navigate }), { initialProps: { activeTimer: over.activeTimer ?? null } });
+  // O hook agora é tipado (Timesheet | null / startTimer real); o teste monta com fixtures parciais.
+  const r = renderHook(({ activeTimer }) => useTimesheetTimer({ activeTimer: activeTimer as never, startTimer: startTimer as never, config, user, navigate }), { initialProps: { activeTimer: over.activeTimer ?? null } });
   return { ...r, startTimer, navigate };
 }
 

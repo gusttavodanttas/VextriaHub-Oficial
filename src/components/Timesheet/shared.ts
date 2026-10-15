@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { roundMinutes, type Arredondamento } from "@/hooks/useTimesheetConfig";
 import { type TimesheetCategoria } from "@/types/timesheet";
+import type { Timesheet } from "@/services/timesheetService";
 
 // ─── Configs ──────────────────────────────────────────────────────────────────
 
@@ -59,7 +60,7 @@ function formatMinutes(min: number) {
 }
 // Reexporta a formatação central (era um toLocaleString local, 2 casas = mesmo comportamento).
 export { formatBRL } from "@/lib/currency";
-const valorDe = (t: any, arred: Arredondamento = "nenhum") =>
+const valorDe = (t: Pick<Timesheet, "faturavel" | "valor_hora" | "duracao_minutos">, arred: Arredondamento = "nenhum") =>
   t.faturavel !== false && t.valor_hora && t.duracao_minutos
     ? (roundMinutes(t.duracao_minutos, arred) / 60) * t.valor_hora
     : 0;
