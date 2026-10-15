@@ -10,7 +10,7 @@ vi.mock('@/integrations/supabase/client', async () => {
 vi.mock('@/components/Auth/PermissionGuard', () => ({ PermissionGuard: ({ children }: { children: React.ReactNode }) => <>{children}</> }));
 
 import { PublicationCard } from '@/components/Publications/PublicationCard';
-import type { Publication } from '@/hooks/usePublicacoes';
+import type { Publication } from '@/types/publicacao';
 
 const pub = (over: Partial<Publication> = {}) => ({
   id: 'p1', titulo: 'Intimação para audiência', numero_processo: '00012345620268260100', tribunal: 'TJSP',

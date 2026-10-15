@@ -8,7 +8,7 @@ import { Trash2, CheckSquare, Clock, CalendarDays, CheckCircle, PlusCircle, Link
 import { formatCNJ } from "@/utils/formatCNJ";
 import { fmtDataBR } from "@/lib/dates";
 import { cn } from "@/lib/utils";
-import type { Publication } from "@/hooks/usePublicacoes";
+import type { Publication } from "@/types/publicacao";
 import type { AcaoTipo } from "@/components/Processos/AgendarPublicacaoDialog";
 
 interface Props {
