@@ -20,7 +20,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { NovoLeadDialog } from "@/components/Crm/NovoLeadDialog";
 import { getStatusColor } from "@/components/Crm/CrmUtils";
-import { useClientes } from "@/hooks/useClientes";
+import { useCrmBase } from "@/hooks/useCrmBase";
+import { CarregarMaisHistorico } from "@/components/shared/CarregarMaisHistorico";
 import type { ClienteComProcessos } from "@/types/database";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -47,7 +48,10 @@ const TEMPERATURAS = [
 ];
 
 export default function Crm() {
-  const { data: allClientes = [], loading, error, refresh } = useClientes();
+  const {
+    leads, convertidos, resumoConvertidos, convertidosRestantes, carregarMaisConvertidos, carregandoMaisConvertidos,
+    loading, error, refresh, todos: allClientes,
+  } = useCrmBase();
   const { user, profile } = useAuth();
   const { canManageCRM } = usePermissions();
   const { toast } = useToast();
@@ -61,22 +65,22 @@ export default function Crm() {
 
   const brl = (v: number) => formatBRL(v, { decimals: 0 });
 
-  const leadsStatuses = ["lead", "quente", "morno", "frio"];
-
-  // Derivações memoizadas (evita recalcular a cada render)
-  const { leads, convertedClients, hotLeadsCount, conversionRate, pipelineValue, valorGanho } = useMemo(() => {
-    const leads = allClientes.filter(c => leadsStatuses.includes(c.status || ""));
-    const convertedClients = allClientes.filter(c => (c.status || "") === "convertido");
+  // Derivações memoizadas (evita recalcular a cada render). Os convertidos vêm
+  // paginados: taxa de conversão e valor ganho usam o resumo do servidor
+  // (todos os convertidos), não só a página carregada.
+  const { convertedClients, hotLeadsCount, conversionRate, pipelineValue, valorGanho, totalConvertidos } = useMemo(() => {
+    const convertedClients = convertidos;
+    const totalConvertidos = resumoConvertidos?.total ?? convertedClients.length;
     const hotLeadsCount = leads.filter(l => l.status === "quente").length;
-    const crmTotal = leads.length + convertedClients.length;
-    const conversionRate = crmTotal > 0 ? Math.round((convertedClients.length / crmTotal) * 100) : 0;
-    const val = (c: any) => Number(c.valor_estimado) || 0;
+    const crmTotal = leads.length + totalConvertidos;
+    const conversionRate = crmTotal > 0 ? Math.round((totalConvertidos / crmTotal) * 100) : 0;
+    const val = (c: ClienteComProcessos) => Number(c.valor_estimado) || 0;
     const pipelineValue = leads.reduce((s, l) => s + val(l), 0);
-    const valorGanho = convertedClients.reduce((s, c) => s + val(c), 0);
-    return { leads, convertedClients, hotLeadsCount, conversionRate, pipelineValue, valorGanho };
-  }, [allClientes]);
+    const valorGanho = resumoConvertidos?.valorGanho ?? convertedClients.reduce((s, c) => s + val(c), 0);
+    return { convertedClients, hotLeadsCount, conversionRate, pipelineValue, valorGanho, totalConvertidos };
+  }, [leads, convertidos, resumoConvertidos]);
 
-  const matchSearch = (c: any) =>
+  const matchSearch = (c: ClienteComProcessos) =>
     c.nome.toLowerCase().includes(dSearch.toLowerCase()) ||
     (c.email && c.email.toLowerCase().includes(dSearch.toLowerCase()));
 
@@ -518,7 +522,7 @@ export default function Crm() {
           <TabsContent value="clientes">
             <Card className="glass-card border-black/5 dark:border-border overflow-hidden rounded-[2rem]">
               <CardHeader className="p-8 pb-4">
-                <CardTitle className="text-xl md:text-2xl font-black">Clientes Ativos ({convertedClients.length})</CardTitle>
+                <CardTitle className="text-xl md:text-2xl font-black">Clientes Ativos ({totalConvertidos})</CardTitle>
                 <CardDescription className="text-sm font-medium">Clientes que já contrataram seus serviços</CardDescription>
               </CardHeader>
               <CardContent className="p-8 pt-0">
@@ -581,6 +585,9 @@ export default function Crm() {
                     </div>
                   </div>
                 )}
+                {/* Convertidos vêm paginados — rodapé com o que falta carregar */}
+                <CarregarMaisHistorico restantes={convertidosRestantes} carregando={carregandoMaisConvertidos}
+                  onClick={carregarMaisConvertidos} rotulo="clientes convertidos" />
               </CardContent>
             </Card>
           </TabsContent>

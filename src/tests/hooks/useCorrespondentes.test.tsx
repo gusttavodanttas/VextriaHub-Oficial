@@ -19,22 +19,30 @@ import { useCorrespondentes } from '@/hooks/useCorrespondentes';
 describe('useCorrespondentes', () => {
   beforeEach(() => { resetSupabaseMock(); mockToast.mockClear(); });
 
-  it('lista correspondentes e diligências do escritório e deriva as estatísticas', async () => {
+  it('lista correspondentes e diligências (ativas + histórico paginado) e deriva as estatísticas', async () => {
     enfileirar('correspondentes', { data: [{ id: 'c1', nome: 'Ana' }] });
-    enfileirar('diligencias', { data: [
+    enfileirar('diligencias', { data: [   // ativas: abertas + realizadas não pagas
       { id: 'd1', correspondente_id: 'c1', status: 'realizada', pago: false, valor: 150, avaliacao: 4 },
-      { id: 'd2', correspondente_id: 'c1', status: 'realizada', pago: true, valor: 100, avaliacao: 2 },
       { id: 'd3', correspondente_id: 'c1', status: 'solicitada' },
-      { id: 'd4', correspondente_id: 'c1', status: 'cancelada' },
     ] });
+    enfileirar('diligencias', { data: [   // histórico (1ª página): pagas + canceladas
+      { id: 'd2', correspondente_id: 'c1', status: 'realizada', pago: true, valor: 100, avaliacao: 2 },
+      { id: 'd4', correspondente_id: 'c1', status: 'cancelada' },
+    ], count: 12 });
     const { result } = renderHook(() => useCorrespondentes(), { wrapper });
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.correspondentes).toHaveLength(1);
     expect(result.current.statsByCorrespondente.get('c1')).toEqual({ total: 4, realizadas: 2, canceladas: 1, abertas: 1, avgRating: 3, aPagarCount: 1, aPagarValor: 150 });
-    for (const t of ['correspondentes', 'diligencias']) {
-      const sel = chamadasCom(t, 'select')[0];
-      expect(sel.ops).toEqual(expect.arrayContaining([['eq', ['office_id', 'o1']], ['eq', ['deletado', false]], ['limit', [1000]]]));
-    }
+    expect(result.current.historicoRestantes).toBe(10);
+    const corr = chamadasCom('correspondentes', 'select')[0];
+    expect(corr.ops).toEqual(expect.arrayContaining([['eq', ['office_id', 'o1']], ['eq', ['deletado', false]]]));
+    const dils = chamadasCom('diligencias', 'select');
+    expect(dils.some(s => s.ops.some(([m]) => m === 'limit'))).toBe(false);
+    const ativas = dils[0];
+    expect(String(ativas.ops.find(([m]) => m === 'or')![1][0])).toBe('status.not.in.(realizada,cancelada),and(status.eq.realizada,pago.not.is.true)');
+    const hist = dils.find(s => s.ops.some(([m]) => m === 'range'))!;
+    expect(hist.ops).toEqual(expect.arrayContaining([['eq', ['office_id', 'o1']], ['range', [0, 199]]]));
+    expect(hist.ops.find(([m]) => m === 'select')![1][1]).toEqual({ count: 'exact' });
   });
 
   it('erro em qualquer uma das listas é exposto', async () => {

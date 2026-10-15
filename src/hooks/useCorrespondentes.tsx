@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { getErrorMessage, assertRowsAffected } from '@/lib/errors';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useHistoricoPaginado } from '@/hooks/useHistoricoPaginado';
 
 // correspondentes/diligencias ainda não estão no types.ts gerado (regen depende da
 // conta contato@ — memória prospect-wizard-types-regen). Mesmo padrão do useProcessShares.
@@ -93,13 +94,18 @@ export function useCorrespondentes() {
     staleTime: 20_000,
   });
 
-  const { data: diligencias = [], isLoading: loadingDil, error: errorDil, refetch: refetchDil } = useQuery({
-    queryKey: ['diligencias', officeId],
+  // Diligências em duas partes (mesmo padrão de useAtendimentos/usePrazosData):
+  // "ativas" = ainda abertas OU realizadas e não pagas (precisam de ação — conjunto
+  // de trabalho, naturalmente limitado), inteiras. "histórico" = canceladas ou
+  // realizadas já pagas: só cresce, vem paginado com contagem exata
+  // (useHistoricoPaginado) em vez do `.limit(1000)` silencioso de antes.
+  // `pago.not.is.true` cobre false e NULL.
+  const dilAtivas = useQuery({
+    queryKey: ['diligencias', officeId, 'ativas'],
     queryFn: async (): Promise<Diligencia[]> => {
-      // Cap de segurança: sem paginação real ainda, evita carregar a tabela
-      // inteira pro navegador num escritório com histórico grande. Também
-      // limita o universo usado no cálculo de statsByCorrespondente abaixo.
-      const { data, error } = await sb.from('diligencias').select('*').eq('office_id', officeId).eq('deletado', false).order('created_at', { ascending: false }).limit(1000);
+      const { data, error } = await sb.from('diligencias').select('*').eq('office_id', officeId).eq('deletado', false)
+        .or('status.not.in.(realizada,cancelada),and(status.eq.realizada,pago.not.is.true)')
+        .order('created_at', { ascending: false });
       if (error) throw error;
       return (data || []) as Diligencia[];
     },
@@ -107,7 +113,39 @@ export function useCorrespondentes() {
     staleTime: 20_000,
   });
 
-  // Desempenho por correspondente, derivado das diligências.
+  const dilHistorico = useHistoricoPaginado<Diligencia>({
+    queryKey: ['diligencias', officeId, 'historico'],
+    enabled: !!user?.id && !!officeId,
+    fetchPage: async (from, to) => {
+      const { data, error, count } = await sb.from('diligencias').select('*', { count: 'exact' }).eq('office_id', officeId).eq('deletado', false)
+        .or('status.eq.cancelada,and(status.eq.realizada,pago.is.true)')
+        .order('created_at', { ascending: false })
+        .range(from, to);
+      if (error) throw error;
+      return { rows: (data || []) as Diligencia[], total: count ?? 0 };
+    },
+  });
+
+  // "Realizadas" cruza ativas (não pagas) e histórico (pagas) — contagem no servidor,
+  // já que o histórico pode estar parcialmente carregado.
+  const contagens = useQuery({
+    queryKey: ['diligencias', officeId, 'contagens'],
+    enabled: !!user?.id && !!officeId,
+    queryFn: async (): Promise<{ realizadas: number }> => {
+      const { count, error } = await sb.from('diligencias').select('id', { count: 'exact', head: true })
+        .eq('office_id', officeId).eq('deletado', false).eq('status', 'realizada');
+      if (error) throw error;
+      return { realizadas: count ?? 0 };
+    },
+  });
+
+  const diligencias = useMemo(() => [...(dilAtivas.data ?? []), ...dilHistorico.rows], [dilAtivas.data, dilHistorico.rows]);
+  const loadingDil = dilAtivas.isLoading || dilHistorico.isLoading;
+  const errorDil = dilAtivas.error ?? dilHistorico.error;
+  const refetchDil = () => { dilAtivas.refetch(); dilHistorico.refetch(); contagens.refetch(); };
+
+  // Desempenho por correspondente, derivado das diligências carregadas (ativas +
+  // páginas do histórico já trazidas — a página mostra quantas antigas faltam).
   const statsByCorrespondente = useMemo(() => {
     const m = new Map<string, CorrespondenteStats>();
     for (const c of correspondentes) {
@@ -223,6 +261,11 @@ export function useCorrespondentes() {
     // "nenhum correspondente" numa falha de rede/RLS.
     error: errorCorr || errorDil ? getErrorMessage(errorCorr || errorDil, 'Não foi possível carregar os correspondentes.') : null,
     refetch: () => { refetchCorr(); refetchDil(); },
+    /** Histórico de diligências (canceladas / realizadas e pagas) ainda não carregado — ver useHistoricoPaginado. */
+    historicoRestantes: dilHistorico.restantes,
+    carregarMaisHistorico: dilHistorico.carregarMais,
+    carregandoMaisHistorico: dilHistorico.carregandoMais,
+    contagens: contagens.data ?? null,
     saveCorrespondente: (id: string | undefined, patch: Partial<Correspondente>) => saveCorrespondente.mutateAsync({ id, patch }),
     deleteCorrespondente: deleteCorrespondente.mutateAsync,
     savingCorrespondente: saveCorrespondente.isPending,

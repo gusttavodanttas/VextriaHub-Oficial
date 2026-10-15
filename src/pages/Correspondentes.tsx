@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { useCorrespondentes, type Correspondente, type Diligencia, type DiligenciaStatus, type DiligenciaTipo } from '@/hooks/useCorrespondentes';
+import { CarregarMaisHistorico } from '@/components/shared/CarregarMaisHistorico';
 import { useProcessosV2 } from '@/hooks/useProcessosV2';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -332,6 +333,7 @@ const Correspondentes: React.FC = () => {
   const { isOfficeAdmin, isSuperAdmin } = useAuth();
   const {
     correspondentes, diligencias, statsByCorrespondente, loading, error, refetch,
+    historicoRestantes, carregarMaisHistorico, carregandoMaisHistorico, contagens,
     saveCorrespondente, deleteCorrespondente, savingCorrespondente,
     saveDiligencia, patchDiligencia: patchDiligenciaAsync, deleteDiligencia, savingDiligencia,
   } = useCorrespondentes();
@@ -369,12 +371,14 @@ const Correspondentes: React.FC = () => {
     });
   }, [diligencias, statusFilter, busca, corrById]);
 
+  // Abertas e "a pagar" estão inteiras no conjunto ativo; "realizadas" cruza o
+  // histórico paginado, então vem do servidor (em memória só até a contagem chegar).
   const kpis = useMemo(() => {
     const abertas = diligencias.filter((d) => d.status !== 'realizada' && d.status !== 'cancelada').length;
-    const realizadas = diligencias.filter((d) => d.status === 'realizada').length;
+    const realizadas = contagens?.realizadas ?? diligencias.filter((d) => d.status === 'realizada').length;
     const aPagar = diligencias.filter((d) => d.status === 'realizada' && !d.pago);
     return { abertas, realizadas, aPagarCount: aPagar.length, aPagarValor: aPagar.reduce((s, d) => s + Number(d.valor || 0), 0) };
-  }, [diligencias]);
+  }, [diligencias, contagens]);
 
   const filteredCorrespondentes = useMemo(() => {
     const q = busca.toLowerCase();
@@ -485,6 +489,9 @@ const Correspondentes: React.FC = () => {
               ))}
             </div>
           )}
+          {/* Canceladas e realizadas já pagas vêm paginadas — rodapé com o que falta carregar */}
+          <CarregarMaisHistorico restantes={historicoRestantes} carregando={carregandoMaisHistorico}
+            onClick={carregarMaisHistorico} rotulo="diligências" />
         </div>
       ) : (
         <div className="space-y-5">
