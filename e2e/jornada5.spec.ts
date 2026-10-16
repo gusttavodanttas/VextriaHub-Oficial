@@ -82,8 +82,9 @@ test('5. notificações abrem com a lista ou o estado vazio', async ({ page }) =
     throw new Error(`Sem <h1> em ${page.url()}.\n  texto: ${texto}\n  console: ${JSON.stringify(errosConsole)}\n  erros da API: ${JSON.stringify(errosApi)}`);
   });
   await expect(titulo).toContainText(/Notifica/);
+  // Com notificações não lidas existem o botão geral E o de cada item: basta um deles.
   await expect(
-    page.getByText(/Nenhuma notificação no momento/).or(page.getByTitle('Marcar como lida').first()).or(page.getByRole('button', { name: 'Marcar todas como lidas' })),
+    page.getByText(/Nenhuma notificação no momento/).or(page.getByTitle('Marcar como lida')).or(page.getByRole('button', { name: 'Marcar todas como lidas' })).first(),
   ).toBeVisible({ timeout: 20_000 });
   expect(errosApi, 'respostas de erro da API nas notificações').toEqual([]);
 });
