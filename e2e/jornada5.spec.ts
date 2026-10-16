@@ -71,8 +71,17 @@ test('4. publicações: resumo, filtro por termo e estado vazio', async ({ page 
 });
 
 test('5. notificações abrem com a lista ou o estado vazio', async ({ page }) => {
+  // Diagnóstico em falha: o que a página mostrou, onde parou e o que o console acusou.
+  const errosConsole: string[] = [];
+  page.on('pageerror', (e) => errosConsole.push(`pageerror: ${e.message}`));
+  page.on('console', (m) => { if (m.type() === 'error') errosConsole.push(`console: ${m.text().slice(0, 300)}`); });
   await irPara(page, '/notificacoes');
-  await expect(page.getByRole('heading', { level: 1 })).toContainText(/Notifica/, { timeout: 20_000 });
+  const titulo = page.getByRole('heading', { level: 1 });
+  await titulo.first().waitFor({ timeout: 20_000 }).catch(async () => {
+    const texto = await page.evaluate(() => document.body.innerText.replace(/\s+/g, ' ').slice(0, 800));
+    throw new Error(`Sem <h1> em ${page.url()}.\n  texto: ${texto}\n  console: ${JSON.stringify(errosConsole)}\n  erros da API: ${JSON.stringify(errosApi)}`);
+  });
+  await expect(titulo).toContainText(/Notifica/);
   await expect(
     page.getByText(/Nenhuma notificação no momento/).or(page.getByTitle('Marcar como lida').first()).or(page.getByRole('button', { name: 'Marcar todas como lidas' })),
   ).toBeVisible({ timeout: 20_000 });
