@@ -16,18 +16,22 @@ test.afterAll(async () => { await limparRastros(P); });
 
 test('1. exclui um cliente e o restaura pela Lixeira', async ({ page }) => {
   await cadastrarCliente(page, nomeCliente);
-  // O card do cliente é o ancestral mais próximo do nome que contém o botão de excluir.
-  const card = page.getByText(nomeCliente).first().locator('xpath=ancestor::div[.//button[@aria-label="Excluir cliente"]][1]');
-  await card.getByRole('button', { name: 'Excluir cliente' }).click();
+  // Filtra pelo nome único desta execução: sobra um card, e o botão de excluir é o dele.
+  const busca = page.getByPlaceholder('Buscar por nome, e-mail, telefone ou documento...');
+  await busca.fill(nomeCliente);
+  const excluir = page.getByRole('button', { name: 'Excluir cliente' });
+  await expect(excluir).toHaveCount(1, { timeout: 20_000 });
+  await excluir.click();
   await page.getByRole('alertdialog').getByRole('button', { name: 'Excluir' }).click();
   // Admin do escritório exclui direto (soft-delete) — some da lista na hora.
   await expect(page.getByText(nomeCliente)).toHaveCount(0, { timeout: 20_000 });
 
   await irPara(page, '/lixeira');
   await page.getByPlaceholder('Buscar na lixeira...').fill(nomeCliente);
-  const item = page.getByText(nomeCliente).first().locator('xpath=ancestor::div[.//button[normalize-space()="Restaurar"]][1]');
-  await expect(item).toBeVisible({ timeout: 20_000 });
-  await item.getByRole('button', { name: 'Restaurar' }).click();
+  await expect(page.getByText(nomeCliente).first()).toBeVisible({ timeout: 20_000 });
+  const restaurar = page.getByRole('button', { name: 'Restaurar' });
+  await expect(restaurar).toHaveCount(1);
+  await restaurar.click();
   await expect(page.getByText(nomeCliente)).toHaveCount(0, { timeout: 20_000 });
 
   await irPara(page, '/clientes');
