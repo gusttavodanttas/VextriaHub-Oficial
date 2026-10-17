@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { enfileirar, chamadasCom, resetSupabaseMock, mockSupabase } from '../helpers/supabaseMock';
 import { wrapper } from './_setup';
+import { PERMISSAO_NEGADA } from '@/lib/errors';
 
 vi.mock('@/integrations/supabase/client', async () => {
   const { mockSupabase } = await import('../helpers/supabaseMock');
@@ -87,7 +88,7 @@ describe('useJurisReviews', () => {
     await act(async () => { await result.current.bloquear.mutateAsync({ doc, motivo: 'revogado' }); });
     expect(chamadasCom('juris_user_reviews', 'upsert')[0].ops[0][1][0]).toMatchObject({ status: 'BLOCKED', nota: 'revogado', official_url_informada: doc.official_url });
 
-    enfileirar('juris_user_reviews', { data: null });
+    enfileirar('juris_user_reviews', { data: [{ id: 'r1' }] });
     await act(async () => { await result.current.desfazer.mutateAsync('d1'); });
     expect(chamadasCom('juris_user_reviews', 'delete')[0].ops).toEqual(expect.arrayContaining([['eq', ['doc_id', 'd1']], ['eq', ['user_id', 'u1']]]));
     expect(mockToast).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'Conferência desfeita' }));
@@ -115,7 +116,7 @@ describe('useJurisPins', () => {
     ]);
     expect(mockToast).toHaveBeenLastCalledWith({ title: 'Fixado' });
 
-    enfileirar('juris_user_pins', { data: null });
+    enfileirar('juris_user_pins', { data: [{ id: 'p1' }] });
     await act(async () => { await result.current.remover.mutateAsync('p1'); });
     expect(chamadasCom('juris_user_pins', 'delete')[0].ops).toEqual(expect.arrayContaining([['eq', ['id', 'p1']]]));
 
@@ -142,13 +143,49 @@ describe('useJurisSearches', () => {
     await act(async () => { await result.current.registrar.mutateAsync({ query: 'dano', filtros: { source: 'TJSP' } }); });
     expect(chamadasCom('juris_user_searches', 'insert')[0].ops[0][1][0]).toEqual({ user_id: 'u1', query: 'dano', filtros: { source: 'TJSP' }, salva: false });
 
-    enfileirar('juris_user_searches', { data: null });
+    enfileirar('juris_user_searches', { data: [{ id: 's1' }] });
     await act(async () => { await result.current.salvar.mutateAsync({ id: 's1', nome: '', salva: true }); });
     expect(chamadasCom('juris_user_searches', 'update')[0].ops).toEqual(expect.arrayContaining([['update', [{ nome: null, salva: true }]], ['eq', ['id', 's1']]]));
 
-    enfileirar('juris_user_searches', { data: null });
+    enfileirar('juris_user_searches', { data: [{ id: 's1' }] });
     await act(async () => { await result.current.remover.mutateAsync('s1'); });
     expect(chamadasCom('juris_user_searches', 'delete')[0].ops).toEqual(expect.arrayContaining([['eq', ['id', 's1']]]));
+  });
+
+  it('RLS barrando em silêncio (0 linhas) em salvar/remover vira erro com toast, não "sucesso"', async () => {
+    enfileirar('juris_user_searches', { data: [{ id: 's1', query: 'dano', filtros: {}, salva: false }] });
+    const { result } = renderHook(() => useJurisSearches(), { wrapper });
+    await waitFor(() => expect(result.current.itens).toHaveLength(1));
+    mockToast.mockClear();
+
+    enfileirar('juris_user_searches', { data: [] });
+    await act(async () => {
+      await expect(result.current.salvar.mutateAsync({ id: 's1', nome: 'x', salva: true })).rejects.toThrow(PERMISSAO_NEGADA);
+    });
+    expect(mockToast).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'Não foi possível salvar a pesquisa', description: PERMISSAO_NEGADA }));
+
+    enfileirar('juris_user_searches', { data: [] });
+    await act(async () => {
+      await expect(result.current.remover.mutateAsync('s1')).rejects.toThrow(PERMISSAO_NEGADA);
+    });
+    expect(mockToast).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'Não foi possível remover a pesquisa', description: PERMISSAO_NEGADA }));
+  });
+});
+
+describe('useJurisReviews / useJurisPins — RLS barrando em silêncio', () => {
+  beforeEach(() => { resetSupabaseMock(); mockToast.mockClear(); auth.user = { id: 'u1', office_id: 'o1' }; });
+
+  it('desfazer conferência e remover pin com 0 linhas casadas → erro de permissão', async () => {
+    const { result } = renderHook(() => useJurisReviews(), { wrapper });
+    enfileirar('juris_user_reviews', { data: [] });
+    await act(async () => { await result.current.desfazer.mutateAsync('d1').catch(() => undefined); });
+    expect(mockToast).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'Erro', description: PERMISSAO_NEGADA }));
+
+    enfileirar('juris_user_pins', { data: [] });
+    const { result: pins } = renderHook(() => useJurisPins('processo', 'pr1'), { wrapper });
+    enfileirar('juris_user_pins', { data: [] });
+    await act(async () => { await pins.current.remover.mutateAsync('p1').catch(() => undefined); });
+    expect(mockToast).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'Erro', description: PERMISSAO_NEGADA }));
   });
 });
 
