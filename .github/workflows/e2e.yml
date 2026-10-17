@@ -1,8 +1,14 @@
 # E2E (Playwright) com a conta de teste, contra um build local apontando pro
 # projeto Supabase do repositório (vars.VITE_SUPABASE_URL + secrets.VITE_SUPABASE_ANON_KEY).
 #
-# Roda todo dia e sob demanda — NÃO em cada PR: a jornada cria e apaga dados reais
-# na conta de teste, e o smoke (páginas públicas) já cobre o que faz sentido por PR.
+# Roda todo dia, sob demanda e nas PRs que mexem em dependências — NÃO em cada PR:
+# a jornada cria e apaga dados reais na conta de teste, e o smoke (páginas públicas)
+# já cobre o que faz sentido por PR. A exceção das dependências existe porque a
+# regressão das Notificações (#183) entrou por uma atualização de pacotes (#156) e
+# passou por tsc, lint, testes unitários e logs do servidor: só o navegador real viu.
+#
+# `concurrency` serializa as execuções: duas jornadas ao mesmo tempo na mesma conta
+# de teste apagariam os dados uma da outra.
 #
 # Precisa de dois secrets do repositório (Settings → Secrets and variables → Actions):
 #   E2E_TEST_EMAIL     e-mail da conta de teste (vextriahub@gmail.com)
@@ -14,6 +20,14 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '17 6 * * *'   # 03:17 BRT, antes do expediente
+  pull_request:
+    paths:
+      - package.json
+      - package-lock.json
+
+concurrency:
+  group: e2e-conta-teste
+  cancel-in-progress: false
 
 jobs:
   playwright:
