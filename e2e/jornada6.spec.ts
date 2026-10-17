@@ -5,7 +5,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { PREFIXO, exigirCredenciais } from './_env';
 import { limparRastros } from './limpeza';
-import { registrarErrosApi, errosApi, errosConsole, irPara, esperarFechar, fecharToasts, esperarTitulo } from './acoes';
+import { registrarErrosApi, errosApi, irPara, esperarFechar, fecharToasts, esperarTitulo } from './acoes';
 
 const P = `${PREFIXO} J6`;
 const nomeEquipe = `${P} Equipe`;
@@ -23,25 +23,6 @@ async function esperarToast(page: Page, titulo: RegExp) {
 test('1. perfil: edita o telefone, confere após recarregar e restaura', async ({ page }) => {
   await irPara(page, '/perfil');
   await esperarTitulo(page, 'Meu Perfil');
-  // Diagnóstico: a tela remonta ou recarrega sozinha? (o botão "Editar Perfil" ficou
-  // "detached from the DOM" em loop no CI). Observa o <h1> por 3 s.
-  const diag = await page.evaluate(async () => {
-    const h1 = document.querySelector('h1');
-    let removido = 0;
-    const obs = new MutationObserver((ms) => {
-      for (const m of ms) for (const n of Array.from(m.removedNodes)) {
-        if (n === h1 || (n instanceof Element && h1 && n.contains(h1))) removido++;
-      }
-    });
-    obs.observe(document.body, { childList: true, subtree: true });
-    await new Promise((r) => setTimeout(r, 3000));
-    obs.disconnect();
-    return { h1Removido: removido, mesmoH1: document.querySelector('h1') === h1, url: location.href,
-      texto: document.body.innerText.replace(/\s+/g, ' ').slice(0, 400) };
-  }).catch((e: Error) => ({ recarregou: true, erro: e.message.slice(0, 200) }));
-  if ('recarregou' in diag || diag.h1Removido > 0 || !diag.mesmoH1) {
-    throw new Error(`Perfil instável: ${JSON.stringify(diag)}\n  console: ${JSON.stringify(errosConsole)}\n  erros da API: ${JSON.stringify(errosApi)}`);
-  }
   await page.getByRole('button', { name: 'Editar Perfil' }).click();
   const telefone = page.getByPlaceholder('(11) 91234-5678');
   const original = await telefone.inputValue();
