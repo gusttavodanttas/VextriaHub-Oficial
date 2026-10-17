@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -24,6 +24,12 @@ export const useNotifications = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Tópico único por instância do hook. O sino do cabeçalho e a página /notificacoes
+  // montam o hook ao mesmo tempo; desde o realtime-js 2.117 `supabase.channel(topic)`
+  // devolve o canal JÁ EXISTENTE com o mesmo tópico, e chamar `.on()` num canal já
+  // inscrito lança "cannot add postgres_changes callbacks after subscribe()" —
+  // a página inteira caía no ErrorBoundary (achado do E2E, jornada 5).
+  const topicoRef = useRef(`notifications:${Math.random().toString(36).slice(2, 10)}`);
 
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
@@ -145,7 +151,7 @@ export const useNotifications = () => {
     // 📩 Real-time Subscription para novas notificações
     if (user) {
       const channel = supabase
-        .channel('public:notifications')
+        .channel(topicoRef.current)
         .on(
           'postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },

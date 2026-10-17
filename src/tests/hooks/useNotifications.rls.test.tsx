@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { enfileirar, resetSupabaseMock } from '../helpers/supabaseMock';
+import { enfileirar, resetSupabaseMock, mockSupabase } from '../helpers/supabaseMock';
 
 vi.mock('@/integrations/supabase/client', async () => {
   const { mockSupabase } = await import('../helpers/supabaseMock');
@@ -37,5 +37,23 @@ describe('useNotifications — RLS e erro de carga', () => {
 
     expect(result.current.error).toBe('falha de rede');
     expect(result.current.notifications).toEqual([]);
+  });
+});
+
+describe('useNotifications — canal realtime', () => {
+  beforeEach(() => { resetSupabaseMock(); mockSupabase.channel.mockClear(); mockSupabase.removeChannel.mockClear(); });
+
+  it('cada instância do hook assina um tópico próprio (sino + página não dividem o canal) e o remove ao desmontar', async () => {
+    enfileirar('notifications', { data: [] });
+    enfileirar('notifications', { data: [] });
+    const a = renderHook(() => useNotifications());
+    const b = renderHook(() => useNotifications());
+    await waitFor(() => expect(mockSupabase.channel).toHaveBeenCalledTimes(2));
+    const topicos = mockSupabase.channel.mock.calls.map((c) => c[0]);
+    expect(topicos[0]).toMatch(/^notifications:/);
+    expect(topicos[1]).toMatch(/^notifications:/);
+    expect(topicos[0]).not.toBe(topicos[1]);
+    a.unmount(); b.unmount();
+    expect(mockSupabase.removeChannel).toHaveBeenCalledTimes(2);
   });
 });

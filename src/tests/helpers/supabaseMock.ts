@@ -41,7 +41,7 @@ const canal = { on: () => canal, subscribe: () => canal };
 
 export const mockSupabase = {
   from: vi.fn((table: string) => builder(table)),
-  channel: vi.fn(() => canal),
+  channel: vi.fn((_topic?: string) => canal),
   removeChannel: vi.fn(),
   rpc: vi.fn(async (_fn?: string, _params?: unknown): Promise<RespostaMock> => ({ data: null, error: null })),
   // Edge functions disparadas "fire-and-forget" (ex.: send-invite-email): resolvem vazio.
