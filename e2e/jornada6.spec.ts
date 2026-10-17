@@ -121,7 +121,8 @@ test('5. equipe: cria, adiciona um membro pelo detalhe e abre a produtividade', 
   await candidato.click();
   await esperarToast(page, /Adicionado à equipe/);
   await expect(detalhe.getByText(/Membros \(1\)/)).toBeVisible({ timeout: 20_000 });
-  await page.keyboard.press('Escape');
+  await fecharToasts(page);
+  await detalhe.getByRole('button', { name: 'Fechar' }).click();
   await esperarFechar(page, detalhe);
 
   // Produtividade da equipe (/equipe/:id) a partir do card.
