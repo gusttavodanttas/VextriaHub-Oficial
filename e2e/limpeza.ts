@@ -40,5 +40,10 @@ export async function limparRastros(prefixo: string): Promise<void> {
       console.log(`[e2e/limpeza] ${tabela}: ${apagados.length} linha(s) apagada(s)`);
     }
   }
-  await sb.auth.signOut();
+  // 'local': só esta sessão da limpeza. O padrão ('global') revoga TODAS as sessões do
+  // usuário — inclusive a do navegador do Playwright, criada no auth.setup. O JWT
+  // continuava valendo no REST, mas qualquer chamada a /auth/v1/user (o Perfil faz uma)
+  // respondia 403 session_not_found, o supabase-js descartava a sessão e a tela caía
+  // em /login (achado da jornada 6).
+  await sb.auth.signOut({ scope: 'local' });
 }

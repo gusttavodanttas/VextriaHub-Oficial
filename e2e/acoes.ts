@@ -4,13 +4,32 @@ import { cpfValido } from './_env';
 
 /** Respostas de erro da API (REST/Auth) durante o teste — vão pra mensagem de falha. */
 export const errosApi: string[] = [];
+/** Erros de console/pageerror do navegador — um crash do React (ErrorBoundary) aparece aqui. */
+export const errosConsole: string[] = [];
 export function registrarErrosApi(page: Page) {
   errosApi.length = 0;
+  errosConsole.length = 0;
   page.on('response', async (r) => {
     if (r.status() < 400 || !/\/(rest|auth)\/v1\//.test(r.url())) return;
     const corpo = await r.text().catch(() => '');
     errosApi.push(`${r.request().method()} ${r.url().replace(/^https?:\/\/[^/]+/, '')} → ${r.status()} ${corpo.slice(0, 300)}`);
   });
+  page.on('pageerror', (e) => errosConsole.push(`pageerror: ${e.message.slice(0, 300)}`));
+  page.on('console', (m) => { if (m.type() === 'error') errosConsole.push(`console: ${m.text().slice(0, 300)}`); });
+}
+
+/**
+ * Espera o <h1> da tela. Se não vier, a falha diz POR QUÊ: URL final, texto visível
+ * (um "Oops! Algo deu errado" do ErrorBoundary, uma tela de permissão), erros de
+ * console e respostas de erro da API — em vez de um "element(s) not found" mudo.
+ */
+export async function esperarTitulo(page: Page, nome: string | RegExp, timeout = 20_000) {
+  const titulo = page.getByRole('heading', { level: 1, name: nome });
+  await titulo.first().waitFor({ timeout }).catch(async () => {
+    const texto = await page.evaluate(() => document.body.innerText.replace(/\s+/g, ' ').slice(0, 800)).catch(() => '(sem texto)');
+    throw new Error(`Título ${String(nome)} não apareceu em ${page.url()}.\n  texto: ${texto}\n  console: ${JSON.stringify(errosConsole)}\n  erros da API: ${JSON.stringify(errosApi)}`);
+  });
+  return titulo;
 }
 
 /**
