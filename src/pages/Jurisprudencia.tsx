@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Scale, Search, Loader2, History, Star, Trash2, ShieldCheck, Sparkles, Bell } from 'lucide-react';
+import { Scale, Search, Loader2, History, Star, Trash2, ShieldCheck, Sparkles, Bell, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useJurisSearch, useJurisSearches, type JurisFilters } from '@/hooks/useJurisprudencia';
+import { getErrorMessage } from '@/lib/errors';
 import { useAiAdvisor, AdvisorError } from '@/hooks/useAiAdvisor';
 import { SOURCE_LABEL, type JurisDoc } from '@/lib/juris';
 import { JurisResultCard } from '@/components/Jurisprudencia/JurisResultCard';
@@ -37,10 +38,9 @@ export default function Jurisprudencia() {
   const [iaOpen, setIaOpen] = useState(false);
 
   const filtros = useMemo(() => ({ ...(exec?.f || f), limit: PAGE, offset: page * PAGE }), [exec, f, page]);
-  const { data: resultados, isFetching, error } = useJurisSearch(exec?.q ?? '', filtros, !!exec);
+  const { data: resultados, isFetching, error, refetch } = useJurisSearch(exec?.q ?? '', filtros, !!exec);
   const { itens: historico, registrar, salvar, remover } = useJurisSearches();
 
-  useEffect(() => { if (error) toast({ title: 'Erro na busca', description: String((error as Error).message), variant: 'destructive' }); }, [error, toast]);
 
   const buscar = (nq = q, nf = f) => {
     setPage(0); setExec({ q: nq, f: nf });
@@ -112,7 +112,21 @@ export default function Jurisprudencia() {
             </CardContent>
           </Card>
 
-          {exec && (
+          {/* Erro da busca: banner com retry (antes era só um toast que sumia) */}
+          {exec && error && (
+            <div className="flex items-center gap-3 px-5 py-4 rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-bold">Não foi possível buscar na jurisprudência</p>
+                <p className="text-xs opacity-80">{getErrorMessage(error, 'Tente novamente em instantes.')}</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => refetch()} className="rounded-xl font-bold shrink-0">
+                Tentar novamente
+              </Button>
+            </div>
+          )}
+
+          {exec && !error && (
             <div className="space-y-3">
               <p className="text-xs font-bold text-muted-foreground">
                 {isFetching ? 'Buscando…' : `${resultados?.length ?? 0} resultado(s)${(resultados?.length ?? 0) === PAGE ? ' nesta página' : ''}`}

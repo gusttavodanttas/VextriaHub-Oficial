@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { getErrorMessage } from '@/lib/errors';
+import { getErrorMessage, assertRowsAffected } from '@/lib/errors';
 import type { JurisDoc } from '@/lib/juris';
 import { urlIgual } from '@/lib/juris';
 
@@ -125,8 +125,10 @@ export function useJurisReviews() {
   const desfazer = useMutation({
     mutationFn: async (docId: string) => {
       if (!user?.id) throw new Error('Sessão expirada.');
-      const { error } = await sb.from('juris_user_reviews').delete().eq('doc_id', docId).eq('user_id', user.id);
-      if (error) throw error;
+      // .select('id') + assertRowsAffected: a RLS não lança erro quando barra um
+      // DELETE/UPDATE — só casa 0 linhas (padrão do CLAUDE.md).
+      const { data, error } = await sb.from('juris_user_reviews').delete().eq('doc_id', docId).eq('user_id', user.id).select('id');
+      assertRowsAffected(data, error, 1);
     },
     onSuccess: () => { invalidate(); toast({ title: 'Conferência desfeita', description: 'O registro voltou a NÃO CONFERIDO para você.' }); },
     onError: (e) => toast({ title: 'Erro', description: getErrorMessage(e), variant: 'destructive' }),
@@ -170,8 +172,8 @@ export function useJurisPins(alvoTipo: AlvoTipo, alvoId: string | null | undefin
 
   const remover = useMutation({
     mutationFn: async (pinId: string) => {
-      const { error } = await sb.from('juris_user_pins').delete().eq('id', pinId);
-      if (error) throw error;
+      const { data, error } = await sb.from('juris_user_pins').delete().eq('id', pinId).select('id');
+      assertRowsAffected(data, error, 1);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: key }),
     onError: (e) => toast({ title: 'Erro', description: getErrorMessage(e), variant: 'destructive' }),
@@ -184,6 +186,7 @@ export function useJurisPins(alvoTipo: AlvoTipo, alvoId: string | null | undefin
 export function useJurisSearches() {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { toast } = useToast();
   const key = ['juris', 'searches'];
 
   const query = useQuery<JurisSearchItem[]>({
@@ -210,18 +213,20 @@ export function useJurisSearches() {
 
   const salvar = useMutation({
     mutationFn: async (p: { id: string; nome: string; salva: boolean }) => {
-      const { error } = await sb.from('juris_user_searches').update({ nome: p.nome || null, salva: p.salva }).eq('id', p.id);
-      if (error) throw error;
+      const { data, error } = await sb.from('juris_user_searches').update({ nome: p.nome || null, salva: p.salva }).eq('id', p.id).select('id');
+      assertRowsAffected(data, error, 1);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: key }),
+    onError: (e) => toast({ title: 'Não foi possível salvar a pesquisa', description: getErrorMessage(e), variant: 'destructive' }),
   });
 
   const remover = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await sb.from('juris_user_searches').delete().eq('id', id);
-      if (error) throw error;
+      const { data, error } = await sb.from('juris_user_searches').delete().eq('id', id).select('id');
+      assertRowsAffected(data, error, 1);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: key }),
+    onError: (e) => toast({ title: 'Não foi possível remover a pesquisa', description: getErrorMessage(e), variant: 'destructive' }),
   });
 
   return { ...query, itens: query.data || [], registrar, salvar, remover };
