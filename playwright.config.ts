@@ -5,7 +5,8 @@
 //  - conta-teste: jornada autenticada com a conta de teste (E2E_TEST_EMAIL/PASSWORD);
 //                 pulada automaticamente quando as credenciais não existem.
 //                 jornada.spec: cliente → processo → prazo; jornada2.spec: audiência,
-//                 tarefa e atendimento.
+//                 tarefa e atendimento; jornada3.spec: financeiro, consultivo e timesheet;
+//                 jornada4.spec: lead do CRM, meta, equipe e busca na jurisprudência.
 //
 // Alvo: E2E_BASE_URL (ex.: produção) ou, por padrão, um `vite preview` do build local
 // em http://127.0.0.1:4173 — o build precisa de VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY.

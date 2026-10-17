@@ -13,7 +13,12 @@ export async function limparRastros(prefixo: string): Promise<void> {
   if (loginErr) { console.warn('[e2e/limpeza] login falhou:', loginErr.message); return; }
 
   // Ordem respeita as FKs: dependentes antes de processos → clientes.
-  const alvos: Array<{ tabela: string; coluna: string }> = [
+  // `contem`: casa o prefixo em qualquer posição (busca da jurisprudência começa pelo termo).
+  // `semSoftDelete`: tabela sem coluna `deletado` — não tenta o fallback.
+  const alvos: Array<{ tabela: string; coluna: string; contem?: boolean; semSoftDelete?: boolean }> = [
+    { tabela: 'juris_user_searches', coluna: 'query', contem: true, semSoftDelete: true },
+    { tabela: 'office_teams', coluna: 'name', semSoftDelete: true },
+    { tabela: 'metas', coluna: 'titulo' },
     { tabela: 'timesheets', coluna: 'tarefa_descricao' },
     { tabela: 'financeiro', coluna: 'descricao' },
     { tabela: 'consultivos', coluna: 'titulo' },
@@ -24,10 +29,12 @@ export async function limparRastros(prefixo: string): Promise<void> {
     { tabela: 'processos', coluna: 'titulo' },
     { tabela: 'clientes', coluna: 'nome' },
   ];
-  for (const { tabela, coluna } of alvos) {
-    const { data: apagados, error } = await sb.from(tabela).delete().like(coluna, `${prefixo}%`).select('id');
+  for (const { tabela, coluna, contem, semSoftDelete } of alvos) {
+    const padrao = contem ? `%${prefixo}%` : `${prefixo}%`;
+    const { data: apagados, error } = await sb.from(tabela).delete().like(coluna, padrao).select('id');
     if (error || !apagados?.length) {
-      const { data: marcados } = await sb.from(tabela).update({ deletado: true }).like(coluna, `${prefixo}%`).select('id');
+      if (semSoftDelete) { if (error) console.warn(`[e2e/limpeza] ${tabela}: delete falhou (${error.message})`); continue; }
+      const { data: marcados } = await sb.from(tabela).update({ deletado: true }).like(coluna, padrao).select('id');
       console.warn(`[e2e/limpeza] ${tabela}: delete ${error ? `falhou (${error.message})` : 'não casou'}; soft-delete em ${marcados?.length ?? 0} linha(s)`);
     } else {
       console.log(`[e2e/limpeza] ${tabela}: ${apagados.length} linha(s) apagada(s)`);
