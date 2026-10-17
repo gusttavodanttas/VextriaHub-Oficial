@@ -5,7 +5,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { PREFIXO, exigirCredenciais } from './_env';
 import { limparRastros } from './limpeza';
-import { registrarErrosApi, errosApi, irPara, esperarFechar, fecharToasts } from './acoes';
+import { registrarErrosApi, errosApi, irPara, esperarFechar, fecharToasts, esperarTitulo } from './acoes';
 
 const P = `${PREFIXO} J6`;
 const nomeEquipe = `${P} Equipe`;
@@ -22,7 +22,7 @@ async function esperarToast(page: Page, titulo: RegExp) {
 
 test('1. perfil: edita o telefone, confere após recarregar e restaura', async ({ page }) => {
   await irPara(page, '/perfil');
-  await expect(page.getByRole('heading', { level: 1, name: 'Meu Perfil' })).toBeVisible();
+  await esperarTitulo(page, 'Meu Perfil');
   await page.getByRole('button', { name: 'Editar Perfil' }).click();
   const telefone = page.getByPlaceholder('(11) 91234-5678');
   const original = await telefone.inputValue();
@@ -46,7 +46,7 @@ test('1. perfil: edita o telefone, confere após recarregar e restaura', async (
 
 test('2. escritório: edita o telefone, confere após recarregar e restaura', async ({ page }) => {
   await irPara(page, '/escritorio');
-  await expect(page.getByRole('heading', { level: 1, name: 'Meu Escritório' })).toBeVisible();
+  await esperarTitulo(page, 'Meu Escritório');
   const salvar = page.getByRole('button', { name: 'Salvar Alterações' });
   // Salvar fica bloqueado até os dados atuais carregarem (não gravar defaults por cima).
   await expect(salvar).toBeEnabled({ timeout: 20_000 });
@@ -71,7 +71,7 @@ test('2. escritório: edita o telefone, confere após recarregar e restaura', as
 
 test('3. configurações: alterna a preferência de notificação do financeiro e desfaz', async ({ page }) => {
   await irPara(page, '/configuracoes');
-  await expect(page.getByRole('heading', { level: 1, name: 'Configurações' })).toBeVisible();
+  await esperarTitulo(page, 'Configurações');
   await page.getByRole('button', { name: /Notificações/ }).first().click();
   // A linha da preferência é o ancestral mais próximo da descrição que contém um switch.
   const linha = page.getByText('Recebimentos e contas a pagar').locator('xpath=ancestor::div[.//button[@role="switch"]][1]');
@@ -128,7 +128,7 @@ test('5. equipe: cria, adiciona um membro pelo detalhe e abre a produtividade', 
   await card.hover();
   await card.getByTitle('Ver produtividade').click();
   await expect(page).toHaveURL(/\/equipe\/[0-9a-f-]+/, { timeout: 20_000 });
-  await expect(page.getByRole('heading', { level: 1, name: nomeEquipe })).toBeVisible({ timeout: 20_000 });
+  await esperarTitulo(page, nomeEquipe);
   await expect(page.getByText('Produtividade por Membro')).toBeVisible();
   expect(errosApi, 'respostas de erro da API na equipe').toEqual([]);
 });
