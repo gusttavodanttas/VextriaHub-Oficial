@@ -6,7 +6,11 @@
 //   1) direto do navegador, com Origin de gustavodantas.adv.br;
 //   2) pelo encaminhador "lead-site" do projeto Gestão (o config.js antigo das
 //      landing pages ainda aponta para lá), com o cabeçalho x-lead-secret e o IP
-//      real do visitante em x-lead-ip.
+//      real do visitante em x-lead-ip. O encaminhador também manda a campanha
+//      do painel que casou com o utm_campaign (campanha_id / campanha_nome).
+//
+// Depois de gravar, avisa os administradores do escritório: sino do
+// VextriaHub (notifications) e e-mail (Resend), com destaque para urgência.
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const ALLOWED = new Set([
@@ -30,6 +34,11 @@ async function segredoEncaminhador() {
   }
   return segredo;
 }
+
+const RESEND = Deno.env.get("RESEND_API_KEY") ?? "";
+const FROM = "VextriaHub <avisos@vextriahub.com.br>";
+const APP = "https://vextriahub.com.br";
+const PAINEL = "https://painel.gustavodantas.adv.br/gestao/";
 
 const hits = new Map<string, number[]>();
 const MODES = new Set(["reajuste", "negativa", "dentistas", "previdenciario"]);
@@ -61,6 +70,68 @@ function iguais(a: string, b: string) {
   for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return r === 0;
 }
+const escH = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+function waLink(dig: string) {
+  let d = dig;
+  if (!d.startsWith("55") || d.length <= 11) d = "55" + d;
+  return "https://wa.me/" + d;
+}
+
+type Aviso = {
+  cardId: string; nome: string; telefone: string; dig: string; assunto: string; origem: string;
+  campanha: string; urgente: boolean; modo: string;
+};
+async function avisar(a: Aviso) {
+  const { data: card } = await sb.from("esteira_cards").select("esteira_id, created_at").eq("id", a.cardId).maybeSingle();
+  const novo = !card || Date.now() - new Date(card.created_at).getTime() < 120_000;
+  const link = card ? `/esteiras?esteira=${card.esteira_id}&card=${a.cardId}` : "/esteiras";
+  const titulo = (a.urgente ? "URGENTE — " : "") + (novo ? "Novo lead do site: " : "Lead voltou ao formulário: ") + a.nome;
+  const linha = [a.assunto, a.origem + (a.campanha ? ` (${a.campanha})` : "")].filter(Boolean).join(" · ");
+
+  const { data: adms } = await sb.from("office_users").select("user_id").eq("office_id", OFFICE).eq("active", true).in("role", ["admin", "super_admin"]);
+  const ids = (adms ?? []).map((x: { user_id: string }) => x.user_id);
+  if (ids.length) {
+    const { error } = await sb.from("notifications").insert(ids.map((uid) => ({
+      user_id: uid, office_id: OFFICE, type: a.urgente ? "warning" : "info", title: titulo.slice(0, 200), message: linha.slice(0, 500),
+      data: { action_url: link, action_label: "Abrir card", origem: "lead-site" },
+    })));
+    if (error) console.error("lead-site notificacao", error.message);
+  }
+
+  if (!RESEND) return;
+  const extra = (Deno.env.get("LEAD_NOTIFY_EMAILS") ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+  const emails: string[] = [...extra];
+  for (const uid of ids) {
+    const { data } = await sb.auth.admin.getUserById(uid);
+    if (data.user?.email) emails.push(data.user.email);
+  }
+  const para = [...new Set(emails.map((e) => e.toLowerCase()))];
+  if (!para.length) return;
+  const cor = a.urgente ? "#C0392B" : "#E87C1E";
+  const btn = (href: string, txt: string, fundo: string) =>
+    `<a href="${href}" style="display:inline-block;margin:4px 8px 4px 0;padding:10px 16px;border-radius:8px;background:${fundo};color:#fff;text-decoration:none;font-weight:600">${txt}</a>`;
+  const html = `<!doctype html><html><body style="margin:0;background:#f5f2ee;font-family:Arial,Helvetica,sans-serif;color:#17120f">
+<div style="max-width:560px;margin:0 auto;padding:20px">
+ <div style="background:#fff;border-radius:12px;border-top:4px solid ${cor};padding:20px">
+  <p style="margin:0 0 4px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:${cor};font-weight:700">${a.urgente ? "Urgente · " : ""}${novo ? "Novo lead do site" : "Preencheu o formulário de novo"}</p>
+  <h1 style="margin:0 0 12px;font-size:22px">${escH(a.nome)}</h1>
+  <p style="margin:0 0 6px"><b>Assunto:</b> ${escH(a.assunto)}</p>
+  <p style="margin:0 0 6px"><b>Telefone:</b> ${escH(a.telefone)}</p>
+  <p style="margin:0 0 16px"><b>Origem:</b> ${escH(a.origem)}${a.campanha ? " · " + escH(a.campanha) : ""}</p>
+  ${btn(waLink(a.dig), "Chamar no WhatsApp", "#1f8f4e")}${btn(APP + link, "Abrir no VextriaHub", "#2A2A2A")}${btn(PAINEL, "Abrir no painel", "#6b5f56")}
+  <p style="margin:16px 0 0;font-size:12px;color:#65584f">Responder nos primeiros minutos aumenta muito a chance de fechar.</p>
+ </div>
+</div></body></html>`;
+  try {
+    const r = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${RESEND}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: FROM, to: para, subject: titulo.slice(0, 150), html }),
+    });
+    if (!r.ok) console.error("lead-site email", r.status, (await r.text()).slice(0, 200));
+  } catch (e) { console.error("lead-site email", String(e)); }
+}
+
 function fmtTel(d: string) {
   if (d.startsWith("55") && d.length >= 12) d = d.slice(2);
   if (d.length === 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
@@ -145,12 +216,15 @@ Deno.serve(async (req) => {
     campaign: clean(p.utm_campaign, 120), content: clean(p.utm_content, 120), term: clean(p.utm_term, 120),
   };
   const origem = utm.source || utm.medium ? "Anúncio pago" : "Site/Google";
-  const nota = `Chegou pelo formulário do site (${modo})${urgente ? ", com URGÊNCIA" : ""}`;
+  // Campanha do painel que casou com o utm_campaign (só vem do encaminhador).
+  const campanhaId = encaminhado ? clean(p.campanha_id, 60) : "";
+  const campanhaNome = encaminhado ? clean(p.campanha_nome, 140) : "";
+  const nota = `Chegou pelo formulário do site (${modo})${urgente ? ", com URGÊNCIA" : ""}${campanhaNome ? ` — campanha ${campanhaNome}` : ""}`;
 
   const lead = {
     nome, telefone, email, origem, indicadoPor: "",
     nicho: modo === "dentistas" ? "Dentistas" : modo === "previdenciario" ? "Previdenciário" : "Saúde",
-    campanhaId: "", isca: "", assunto, valor: 0, prox: dia,
+    campanhaId, isca: "", assunto, valor: 0, prox: dia,
     etapa: "Novo contato", entrada: dia,
     historico: [{ d: dia, t: nota }], criadoEm: Date.now(),
     site: {
@@ -161,7 +235,10 @@ Deno.serve(async (req) => {
       consentimentoEm: clean(p.consentimento_em, 40) || new Date().toISOString(),
     },
   };
-  const { error } = await sb.rpc("comercial_receber_site", { p_office: OFFICE, p_lead: lead, p_nota: nota });
+  const { data: cardId, error } = await sb.rpc("comercial_receber_site", { p_office: OFFICE, p_lead: lead, p_nota: nota });
   if (error) { console.error("lead-site rpc", error.message); return reply(500, { ok: false }, origin); }
+  try {
+    await avisar({ cardId: String(cardId), nome, telefone, dig, assunto, origem, campanha: campanhaNome, urgente, modo });
+  } catch (e) { console.error("lead-site aviso", String(e)); /* o lead já está gravado; o aviso não pode derrubar a resposta */ }
   return reply(200, { ok: true }, origin);
 });
