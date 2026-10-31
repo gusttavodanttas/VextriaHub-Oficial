@@ -12,6 +12,11 @@ describe('esteiras — regras do card', () => {
     expect(diasUteisEntre(new Date(2026, 10, 2), new Date(2026, 10, 6))).toBe(4);
   });
 
+  it('pula feriados quando informados', () => {
+    // sexta 30/10 → quinta 05/11 com Finados (02/11): 03, 04, 05 = 3
+    expect(diasUteisEntre(new Date(2026, 9, 30), new Date(2026, 10, 5), new Set(['2026-11-02']))).toBe(3);
+  });
+
   it('dias na fase nunca fica negativo', () => {
     const futuro = new Date(Date.now() + 86_400_000).toISOString();
     expect(diasNaFase({ entrou_fase_em: futuro })).toBe(0);

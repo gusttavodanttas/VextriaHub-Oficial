@@ -112,17 +112,41 @@ export function diasNaFase(card: Pick<Card, 'entrou_fase_em'>, agora = new Date(
   return Math.max(0, Math.floor(ms / 86_400_000));
 }
 
-/** Dias úteis (seg–sex) entre duas datas, sem contar a inicial. */
-export function diasUteisEntre(inicio: Date, fim: Date): number {
+// Feriados vêm da tabela `feriados` (fonte única com o banco e o painel da
+// Controladoria). useFeriados() carrega e preenche este conjunto; até carregar,
+// conta só seg–sex — o banco (alertas e automações) já pula os feriados.
+let FERIADOS = new Set<string>();
+export function definirFeriados(datas: string[]) { FERIADOS = new Set(datas); }
+
+const isoLocal = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/** Dias úteis (seg–sex, sem feriados) entre duas datas, sem contar a inicial. */
+export function diasUteisEntre(inicio: Date, fim: Date, feriados: Set<string> = FERIADOS): number {
   const d = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate());
   const f = new Date(fim.getFullYear(), fim.getMonth(), fim.getDate());
   let n = 0;
   while (d < f) {
     d.setDate(d.getDate() + 1);
     const dow = d.getDay();
-    if (dow !== 0 && dow !== 6) n++;
+    if (dow !== 0 && dow !== 6 && !feriados.has(isoLocal(d))) n++;
   }
   return n;
+}
+
+/** Carrega os feriados uma vez por sessão (staleTime longo) e alimenta o cálculo. */
+export function useFeriados() {
+  return useQuery({
+    queryKey: ['feriados'],
+    staleTime: 12 * 60 * 60 * 1000,
+    queryFn: async (): Promise<string[]> => {
+      const { data, error } = await sb.from('feriados').select('data');
+      if (error) throw error;
+      const datas = ((data || []) as { data: string }[]).map(f => f.data);
+      definirFeriados(datas);
+      return datas;
+    },
+  });
 }
 
 /** Card parado além do SLA (em dias úteis) da fase. Fase de finalização nunca atrasa. */

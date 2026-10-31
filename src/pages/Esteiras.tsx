@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import {
   type Card, type Fase, type Prioridade,
-  PRIORIDADE_LABEL, cardAtrasadoNaFase, diasNaFase, useEsteiraDetalhe, useEsteiras,
+  PRIORIDADE_LABEL, cardAtrasadoNaFase, diasNaFase, useEsteiraDetalhe, useEsteiras, useFeriados,
 } from '@/hooks/useEsteiras';
 import { CardDetalhe } from '@/components/Esteiras/CardDetalhe';
 import { EsteiraConfig } from '@/components/Esteiras/EsteiraConfig';
@@ -163,6 +163,8 @@ export default function Esteiras() {
   const cardParam = params.get('card');
   const visao = (params.get('visao') as Visao) || 'kanban';
   const det = useEsteiraDetalhe(esteiraId);
+  // feriados entram no cálculo de "acima do prazo da fase"; re-render quando chegam
+  useFeriados();
   const { users } = useOfficeUsers();
   const responsaveis = useMemo(
     () => users.filter(u => u.active).map(u => ({ user_id: u.user_id, nome: u.profile?.full_name || u.profile?.email || 'Usuário' })),
