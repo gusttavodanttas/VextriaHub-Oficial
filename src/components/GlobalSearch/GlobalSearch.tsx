@@ -102,6 +102,8 @@ export function GlobalSearchBar() {
     // Números (CNJ, CPF/CNPJ, telefone) costumam estar gravados com pontuação.
     // Com 6+ dígitos digitados, casa os dígitos em ordem, ignorando a pontuação.
     const digits = term.replace(/\D/g, "");
+    // CNJ é gravado só com dígitos: trecho contínuo. CPF/telefone podem ter pontuação: dígitos em ordem.
+    const wildCnj = digits.length >= 6 ? `%${digits}%` : null;
     const wildDigits = digits.length >= 6 ? `%${digits.split("").join("%")}%` : null;
     // Esteiras ainda não estão no types.ts gerado — mesmo padrão de useCorrespondentes.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -128,7 +130,7 @@ export function GlobalSearchBar() {
         { data: tar },
       ] = await Promise.all([
         procQ("titulo", wild),
-        procQ("numero_processo", wildDigits ?? wild),
+        procQ("numero_processo", wildCnj ?? wild),
         procQ("parte_autora", wild),
         procQ("requerido", wild),
         cliQ("nome", wild),
@@ -138,7 +140,7 @@ export function GlobalSearchBar() {
         sb.from("esteira_cards").select("id, titulo, esteira_id, esteiras(nome), esteira_fases(nome)")
           .eq("office_id", oid).eq("deletado", false).ilike("titulo", wild).limit(5),
         supabase.from("prazos").select("id, titulo, tipo_prazo, numero_processo, data_fim_prazo, status, deletado, publicacoes(titulo)")
-          .eq("office_id", oid).ilike("numero_processo", wildDigits ?? wild).limit(4),
+          .eq("office_id", oid).ilike("numero_processo", wildCnj ?? wild).limit(4),
         supabase.from("audiencias").select("id, titulo, local, data_audiencia")
           .eq("office_id", oid).eq("deletado", false).ilike("titulo", wild).limit(4),
         supabase.from("tarefas").select("id, titulo, prioridade, data_vencimento")

@@ -109,7 +109,8 @@ export function CardDetalhe({
 
   const faseAtual = useMemo(() => fases.find(f => f.id === rascunho?.fase_id), [fases, rascunho?.fase_id]);
   const idxAtual = fases.findIndex(f => f.id === rascunho?.fase_id);
-  const proxima = idxAtual >= 0 ? fases.slice(idxAtual + 1).find(f => !f.finalizacao) ?? fases[idxAtual + 1] : undefined;
+  // fase de finalização (ganho, perdido, concluído) não sugere avanço; nas demais, a próxima na ordem
+  const proxima = idxAtual >= 0 && !fases[idxAtual].finalizacao ? fases[idxAtual + 1] : undefined;
 
   if (!rascunho || !card) return null;
 
@@ -183,7 +184,7 @@ export function CardDetalhe({
     <Dialog open={aberto} onOpenChange={o => { if (!o) onFechar(); }}>
       <DialogContent className="max-w-[1200px] w-[96vw] h-[90vh] p-0 gap-0 flex flex-col overflow-hidden">
         {/* Cabeçalho */}
-        <div className="border-b px-5 py-3 flex flex-wrap items-center gap-3">
+        <div className="border-b pl-5 pr-14 py-3 flex flex-wrap items-center gap-3">
           <div className="min-w-0 flex-1">
             <div className="text-xs text-muted-foreground truncate">{faseAtual?.nome ?? 'Fase'} · há {diasNaFase(rascunho)} dia(s) nesta fase</div>
             <DialogTitle asChild>
@@ -397,8 +398,8 @@ export function CardDetalhe({
               );
             })}
             {proxima && proxima.id !== rascunho.fase_id && (
-              <Button className="w-full mt-2" onClick={() => moverPara(proxima)}>
-                Avançar para {proxima.nome}<ArrowRight className="h-4 w-4 ml-1" />
+              <Button className="w-full mt-2 h-auto min-h-10 py-2 whitespace-normal text-left justify-between" onClick={() => moverPara(proxima)}>
+                <span>Avançar para {proxima.nome}</span><ArrowRight className="h-4 w-4 ml-1 shrink-0" />
               </Button>
             )}
             <div className="pt-3 text-xs text-muted-foreground space-y-1">

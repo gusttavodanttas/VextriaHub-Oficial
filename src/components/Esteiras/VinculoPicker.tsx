@@ -50,7 +50,7 @@ export function VinculoPicker({
         } else {
           const [a, b] = await Promise.all([
             supabase.from('processos').select('id, titulo, numero_processo').eq('office_id', oid).eq('deletado', false).ilike('titulo', wild).limit(8),
-            supabase.from('processos').select('id, titulo, numero_processo').eq('office_id', oid).eq('deletado', false).ilike('numero_processo', wildDigits ?? wild).limit(5),
+            supabase.from('processos').select('id, titulo, numero_processo').eq('office_id', oid).eq('deletado', false).ilike('numero_processo', digits.length >= 6 ? `%${digits}%` : wild).limit(5),
           ]);
           if (a.error) throw a.error;
           const vistos = new Set<string>();
