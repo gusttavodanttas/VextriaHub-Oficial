@@ -43,6 +43,8 @@ export interface Fase {
   sla_dias: number | null;
   campos: CampoFase[];
   checklist: string[];
+  /** Ao entrar nesta fase, dá baixa no prazo vinculado ao card (Controladoria + VextriaHub). */
+  baixa_prazo: boolean;
 }
 
 export interface Card {
@@ -62,6 +64,10 @@ export interface Card {
   dados: Record<string, unknown>;
   checklist_feito: Record<string, number[]>;
   etiquetas: string[];
+  /** Prazo da triagem (Controladoria) que originou o card. */
+  controladoria_prazo_id: string | null;
+  /** Prazo do VextriaHub que originou o card. */
+  prazo_id: string | null;
   entrou_fase_em: string;
   arquivado: boolean;
   created_at: string;
@@ -140,7 +146,7 @@ export function useFeriados() {
     queryKey: ['feriados'],
     staleTime: 12 * 60 * 60 * 1000,
     queryFn: async (): Promise<string[]> => {
-      const { data, error } = await sb.from('feriados').select('data');
+      const { data, error } = await sb.from('feriados').select('data').neq('abrangencia', 'recesso');
       if (error) throw error;
       const datas = ((data || []) as { data: string }[]).map(f => f.data);
       definirFeriados(datas);
@@ -427,6 +433,19 @@ export function useEsteiraEventos(cardId: string | null) {
       return (data || []) as Evento[];
     },
   });
+}
+
+/** Cria (ou devolve, se já existir) o card de Peticionamento a partir de um prazo. */
+export async function cardDePrazo(args: { controladoriaPrazoId?: string; prazoId?: string }): Promise<{ cardId: string; esteiraId: string }> {
+  const { data, error } = await sb.rpc('esteira_card_de_prazo', {
+    p_controladoria_prazo_id: args.controladoriaPrazoId ?? null,
+    p_prazo_id: args.prazoId ?? null,
+  });
+  if (error) throw error;
+  const cardId = data as string;
+  const { data: row, error: e2 } = await sb.from('esteira_cards').select('esteira_id').eq('id', cardId).single();
+  if (e2) throw e2;
+  return { cardId, esteiraId: (row as { esteira_id: string }).esteira_id };
 }
 
 /** Registra um comentário no histórico do card. */

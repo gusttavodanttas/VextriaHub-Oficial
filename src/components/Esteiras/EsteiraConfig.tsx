@@ -60,6 +60,13 @@ function FaseEditor({ fase, onSalvar, onFechar }: { fase: Partial<Fase>; onSalva
               </div>
             </div>
           </div>
+          <label className="flex items-start gap-3 rounded-md border p-3">
+            <Switch checked={!!f.baixa_prazo} onCheckedChange={v => setF({ ...f, baixa_prazo: v })} className="mt-0.5" />
+            <span className="text-sm">
+              <span className="font-medium">Dar baixa no prazo ao entrar nesta fase</span>
+              <span className="block text-muted-foreground">Conclui no VextriaHub e na Controladoria o prazo que originou o card (ex.: fase “Protocolado”).</span>
+            </span>
+          </label>
           <div className="space-y-1.5">
             <Label>Checklist (um item por linha)</Label>
             <Textarea rows={4} value={checkTxt} onChange={e => setCheckTxt(e.target.value)} placeholder={'Conferir documentos\nEnviar proposta'} />
@@ -258,7 +265,7 @@ export function EsteiraConfig({
               <div className="font-medium text-sm break-words">{f.nome}</div>
               <div className="text-xs text-muted-foreground">
                 {contagemPorFase[f.id] ?? 0} card(s) · {f.checklist.length} item(ns) · {f.campos.length} campo(s)
-                {f.sla_dias ? ` · prazo ${f.sla_dias}d úteis` : ''}{f.finalizacao ? ' · finalização' : ''}
+                {f.sla_dias ? ` · prazo ${f.sla_dias}d úteis` : ''}{f.finalizacao ? ' · finalização' : ''}{f.baixa_prazo ? ' · dá baixa no prazo' : ''}
               </div>
             </div>
             <Button variant="ghost" size="icon" aria-label="Subir fase" onClick={() => mover(i, -1)} disabled={i === 0}><ArrowUp className="h-4 w-4" /></Button>

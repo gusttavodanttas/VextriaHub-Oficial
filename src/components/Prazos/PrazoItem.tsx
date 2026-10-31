@@ -7,8 +7,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
   Clock, CheckCircle2, ChevronRight, MoreHorizontal, Pencil, Trash2, CheckCheck,
-  Newspaper, Shield, AlertOctagon, RotateCcw, User, FileText, Gavel,
+  Newspaper, Shield, AlertOctagon, RotateCcw, User, FileText, Gavel, Workflow,
 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { getErrorMessage } from '@/lib/errors';
+import { cardDePrazo } from '@/hooks/useEsteiras';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { fmtDate } from '@/lib/dates';
@@ -48,6 +51,16 @@ export function PrazoItem({
   const cfg = URGENCY_CONFIG[urgency];
     const priCfg = PRIORITY_CONFIG[prazo.prioridade] || PRIORITY_CONFIG.media;
     const isConcluido = prazo.status === 'concluido';
+    const { toast } = useToast();
+    // Leva o prazo para a esteira de Peticionamento; ao chegar em “Protocolado” o prazo recebe baixa sozinho.
+    const mandarParaEsteira = async () => {
+      try {
+        const { cardId, esteiraId } = await cardDePrazo({ prazoId: prazo.id });
+        navigate(`/esteiras?esteira=${esteiraId}&card=${cardId}`);
+      } catch (e) {
+        toast({ title: 'Não foi possível criar o card', description: getErrorMessage(e, ''), variant: 'destructive' });
+      }
+    };
 
     return (
       <div
@@ -281,6 +294,14 @@ export function PrazoItem({
                   <RotateCcw className="h-4 w-4" /> Reabrir
                 </DropdownMenuItem>
               ))}
+              {canManagePrazos && !isConcluido && (
+                <DropdownMenuItem
+                  onClick={mandarParaEsteira}
+                  className="rounded-lg cursor-pointer gap-2 text-orange-600 focus:text-orange-600"
+                >
+                  <Workflow className="h-4 w-4" /> Mandar para Peticionamento
+                </DropdownMenuItem>
+              )}
               {canManagePrazos && (
                 <DropdownMenuItem
                   onClick={() => onEditar(prazo)}

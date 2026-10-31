@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import {
-  Archive, ArrowRight, Check, CircleAlert, Clock, ExternalLink, History, ListChecks, MessageSquare, Phone, Trash2, User,
+  Archive, ArrowRight, Check, CircleAlert, Clock, ExternalLink, History, Link2, ListChecks, MessageSquare, Phone, Trash2, User,
 } from 'lucide-react';
 import { VinculoPicker } from './VinculoPicker';
 import {
@@ -197,6 +197,11 @@ export function CardDetalhe({
             </DialogTitle>
           </div>
           {atrasado && <Badge variant="destructive" className="gap-1"><Clock className="h-3 w-3" />Acima do prazo da fase</Badge>}
+          {(rascunho.controladoria_prazo_id || rascunho.prazo_id) && (
+            <Badge variant="outline" className="gap-1" title="Ao chegar numa fase que dá baixa (ex.: Protocolado), o prazo de origem é concluído sozinho">
+              <Link2 className="h-3 w-3" />Ligado ao prazo {rascunho.controladoria_prazo_id ? 'da triagem' : 'do VextriaHub'}
+            </Badge>
+          )}
           {tel && (
             <Button variant="outline" size="sm" asChild>
               <a href={`https://wa.me/55${tel}`} target="_blank" rel="noreferrer"><Phone className="h-4 w-4 mr-1" />WhatsApp</a>
@@ -331,6 +336,9 @@ export function CardDetalhe({
               </div>
               {faseAtual?.descricao && <p className="text-sm text-muted-foreground mt-1">{faseAtual.descricao}</p>}
               {faseAtual?.sla_dias && <p className="text-xs text-muted-foreground mt-1">Prazo interno da fase: {faseAtual.sla_dias} dia(s) útil(eis)</p>}
+              {proxima?.baixa_prazo && (rascunho.controladoria_prazo_id || rascunho.prazo_id) && (
+                <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-1">Ao avançar para “{proxima.nome}”, o prazo de origem recebe baixa automática.</p>
+              )}
             </div>
 
             {checklistTotal > 0 && (
