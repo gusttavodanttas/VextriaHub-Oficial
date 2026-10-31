@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   Home, FileText, Users, Calendar, BookOpen, Settings, UserCircle, LogOut,
-  ChevronLeft, ChevronRight, UserCheck, BarChart3, UserPlus,
+  ChevronLeft, ChevronRight, UserCheck, BarChart3,
   CalendarDays, DollarSign, Target, UsersIcon, MessageSquareText, Shield,
   Building2, AlertCircle, Clock, CreditCard, Trash2, Handshake, Crown, Scale, Workflow,
 } from "lucide-react";
@@ -22,7 +22,8 @@ const menuItems = [
   { title: "Início", url: "/dashboard", icon: Home },
   { title: "Processos", url: "/processos", icon: FileText },
   { title: "Clientes", url: "/clientes", icon: Users },
-  { title: "CRM", url: "/crm", icon: UserPlus },
+  // CRM antigo saiu do menu: o funil comercial agora é a esteira "Comercial"
+  // (mesmo card no painel do escritório). A rota /crm continua para quem tiver o link.
   { title: "Esteiras", url: "/esteiras", icon: Workflow },
   { title: "Agenda", url: "/agenda", icon: CalendarDays },
   { title: "Audiências", url: "/audiencias", icon: Calendar },

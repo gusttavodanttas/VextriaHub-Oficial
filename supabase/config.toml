@@ -16,6 +16,9 @@ verify_jwt = false
 verify_jwt = false
 [functions.zap-bridge]
 verify_jwt = false
+# Formulário das landing pages (público; checa origem, isca e limite por IP).
+[functions.lead-site]
+verify_jwt = false
 
 # Templates dos e-mails de autenticação (em português, com a marca VextriaHub).
 # Valem para o `supabase start` local; no projeto hospedado, colar o conteúdo em
