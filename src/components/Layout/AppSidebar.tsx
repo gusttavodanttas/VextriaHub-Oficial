@@ -3,7 +3,7 @@ import {
   Home, FileText, Users, Calendar, BookOpen, Settings, UserCircle, LogOut,
   ChevronLeft, ChevronRight, UserCheck, BarChart3, UserPlus,
   CalendarDays, DollarSign, Target, UsersIcon, MessageSquareText, Shield,
-  Building2, AlertCircle, Clock, CreditCard, Trash2, Handshake, Crown, Scale,
+  Building2, AlertCircle, Clock, CreditCard, Trash2, Handshake, Crown, Scale, Workflow,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -23,6 +23,7 @@ const menuItems = [
   { title: "Processos", url: "/processos", icon: FileText },
   { title: "Clientes", url: "/clientes", icon: Users },
   { title: "CRM", url: "/crm", icon: UserPlus },
+  { title: "Esteiras", url: "/esteiras", icon: Workflow },
   { title: "Agenda", url: "/agenda", icon: CalendarDays },
   { title: "Audiências", url: "/audiencias", icon: Calendar },
   { title: "Atendimentos", url: "/atendimentos", icon: UserCheck },

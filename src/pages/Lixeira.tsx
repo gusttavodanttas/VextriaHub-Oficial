@@ -32,6 +32,7 @@ import {
   Wallet,
   Handshake,
   Scale,
+  Workflow,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatCNJ } from '@/utils/formatCNJ';
@@ -77,6 +78,8 @@ const TABELA_CONFIG: Record<string, { label: string; icon: LucideIcon; color: st
   // Lixeira nenhuma pra restaurar/purgar).
   correspondentes: { label: 'Correspondente', icon: Handshake, color: 'text-cyan-600 bg-cyan-500/10 border-cyan-500/20' },
   diligencias: { label: 'Diligência', icon: Scale, color: 'text-indigo-600 bg-indigo-500/10 border-indigo-500/20' },
+  esteira_cards: { label: 'Card de esteira', icon: Workflow, color: 'text-orange-600 bg-orange-500/10 border-orange-500/20' },
+  esteiras: { label: 'Esteira', icon: Workflow, color: 'text-orange-700 bg-orange-500/10 border-orange-500/20' },
 };
 
 const fmtDate = (d: string) => new Date(d).toLocaleDateString('pt-BR');
@@ -268,6 +271,27 @@ export default function Lixeira() {
         excluido_em: d.updated_at, office_id: d.office_id, office_name: officeMap[d.office_id] || '—', user_id: d.user_id ?? undefined, dados: d,
       }));
 
+      // esteiras e cards de esteira também ainda não estão nos tipos gerados.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: ecards, error: ecardsErr } = await applyTenantFilter<any>((supabase as any).from('esteira_cards').select('id, titulo, office_id, created_by, updated_at, esteiras(nome)').eq('deletado', true)).order('updated_at', { ascending: false }).limit(limiteDe('esteira_cards'));
+      anotarFalha('esteira_cards', ecardsErr);
+      (ecards || []).forEach((c: { id: string; titulo: string; office_id: string; created_by: string | null; updated_at: string; esteiras?: { nome: string } | null }) => results.push({
+        id: c.id, tabela: 'esteira_cards',
+        titulo: c.titulo,
+        descricao: c.esteiras?.nome ? `Esteira ${c.esteiras.nome}` : '',
+        excluido_em: c.updated_at, office_id: c.office_id, office_name: officeMap[c.office_id] || '—', user_id: c.created_by ?? undefined, dados: c,
+      }));
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: ests, error: estsErr } = await applyTenantFilter<any>((supabase as any).from('esteiras').select('id, nome, descricao, office_id, created_by, updated_at').eq('deletado', true)).order('updated_at', { ascending: false }).limit(limiteDe('esteiras'));
+      anotarFalha('esteiras', estsErr);
+      (ests || []).forEach((e: { id: string; nome: string; descricao: string | null; office_id: string; created_by: string | null; updated_at: string }) => results.push({
+        id: e.id, tabela: 'esteiras',
+        titulo: e.nome,
+        descricao: e.descricao || '',
+        excluido_em: e.updated_at, office_id: e.office_id, office_name: officeMap[e.office_id] || '—', user_id: e.created_by ?? undefined, dados: e,
+      }));
+
       results.sort((a, b) => new Date(b.excluido_em).getTime() - new Date(a.excluido_em).getTime());
       setItems(results);
       setTabelasComErro(falhas);
@@ -318,7 +342,7 @@ export default function Lixeira() {
         // enviar o campo faz o restore inteiro falhar (item fica preso na lixeira).
         // O builder é tipado como 'processos' (fromTabela); o patch só usa colunas comuns.
         const restorePatch: TablesUpdate<'processos'> = { deletado: false };
-        if (!['prazos', 'correspondentes', 'diligencias'].includes(item.tabela)) restorePatch.deletado_pendente = false;
+        if (!['prazos', 'correspondentes', 'diligencias', 'esteira_cards', 'esteiras'].includes(item.tabela)) restorePatch.deletado_pendente = false;
         // item.tabela é dinâmico (guardado só em runtime por TABELAS_PERMITIDAS) --
         // não dá pra tipar estaticamente o shape exato do update pra uma tabela
         // que só se conhece em tempo de execução.

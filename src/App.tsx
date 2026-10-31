@@ -26,6 +26,7 @@ const Processos = lazy(() => import("./pages/Processos"));
 const Atendimentos = lazy(() => import("./pages/Atendimentos"));
 const Clientes = lazy(() => import("./pages/Clientes"));
 const Crm = lazy(() => import("./pages/Crm"));
+const Esteiras = lazy(() => import("./pages/Esteiras"));
 const Agenda = lazy(() => import("./pages/Agenda"));
 const Tarefas = lazy(() => import("./pages/Tarefas"));
 const Prazos = lazy(() => import("./pages/Prazos"));
@@ -155,6 +156,16 @@ const AppWithRouter = () => {
             <PrivateRoute requirePermission="canViewAtendimentos">
               <AppLayout>
                 <Atendimentos />
+              </AppLayout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/esteiras"
+          element={
+            <PrivateRoute>
+              <AppLayout>
+                <Esteiras />
               </AppLayout>
             </PrivateRoute>
           }

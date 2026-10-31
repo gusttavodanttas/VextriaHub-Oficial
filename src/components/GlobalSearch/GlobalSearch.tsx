@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FileText, Users, AlertCircle, Calendar, CheckSquare,
-  Search, ArrowRight, X,
+  Search, ArrowRight, X, Workflow,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-type Group = "processos" | "clientes" | "prazos" | "audiencias" | "tarefas";
+type Group = "processos" | "clientes" | "esteiras" | "prazos" | "audiencias" | "tarefas";
 
 interface Result {
   id: string;
@@ -26,12 +26,13 @@ interface Result {
 const GROUP: Record<Group, { label: string; icon: React.ElementType; color: string; bg: string }> = {
   processos:  { label: "Processos",  icon: FileText,    color: "text-blue-500",    bg: "bg-blue-500/10"    },
   clientes:   { label: "Clientes",   icon: Users,       color: "text-emerald-500", bg: "bg-emerald-500/10" },
+  esteiras:   { label: "Esteiras",   icon: Workflow,    color: "text-orange-600",  bg: "bg-orange-500/10"  },
   prazos:     { label: "Prazos",     icon: AlertCircle, color: "text-rose-500",    bg: "bg-rose-500/10"    },
   audiencias: { label: "Audiências", icon: Calendar,    color: "text-orange-500",  bg: "bg-orange-500/10"  },
   tarefas:    { label: "Tarefas",    icon: CheckSquare, color: "text-purple-500",  bg: "bg-purple-500/10"  },
 };
 
-const ORDER: Group[] = ["processos", "clientes", "prazos", "audiencias", "tarefas"];
+const ORDER: Group[] = ["processos", "clientes", "esteiras", "prazos", "audiencias", "tarefas"];
 
 function Highlight({ text, query }: { text: string; query: string }) {
   if (!query.trim()) return <>{text}</>;
@@ -98,35 +99,69 @@ export function GlobalSearchBar() {
       p === "media" ? "text-amber-500 bg-amber-500/10" :
       "text-emerald-600 bg-emerald-500/10";
 
+    // Números (CNJ, CPF/CNPJ, telefone) costumam estar gravados com pontuação.
+    // Com 6+ dígitos digitados, casa os dígitos em ordem, ignorando a pontuação.
+    const digits = term.replace(/\D/g, "");
+    const wildDigits = digits.length >= 6 ? `%${digits.split("").join("%")}%` : null;
+    // Esteiras ainda não estão no types.ts gerado — mesmo padrão de useCorrespondentes.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any;
+    type ProcRow = { id: string; titulo: string; numero_processo: string | null };
+    type CliRow = { id: string; nome: string; email: string | null; tipo_pessoa: string | null; cpf_cnpj: string | null; telefone: string | null };
+    const uniq = <T extends { id: string }>(...lists: (T[] | null | undefined)[]) => {
+      const seen = new Set<string>();
+      return lists.flatMap(l => l || []).filter(r => (seen.has(r.id) ? false : (seen.add(r.id), true)));
+    };
+    const procQ = (col: string, pat: string) => supabase.from("processos").select("id, titulo, numero_processo")
+      .eq("office_id", oid).eq("deletado", false).ilike(col, pat).limit(5);
+    const cliQ = (col: string, pat: string) => supabase.from("clientes").select("id, nome, email, tipo_pessoa, cpf_cnpj, telefone")
+      .eq("office_id", oid).eq("deletado", false).ilike(col, pat).limit(5);
+    const vazio = Promise.resolve({ data: [] as never[] });
+
     try {
       const [
-        { data: procTit },
-        { data: cli },
+        { data: procTit }, { data: procNum }, { data: procAut }, { data: procReq },
+        { data: cliNome }, { data: cliDoc }, { data: cliTel }, { data: cliEmail },
+        { data: cards },
         { data: praz },
         { data: aud },
         { data: tar },
       ] = await Promise.all([
-        supabase.from("processos").select("id, titulo, numero_processo")
+        procQ("titulo", wild),
+        procQ("numero_processo", wildDigits ?? wild),
+        procQ("parte_autora", wild),
+        procQ("requerido", wild),
+        cliQ("nome", wild),
+        wildDigits ? cliQ("cpf_cnpj", wildDigits) : vazio,
+        wildDigits ? cliQ("telefone", wildDigits) : vazio,
+        term.includes("@") || term.length >= 4 ? cliQ("email", wild) : vazio,
+        sb.from("esteira_cards").select("id, titulo, esteira_id, esteiras(nome), esteira_fases(nome)")
           .eq("office_id", oid).eq("deletado", false).ilike("titulo", wild).limit(5),
-        supabase.from("clientes").select("id, nome, email, tipo_pessoa")
-          .eq("office_id", oid).eq("deletado", false).ilike("nome", wild).limit(5),
         supabase.from("prazos").select("id, titulo, tipo_prazo, numero_processo, data_fim_prazo, status, deletado, publicacoes(titulo)")
-          .eq("office_id", oid).ilike("numero_processo", wild).limit(4),
+          .eq("office_id", oid).ilike("numero_processo", wildDigits ?? wild).limit(4),
         supabase.from("audiencias").select("id, titulo, local, data_audiencia")
           .eq("office_id", oid).eq("deletado", false).ilike("titulo", wild).limit(4),
         supabase.from("tarefas").select("id, titulo, prioridade, data_vencimento")
           .eq("office_id", oid).eq("deletado", false).eq("concluida", false).ilike("titulo", wild).limit(4),
       ]);
+      const procs = uniq<ProcRow>(procNum as ProcRow[], procTit as ProcRow[], procAut as ProcRow[], procReq as ProcRow[]).slice(0, 6);
+      const cli = uniq<CliRow>(cliDoc as CliRow[], cliTel as CliRow[], cliNome as CliRow[], cliEmail as CliRow[]).slice(0, 6);
+      type CardRow = { id: string; titulo: string; esteira_id: string; esteiras?: { nome: string } | null; esteira_fases?: { nome: string } | null };
 
       setResults([
-        ...(procTit || []).map(p => ({
+        ...procs.map(p => ({
           id: p.id, group: "processos" as Group, label: p.titulo,
           meta: p.numero_processo || undefined,
           url: `/processos?openId=${p.id}`, badgeColor: "text-blue-500 bg-blue-500/10",
         })),
-        ...(cli || []).map(c => ({
+        ...((cards || []) as CardRow[]).map(c => ({
+          id: c.id, group: "esteiras" as Group, label: c.titulo,
+          sub: [c.esteiras?.nome, c.esteira_fases?.nome].filter(Boolean).join(" · ") || undefined,
+          url: `/esteiras?esteira=${c.esteira_id}&card=${c.id}`,
+        })),
+        ...cli.map(c => ({
           id: c.id, group: "clientes" as Group, label: c.nome,
-          sub: c.email || undefined, url: `/clientes?openId=${c.id}`,
+          sub: [c.cpf_cnpj, c.telefone, c.email].filter(Boolean).join(" · ") || undefined, url: `/clientes?openId=${c.id}`,
           badge: c.tipo_pessoa || undefined, badgeColor: "text-emerald-600 bg-emerald-500/10",
         })),
         // Filtra fantasmas (lixeira/concluído) — filtro em JS resiliente a null. (v11)
@@ -215,7 +250,7 @@ export function GlobalSearchBar() {
           onChange={e => { setQuery(e.target.value); setOpen(true); setSelectedIdx(0); }}
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
-          placeholder="Buscar casos, clientes, tarefas..."
+          placeholder="Buscar por nome, CPF, CNJ, telefone..."
           className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/30 font-medium"
           autoComplete="off"
           spellCheck={false}
