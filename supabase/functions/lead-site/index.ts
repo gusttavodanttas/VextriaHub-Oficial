@@ -118,7 +118,7 @@ async function avisar(a: Aviso) {
   <p style="margin:0 0 6px"><b>Assunto:</b> ${escH(a.assunto)}</p>
   <p style="margin:0 0 6px"><b>Telefone:</b> ${escH(a.telefone)}</p>
   <p style="margin:0 0 16px"><b>Origem:</b> ${escH(a.origem)}${a.campanha ? " · " + escH(a.campanha) : ""}</p>
-  ${btn(waLink(a.dig), "Chamar no WhatsApp", "#1f8f4e")}${btn(APP + link, "Abrir no VextriaHub", "#2A2A2A")}${btn(PAINEL, "Abrir no painel", "#6b5f56")}
+  ${btn(waLink(a.dig), "Chamar no WhatsApp", "#1f8f4e")}${btn(APP + link, "Abrir no VextriaHub", "#2A2A2A")}${btn(PAINEL + "?lead=" + encodeURIComponent(a.nome) + "#comercial", "Abrir no painel", "#6b5f56")}
   <p style="margin:16px 0 0;font-size:12px;color:#65584f">Responder nos primeiros minutos aumenta muito a chance de fechar.</p>
  </div>
 </div></body></html>`;
